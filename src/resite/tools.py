@@ -1,14 +1,13 @@
-from src.resite.src.helpers import get_onshore_shapes, get_offshore_shapes, \
-                        chunk_split, update_potential_files, collapse_dict_region_level, \
-                        match_point_to_region, read_inputs, return_ISO_codes_from_countries, return_dict_keys
-from numpy import arange, interp, float32, datetime64, sqrt, \
+from src.data.geographics.manager import get_onshore_shapes_dr, get_offshore_shapes_dr
+from src.resite.helpers import update_potential_files, collapse_dict_region_level, \
+                               match_point_to_region, return_ISO_codes_from_countries, return_dict_keys, read_database
+from src.resite.utils import read_inputs
+from numpy import arange, interp, sqrt, \
                   asarray, clip, array, sum, \
-                  max, hstack, dtype, unique, radians, arctan2, sin, cos
+                  max, hstack, dtype, radians, arctan2, sin, cos
 import xarray as xr
 import xarray.ufuncs as xu
-from glob import glob
 import dask.array as da
-from os import listdir
 from os.path import join, isfile
 from geopandas import read_file
 from shapely import prepared
@@ -20,58 +19,6 @@ from ast import literal_eval
 from windpowerlib import power_curves, wind_speed
 from collections import Counter
 from copy import deepcopy
-
-
-# TODO:
-#  - resite.dataset
-#  - need to more precise on description of function, and name it more specifically
-def read_database(file_path):
-    """
-    Reads resource database from .nc files.
-
-    Parameters
-    ----------
-    file_path : str
-        Relative path to resource data.
-
-    Returns
-    -------
-    dataset: xarray.Dataset
-
-    """
-    # Read through all files, extract the first 2 characters (giving the
-    # macro-region) and append in a list that will keep the unique elements.
-    files = [f for f in listdir(file_path) if isfile(join(file_path, f))]
-    areas = []
-    datasets = []
-    for item in files:
-        areas.append(item[:2])
-    areas_unique = list(set(areas))
-
-    # For each available area use the open_mfdataset method to open
-    # all associated datasets, while directly concatenating on time dimension
-    # and also aggregating (longitude, latitude) into one single 'location'. As
-    # well, data is read as float32 (memory concerns).
-    for area in areas_unique:
-        file_list = [file for file in glob(file_path + '/*.nc') if area in file]
-        ds = xr.open_mfdataset(file_list,
-                               combine='by_coords',
-                               chunks={'latitude': 20, 'longitude': 20})\
-                        .stack(locations=('longitude', 'latitude')).astype(float32)
-        datasets.append(ds)
-
-    # Concatenate all regions on locations.
-    dataset = xr.concat(datasets, dim='locations')
-    # Removing duplicates potentially there from previous concat of multiple regions.
-    _, index = unique(dataset['locations'], return_index=True)
-    dataset = dataset.isel(locations=index)
-    # dataset = dataset.sel(locations=~dataset.indexes['locations'].duplicated(keep='first'))
-    # Sorting dataset on coordinates (mainly due to xarray peculiarities between concat and merge).
-    dataset = dataset.sortby([dataset.longitude, dataset.latitude])
-    # Remove attributes from datasets. No particular use, looks cleaner.
-    dataset.attrs = {}
-
-    return dataset
 
 
 # TODO:
@@ -126,8 +73,8 @@ def return_region_shapefile(region, path_shapefile_data):
     else:
         raise ValueError(' Unknown region ', region)
 
-    onshore_shapes_selected = get_onshore_shapes(region_subdivisions, path_shapefile_data)
-    offshore_shapes_selected = get_offshore_shapes(region_subdivisions, onshore_shapes_selected, path_shapefile_data)
+    onshore_shapes_selected = get_onshore_shapes_dr(region_subdivisions, path_shapefile_data)
+    offshore_shapes_selected = get_offshore_shapes_dr(region_subdivisions, onshore_shapes_selected, path_shapefile_data)
 
     onshore = hstack((onshore_shapes_selected["geometry"].values))
     offshore = hstack((offshore_shapes_selected["geometry"].values))
@@ -439,7 +386,8 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
         Dict object storing potential locations sets per region and technology.
 
     """
-    tech_config = read_inputs('../config_techs.yml')
+    # TODO: change the path
+    tech_config = read_inputs('config_techs.yml')
     output_dict = {region: {tech: None for tech in technologies} for region in regions}
 
     for region in regions:
@@ -561,56 +509,6 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
 
 
 # TODO:
-#  - i would change the name: truncate_dataset?
-#  - resite.dataset
-def selected_data(dataset, input_dict, time_slice):
-    """
-    Slices xarray.Dataset based on relevant i) time horizon and ii) location sets.
-
-    Parameters
-    ----------
-    dataset : xarray.Dataset
-        Complete resource dataset.
-    input_dict : dict
-        Dict object storing location sets per region and technology.
-    time_slice : list
-        List containing start and end timestamps for the study.
-
-    Returns
-    -------
-    output_dict : dict
-        Dict object storing sliced data per region and technology.
-
-    """
-    key_list = return_dict_keys(input_dict)
-
-    output_dict = deepcopy(input_dict)
-
-    datetime_start = datetime64(time_slice[0])
-    datetime_end = datetime64(time_slice[1])
-
-    # This is a test which raised some problems on Linux distros, where for some
-    # unknown reason the dataset is not sorted on the time dimension.
-    if (datetime_start < dataset.time.values[0]) or \
-            (datetime_end > dataset.time.values[-1]):
-        raise ValueError(' At least one of the time indices exceeds the available data.')
-
-    for region, tech in key_list:
-
-        dataset_temp = []
-
-        for chunk in chunk_split(input_dict[region][tech], n=50):
-
-            dataset_region = dataset.sel(locations=chunk,
-                                            time=slice(datetime_start, datetime_end))
-            dataset_temp.append(dataset_region)
-
-        output_dict[region][tech] = xr.concat(dataset_temp, dim='locations')
-
-    return output_dict
-
-
-# TODO:
 #  - change name : compute_capacity_factors?
 #  - replace using atlite?
 #  - data. ?
@@ -638,7 +536,8 @@ def return_output(input_dict, path_to_transfer_function, smooth_wind_power_curve
     key_list = return_dict_keys(input_dict)
 
     output_dict = deepcopy(input_dict)
-    tech_dict = read_inputs('../config_techs.yml')
+    # TODO: change the path to absolute or sth like that
+    tech_dict = read_inputs('config_techs.yml')
 
     data_converter_wind = read_csv(join(path_to_transfer_function, 'data_wind_turbines.csv'), sep=';', index_col=0)
     data_converter_solar = read_csv(join(path_to_transfer_function, 'data_solar_modules.csv'), sep=';', index_col=0)
@@ -1083,8 +982,8 @@ def retrieve_nodes_with_legacy_units(input_dict, region, tech, path_shapefile_da
 # TODO:
 #  - data.existing_cap
 #  - update comments
-def retrieve_capacity_share_legacy_units(input_dict, init_coordinate_dict, dataset,
-                                         spatial_resolution, path_legacy_data, path_shapefile_data):
+def retrieve_capacity_share_legacy_units(input_dict, init_coordinate_dict, dataset, spatial_resolution,
+                                         path_legacy_data, path_shapefile_data):
     """
     Returns, for each point, the technical potential share covered by existing (legacy) capacity.
 
@@ -1167,7 +1066,7 @@ def filter_onshore_offshore_locations(coordinates_in_region, spatial_resolution,
     """
     # TODO: why do this in three lines?
     filename = 'ERA5_land_sea_mask_20181231_' + str(spatial_resolution) + '.nc'
-    path_land_data = '../../../data/land_data'
+    path_land_data = '../../data/land_data'
 
     dataset = xr.open_dataset(join(path_land_data, filename))
     dataset = dataset.sortby([dataset.longitude, dataset.latitude])
@@ -1238,26 +1137,3 @@ def update_potential_per_node(potential_per_node_dict, deployment_shares_dict):
 
     return output_dict
 
-
-# TODO:
-#  - resite.dataset
-#  - comments - I don't understand what this does
-def retrieve_location_dict(input_dict, site_dict):
-
-    output_dict = {key: {} for key in input_dict['technologies']}
-
-    potential_dict = collapse_dict_region_level(input_dict['technical_potential_dict'])
-
-    for tech in site_dict.keys():
-        for idx, y_object in site_dict[tech].items():
-            if y_object is not None:
-                if y_object.value > 0.:
-
-                    loc = input_dict['starting_deployment_dict'][tech].isel(locations=idx).locations.values.flatten()[0]
-                    cap = y_object.value * potential_dict[tech].isel(locations=idx).values
-
-                    output_dict[tech][loc] = cap
-
-    output_dict = {k: v for k, v in output_dict.items() if len(v) > 0}
-
-    return output_dict

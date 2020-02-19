@@ -1,209 +1,11 @@
-import sys
-from numpy import sqrt, hstack, pi, arange
-from os.path import join, isdir, abspath
-from os import remove, getcwd, makedirs
-from glob import glob
-from shutil import rmtree
-from geopandas import read_file
-from shapely.geometry import Point, MultiPolygon, Polygon
-from shapely.ops import unary_union
-import yaml
-from operator import attrgetter
-from itertools import takewhile, product
-from time import strftime
-from datetime import datetime
+import os
+import glob
+import numpy as np
+from shapely.geometry import Point
 from xarray import concat
 from copy import deepcopy
 from pandas import DataFrame
-
-
-# TODO:
-#  - data.geographics
-def filter_onshore_polys(polys, minarea=0.1, filterremote=True):
-    """
-    Filters onshore polygons for a given territory
-    (e.g., removing French Guyana from the polygon associated with the French shapefile).
-
-    Parameters
-    ----------
-    polys : (Multi)Polygon
-        Geometry-like object containing the shape of a given onshore region.
-    minarea : float
-        Area threshold used in the polygon selection process.
-    filterremote : boolean
-
-    Returns
-    -------
-    polys : (Multi)Polygon
-
-    """
-    if isinstance(polys, MultiPolygon):
-
-        polys = sorted(polys, key=attrgetter('area'), reverse=True)
-        mainpoly = polys[0]
-        mainlength = sqrt(mainpoly.area/(2.*pi))
-
-        if mainpoly.area > minarea:
-
-            polys = MultiPolygon([p for p in takewhile(lambda p: p.area > minarea, polys)
-                                  if not filterremote or (mainpoly.distance(p) < mainlength)])
-
-        else:
-
-            polys = mainpoly
-
-    return polys
-
-
-# TODO:
-#  - data.geographics
-def filter_offshore_polys(offshore_polys, onshore_polys_union, minarea=0.1, filterremote=True):
-    """
-    Filters offshore polygons for a given territory.
-
-    Parameters
-    ----------
-    offshore_polys : (Multi)Polygon
-        Geometry-like object containing the shape of a given offshore region.
-    onshore_polys_union : (Multi)Polygon
-        Geometry-like object containing the aggregated shape of given onshore regions.
-    minarea : float
-        Area threshold used in the polygon selection process.
-    filterremote : boolean
-
-    Returns
-    -------
-    polys : (Multi)Polygon
-
-    """
-    if isinstance(offshore_polys, MultiPolygon):
-
-        offshore_polys = sorted(offshore_polys, key=attrgetter('area'), reverse=True)
-
-    else:
-
-        offshore_polys = [offshore_polys]
-
-    mainpoly = offshore_polys[0]
-    mainlength = sqrt(mainpoly.area/(5.*pi))
-    polys = []
-
-    if mainpoly.area > minarea:
-
-        for offshore_poly in offshore_polys:
-
-            if offshore_poly.area < minarea:
-
-                break
-
-            if isinstance(onshore_polys_union, Polygon):
-
-                onshore_polys_union = [onshore_polys_union]
-
-            for onshore_poly in onshore_polys_union:
-
-                if not filterremote or offshore_poly.distance(onshore_poly) < mainlength:
-
-                    polys.append(offshore_poly)
-
-                    break
-
-        polys = MultiPolygon(polys)
-
-    else:
-
-        polys = mainpoly
-
-    return polys
-
-
-# TODO:
-#  - data.geographics
-def get_onshore_shapes(region_name_list, path_shapefile_data, minarea=0.1, filterremote=True):
-    """
-    Returns onshore shapefile associated with a given region, or list of regions.
-
-    Parameters
-    ----------
-    region_name_list : list
-        List of regions whose shapefiles are aggregated.
-    path_shapefile_data : str
-        Relative path of the shapefile data.
-    minarea : float
-    filterremote : boolean
-
-    Returns
-    -------
-    onshore_shapes : GeoDataFrame
-
-    """
-    filename = 'NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson'
-    onshore_shapes = read_file(join(path_shapefile_data, filename))
-
-    onshore_shapes.index = onshore_shapes['CNTR_CODE']
-
-    onshore_shapes = onshore_shapes.reindex(region_name_list)
-    onshore_shapes['geometry'] = onshore_shapes['geometry'].map(lambda x: filter_onshore_polys(x, minarea, filterremote))
-
-    return onshore_shapes
-
-
-# TODO:
-#  - data.geographics
-def get_offshore_shapes(region_name_list, country_shapes, path_shapefile_data, minarea=0.1, filterremote=True):
-    """
-    Returns offshore shapefile associated with a given region, or list of regions.
-
-    Parameters
-    ----------
-    region_name_list : list
-        List of regions whose shapefiles are aggregated.
-    country_shapes : GeoDataFrame
-        Dataframe containing onshore shapes of the desired regions.
-    path_shapefile_data : str
-    minarea : float
-    filterremote : boolean
-
-    Returns
-    -------
-    offshore_shapes : GeoDataFrame
-
-    """
-    filename = 'EEZ_RG_01M_2016_4326_LEVL_0.geojson'
-    offshore_shapes = read_file(join(path_shapefile_data, filename)).set_index('ISO_ID')
-
-    # Keep only associated countries
-    countries_names = [name.split('-')[0] for name in region_name_list] #Allows to consider states and provinces
-
-    offshore_shapes = offshore_shapes.reindex(countries_names)
-    offshore_shapes['geometry'].fillna(Polygon([]), inplace=True) #Fill nan geometries with empty Polygons
-
-    country_shapes_union = unary_union(country_shapes['geometry'].values)
-
-    # Keep only offshore 'close' to onshore
-    offshore_shapes['geometry'] = offshore_shapes['geometry'].map(lambda x: filter_offshore_polys(x,
-                                                                                                  country_shapes_union,
-                                                                                                  minarea,
-                                                                                                  filterremote))
-
-    return offshore_shapes
-
-
-# TODO:
-#  - resite.dataset
-def chunk_split(l, n):
-    """
-    Splits large lists in smaller chunks. Done to avoid xarray warnings when slicing large datasets.
-
-    Parameters
-    ----------
-    l : list
-    n : chunk size
-    """
-    # For item i in a range that is a length of l,
-    for i in range(0, len(l), n):
-        # Create an index range for l of n items:
-        yield l[i:i+n]
+import xarray as xr
 
 
 # TODO: unused
@@ -231,7 +33,7 @@ def xarray_to_ndarray(input_dict):
 
         array_list = (*array_list, input_dict[region][tech].values)
 
-    ndarray = hstack(array_list)
+    ndarray = np.hstack(array_list)
 
     return ndarray
 
@@ -445,32 +247,6 @@ def retrieve_coordinates_from_dict(input_dict):
 
 
 # TODO:
-#  - don't really know where this should go
-def compute_generation_potential(capacity_factor_dict, potential_dict):
-    """
-    Computes generation potential (GWh) to be passed to the optimisation problem.
-
-    Parameters
-    ----------
-    capacity_factor_dict : dict containing capacity factor time series.
-
-    potential_dict : dict containing technical potential figures per location.
-
-    Returns
-    -------
-    output_dict : dict
-
-    """
-    output_dict = deepcopy(capacity_factor_dict)
-
-    for region in capacity_factor_dict:
-        for tech in capacity_factor_dict[region]:
-            output_dict[region][tech] = capacity_factor_dict[region][tech] * potential_dict[region][tech]
-
-    return output_dict
-
-
-# TODO:
 #  - resite.dataset
 def retrieve_tech_coordinates_tuples(input_dict):
     """
@@ -552,7 +328,247 @@ def retrieve_location_indices_per_tech(input_dict):
 
     for region, tech in key_list:
 
-        output_dict[region][tech] = arange(len(input_dict[region][tech].locations))
+        output_dict[region][tech] = np.arange(len(input_dict[region][tech].locations))
+
+    return output_dict
+
+
+# TODO: unused
+def get_partition_index(input_dict, deployment_vector, capacity_split='per_tech'):
+    """
+    Returns start and end indices for each (region, technology) tuple. Required in case the problem
+    is defined with partitioning constraints.
+
+    Parameters
+    ----------
+    input_dict : dict
+        Dict object storing coordinates per region and tech.
+    deployment_vector : list
+        List containing the deployment requirements (un-partitioned or not).
+    capacity_split : str
+        Capacity splitting rule. To choose between "per_tech" and "per_country".
+
+    Returns
+    -------
+    index_list : list
+        List of indices associated with each (region, technology) tuple.
+
+    """
+    key_list = return_dict_keys(input_dict)
+
+    init_index_dict = deepcopy(input_dict)
+
+    regions = list(set([i[0] for i in key_list]))
+    technologies = list(set([i[1] for i in key_list]))
+
+    start_index = 0
+    for region, tech in key_list:
+        init_index_dict[region][tech] = list(np.arange(start_index, start_index + len(input_dict[region][tech])))
+        start_index = start_index + len(input_dict[region][tech])
+
+    if capacity_split == 'per_country':
+
+        if len(deployment_vector) == len(regions):
+
+            index_dict = dict.fromkeys(regions)
+            for region in regions:
+                index_list_per_region = []
+                tech_list_in_region = [i[1] for i in key_list if i[0] == region]
+                for tech in tech_list_in_region:
+                    index_list_per_region.extend(init_index_dict[region][tech])
+                index_dict[region] = [i+1 for i in index_list_per_region]
+
+        else:
+
+            raise ValueError(' Number of regions ({}) does not match number of deployment constraints ({}).'.format
+                                            (len(regions), len(deployment_vector)))
+
+    elif capacity_split == 'per_tech':
+
+        if len(deployment_vector) == len(technologies):
+
+            index_dict = dict.fromkeys(technologies)
+            for tech in technologies:
+                index_list_per_tech = []
+                region_list_with_tech = [i[0] for i in key_list if i[1] == tech]
+                for region in region_list_with_tech:
+                    index_list_per_tech.extend(init_index_dict[region][tech])
+                index_dict[tech] = [i+1 for i in index_list_per_tech]
+
+        else:
+
+            raise ValueError(' Number of technologies ({}) does not match number of deployment constraints ({}).'.format
+                             (len(technologies), len(deployment_vector)))
+
+    index_list = []
+    for key, value in index_dict.items():
+        index_list.append([i+1 for i in value])
+
+    return init_index_dict
+
+
+# TODO:
+#  - comments - I don't understand what this does
+def retrieve_location_dict(input_dict, site_dict):
+
+    output_dict = {key: {} for key in input_dict['technologies']}
+
+    potential_dict = collapse_dict_region_level(input_dict['technical_potential_dict'])
+
+    for tech in site_dict.keys():
+        for idx, y_object in site_dict[tech].items():
+            if y_object is not None:
+                if y_object.value > 0.:
+
+                    loc = input_dict['starting_deployment_dict'][tech].isel(locations=idx).locations.values.flatten()[0]
+                    cap = y_object.value * potential_dict[tech].isel(locations=idx).values
+
+                    output_dict[tech][loc] = cap
+
+    output_dict = {k: v for k, v in output_dict.items() if len(v) > 0}
+
+    return output_dict
+
+
+# TODO:
+#  - need to more precise on description of function, and name it more specifically
+def read_database(file_path):
+    """
+    Reads resource database from .nc files.
+
+    Parameters
+    ----------
+    file_path : str
+        Relative path to resource data.
+
+    Returns
+    -------
+    dataset: xarray.Dataset
+
+    """
+    # Read through all files, extract the first 2 characters (giving the
+    # macro-region) and append in a list that will keep the unique elements.
+    files = [f for f in os.listdir(file_path) if os.path.isfile(os.path.join(file_path, f))]
+    areas = []
+    datasets = []
+    for item in files:
+        areas.append(item[:2])
+    areas_unique = list(set(areas))
+
+    # For each available area use the open_mfdataset method to open
+    # all associated datasets, while directly concatenating on time dimension
+    # and also aggregating (longitude, latitude) into one single 'location'. As
+    # well, data is read as float32 (memory concerns).
+    for area in areas_unique:
+        file_list = [file for file in glob.glob(file_path + '/*.nc') if area in file]
+        ds = xr.open_mfdataset(file_list,
+                               combine='by_coords',
+                               chunks={'latitude': 20, 'longitude': 20})\
+                        .stack(locations=('longitude', 'latitude')).astype(np.float32)
+        datasets.append(ds)
+
+    # Concatenate all regions on locations.
+    dataset = xr.concat(datasets, dim='locations')
+    # Removing duplicates potentially there from previous concat of multiple regions.
+    _, index = np.unique(dataset['locations'], return_index=True)
+    dataset = dataset.isel(locations=index)
+    # dataset = dataset.sel(locations=~dataset.indexes['locations'].duplicated(keep='first'))
+    # Sorting dataset on coordinates (mainly due to xarray peculiarities between concat and merge).
+    dataset = dataset.sortby([dataset.longitude, dataset.latitude])
+    # Remove attributes from datasets. No particular use, looks cleaner.
+    dataset.attrs = {}
+
+    return dataset
+
+
+def chunk_split(l, n):
+    """
+    Splits large lists in smaller chunks. Done to avoid xarray warnings when slicing large datasets.
+
+    Parameters
+    ----------
+    l : list
+    n : chunk size
+    """
+    # For item i in a range that is a length of l,
+    for i in range(0, len(l), n):
+        # Create an index range for l of n items:
+        yield l[i:i+n]
+
+
+# TODO:
+#  - i would change the name: truncate_dataset?
+#  - resite.dataset
+def selected_data(dataset, input_dict, time_slice):
+    """
+    Slices xarray.Dataset based on relevant i) time horizon and ii) location sets.
+
+    Parameters
+    ----------
+    dataset : xarray.Dataset
+        Complete resource dataset.
+    input_dict : dict
+        Dict object storing location sets per region and technology.
+    time_slice : list
+        List containing start and end timestamps for the study.
+
+    Returns
+    -------
+    output_dict : dict
+        Dict object storing sliced data per region and technology.
+
+    """
+    key_list = return_dict_keys(input_dict)
+
+    output_dict = deepcopy(input_dict)
+
+    datetime_start = np.datetime64(time_slice[0])
+    datetime_end = np.datetime64(time_slice[1])
+
+    # This is a test which raised some problems on Linux distros, where for some
+    # unknown reason the dataset is not sorted on the time dimension.
+    if (datetime_start < dataset.time.values[0]) or \
+            (datetime_end > dataset.time.values[-1]):
+        raise ValueError(' At least one of the time indices exceeds the available data.')
+
+    for region, tech in key_list:
+
+        dataset_temp = []
+
+        for chunk in chunk_split(input_dict[region][tech], n=50):
+
+            dataset_region = dataset.sel(locations=chunk,
+                                            time=slice(datetime_start, datetime_end))
+            dataset_temp.append(dataset_region)
+
+        output_dict[region][tech] = xr.concat(dataset_temp, dim='locations')
+
+    return output_dict
+
+
+# TODO:
+#  - don't really know where this should go
+def compute_generation_potential(capacity_factor_dict, potential_dict):
+    """
+    Computes generation potential (GWh) to be passed to the optimisation problem.
+
+    Parameters
+    ----------
+    capacity_factor_dict : dict containing capacity factor time series.
+
+    potential_dict : dict containing technical potential figures per location.
+
+    Returns
+    -------
+    output_dict : dict
+
+    """
+    # TODO: this is a pretty heavy operation just to copy the structure no?
+    output_dict = deepcopy(capacity_factor_dict)
+
+    for region in capacity_factor_dict:
+        for tech in capacity_factor_dict[region]:
+            output_dict[region][tech] = capacity_factor_dict[region][tech] * potential_dict[region][tech]
 
     return output_dict
 
@@ -826,184 +842,3 @@ def return_ISO_codes_from_countries():
                 'Switzerland': 'CH', 'Turkey': 'TR', 'Ukraine': 'UA', 'United Kingdom': 'UK'}
 
     return dict_ISO
-
-
-# TODO: unused
-def get_partition_index(input_dict, deployment_vector, capacity_split='per_tech'):
-    """
-    Returns start and end indices for each (region, technology) tuple. Required in case the problem
-    is defined with partitioning constraints.
-
-    Parameters
-    ----------
-    input_dict : dict
-        Dict object storing coordinates per region and tech.
-    deployment_vector : list
-        List containing the deployment requirements (un-partitioned or not).
-    capacity_split : str
-        Capacity splitting rule. To choose between "per_tech" and "per_country".
-
-    Returns
-    -------
-    index_list : list
-        List of indices associated with each (region, technology) tuple.
-
-    """
-    key_list = return_dict_keys(input_dict)
-
-    init_index_dict = deepcopy(input_dict)
-
-    regions = list(set([i[0] for i in key_list]))
-    technologies = list(set([i[1] for i in key_list]))
-
-    start_index = 0
-    for region, tech in key_list:
-        init_index_dict[region][tech] = list(arange(start_index, start_index + len(input_dict[region][tech])))
-        start_index = start_index + len(input_dict[region][tech])
-
-    if capacity_split == 'per_country':
-
-        if len(deployment_vector) == len(regions):
-
-            index_dict = dict.fromkeys(regions)
-            for region in regions:
-                index_list_per_region = []
-                tech_list_in_region = [i[1] for i in key_list if i[0] == region]
-                for tech in tech_list_in_region:
-                    index_list_per_region.extend(init_index_dict[region][tech])
-                index_dict[region] = [i+1 for i in index_list_per_region]
-
-        else:
-
-            raise ValueError(' Number of regions ({}) does not match number of deployment constraints ({}).'.format
-                                            (len(regions), len(deployment_vector)))
-
-    elif capacity_split == 'per_tech':
-
-        if len(deployment_vector) == len(technologies):
-
-            index_dict = dict.fromkeys(technologies)
-            for tech in technologies:
-                index_list_per_tech = []
-                region_list_with_tech = [i[0] for i in key_list if i[1] == tech]
-                for region in region_list_with_tech:
-                    index_list_per_tech.extend(init_index_dict[region][tech])
-                index_dict[tech] = [i+1 for i in index_list_per_tech]
-
-        else:
-
-            raise ValueError(' Number of technologies ({}) does not match number of deployment constraints ({}).'.format
-                             (len(technologies), len(deployment_vector)))
-
-    index_list = []
-    for key, value in index_dict.items():
-        index_list.append([i+1 for i in value])
-
-    return init_index_dict
-
-# TODO: for me only the following functions should be in some 'utils.py' file
-
-
-# TODO: do we really need a function for this? can be done in one line
-def read_inputs(inputs):
-    """
-
-    Parameters
-    ----------
-    inputs :
-
-    Returns
-    -------
-
-    """
-    with open(inputs) as infile:
-        data = yaml.safe_load(infile)
-
-    return data
-
-
-# TODO: used only once, do we need this as a function
-def init_folder(keepfiles):
-    """Initiliaze an output folder.
-
-    Parameters:
-
-    ------------
-
-    keepfiles : boolean
-        If False, folder previously built is deleted.
-
-    Returns:
-
-    ------------
-
-    path : str
-        Relative path of the folder.
-
-
-    """
-
-    date = strftime("%Y%m%d")
-    time = strftime("%H%M%S")
-
-    dir_name = "../../../output/resite/"
-    if not isdir(dir_name):
-        makedirs(abspath(dir_name))
-
-    path = abspath(dir_name + str(date) + '_' + str(time))
-    makedirs(path)
-
-    custom_log(' Folder path is: {}'.format(str(path)))
-
-    if not keepfiles:
-        custom_log(' WARNING! Files will be deleted at the end of the run.')
-
-    return path
-
-
-# TODO: do we need a function ?
-def remove_garbage(keepfiles, output_folder, lp=True, script=True, sol=True):
-
-    """Remove different files after the run.
-
-    Parameters:
-
-    ------------
-
-    keepfiles : boolean
-        If False, folder previously built is deleted.
-
-    output_folder : str
-        Path of output folder.
-
-    """
-
-    if not keepfiles:
-        rmtree(output_folder)
-
-    directory = getcwd()
-
-    if lp:
-        files = glob(join(directory, '*.lp'))
-        for f in files:
-            remove(f)
-
-    if script:
-        files = glob(join(directory, '*.script'))
-        for f in files:
-            remove(f)
-
-    if sol:
-        files = glob(join(directory, '*.sol'))
-        for f in files:
-            remove(f)
-
-
-def custom_log(message):
-    """
-    Parameters
-    ----------
-    message : str
-
-    """
-    print(datetime.now().strftime('%H:%M:%S')+' --- '+str(message))

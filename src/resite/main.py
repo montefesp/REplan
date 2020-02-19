@@ -1,20 +1,20 @@
-from src.resite.src.models import read_input_data, build_model
-from src.resite.src.helpers import read_inputs, init_folder, custom_log, remove_garbage
-from src.resite.src.tools import retrieve_location_dict
+from src.resite.models import read_input_data, build_model
+from src.resite.utils import read_inputs, init_folder, custom_log, remove_garbage
+from src.resite.helpers import retrieve_location_dict
 from pyomo.opt import SolverFactory
 from shutil import copy
 from os.path import join
 import pickle
 
-parameters = read_inputs('../config_model.yml')
+parameters = read_inputs('config_model.yml')
 # TODO: Remove the three following lines
 keepfiles = parameters['keep_files']
 formulation = parameters['formulation']
 # low_mem = parameters['low_memory']
 
 output_folder = init_folder(keepfiles)
-copy('../config_model.yml', output_folder)
-copy('../config_techs.yml', output_folder)
+copy('config_model.yml', output_folder)
+copy('config_techs.yml', output_folder)
 
 input_dict = read_input_data(parameters)
 

@@ -3,9 +3,10 @@ matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import pandas as pd
 from os.path import join, abspath
-from src.tools import read_database, get_global_coordinates, return_output, return_coordinates_from_countries, \
+from src.resite.helpers import read_database
+from src.resite.tools import get_global_coordinates, return_output, return_coordinates_from_countries, \
                             selected_data, retrieve_load_data
-from src_postprocessing.output_tools import read_output, read_inputs_plotting, plot_basemap, \
+from src.postprocessing.resite_output_tools import read_output, read_inputs_plotting, plot_basemap, \
                                                 assess_firmness, clip_revenue, \
                                                 assess_capacity_credit, return_coordinates
 from itertools import chain, combinations, cycle, islice
