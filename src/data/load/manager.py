@@ -482,6 +482,38 @@ def available_load():
 
     return available_data
 
+
+# --- David --- #
+# TODO: merge
+#   - need to complete comments
+from src.resite.tools import return_region_shapefile
+def retrieve_load_data(regions, time_slice, path_load_data, path_shapefile_data):
+    """
+    Returns load time series for given regions and time horizon.
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+
+    """
+    output_dict = dict.fromkeys(regions)
+
+    # TODO: remove path_load_data and write the path directly here
+    load_data = pd.read_csv(os.path.join(path_load_data, 'load_opsd_2015_2018.csv'), index_col=0, sep=';')
+    load_data.index = pd.to_datetime(load_data.index)
+
+    for region in regions:
+
+        region_unit_list = return_region_shapefile(region, path_shapefile_data)['region_subdivisions']
+
+        load_data_sliced = load_data.loc[time_slice[0]:time_slice[1]][region_unit_list]
+
+        output_dict[region] = load_data_sliced.sum(axis=1).values * (1e-3)
+
+    return output_dict
+
 """
 available_loads = available_load()
 available_loads_countries = available_loads[[len(idx) == 2 for idx in available_loads.index]]

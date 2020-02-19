@@ -548,6 +548,7 @@ def selected_data(dataset, input_dict, time_slice):
 
 # TODO:
 #  - don't really know where this should go
+#  - I would just remove this function and make the computation directly where it is used (i.e. models.py)
 def compute_generation_potential(capacity_factor_dict, potential_dict):
     """
     Computes generation potential (GWh) to be passed to the optimisation problem.
@@ -776,69 +777,3 @@ def update_potential_files(input_dict, tech):
 
     return input_dict
 
-
-# TODO:
-#  - data.geographics?
-def match_point_to_region(point, shape_data, indicator_data):
-    """
-    Assings a given coordinate tuple (lon, lat) to a NUTS (or any other) region.
-
-    Parameters
-    ----------
-    point : tuple
-        Coordinate in (lon, lat) form.
-    shape_data : GeoDataFrame
-        Dataframe storing geometries of NUTS regions.
-    indicator_data : dict
-        Dict object storing technical potential of NUTS regions.
-
-    Returns
-    -------
-    incumbent_region : str
-        Region in which point "p" falls.
-    """
-    dist = {}
-
-    p = Point(point)
-
-    incumbent_region = None
-
-    for subregion in list(indicator_data.keys()):
-
-        if subregion in shape_data.index:
-
-            if p.within(shape_data.loc[subregion, 'geometry']):
-
-                incumbent_region = subregion
-
-            dist[subregion] = p.distance(shape_data.loc[subregion, 'geometry'])
-
-    if incumbent_region is None:
-
-        print(p, min(dist, key=dist.get))
-
-        incumbent_region = min(dist, key=dist.get)
-
-        # else:
-        #
-        #     pass
-    #
-    # if incumbent_region == None:
-    #
-    #     warnings.warn(' Point {} does not fall in any of the pre-defined regions.'.format(point))
-
-    return incumbent_region
-
-
-# TODO: ok i have a file for this
-def return_ISO_codes_from_countries():
-
-    dict_ISO = {'Albania': 'AL', 'Armenia': 'AR', 'Belarus': 'BL', 'Belgium': 'BE', 'Bulgaria': 'BG', 'Croatia': 'HR',
-                'Cyprus': 'CY', 'Czech Republic': 'CZ', 'Estonia': 'EE', 'Latvia': 'LV', 'Lithuania': 'LT',
-                'Denmark': 'DK', 'France': 'FR', 'Germany': 'DE', 'Greece': 'EL', 'Hungary': 'HU', 'Ireland': 'IE',
-                'Italy': 'IT', 'Macedonia': 'MK', 'Malta': 'MT', 'Norway': 'NO', 'Iceland': 'IS', 'Finland': 'FI',
-                'Montenegro': 'MN', 'Netherlands': 'NL', 'Poland': 'PL', 'Portugal': 'PT', 'Romania': 'RO',
-                'Slovak Republic': 'SK', 'Spain': 'ES', 'Sweden': 'SE',
-                'Switzerland': 'CH', 'Turkey': 'TR', 'Ukraine': 'UA', 'United Kingdom': 'UK'}
-
-    return dict_ISO

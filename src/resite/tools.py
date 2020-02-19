@@ -1,6 +1,6 @@
-from src.data.geographics.manager import get_onshore_shapes_dr, get_offshore_shapes_dr
-from src.resite.helpers import update_potential_files, collapse_dict_region_level, \
-                               match_point_to_region, return_ISO_codes_from_countries, return_dict_keys, read_database
+from src.data.geographics.manager import get_onshore_shapes_dr, get_offshore_shapes_dr, match_point_to_region, \
+    return_ISO_codes_from_countries
+from src.resite.helpers import update_potential_files, collapse_dict_region_level, return_dict_keys, read_database
 from src.resite.utils import read_inputs
 from numpy import arange, interp, sqrt, \
                   asarray, clip, array, sum, \
@@ -8,12 +8,13 @@ from numpy import arange, interp, sqrt, \
 import xarray as xr
 import xarray.ufuncs as xu
 import dask.array as da
-from os.path import join, isfile
+from os.path import *
 from geopandas import read_file
 from shapely import prepared
 from shapely.geometry import Point
 from shapely.ops import unary_union
-from pandas import read_csv, read_excel, Series, notnull, to_datetime
+import pandas as pd
+from pandas import read_csv, read_excel, Series, notnull
 from scipy.spatial import distance
 from ast import literal_eval
 from windpowerlib import power_curves, wind_speed
@@ -625,36 +626,6 @@ def return_output(input_dict, path_to_transfer_function, smooth_wind_power_curve
 
 
 # TODO:
-#   - data.load
-#   - need to complete comments
-def retrieve_load_data(regions, time_slice, path_load_data, path_shapefile_data):
-    """
-    Returns load time series for given regions and time horizon.
-
-    Parameters
-    ----------
-
-    Returns
-    -------
-
-    """
-    output_dict = dict.fromkeys(regions)
-
-    load_data = read_csv(join(path_load_data, 'load_opsd_2015_2018.csv'), index_col=0, sep=';')
-    load_data.index = to_datetime(load_data.index)
-
-    for region in regions:
-
-        region_unit_list = return_region_shapefile(region, path_shapefile_data)['region_subdivisions']
-
-        load_data_sliced = load_data.loc[time_slice[0]:time_slice[1]][region_unit_list]
-
-        output_dict[region] = load_data_sliced.sum(axis=1).values * (1e-3)
-
-    return output_dict
-
-
-# TODO:
 #  - data.res_potential or  data.cap_potential
 #  - merge with my code
 def capacity_potential_from_enspresso(tech, path_potential_data):
@@ -908,6 +879,12 @@ def read_legacy_capacity_data(start_coordinates, region_subdivisions, tech, path
         data = data[notnull(data['Coords'])]
         data['Longitude'] = data['Coords'].str.split(',', 1).str[1]
         data['Latitude'] = data['Coords'].str.split(',', 1).str[0]
+
+        # TODO: check if this possibility works -> problem with UK - GB
+        # countries_codes_fn = join(dirname(abspath(__file__)),
+        #                          "../../data/countries-codes.csv")
+        # countries_code = pd.read_csv(countries_codes_fn, index_col="Name")
+        # data['ISO code'] = countries_code[["Code"]].to_dict()["Code"]
         data['ISO code'] = data['Country'].map(return_ISO_codes_from_countries())
 
         data = data[data['ISO code'].isin(region_subdivisions)]
