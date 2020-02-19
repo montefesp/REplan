@@ -3,10 +3,9 @@ from shapely.geometry import Point, Polygon
 import shapely
 import os
 import pickle
-from src.network import Network
 from src.data.res_potential.manager import get_potential_ehighway
 from typing import *
-from pypsa import Network as pp_Network
+import pypsa
 import geopy
 from src.data.topologies.ehighway import plot_topology
 import xarray as xr
@@ -43,86 +42,14 @@ def is_onshore(point: Point, onshore_shape: Polygon, dist_threshold: float = 20.
     return False
 
 
-def add_generators(network, gen_costs: Dict[str, Dict[str, float]], strategy: str, site_nb: int, area_per_site: int,
-                   cap_dens_dict: Dict[str, float]) -> Network:
+def add_generators_pypsa(network: pypsa.Network, onshore_region_shape, gen_costs: Dict[str, Dict[str, float]],
+                         strategy: str,
+                         site_nb: int, area_per_site: int, cap_dens_dict: Dict[str, float]) -> pypsa.Network:
     """Adds wind and pv generator that where selected via a certain siting method to a Network class.
 
     Parameters
     ----------
-    network: Network
-        A Network instance with regions
-    gen_costs: Dict[str, Dict[str, float]]
-        Dictionary containing opex and capex for solar and wind generators
-    strategy: str
-        "comp" or "max, strategy used to select the sites
-    site_nb: int
-        Number of generation sites to add
-    area_per_site: int
-        Area per site in km2
-    cap_dens_dict: Dict[str, float]
-        Dictionary giving per technology the max capacity per km2
-
-    Returns
-    -------
-    network: Network
-        Updated network
-    """
-
-    resite_data_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                  "../../../data/resite/generated/" + strategy + "_site_data_" + str(site_nb) + ".p")
-    selected_points = pickle.load(open(resite_data_fn, "rb"))
-
-    # regions = network.buses.region.values
-
-    bus_positions = [Point(x, y) for x, y in zip(network.buses.x.values, network.buses.y.values)]
-
-    # TODO: would probably be nice to invert the dictionary
-    #  so that for each point we have the technology(ies) we need to install there
-    for tech in selected_points:
-        points_dict = selected_points[tech]
-
-        # Detect to which bus the node should be associated
-        bus_ids = [network.buses.id.values[
-                   np.argmin([bus_pos.distance(Point(point[0], point[1])) for bus_pos in bus_positions])]
-                   for point in points_dict]
-
-        # Get capacities for each bus
-        # TODO: should add a parameter to differentiate between the two cases
-        bus_ids_unique = list(set(bus_ids))
-        bus_capacities_per_km = get_potential_ehighway(bus_ids_unique, tech.split("_")[0]).values
-        bus_capacity_per_km_dict = dict.fromkeys(bus_ids_unique)
-        for i, key in enumerate(bus_ids_unique):
-            bus_capacity_per_km_dict[key] = bus_capacities_per_km[i]
-
-        for i, point in enumerate(points_dict):
-
-            bus_id = bus_ids[i]
-            # Define the capacities per km from parameters if existing
-            capacity_per_km = cap_dens_dict[tech]
-            if capacity_per_km == "":
-                capacity_per_km = bus_capacity_per_km_dict[bus_id]
-
-            cap_factor_series = points_dict[point][0:len(network.time_stamps)]
-            attrs = {"bus": [bus_id],
-                     "p_nom_extendable": [True],
-                     "p_nom_max": [capacity_per_km * area_per_site],
-                     "p_max_pu": [cap_factor_series],
-                     "type": [tech],
-                     "marginal_cost": [gen_costs[tech]["opex"]],
-                     "capital_cost": [gen_costs[tech]["capex"]]}
-            network.add("generator", ["Gen " + tech + " " + str(point[0]) + "-" + str(point[1])], attrs)
-
-    return network
-
-
-# --- PYPSA --- #
-def add_generators_pypsa(network, onshore_region_shape, gen_costs: Dict[str, Dict[str, float]], strategy: str,
-                         site_nb: int, area_per_site: int, cap_dens_dict: Dict[str, float]) -> pp_Network:
-    """Adds wind and pv generator that where selected via a certain siting method to a Network class.
-
-    Parameters
-    ----------
-    network: pp_Network
+    network: pypsa.Network
         A Network instance with regions
     onshore_region_shape: Polygon
         Sum of all the onshore regions associated to the buses in network
@@ -139,7 +66,7 @@ def add_generators_pypsa(network, onshore_region_shape, gen_costs: Dict[str, Dic
 
     Returns
     -------
-    network: pp_Network
+    network: pypsa.Network
         Updated network
     """
 

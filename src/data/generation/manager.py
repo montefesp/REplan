@@ -4,8 +4,6 @@ import pandas as pd
 
 from typing import *
 import os
-from src.network import Network
-# from pypsa import Network as pp_Network
 import pypsa
 import numpy as np
 # TODO: need to make all this more generic
@@ -15,35 +13,6 @@ from src.data.topologies.ehighway import get_ehighway_clusters
 
 # TODO: maybe divide this file into several ones (expl: one for hydro, one for ppm)
 #  Try to stick using the files of the folder of the same name
-
-def add_conventional_gen(network: Network, tech: str, costs: Dict[str, float]) -> Network:
-    """Adds conventional generators to a Network instance.
-
-    Parameters
-    ----------
-    network: Network
-        A Network instance with nodes associated to regions.
-    tech: str
-        Type of conventional generator (ccgt or ocgt)
-    costs: Dict[str, float]
-        Contains capex and opex
-
-    Returns
-    -------
-    network: Network
-        Updated network
-    """
-
-    for bus_id in network.buses.id.values:
-        attrs = {"bus": [bus_id],
-                 "p_nom": [0],
-                 "p_nom_extendable": [True],
-                 "type": [tech],
-                 "marginal_cost": [costs["opex"]],
-                 "capital_cost": [costs["capex"]]}
-        network.add("generator", ["Gen " + tech + " " + bus_id], attrs)
-
-    return network
 
 
 def load_ppm():
@@ -93,63 +62,6 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "") -> pd.DataFrame:
     plants["Country"] = plants["Country"].map(convert_country_name_to_code)
 
     return plants
-
-
-def add_nuclear_gen(network: Network, costs: Dict[str, float], use_ex_cap: bool, extendable: bool, ramp_rate: float,
-                    ppm_file_name: str = None) -> Network:
-    """Adds nuclear generators to a Network instance.
-
-    Parameters
-    ----------
-    network: Network
-        A Network instance with nodes associated to regions.
-    costs: Dict[str, float]
-        Contains capex and opex
-    use_ex_cap: bool
-        Whether to consider existing capacity or not # TODO: will probably remove that at some point
-    extendable: bool
-        Whether generators are extendable
-    ramp_rate: float
-        Percentage of the total capacity for which the generation can be increased or decreased between two time-steps
-    ppm_file_name: str
-        Name of the file from which to retrieve the data if value is not None
-    Returns
-    -------
-    network: Network
-        Updated network
-    """
-
-    # TODO: add the possibility to remove some plants and allow it to built where it doesn't exist
-
-    # Load existing nuclear plants
-    ppm_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../data/ppm/")
-    if ppm_file_name is not None:
-        gens = pd.read_csv(ppm_folder + "/" + ppm_file_name, index_col=0, delimiter=";")
-    else:
-        gens = get_gen_from_ppm(fuel_type="Nuclear")
-
-    for idx in gens.index:
-
-        # Get bus id based on region
-        bus_id = network.buses.id[[region.contains(Point(gens.loc[idx].lon, gens.loc[idx].lat))
-                                   for region in network.buses.region.values]].values
-
-        p_nom = 0
-        if use_ex_cap:
-            p_nom = gens.loc[idx].Capacity/1000.0  # Transform to GW
-
-        if len(bus_id) != 0:
-            attrs = {"bus": [bus_id[0]],
-                     "p_nom": [p_nom],
-                     "p_nom_extendable": [extendable],
-                     "type": ['nuclear'],
-                     "marginal_cost": [costs["opex"]],
-                     "capital_cost": [costs["capex"]],
-                     "ramp_limit_up": [ramp_rate],
-                     "ramp_limit_down": [ramp_rate]}
-            network.add("generator", ["Gen nuclear " + gens.loc[idx].Name + " " + bus_id[0]], attrs)
-
-    return network
 
 
 def add_conventional_gen_pypsa(network: pypsa.Network, tech: str, costs: Dict[str, float]) -> pypsa.Network:

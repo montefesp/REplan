@@ -19,7 +19,7 @@ time:
 # Space
 regions:
   # Regions to be considered (if you want all e-highways regions put 'ALL')
-  main: ["BE", "FR", "NL", "DE", "DK", "GB", "SE", "NO"] #
+  main: ["BE", "FR", "NL"] #
   # Regions to be removed (to be used in case you want ALL regions except a few), keep to [] if no regions to remove
   remove: ["TR", "UA", "MA", "TN"]
   # Regions to add that are not initially in e-highway ex. Iceland

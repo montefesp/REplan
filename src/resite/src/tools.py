@@ -1,4 +1,4 @@
-from src.helpers import get_onshore_shapes, get_offshore_shapes, \
+from src.resite.src.helpers import get_onshore_shapes, get_offshore_shapes, \
                         chunk_split, update_potential_files, collapse_dict_region_level, \
                         match_point_to_region, read_inputs, return_ISO_codes_from_countries, return_dict_keys
 from numpy import arange, interp, float32, datetime64, sqrt, \
@@ -76,7 +76,7 @@ def read_database(file_path):
 
 # TODO:
 #  - why shapefile? just shape?
-#  - data.geographics
+#  - src.data.geographics
 def return_region_shapefile(region, path_shapefile_data):
     """
     Returns shapefile associated with the region(s) of interest.

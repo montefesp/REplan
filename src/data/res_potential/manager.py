@@ -3,9 +3,7 @@ import os
 import numpy as np
 from datetime import datetime
 from typing import *
-from src.network import Network
 import pypsa
-# from pypsa import Network as pp_Network
 # TODO; need to work on something more generic but it will be ok for now
 import pvlib
 import windpowerlib
@@ -26,7 +24,6 @@ missing_region_dict = {
     "AL": ["BG"],
     "MK": ["BG"]
 }
-
 
 
 # TODO: need to add offshore potential computation
@@ -138,95 +135,6 @@ missing_wind_dict = {
     "ME": ["HR"],
     "RS": ["BG"]
 }
-
-
-# TODO: not sure this should be here
-def add_generators_without_siting(network: Network, wind_costs: Dict[str, float],
-                                  pv_costs: Dict[str, float]) -> Network:
-    """Adds wind and pv generator at each node of a Network instance with limited capacities.
-
-    Parameters
-    ----------
-    network: pypsa.Network
-        A PyPSA Network instance with buses associated to regions
-    wind_costs
-        Dictionary containing opex and capex for wind generators
-    pv_costs
-        Dictionary containing opex and capex for pv generators
-
-    Returns
-    -------
-    network: pypsa.Network
-        Updated network
-    """
-
-    # TODO: 3 possibilites
-    #  - 1) Take the capacity factor at the bus
-    #  - 2) Take the average of the capacity factor over the whole region
-    #  - 3) Take some kind of precomputed data
-    #   Use option 3 for now
-
-    wind_profiles_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                    "../../../data/res_potential/source/ninja_europe_wind_v1.1/wind_profiles_singleindex.csv")
-    wind_profiles = pd.read_csv(wind_profiles_fn)
-
-    profiles_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               "../../../data/res_potential/source/ninja_pv_wind_profiles_singleindex.csv")
-    profiles = pd.read_csv(profiles_fn)
-    profiles["time"] = profiles["time"].apply(lambda x: np.datetime64(datetime.strptime(x, "%Y-%m-%dT%H:%M:%SZ")))
-    profiles = profiles.set_index("time")
-    profiles = profiles.loc[network.time_stamps]
-
-    eh_clusters = get_ehighway_clusters()
-
-    areas = get_nuts_area()
-    areas.index.name = 'code'
-
-    # TODO: too slow
-    capacity_per_km_pv = get_potential_ehighway(network.buses.id.values, "pv").values
-    capacity_per_km_wind = get_potential_ehighway(network.buses.id.values, "wind").values
-
-    for i, bus_id in enumerate(network.buses.id.values):
-
-        # Get region area
-        area = np.sum(areas.loc[eh_clusters.loc[bus_id]["codes"].split(",")]["2015"])
-
-        # PV
-        country_pv_profile = profiles[eh_clusters.loc[bus_id].country + "_pv_national_current"]
-
-        # Add a pv generator
-        capacity_per_km = capacity_per_km_pv[i]
-        attrs = {"bus": [bus_id],
-                 "p_nom_extendable": [True],
-                 # consider that the tech can be deployed on 50*50 km2
-                 "p_nom_max": [capacity_per_km * area],
-                 "p_max_pu": [country_pv_profile.values],
-                 "type": ["pv"],
-                 "marginal_cost": [pv_costs["opex"]],
-                 "capital_cost": [pv_costs["capex"]]}
-        network.add("generator", ["Gen " + bus_id + " pv"], attrs)
-
-        # Wind
-        replacing_country = eh_clusters.loc[bus_id].country
-        if eh_clusters.loc[bus_id].country in missing_wind_dict:
-            replacing_country = missing_wind_dict[replacing_country][0]
-        if replacing_country + "_wind_onshore_current" in profiles.keys():
-            country_wind_profile = profiles[replacing_country + "_wind_onshore_current"]
-        else:
-            country_wind_profile = profiles[replacing_country + "_wind_national_current"]
-
-        # Add a wind generator
-        capacity_per_km = capacity_per_km_wind[i]
-        attrs = {"bus": [bus_id],
-                 "p_nom_extendable": [True],
-                 "p_nom_max": [capacity_per_km * area],
-                 "p_max_pu": [country_wind_profile.values],
-                 "type": ["wind"],
-                 "marginal_cost": [wind_costs["opex"]],
-                 "capital_cost": [wind_costs["capex"]]}
-        network.add("generator", ["Gen " + bus_id + " wind"], attrs)
-
-    return network
 
 
 # TODO: the problem when including offshore in this function is what area to consider?
@@ -366,7 +274,6 @@ def get_cap_factor_for_regions(regions: List[Polygon], start_month: int, end_mon
     # Change precision
     wind_cap_factors = xr.apply_ufunc(lambda x: np.round(x, 3), wind_cap_factors)
     pv_cap_factors = xr.apply_ufunc(lambda x: np.round(x, 3), pv_cap_factors)
-
 
     return wind_cap_factors, wind_capacities, pv_cap_factors, pv_capacities
 
@@ -547,11 +454,6 @@ def add_res_generators_at_resolution(network: pypsa.Network, total_shape, area_p
                                  for coord in coordinates if network.buses.loc[bus_id].region.contains(coord)]
         wind_cap_factor_in_region = wind_cap_factor.sel(dim_0=coordinates_in_region)
         pv_cap_factor_in_region = pv_cap_factor.sel(dim_0=coordinates_in_region)
-
-        if bus_id == "OFF2":
-            for dim in wind_cap_factor.dim_0:
-                print(dim)
-            print(wind_cap_factor.sel(dim_0=(1.0, 56.0)))
 
         network.madd("Generator", "Gen wind " +
                      pd.Index([str(coord[0]) + "-" + str(coord[1]) for coord in coordinates_in_region]) + " " + bus_id,

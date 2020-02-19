@@ -1,6 +1,6 @@
-from src.helpers import custom_log, dict_to_xarray, xarray_to_dict,\
+from src.resite.src.helpers import custom_log, dict_to_xarray, xarray_to_dict,\
                         retrieve_tech_coordinates_tuples, retrieve_dict_max_length_item, compute_generation_potential
-from src.tools import read_database, return_filtered_coordinates, selected_data, return_output, retrieve_load_data, \
+from src.resite.src.tools import read_database, return_filtered_coordinates, selected_data, return_output, retrieve_load_data, \
                     capacity_potential_per_node, update_potential_per_node, retrieve_capacity_share_legacy_units
 from numpy import arange
 from pyomo.environ import ConcreteModel, Var, Constraint, Objective, minimize, maximize, NonNegativeReals, VarList

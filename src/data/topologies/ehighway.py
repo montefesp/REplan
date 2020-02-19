@@ -5,6 +5,7 @@ import random
 import pandas as pd
 import geopy.distance
 import shapely
+from shapely import wkt
 from shapely.ops import cascaded_union
 from shapely.geometry import Point, MultiPoint
 
@@ -19,10 +20,9 @@ import networkx as nx
 import numpy as np
 import itertools
 
-from src.network import Network
 from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes
 
-from pypsa import Network as pp_Network
+import pypsa
 
 
 def get_ehighway_clusters():
@@ -253,66 +253,6 @@ def to_dict_aux(df):
     return _dict
 
 
-def load(network: Network, add_offshore, trans_costs: Dict[str, Dict[str, float]], trans_lifetimes: Dict[str, float]) -> Network:
-    """Load the e-highway network topology (buses and links)
-
-    Parameters
-    ----------
-    network: Network
-        Network instance
-    trans_costs: Dict[str, Dict[str, float]]
-        Capex costs for AC and DC
-    trans_lifetimes: Dict[str, float]
-        Lifetime in years of AC and DC lines
-    Returns
-    -------
-    network: Network
-        Updated network
-    """
-    topology_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "../../../data/topologies/e-highways/generated/")
-    buses = pd.read_csv(topology_dir + "buses.csv", index_col='id')
-
-    # Remove offshore buses if not considered
-    if not add_offshore:
-        buses = buses.loc[buses['onshore']]
-
-    # Remove onshore buses that are not in the considered region
-    buses_to_keep = buses[['x', 'y', 'onshore']].apply(lambda k: not k[2] or network.get_shape_prepped().contains(Point((k[0], k[1]))),
-                                                       axis=1)
-    buses = buses.loc[buses_to_keep]
-
-    # Get corresponding lines
-    lines = pd.read_csv(topology_dir + "lines.csv", index_col='id')
-
-    # Remove lines that are not associated to two buses in the chosen region
-    lines = _remove_dangling_branches(lines, buses)
-
-    # Removing offshore buses that are not connected anymore
-    connected_buses = sorted(list(set(lines["bus0"]).union(set(lines["bus1"]))))
-    buses = buses.loc[connected_buses]
-
-    network.add("bus", buses.index.values, to_dict_aux(buses))
-    network.add("line", lines.index.values, to_dict_aux(lines))
-
-    # Add lines cost and set extendable to true
-    # TODO: It should be possible to be sth cleaner --> need to change network class
-    for idx in network.lines.id.values:
-        carrier = network.lines.sel(id=idx).carrier.item()
-        network.lines.capital_cost.loc[idx] = trans_costs[carrier]["capex"] * \
-            network.lines.sel(id=idx).length.item() / trans_lifetimes[carrier]
-        network.lines.s_nom_extendable.loc[idx] = True  # TODO: parametrized that
-
-    # Converting polygons strings to Polygon object
-    regions = network.buses.region.values
-    # Convert strings
-    for i, region in enumerate(regions):
-        if isinstance(region, str):
-            regions[i] = shapely.wkt.loads(region)
-
-    return network
-
-
 def voronoi_special(centroids, shape, resolution: float = 0.5):
     """This function applies a special Voronoi partition of a non-convex polygon based on
     an approximation of the geodesic distance to a set of points which define the centroids
@@ -382,13 +322,13 @@ def voronoi_special(centroids, shape, resolution: float = 0.5):
 
 
 # --- PYPSA --- #
-def load_pypsa(network: pp_Network, countries, trans_costs: Dict[str, Dict[str, float]],
-               trans_lifetimes: Dict[str, float], add_offshore=False, plot=False) -> pp_Network:
+def load_pypsa(network: pypsa.Network, countries, trans_costs: Dict[str, Dict[str, float]],
+               trans_lifetimes: Dict[str, float], add_offshore=False, plot=False) -> pypsa.Network:
     """Load the e-highway network topology (buses and links) using PyPSA
 
     Parameters
     ----------
-    network: pp_Network
+    network: pypsa.Network
         Network instance
     trans_costs: Dict[str, Dict[str, float]]
         Capex costs for AC and DC
@@ -396,7 +336,7 @@ def load_pypsa(network: pp_Network, countries, trans_costs: Dict[str, Dict[str, 
         Lifetime in years of AC and DC lines
     Returns
     -------
-    network: pp_Network
+    network: pypsa.Network
         Updated network
     """
     topology_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
