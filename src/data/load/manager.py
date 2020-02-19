@@ -7,7 +7,7 @@ import shapely
 from shapely.geometry import Point
 from scipy import stats
 import matplotlib.pyplot as plt
-from src.data.geographics.manager import get_nuts_area
+from src.data.geographics.manager import return_region_shapefile, get_nuts_area
 
 # --- Data pre-processing --- #
 
@@ -486,8 +486,7 @@ def available_load():
 # --- David --- #
 # TODO: merge
 #   - need to complete comments
-from src.resite.tools import return_region_shapefile
-def retrieve_load_data(regions, time_slice, path_load_data, path_shapefile_data):
+def retrieve_load_data(regions, time_slice):
     """
     Returns load time series for given regions and time horizon.
 
@@ -500,13 +499,14 @@ def retrieve_load_data(regions, time_slice, path_load_data, path_shapefile_data)
     """
     output_dict = dict.fromkeys(regions)
 
-    # TODO: remove path_load_data and write the path directly here
-    load_data = pd.read_csv(os.path.join(path_load_data, 'load_opsd_2015_2018.csv'), index_col=0, sep=';')
+    path_load_data = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  '../../../data/load/generated/load_opsd_2015_2018.csv')
+    load_data = pd.read_csv(path_load_data, index_col=0, sep=';')
     load_data.index = pd.to_datetime(load_data.index)
 
     for region in regions:
 
-        region_unit_list = return_region_shapefile(region, path_shapefile_data)['region_subdivisions']
+        region_unit_list = return_region_shapefile(region)['region_subdivisions']
 
         load_data_sliced = load_data.loc[time_slice[0]:time_slice[1]][region_unit_list]
 

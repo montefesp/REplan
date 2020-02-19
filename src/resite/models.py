@@ -12,7 +12,7 @@ from os.path import join
 
 # TODO: this function should not be in this file -> data handeling
 # TODO: missing comments
-def read_input_data(model_parameters):
+def read_input_data(params):
     """Data pre-processing.
 
     Parameters:
@@ -21,69 +21,52 @@ def read_input_data(model_parameters):
     Returns:
     -----------
     """
-    # TODO: rename model_parameters in params
-    # TODO: remove those lines
-    formulation = model_parameters['formulation']
-    regions = model_parameters['regions']
-    technologies = model_parameters['technologies']
-    deployment_constraints = model_parameters['deployment_vector']
 
-    if formulation == 'meet_demand_with_capacity' and len(regions) != 1:
+    if params['formulation'] == 'meet_demand_with_capacity' and len(params['regions']) != 1:
         raise ValueError('The selected formulation works for one region only!')
-    elif 'meet_RES_targets' in formulation and len(deployment_constraints) != len(regions):
+    elif 'meet_RES_targets' in params['formulation'] and len(params['deployment_vector']) != len(params['regions']):
         raise ValueError('For the selected formulation, the "regions" and "deployment_vector" '
-                          'lists must have the same cardinality!')
+                         'lists must have the same cardinality!')
     else:
         pass
 
-    # TODO remove all those lines
-    time_horizon = model_parameters['time_slice']
-    spatial_resolution = model_parameters['spatial_resolution']
-
-    path_resource_data = model_parameters['path_resource_data'] + '/' + str(spatial_resolution)
-    path_transfer_function_data = model_parameters['path_transfer_function_data']
-    path_population_density_data = model_parameters['path_population_density_data']
-    path_land_data = model_parameters['path_land_data']
-    path_load_data = model_parameters['path_load_data']
-    path_potential_data = model_parameters['path_potential_data']
-    path_legacy_data = model_parameters['path_legacy_data']
-    path_shapefile_data = model_parameters['path_shapefile_data']
-
-    resource_quality_layer = model_parameters['resource_quality_layer']
-    population_layer = model_parameters['population_density_layer']
-    protected_areas_layer = model_parameters['protected_areas_layer']
-    bathymetry_layer = model_parameters['bathymetry_layer']
-    forestry_layer = model_parameters['forestry_layer']
-    orography_layer = model_parameters['orography_layer']
-    water_mask_layer = model_parameters['water_mask_layer']
-    legacy_layer = model_parameters['legacy_layer']
-
+    print("Reading Database")
+    path_resource_data = params['path_resource_data'] + '/' + str(params['spatial_resolution'])
     database = read_database(path_resource_data)
 
+    print("Filtering coordinates")
     filtered_coordinates = return_filtered_coordinates(
-        database, spatial_resolution, technologies, regions, path_land_data, path_resource_data, path_legacy_data,
-        path_shapefile_data, path_population_density_data, resource_quality_layer=resource_quality_layer,
-        population_density_layer=population_layer, protected_areas_layer=protected_areas_layer,
-        orography_layer=orography_layer, forestry_layer=forestry_layer, water_mask_layer=water_mask_layer,
-        bathymetry_layer=bathymetry_layer, legacy_layer=legacy_layer)
+        database, params['spatial_resolution'], params['technologies'], params['regions'],
+        resource_quality_layer=params['resource_quality_layer'],
+        population_density_layer=params['population_density_layer'],
+        protected_areas_layer=params['protected_areas_layer'],
+        orography_layer=params['orography_layer'], forestry_layer=params['forestry_layer'],
+        water_mask_layer=params['water_mask_layer'], bathymetry_layer=params['bathymetry_layer'],
+        legacy_layer=params['legacy_layer'])
 
-    truncated_data = selected_data(database, filtered_coordinates, time_horizon)
-    output_data = return_output(truncated_data, path_transfer_function_data)
+    print("Truncate data")
+    truncated_data = selected_data(database, filtered_coordinates, params['time_slice'])
 
-    load_dict = retrieve_load_data(regions, time_horizon, path_load_data, path_shapefile_data)
+    print("Compute cap factor")
+    output_data = return_output(truncated_data)
 
+    print("Loading load")
+    load_dict = retrieve_load_data(params['regions'], params['time_slice'])
+
+    print("Compute technical potential per node")
     init_technical_potential = \
-        capacity_potential_per_node(filtered_coordinates, spatial_resolution, path_potential_data,
-                                    path_shapefile_data, path_population_density_data)
+        capacity_potential_per_node(filtered_coordinates, params['spatial_resolution'])
+    print("Retrieve existing capacity")
     init_deployed_potential = \
         retrieve_capacity_share_legacy_units(init_technical_potential, filtered_coordinates,
-                                             database, spatial_resolution, path_legacy_data, path_shapefile_data)
+                                             database, params['spatial_resolution'])
+    print("Update potential")
     updated_site_data = update_potential_per_node(init_technical_potential, init_deployed_potential)
 
-    if 'RES_targets' in formulation:
-        deployment_dict = dict(zip(regions, deployment_constraints))
+    if 'RES_targets' in params['formulation']:
+        deployment_dict = dict(zip(params['regions'], params['deployment_vector']))
     else:
-        deployment_dict = dict(zip(technologies, deployment_constraints))
+        deployment_dict = dict(zip(params['technologies'], params['deployment_vector']))
 
     output_dict = {
                 'capacity_factors_dict': output_data,
@@ -91,7 +74,7 @@ def read_input_data(model_parameters):
                 'starting_deployment_dict': updated_site_data['updated_legacy_shares'],
                 'load_data': load_dict,
                 'deployment_dict': deployment_dict,
-                'technologies': technologies}
+                'technologies': params['technologies']}
 
     custom_log(' Input data read...')
 

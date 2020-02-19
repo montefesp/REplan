@@ -8,6 +8,7 @@ from random import random
 
 import pandas as pd
 import geopandas as gpd
+import shapely
 from shapely.geometry import MultiPolygon, Polygon, Point
 from shapely.ops import cascaded_union, unary_union
 
@@ -164,6 +165,112 @@ def return_ISO_codes_from_countries():
                 'Switzerland': 'CH', 'Turkey': 'TR', 'Ukraine': 'UA', 'United Kingdom': 'UK'}
 
     return dict_ISO
+
+
+# TODO:
+#  - why shapefile? just shape?
+def return_region_shapefile(region):
+    """
+    Returns shapefile associated with the region(s) of interest.
+
+    Parameters
+    ----------
+    region : str
+
+    path_shapefile_data : str
+
+    Returns
+    -------
+    output_dict : dict
+        Dict object containing i) region subdivisions (if the case) and
+        ii) associated onshore and offshore shapes.
+
+    """
+
+    # Load countries/regions shapes
+    # TODO: make real absolute path
+    path_shapefile_data = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../data/shapefiles')
+    onshore_shapes_all = gpd.read_file(os.path.join(path_shapefile_data,'NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson'))
+
+    if region == 'EU':
+        region_subdivisions = ['AT', 'BE', 'DE', 'DK', 'ES', 'BA',
+                            'FR', 'UK', 'IE', 'IT', 'LU',
+                            'NL', 'NO', 'PT', 'SE', 'CH', 'CZ',
+                            'AL', 'BG', 'EE', 'LV', 'ME',
+                            'FI', 'EL', 'HR', 'HU', 'LT',
+                            'MK', 'PL', 'RO', 'RS', 'SI', 'SK']
+    elif region == 'NA':
+        region_subdivisions = ['DZ', 'EG', 'MA', 'LY', 'TN']
+    elif region == 'ME':
+        region_subdivisions = ['AE', 'BH', 'CY', 'IR', 'IQ', 'IL', 'JO', 'KW', 'LB', 'OM', 'PS', 'QA', 'SA', 'SY', 'YE']
+    elif region == 'US_S':
+        region_subdivisions = ['US-TX']
+    elif region == 'US_W':
+        region_subdivisions = ['US-AZ', 'US-CA', 'US-CO', 'US-MT', 'US-WY', 'US-NM',
+                               'US-UT', 'US-ID', 'US-WA', 'US-NV', 'US-OR']
+    elif region == 'US_E':
+        region_subdivisions = ['US-ND', 'US-SD', 'US-NE', 'US-KS', 'US-OK', 'US-MN',
+                               'US-IA', 'US-MO', 'US-AR', 'US-LA', 'US-MS', 'US-AL', 'US-TN',
+                               'US-IL', 'US-WI', 'US-MI', 'US-IN', 'US-OH', 'US-KY', 'US-GA', 'US-FL',
+                               'US-PA', 'US-SC', 'US-NC', 'US-VA', 'US-WV',
+                               'US-MD', 'US-DE', 'US-NJ', 'US-NY', 'US-CT', 'US-RI',
+                               'US-MA', 'US-VT', 'US-ME', 'US-NH']
+    elif region in onshore_shapes_all['CNTR_CODE'].values:
+        region_subdivisions = [region]
+    else:
+        raise ValueError(' Unknown region ', region)
+
+    onshore_shapes_selected = get_onshore_shapes_dr(region_subdivisions, path_shapefile_data)
+    offshore_shapes_selected = get_offshore_shapes_dr(region_subdivisions, onshore_shapes_selected, path_shapefile_data)
+
+    # TODO: can this not be done directly with cascade_union?
+    onshore = np.hstack((onshore_shapes_selected["geometry"].values))
+    offshore = np.hstack((offshore_shapes_selected["geometry"].values))
+
+    onshore_union = unary_union(onshore)
+    offshore_union = unary_union(offshore)
+
+    onshore_prepared = shapely.prepared.prep(onshore_union)
+    offshore_prepared = shapely.prepared.prep(offshore_union)
+
+    output_dict = {'region_subdivisions': region_subdivisions,
+                   'region_shapefiles': {'onshore': onshore_prepared,
+                                         'offshore': offshore_prepared}}
+
+    return output_dict
+
+
+# TODO:
+#  - can probably improve running time using shapely multipoint intersection
+def return_coordinates_from_shapefiles(resource_dataset, shapefiles_region):
+    """
+    Returning coordinate (lon, lat) pairs falling into the region(s) of interest.
+
+    Parameters
+    ----------
+    resource_dataset : xarray.Dataset
+        Resource dataset.
+    shapefiles_region : dict
+        Dict object containing the onshore and offshore shapefiles.
+
+    Returns
+    -------
+    coordinates_in_region : list
+        List of coordinate pairs in the region of interest.
+
+    """
+    start_coordinates = list(zip(resource_dataset.longitude.values, resource_dataset.latitude.values))
+
+    coordinates_in_region_onshore = np.array(start_coordinates, np.dtype('float,float'))[
+                                [shapefiles_region['onshore'].contains(Point(p)) for p in start_coordinates]].tolist()
+
+    coordinates_in_region_offshore = np.array(start_coordinates, np.dtype('float,float'))[
+        [shapefiles_region['offshore'].contains(Point(p)) for p in start_coordinates]].tolist()
+
+    coordinates_in_region = list(set(coordinates_in_region_onshore).union(set(coordinates_in_region_offshore)))
+
+    return coordinates_in_region
+
 
 # TODO: why is the tolerance stuff not there anymore?
 def filter_onshore_polys_dr(polys, minarea=0.1, filterremote=True):

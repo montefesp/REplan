@@ -4,14 +4,6 @@ spatial_resolution: 0.5
 # Path towards the various input data.
 # TODO: I think these paths should directly be in the function using them
 path_resource_data: '../../data/resource'
-path_transfer_function_data: '../../data/transfer_functions'
-path_population_density_data: '../../data/population_density'
-path_protected_areas_data: '../../data/protected_areas'
-path_land_data: '../../data/land_data'
-path_load_data: '../../data/load/generated'
-path_potential_data: '../../data/res_potential/source/ENSPRESO'
-path_legacy_data : '../../data/legacy'
-path_shapefile_data: '../../data/shapefiles'
 
 # Various data layers to be taken into account in potential site selection.
 resource_quality_layer: True
