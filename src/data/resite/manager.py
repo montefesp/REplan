@@ -171,7 +171,7 @@ def filter_coordinates(coordinates, depth_threshold=100):
     """Filter coordinates by removing the ones corresponding to a depth below a certain threshold"""
 
     dataset_land_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                   "../../../data/resite/source/ERA5_surface_characteristics_20181231_0.5.nc")
+                                   "../../../data/land_data/ERA5_surface_characteristics_20181231_0.5.nc")
     dataset_land = xr.open_dataset(dataset_land_fn)
 
     data_bath = dataset_land['wmb'].assign_coords(longitude=(((dataset_land.longitude

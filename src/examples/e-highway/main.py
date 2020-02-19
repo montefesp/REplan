@@ -25,7 +25,7 @@ from src.data.res_potential.manager import \
     add_generators_without_siting_pypsa as add_generators_without_siting, \
     add_res_generators_per_bus, \
     add_res_generators_at_resolution
-from src.analyze.pypsa_results import PyPSAResults
+from src.postprocessing.pypsa_results import PyPSAResults
 
 import logging
 logger = logging.getLogger(__name__)
