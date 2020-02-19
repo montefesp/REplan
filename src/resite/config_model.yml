@@ -1,0 +1,40 @@
+# Spatial resolution (in degrees) of the potential sites.
+spatial_resolution: 0.5
+
+# Path towards the various input data.
+path_resource_data: '../input_data/resource_data'
+path_transfer_function_data: '../input_data/transfer_functions'
+path_population_density_data: '../input_data/population_density'
+path_protected_areas_data: '../input_data/protected_areas'
+path_land_data: '../input_data/land_data'
+path_load_data: '../input_data/load_data'
+path_transmission_data: '../input_data/transmission_data'
+path_potential_data: '../input_data/potentials'
+path_legacy_data : '../input_data/legacy'
+path_shapefile_data: '../input_data/shapefiles'
+
+# Various data layers to be taken into account in potential site selection.
+resource_quality_layer: True
+population_density_layer: True
+protected_areas_layer: False
+bathymetry_layer: True
+orography_layer: True
+forestry_layer: True
+water_mask_layer: True
+legacy_layer: True
+
+time_slice: ['2015-01-01T00:00', '2015-01-01T12:00']
+regions: ['BE']
+technologies: ['wind_onshore', 'wind_offshore', 'solar_utility', 'solar_residential']
+
+# Choice of solver. Available: 'gurobi' and 'cplex'.
+solver: 'gurobi'
+
+# Type of problem to be solved. Check models.py for a full list.
+formulation: 'meet_demand_with_capacity' # 'meet_RES_targets_hourly', 'meet_RES_targets_year_round'
+
+# List of deployments per region (ordered as the 'regions' list above)
+deployment_vector: [1.0, 2.5, 2.0, 15.0]
+
+# Keeping files at the end of the run.
+keep_files: True

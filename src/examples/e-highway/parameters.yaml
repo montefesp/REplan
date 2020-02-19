@@ -1,0 +1,86 @@
+# solver
+solver:
+  Crossover: 0
+  #threads: 4
+  #method: 2 # barrier
+  #crossover: 0
+  #BarConvTol: 0.01
+  #FeasibilityTol: 0.01
+  #AggFill: 0
+  #PreDual: 0
+  #GURO_PAR_BARDENSETHRESH: 200
+
+# Time
+# Start time and end time for slicing the database.
+time:
+  slice: [[2017, 1, 1, 0], [2017, 1, 1, 23]]
+  resolution: 1
+
+# Space
+regions:
+  # Regions to be considered (if you want all e-highways regions put 'ALL')
+  main: ["BE", "FR", "NL", "DE", "DK", "GB", "SE", "NO"] #
+  # Regions to be removed (to be used in case you want ALL regions except a few), keep to [] if no regions to remove
+  remove: ["TR", "UA", "MA", "TN"]
+  # Regions to add that are not initially in e-highway ex. Iceland
+  supp: []
+
+add_offshore: True
+
+# RES
+res:
+  include: True
+  strategy: "full" # max or comp or asusual or bus or full
+  resite_nb: 100 # can be multiples of 25
+  area_per_site: 2500 #km2
+  cap_dens:
+    wind: ""  # GW/km2
+    pv: ""  # GW/km2
+
+#
+dispatch:
+  include: True
+  tech: "ccgt"
+
+# Nuclear
+nuclear:
+  include: False
+  use_ex_cap: True # Whether to include existing cap
+  extendable: False
+  ramp_rate: 0.01 # for up and down (can go up or down 1O% of the total capacity every time step)
+
+# Storage
+storage:
+  include: False
+  max_hours: 4
+
+# Hydro
+phs:
+  include: True
+  use_ex_cap: True
+  extendable: False
+  efficiency_store: 0.75
+  efficiency_dispatch: 0.75
+  cyclic_sof: True
+  max_hours: 6
+
+ror:
+  include: True
+  use_ex_cap: True
+  extendable: False
+  efficiency: 0.9
+
+sto:
+  include: True
+  use_ex_cap: True
+  extendable: False
+  efficiency_dispatch: 0.9
+  max_hours: 6 # TODO: need to estimate that from data
+  cyclic_sof: True
+
+
+# Emissions
+co2_emissions:
+  global_per_year: 1 #Gt/year
+  level_1990: 523.6 # t/GWh
+  reduc_from_1990: 0.8 #%
