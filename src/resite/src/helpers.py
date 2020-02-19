@@ -924,7 +924,7 @@ def read_inputs(inputs):
 
 # TODO: used only once, do we need this as a function
 def init_folder(keepfiles):
-    """Initilize an output folder.
+    """Initiliaze an output folder.
 
     Parameters:
 
@@ -946,15 +946,12 @@ def init_folder(keepfiles):
     date = strftime("%Y%m%d")
     time = strftime("%H%M%S")
 
-    if not isdir("../output_data"):
-        makedirs(abspath("../output_data"))
+    dir_name = "../../../output/resite/"
+    if not isdir(dir_name):
+        makedirs(abspath(dir_name))
 
-        path = abspath('../output_data/' + str(date) + '_' + str(time))
-        makedirs(path)
-
-    else:
-        path = abspath('../output_data/' + str(date) + '_' + str(time))
-        makedirs(path)
+    path = abspath(dir_name + str(date) + '_' + str(time))
+    makedirs(path)
 
     custom_log(' Folder path is: {}'.format(str(path)))
 

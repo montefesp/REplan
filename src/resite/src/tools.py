@@ -1167,7 +1167,7 @@ def filter_onshore_offshore_locations(coordinates_in_region, spatial_resolution,
     """
     # TODO: why do this in three lines?
     filename = 'ERA5_land_sea_mask_20181231_' + str(spatial_resolution) + '.nc'
-    path_land_data = '../input_data/land_data'
+    path_land_data = '../../../data/land_data'
 
     dataset = xr.open_dataset(join(path_land_data, filename))
     dataset = dataset.sortby([dataset.longitude, dataset.latitude])

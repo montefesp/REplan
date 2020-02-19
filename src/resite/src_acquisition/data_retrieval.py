@@ -13,7 +13,7 @@ months = ['01','02','03','04','05','06','07','08','09','10','11','12']
 spatial_resolution = 0.5
 
 for region in regions.keys():
-    directory = '../input_data/resource_data/' + str(spatial_resolution) + '/' + region + '/'
+    directory = '../../../data/resource/' + str(spatial_resolution) + '/' + region + '/'
     if not os.path.exists(directory):
         os.makedirs(directory)
 

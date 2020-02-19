@@ -1,4 +1,4 @@
-# py_grid
+# py_ggrid
 
 This repository will contain Python code to automatically perform grid expansion planning.
 
