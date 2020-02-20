@@ -8,6 +8,9 @@ from numpy import arange
 from pyomo.environ import ConcreteModel, Var, Constraint, Objective, minimize, maximize, NonNegativeReals, VarList
 from pyomo.opt import ProblemFormat
 from os.path import join
+from time import time
+
+# TODO: Goal: Understand the full pipeline to improve it
 
 
 # TODO: this function should not be in this file -> data handeling
@@ -34,7 +37,10 @@ def read_input_data(params):
     path_resource_data = params['path_resource_data'] + '/' + str(params['spatial_resolution'])
     database = read_database(path_resource_data)
 
+    # TODO: First part: Obtaining coordinates
+
     print("Filtering coordinates")
+    start = time()
     filtered_coordinates = return_filtered_coordinates(
         database, params['spatial_resolution'], params['technologies'], params['regions'],
         resource_quality_layer=params['resource_quality_layer'],
@@ -43,23 +49,36 @@ def read_input_data(params):
         orography_layer=params['orography_layer'], forestry_layer=params['forestry_layer'],
         water_mask_layer=params['water_mask_layer'], bathymetry_layer=params['bathymetry_layer'],
         legacy_layer=params['legacy_layer'])
+    print(time()-start)
 
+    print(filtered_coordinates)
     print("Truncate data")
     truncated_data = selected_data(database, filtered_coordinates, params['time_slice'])
 
+    # TODO: second part: computing capacity factors
+
     print("Compute cap factor")
+    # TODO: looks ok, to see if we merge it with my tool using atlite
     output_data = return_output(truncated_data)
+
+    # TODO: third part: obtaining load
 
     print("Loading load")
     load_dict = retrieve_load_data(params['regions'], params['time_slice'])
 
+    # TODO: fourth part: obtain potential for each coordinate
+
     print("Compute technical potential per node")
-    init_technical_potential = \
-        capacity_potential_per_node(filtered_coordinates, params['spatial_resolution'])
+    init_technical_potential = capacity_potential_per_node(filtered_coordinates, params['spatial_resolution'])
+
+    # TODO: fifth part: obtaining existing legacy
+
     print("Retrieve existing capacity")
-    init_deployed_potential = \
-        retrieve_capacity_share_legacy_units(init_technical_potential, filtered_coordinates,
-                                             database, params['spatial_resolution'])
+    init_deployed_potential = retrieve_capacity_share_legacy_units(init_technical_potential, filtered_coordinates,
+                                                                   database, params['spatial_resolution'])
+
+    # TODO: fourth part bis: obtain potential for each coordinate (this function should come before the fifth part)
+
     print("Update potential")
     updated_site_data = update_potential_per_node(init_technical_potential, init_deployed_potential)
 

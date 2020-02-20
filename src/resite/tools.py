@@ -14,7 +14,7 @@ import pandas as pd
 from pandas import read_csv, read_excel, Series, notnull
 import scipy.spatial
 from ast import literal_eval
-from windpowerlib import power_curves, wind_speed
+import windpowerlib.power_curves, windpowerlib.wind_speed
 from collections import Counter
 from copy import deepcopy, copy
 import dask.array as da
@@ -335,6 +335,8 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
                                                   which='bathymetry', filename=filename)
                     coordinates = list(set(coordinates) - set(coords_to_remove))
 
+            # TODO: Move that out of here
+
             # print("legacy_layer")
             if tech in ["wind_onshore", "wind_offshore", "solar_utility"] and legacy_layer:
 
@@ -370,8 +372,6 @@ def return_output(input_dict, smooth_wind_power_curve=True):
     ----------
     input_dict : dict
         Dict object storing raw resource data.
-    path_to_transfer_function : str
-        Relative path to transfer function data.
     smooth_wind_power_curve : boolean
         If "True", the transfer function of wind assets replicates the one of a wind farm,
         rather than one of a wind turbine.
@@ -379,14 +379,11 @@ def return_output(input_dict, smooth_wind_power_curve=True):
 
     Returns
     -------
-    output_dict : dict
+    output_dict :
         Dict object storing capacity factors per region and technology.
 
     """
-    key_list = return_dict_keys(input_dict)
 
-    output_dict = deepcopy(input_dict)
-    # TODO: change the path to absolute or sth like that
     tech_config_path = join(dirname(abspath(__file__)), 'config_techs.yml')
     tech_dict = yaml.safe_load(open(tech_config_path))
 
@@ -394,6 +391,8 @@ def return_output(input_dict, smooth_wind_power_curve=True):
     data_converter_wind = read_csv(join(path_to_transfer_function, 'data_wind_turbines.csv'), sep=';', index_col=0)
     data_converter_solar = read_csv(join(path_to_transfer_function, 'data_solar_modules.csv'), sep=';', index_col=0)
 
+    cap_factor_dict = deepcopy(input_dict)
+    key_list = return_dict_keys(input_dict)
     for region, tech in key_list:
 
         resource = tech.split('_')[0]
@@ -401,51 +400,47 @@ def return_output(input_dict, smooth_wind_power_curve=True):
 
         if resource == 'wind':
 
-            ###
-
+            # TODO: should that be a parameter?
             wind_speed_height = 100.
             array_roughness = input_dict[region][tech].fsr
 
-            # Compute the resultant of the two wind components.
-            wind = xu.sqrt(input_dict[region][tech].u100 ** 2 +
-                           input_dict[region][tech].v100 ** 2)
-
-            ti = wind.std(dim='time')/wind.mean(dim='time')
-
-            wind_log = wind_speed.logarithmic_profile(wind.values,
-                                                      wind_speed_height,
-                                                      float(data_converter_wind.loc['Hub height [m]', converter]),
-                                                      array_roughness.values)
+            # Compute wind speed for the all the coordinates
+            wind = xu.sqrt(input_dict[region][tech].u100 ** 2 + input_dict[region][tech].v100 ** 2)
+            wind_log = windpowerlib.wind_speed.logarithmic_profile(
+                wind.values, wind_speed_height,
+                float(data_converter_wind.loc['Hub height [m]', converter]),
+                array_roughness.values)
             wind_data = da.from_array(wind_log, chunks='auto', asarray=True)
 
-            coordinates = input_dict[region][tech].u100.coords
-            dimensions = input_dict[region][tech].u100.dims
-
+            # Get the transfer function curve
+            # TODO: what does literal_eval do?
             power_curve_array = literal_eval(data_converter_wind.loc['Power curve', converter])
-
             wind_speed_references = asarray([i[0] for i in power_curve_array])
             capacity_factor_references = asarray([i[1] for i in power_curve_array])
             capacity_factor_references_pu = capacity_factor_references / max(capacity_factor_references)
 
+            # The transfer function of wind assets replicates the one of a wind farm rather than one of a wind turbine.
             if smooth_wind_power_curve:
-                # Windpowerlib function here:
-                # https://windpowerlib.readthedocs.io/en/latest/temp/windpowerlib.power_curves.smooth_power_curve.html
-                capacity_factor_farm = \
-                    power_curves.smooth_power_curve(Series(wind_speed_references),
-                                                    Series(capacity_factor_references_pu),
-                                                    standard_deviation_method='turbulence_intensity',
-                                                    turbulence_intensity=float(ti.min().values),
-                                                    wind_speed_range=10.0)
+
+                turbulence_intensity = wind.std(dim='time') / wind.mean(dim='time')
+
+                capacity_factor_farm = windpowerlib.power_curves.smooth_power_curve(
+                    Series(wind_speed_references), Series(capacity_factor_references_pu),
+                    standard_deviation_method='turbulence_intensity',
+                    turbulence_intensity=float(turbulence_intensity.min().values),
+                    wind_speed_range=10.0)  # TODO: parametrize ?
 
                 power_output = da.map_blocks(interp, wind_data,
                                              capacity_factor_farm['wind_speed'].values,
                                              capacity_factor_farm['value'].values).compute()
-
             else:
 
                 power_output = da.map_blocks(interp, wind_data,
                                              wind_speed_references,
                                              capacity_factor_references_pu).compute()
+
+            dimensions = input_dict[region][tech].u100.dims
+            coordinates = input_dict[region][tech].u100.coords
 
         elif resource == 'solar':
 
@@ -453,9 +448,6 @@ def return_output(input_dict, smooth_wind_power_curve=True):
             irradiance = input_dict[region][tech].ssrd / 3600.
             # Get temperature in C from K
             temperature = input_dict[region][tech].t2m - 273.15
-
-            coordinates = input_dict[region][tech].ssrd.coords
-            dimensions = input_dict[region][tech].ssrd.dims
 
             # Homer equation here:
             # https://www.homerenergy.com/products/pro/docs/latest/how_homer_calculates_the_pv_array_power_output.html
@@ -465,15 +457,20 @@ def return_output(input_dict, smooth_wind_power_curve=True):
                             (1. + float(data_converter_solar.loc['k_P [%/C]', converter])/100. *
                              (temperature - float(data_converter_solar.loc['t_ref', converter]))))
 
+            coordinates = input_dict[region][tech].ssrd.coords
+            dimensions = input_dict[region][tech].ssrd.dims
+
         else:
             raise ValueError(' The resource specified is not available yet.')
 
-        output_array = xr.DataArray(power_output, coords=coordinates, dims=dimensions)
-        output_array = output_array.where(output_array > 0.01, other=0.0)
+        cap_factor_dict_array = xr.DataArray(power_output,
+                                    coords=coordinates, dims=dimensions)
+        # TODO: why this filtering above 0.01?
+        cap_factor_dict_array = cap_factor_dict_array.where(cap_factor_dict_array > 0.01, other=0.0)
 
-        output_dict[region][tech] = output_array
+        cap_factor_dict[region][tech] = cap_factor_dict_array
 
-    return output_dict
+    return cap_factor_dict
 
 
 # TODO:
@@ -570,9 +567,6 @@ def capacity_potential_per_node(input_dict, spatial_resolution):
         List containing coordinates in region of interest.
     spatial_resolution : float
         Spatial resolution of the study.
-    path_potential_data : str
-    path_shapefile_data : str
-    path_legacy_data : str
     legacy_layer : boolean
 
     Returns
@@ -933,7 +927,7 @@ def update_potential_per_node(potential_per_node_dict, deployment_shares_dict):
     for region, tech in key_list:
 
         potential_per_node = potential_per_node_dict[region][tech].copy()
-        deployment_shares = deployment_shares_dict[region][tech]
+        deployment_shares = deployment_shares_dict[region][tech].copy()
 
         for p in deployment_shares[deployment_shares > 1.].locations.values:
 

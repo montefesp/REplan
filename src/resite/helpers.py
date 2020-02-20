@@ -1,7 +1,6 @@
 import os
 import glob
 import numpy as np
-from shapely.geometry import Point
 from xarray import concat
 from copy import deepcopy
 from pandas import DataFrame
@@ -498,8 +497,7 @@ def chunk_split(l, n):
 
 # TODO:
 #  - i would change the name: truncate_dataset?
-#  - resite.dataset
-def selected_data(dataset, input_dict, time_slice):
+def selected_data(dataset, coordinate_dict, time_slice):
     """
     Slices xarray.Dataset based on relevant i) time horizon and ii) location sets.
 
@@ -507,38 +505,37 @@ def selected_data(dataset, input_dict, time_slice):
     ----------
     dataset : xarray.Dataset
         Complete resource dataset.
-    input_dict : dict
+    coordinate_dict : dict
         Dict object storing location sets per region and technology.
     time_slice : list
         List containing start and end timestamps for the study.
 
     Returns
     -------
-    output_dict : dict
+    output_dict : Dict[str, Dict[str, xarray.Dataset]]
         Dict object storing sliced data per region and technology.
 
     """
-    key_list = return_dict_keys(input_dict)
+    key_list = return_dict_keys(coordinate_dict)
 
-    output_dict = deepcopy(input_dict)
+    # TODO: maybe a better way to create the dict that to copy the input
+    output_dict = deepcopy(coordinate_dict)
 
-    datetime_start = np.datetime64(time_slice[0])
-    datetime_end = np.datetime64(time_slice[1])
-
+    # TODO: should do a test to see if this is still a problem
     # This is a test which raised some problems on Linux distros, where for some
     # unknown reason the dataset is not sorted on the time dimension.
-    if (datetime_start < dataset.time.values[0]) or \
-            (datetime_end > dataset.time.values[-1]):
+    datetime_start = np.datetime64(time_slice[0])
+    datetime_end = np.datetime64(time_slice[1])
+    if (datetime_start < dataset.time.values[0]) or (datetime_end > dataset.time.values[-1]):
         raise ValueError(' At least one of the time indices exceeds the available data.')
 
     for region, tech in key_list:
 
         dataset_temp = []
 
-        for chunk in chunk_split(input_dict[region][tech], n=50):
+        for chunk in chunk_split(coordinate_dict[region][tech], n=50):
 
-            dataset_region = dataset.sel(locations=chunk,
-                                            time=slice(datetime_start, datetime_end))
+            dataset_region = dataset.sel(locations=chunk, time=slice(datetime_start, datetime_end))
             dataset_temp.append(dataset_region)
 
         output_dict[region][tech] = xr.concat(dataset_temp, dim='locations')

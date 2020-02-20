@@ -170,54 +170,75 @@ def return_ISO_codes_from_countries():
     return dict_ISO
 
 
+def get_subregions_list(region_code: str):
+    """
+    Returns the list of the codes of the subregion of a given region
+    Parameters
+    ----------
+    region_code: str
+        Code of a geographical region
+
+    Returns
+    -------
+    subregion_list: List[str]
+        List of subregion codes, if no subregions, returns List[region_code]
+    """
+
+    # TODO: need to change that
+    # path_shapefile_data = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../data/shapefiles')
+    # onshore_shapes_all = gpd.read_file(os.path.join(path_shapefile_data, 'NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson'))
+
+    region_definition_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                        '../../resite/region_definition.csv')
+    region_definition = pd.read_csv(region_definition_fn, index_col=0, keep_default_na=False)
+    if region_code in region_definition.index:
+        subregions_list = region_definition.loc[region_code].subregions.split(";")
+    #elif region_code in onshore_shapes_all['CNTR_CODE'].values: # TODO: to check
+    else:
+        subregions_list = [region_code]
+    #else:
+    #    raise ValueError(' Unknown region ', region_code)
+
+    return subregions_list
+
+
 # TODO:
 #  - why shapefile? just shape?
-def return_region_shapefile(region, prepared=False):
+def return_region_shapefile(region_code, prepared=False):
     """
     Returns shapefile associated with the region(s) of interest.
 
     Parameters
     ----------
-    region : str
+    region_code : str
+        Code of a geographical region
 
-    path_shapefile_data : str
 
     Returns
     -------
     output_dict : dict
-        Dict object containing i) region subdivisions (if the case) and
+        Dict object containing i) region subdivisions and
         ii) associated onshore and offshore shapes.
 
     """
+    subregions_list = get_subregions_list(region_code)
 
-    # Load countries/regions shapes
-    # TODO: need to change that
-    path_shapefile_data = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../data/shapefiles')
-    onshore_shapes_all = gpd.read_file(os.path.join(path_shapefile_data, 'NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson'))
-
-    # TODO: I would actually put that in another function
-    region_definition_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../resite/region_definition.csv')
-    region_definition = pd.read_csv(region_definition_fn, index_col=0, keep_default_na=False)
-    if region in region_definition.index:
-        region_subdivisions = region_definition.loc[region].subregions.split(";")
-    elif region in onshore_shapes_all['CNTR_CODE'].values:
-        region_subdivisions = [region]
-    else:
-        raise ValueError(' Unknown region ', region)
-
+    # Get onshore shape
     filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "../../../output/geographics/" + region + "_on.geojson")
-    onshore_union = cascaded_union(get_onshore_shapes(region_subdivisions, save_file=filename)["geometry"].values)
+                            "../../../output/geographics/" + region_code + "_on.geojson")
+    onshore_union = cascaded_union(get_onshore_shapes(subregions_list, save_file=filename)["geometry"].values)
+
+    # Get offshore shape
     filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "../../../output/geographics/" + region + "_off.geojson")
+                            "../../../output/geographics/" + region_code + "_off.geojson")
     offshore_union = \
-        cascaded_union(get_offshore_shapes(region_subdivisions, onshore_union, save_file=filename)["geometry"].values)
+        cascaded_union(get_offshore_shapes(subregions_list, onshore_union, save_file=filename)["geometry"].values)
 
     if prepared:
         onshore_union = shapely.prepared.prep(onshore_union)
         offshore_union = shapely.prepared.prep(offshore_union)
 
-    output_dict = {'region_subdivisions': region_subdivisions,
+    output_dict = {'region_subdivisions': subregions_list,
                    'region_shapefiles': {'onshore': onshore_union,
                                          'offshore': offshore_union}}
 
