@@ -9,7 +9,7 @@ from random import random
 import pandas as pd
 import geopandas as gpd
 import shapely
-from shapely.geometry import MultiPolygon, Polygon, Point
+from shapely.geometry import MultiPolygon, Polygon, Point, MultiPoint
 from shapely.ops import cascaded_union, unary_union
 
 import pycountry as pyc
@@ -20,6 +20,7 @@ import cartopy.crs as ccrs
 # import cartopy.feature as cfeature
 
 # from vresutils.graph import voronoi_partition_pts
+from time import time
 
 
 # TODO: might be nice to transform that into a full-fledged package
@@ -169,7 +170,7 @@ def return_ISO_codes_from_countries():
 
 # TODO:
 #  - why shapefile? just shape?
-def return_region_shapefile(region):
+def return_region_shapefile(region, prepared=False):
     """
     Returns shapefile associated with the region(s) of interest.
 
@@ -230,46 +231,40 @@ def return_region_shapefile(region):
     onshore_union = unary_union(onshore)
     offshore_union = unary_union(offshore)
 
-    onshore_prepared = shapely.prepared.prep(onshore_union)
-    offshore_prepared = shapely.prepared.prep(offshore_union)
+    if prepared:
+        onshore_union = shapely.prepared.prep(onshore_union)
+        offshore_union = shapely.prepared.prep(offshore_union)
 
     output_dict = {'region_subdivisions': region_subdivisions,
-                   'region_shapefiles': {'onshore': onshore_prepared,
-                                         'offshore': offshore_prepared}}
+                   'region_shapefiles': {'onshore': onshore_union,
+                                         'offshore': offshore_union}}
 
     return output_dict
 
 
 # TODO:
 #  - can probably improve running time using shapely multipoint intersection
-def return_coordinates_from_shapefiles(resource_dataset, shapefiles_region):
+def return_coordinates_from_shapefiles(coordinates, region_shapes):
     """
     Returning coordinate (lon, lat) pairs falling into the region(s) of interest.
 
     Parameters
     ----------
-    resource_dataset : xarray.Dataset
-        Resource dataset.
-    shapefiles_region : dict
-        Dict object containing the onshore and offshore shapefiles.
+    coordinates : List[(float, float)]
+        Coordinates to filter
+    region_shapes : dict
+        Dict object containing the onshore and offshore shapes.
 
     Returns
     -------
-    coordinates_in_region : list
-        List of coordinate pairs in the region of interest.
+    List of coordinate pairs in the region of interest.
 
     """
-    start_coordinates = list(zip(resource_dataset.longitude.values, resource_dataset.latitude.values))
+    coords = MultiPoint(coordinates)
+    coords_in_region_onshore = [(point.x, point.y) for point in coords.intersection(region_shapes['onshore'])]
+    coords_in_region_offshore = [(point.x, point.y) for point in coords.intersection(region_shapes['offshore'])]
 
-    coordinates_in_region_onshore = np.array(start_coordinates, np.dtype('float,float'))[
-                                [shapefiles_region['onshore'].contains(Point(p)) for p in start_coordinates]].tolist()
-
-    coordinates_in_region_offshore = np.array(start_coordinates, np.dtype('float,float'))[
-        [shapefiles_region['offshore'].contains(Point(p)) for p in start_coordinates]].tolist()
-
-    coordinates_in_region = list(set(coordinates_in_region_onshore).union(set(coordinates_in_region_offshore)))
-
-    return coordinates_in_region
+    return coords_in_region_offshore + coords_in_region_onshore
 
 
 # TODO: why is the tolerance stuff not there anymore?

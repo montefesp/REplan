@@ -19,6 +19,7 @@ from windpowerlib import power_curves, wind_speed
 from collections import Counter
 from copy import deepcopy, copy
 import dask.array as da
+import yaml
 
 
 # TODO:
@@ -274,11 +275,14 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
         Dict object storing potential locations sets per region and technology.
 
     """
+    # TODO: we are only using datasets for its coordinates so why not send directly the coordinates?
     # TODO: continue to improve this and filter_locations_by_layer
     # TODO: change the path
-    tech_config = read_inputs('config_techs.yml')
+    tech_config = yaml.safe_load(open('config_techs.yml'))
     output_dict = {region: {tech: None for tech in technologies} for region in regions}
+    all_coordinates = list(zip(dataset.longitude.values, dataset.latitude.values))
 
+    # TODO: look if it is possible to remove the loop on regoin
     for region in regions:
 
         print(region)
@@ -287,8 +291,8 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
 
             # TODO: need to speed that up
             tech_dict = tech_config[tech]
-            region_shapefile_data = return_region_shapefile(region)
-            coordinates = return_coordinates_from_shapefiles(dataset, region_shapefile_data['region_shapefiles'])
+            region_shapes = return_region_shapefile(region)
+            coordinates = return_coordinates_from_shapefiles(all_coordinates, region_shapes['region_shapefiles'])
             start_coordinates = copy(coordinates)
 
             # TODO: I would rearrange this and filter_locations_by_layer
@@ -355,7 +359,7 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
                 land_filtered_coordinates = filter_onshore_offshore_locations(start_coordinates,
                                                                               spatial_resolution, tech)
                 legacy_dict = read_legacy_capacity_data(land_filtered_coordinates,
-                                                        region_shapefile_data['region_subdivisions'], tech)
+                                                        region_shapes['region_subdivisions'], tech)
                 coords_to_add_legacy = retrieve_nodes_with_legacy_units(legacy_dict, region, tech)
 
                 final_coordinates = set(coordinates).union(set(coords_to_add_legacy))
@@ -848,11 +852,12 @@ def retrieve_capacity_share_legacy_units(input_dict, init_coordinate_dict, datas
 
     output_dict = deepcopy(input_dict)
 
+    all_coordinates = list(zip(dataset.longitude.values, dataset.latitude.values))
     for region, tech in key_list:
 
         region_shapefile_data = return_region_shapefile(region)
 
-        start_coordinates = return_coordinates_from_shapefiles(dataset, region_shapefile_data['region_shapefiles'])
+        start_coordinates = return_coordinates_from_shapefiles(all_coordinates, region_shapefile_data['region_shapefiles'])
         region_subdivisions = region_shapefile_data['region_subdivisions']
 
         land_filtered_coordinates = filter_onshore_offshore_locations(start_coordinates, spatial_resolution, tech)
