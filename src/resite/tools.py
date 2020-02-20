@@ -282,18 +282,19 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
     output_dict = {region: {tech: None for tech in technologies} for region in regions}
     all_coordinates = list(zip(dataset.longitude.values, dataset.latitude.values))
 
-    # TODO: look if it is possible to remove the loop on regoin
+    # TODO: look if it is possible to remove the loop on regions
     for region in regions:
 
         print(region)
+        region_shapes = return_region_shapefile(region)
+        region_coordinates = return_coordinates_from_shapefiles(all_coordinates, region_shapes['region_shapefiles'])
+
         for tech in technologies:
             print(tech)
 
-            # TODO: need to speed that up
             tech_dict = tech_config[tech]
-            region_shapes = return_region_shapefile(region)
-            coordinates = return_coordinates_from_shapefiles(all_coordinates, region_shapes['region_shapefiles'])
-            start_coordinates = copy(coordinates)
+            coordinates = copy(region_coordinates)
+            start_coordinates = copy(region_coordinates)
 
             # TODO: I would rearrange this and filter_locations_by_layer
             print("resource_quality_layer")
@@ -623,7 +624,7 @@ def capacity_potential_per_node(input_dict, spatial_resolution):
 
     for region, tech in key_list:
 
-        region_subdivisions = return_region_shapefile(region)['region_subdivisions']
+        region_subdivisions = return_region_shapefile(region, True)['region_subdivisions']
 
         if tech in ['wind_offshore', 'wind_floating']:
 
@@ -816,11 +817,11 @@ def retrieve_nodes_with_legacy_units(input_dict, region, tech):
 
         if tech in ['wind_offshore', 'wind_floating']:
 
-            region_shapefile = return_region_shapefile(region)['region_shapefiles']['offshore']
+            region_shapefile = return_region_shapefile(region, True)['region_shapefiles']['offshore']
 
         else:
 
-            region_shapefile = return_region_shapefile(region)['region_shapefiles']['onshore']
+            region_shapefile = return_region_shapefile(region, True)['region_shapefiles']['onshore']
 
         existing_locations_filtered = array(existing_locations, dtype('float,float'))[
                                             [region_shapefile.contains(Point(p)) for p in existing_locations]].tolist()

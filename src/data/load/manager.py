@@ -506,7 +506,8 @@ def retrieve_load_data(regions, time_slice):
 
     for region in regions:
 
-        region_unit_list = return_region_shapefile(region)['region_subdivisions']
+        # TODO: not even using the shapes???? --> really need to change this completely and remove this subregions thing from the return_region_shapefile
+        region_unit_list = return_region_shapefile(region, True)['region_subdivisions']
 
         load_data_sliced = load_data.loc[time_slice[0]:time_slice[1]][region_unit_list]
 

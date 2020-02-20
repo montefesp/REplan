@@ -392,8 +392,9 @@ def load_pypsa(network: pypsa.Network, countries, trans_costs: Dict[str, Dict[st
         if len(offshore_zones_codes) != 0:
             onshore_buses = buses[buses.onshore]
             onshore_buses_regions = pd.DataFrame(onshore_buses.region.values, index=onshore_buses.index, columns=["geometry"])
+            onshore_buses_regions_union = cascaded_union(onshore_buses_regions['geometry'].values)
             offshore_zones_shape = cascaded_union(
-                get_offshore_shapes(offshore_zones_codes, onshore_buses_regions, filterremote=True).values.flatten())
+                get_offshore_shapes(offshore_zones_codes, onshore_buses_regions_union, filterremote=True).values.flatten())
             offshore_buses = buses[buses.onshore == False]
             # offshore_buses_regions = voronoi_partition_pts(offshore_buses[["x", "y"]].values, offshore_zones_shape)
             buses.loc[buses.onshore == False, "region"] = voronoi_special(offshore_buses[["x", "y"]].values, offshore_zones_shape)

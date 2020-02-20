@@ -189,7 +189,6 @@ def return_region_shapefile(region, prepared=False):
     """
 
     # Load countries/regions shapes
-    # TODO: make real absolute path
     path_shapefile_data = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../data/shapefiles')
     onshore_shapes_all = gpd.read_file(os.path.join(path_shapefile_data,'NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson'))
 
@@ -221,15 +220,8 @@ def return_region_shapefile(region, prepared=False):
     else:
         raise ValueError(' Unknown region ', region)
 
-    onshore_shapes_selected = get_onshore_shapes_dr(region_subdivisions, path_shapefile_data)
-    offshore_shapes_selected = get_offshore_shapes_dr(region_subdivisions, onshore_shapes_selected, path_shapefile_data)
-
-    # TODO: can this not be done directly with cascade_union?
-    onshore = np.hstack((onshore_shapes_selected["geometry"].values))
-    offshore = np.hstack((offshore_shapes_selected["geometry"].values))
-
-    onshore_union = unary_union(onshore)
-    offshore_union = unary_union(offshore)
+    onshore_union = cascaded_union(get_onshore_shapes(region_subdivisions)["geometry"].values)
+    offshore_union = cascaded_union(get_offshore_shapes(region_subdivisions, onshore_union)["geometry"].values)
 
     if prepared:
         onshore_union = shapely.prepared.prep(onshore_union)
@@ -265,170 +257,6 @@ def return_coordinates_from_shapefiles(coordinates, region_shapes):
     coords_in_region_offshore = [(point.x, point.y) for point in coords.intersection(region_shapes['offshore'])]
 
     return coords_in_region_offshore + coords_in_region_onshore
-
-
-# TODO: why is the tolerance stuff not there anymore?
-def filter_onshore_polys_dr(polys, minarea=0.1, filterremote=True):
-    """
-    Filters onshore polygons for a given territory
-    (e.g., removing French Guyana from the polygon associated with the French shapefile).
-
-    Parameters
-    ----------
-    polys : (Multi)Polygon
-        Geometry-like object containing the shape of a given onshore region.
-    minarea : float
-        Area threshold used in the polygon selection process.
-    filterremote : boolean
-
-    Returns
-    -------
-    polys : (Multi)Polygon
-
-    """
-    if isinstance(polys, MultiPolygon):
-
-        polys = sorted(polys, key=attrgetter('area'), reverse=True)
-        mainpoly = polys[0]
-        mainlength = np.sqrt(mainpoly.area/(2.*np.pi))
-
-        if mainpoly.area > minarea:
-
-            polys = MultiPolygon([p for p in takewhile(lambda p: p.area > minarea, polys)
-                                  if not filterremote or (mainpoly.distance(p) < mainlength)])
-
-        else:
-
-            polys = mainpoly
-
-    return polys
-
-
-def filter_offshore_polys_dr(offshore_polys, onshore_polys_union, minarea=0.1, filterremote=True):
-    """
-    Filters offshore polygons for a given territory.
-
-    Parameters
-    ----------
-    offshore_polys : (Multi)Polygon
-        Geometry-like object containing the shape of a given offshore region.
-    onshore_polys_union : (Multi)Polygon
-        Geometry-like object containing the aggregated shape of given onshore regions.
-    minarea : float
-        Area threshold used in the polygon selection process.
-    filterremote : boolean
-
-    Returns
-    -------
-    polys : (Multi)Polygon
-
-    """
-    if isinstance(offshore_polys, MultiPolygon):
-
-        offshore_polys = sorted(offshore_polys, key=attrgetter('area'), reverse=True)
-
-    else:
-
-        offshore_polys = [offshore_polys]
-
-    mainpoly = offshore_polys[0]
-    mainlength = np.sqrt(mainpoly.area/(5.*np.pi))  # TODO: why is it 5 here?
-    polys = []
-
-    if mainpoly.area > minarea:
-
-        for offshore_poly in offshore_polys:
-
-            if offshore_poly.area < minarea:
-
-                break
-
-            if isinstance(onshore_polys_union, Polygon):
-
-                onshore_polys_union = [onshore_polys_union]
-
-            for onshore_poly in onshore_polys_union:
-
-                if not filterremote or offshore_poly.distance(onshore_poly) < mainlength:
-
-                    polys.append(offshore_poly)
-
-                    break
-
-        polys = MultiPolygon(polys)
-
-    else:
-
-        polys = mainpoly
-
-    return polys
-
-
-def get_onshore_shapes_dr(region_name_list, path_shapefile_data, minarea=0.1, filterremote=True):
-    """
-    Returns onshore shapefile associated with a given region, or list of regions.
-
-    Parameters
-    ----------
-    region_name_list : list
-        List of regions whose shapefiles are aggregated.
-    path_shapefile_data : str
-        Relative path of the shapefile data.
-    minarea : float
-    filterremote : boolean
-
-    Returns
-    -------
-    onshore_shapes : GeoDataFrame
-
-    """
-    filename = 'NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson'
-    onshore_shapes = gpd.read_file(os.path.join(path_shapefile_data, filename))
-
-    onshore_shapes.index = onshore_shapes['CNTR_CODE']
-
-    onshore_shapes = onshore_shapes.reindex(region_name_list)
-    onshore_shapes['geometry'] = onshore_shapes['geometry'].map(lambda x: filter_onshore_polys_dr(x, minarea, filterremote))
-
-    return onshore_shapes
-
-
-def get_offshore_shapes_dr(region_name_list, country_shapes, path_shapefile_data, minarea=0.1, filterremote=True):
-    """
-    Returns offshore shapefile associated with a given region, or list of regions.
-
-    Parameters
-    ----------
-    region_name_list : list
-        List of regions whose shapefiles are aggregated.
-    country_shapes : GeoDataFrame
-        Dataframe containing onshore shapes of the desired regions.
-    path_shapefile_data : str
-    minarea : float
-    filterremote : boolean
-
-    Returns
-    -------
-    offshore_shapes : GeoDataFrame
-
-    """
-    filename = 'EEZ_RG_01M_2016_4326_LEVL_0.geojson'
-    offshore_shapes = gpd.read_file(os.path.join(path_shapefile_data, filename)).set_index('ISO_ID')
-
-    # Keep only associated countries
-    countries_names = [name.split('-')[0] for name in region_name_list]  # Allows to consider states and provinces
-
-    offshore_shapes = offshore_shapes.reindex(countries_names)
-    offshore_shapes['geometry'].fillna(Polygon([]), inplace=True)  # Fill nan geometries with empty Polygons
-
-    country_shapes_union = unary_union(country_shapes['geometry'].values)
-
-    # Keep only offshore 'close' to onshore
-    offshore_shapes['geometry'] = \
-        offshore_shapes['geometry'].map(lambda x: filter_offshore_polys_dr(x, country_shapes_union, minarea,
-                                                                           filterremote))
-
-    return offshore_shapes
 
 
 # -- Filter polygons functions -- #
@@ -554,7 +382,7 @@ def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, sav
 
 
 # TODO: might need to revise this function
-def get_offshore_shapes(ids, onshore_shapes, minarea=0.1, tolerance=0.01, filterremote=False, save_file=None):
+def get_offshore_shapes(ids, onshore_shape, minarea=0.1, tolerance=0.01, filterremote=False, save_file=None):
     """Load the shapes of the offshore territories of a specified set of regions into a GeoPandas Dataframe
 
     Parameters
@@ -594,12 +422,9 @@ def get_offshore_shapes(ids, onshore_shapes, minarea=0.1, tolerance=0.01, filter
     region_names = [idx.split('-')[0] for idx in filtered_ids]  # Allows to consider states and provinces
     offshore_shapes = offshore_shapes.loc[region_names]
 
-    # onshore_shapes = onshore_shapes.loc[filtered_ids]
-    onshore_shapes_union = cascaded_union(onshore_shapes['geometry'].values)
-
     # Keep only offshore 'close' to onshore
     offshore_shapes['geometry'] = offshore_shapes['geometry']\
-        .map(lambda x: filter_offshore_polys(x, onshore_shapes_union, minarea, tolerance, filterremote))
+        .map(lambda x: filter_offshore_polys(x, onshore_shape, minarea, tolerance, filterremote))
     if save_file is not None:
         save_to_geojson(offshore_shapes, save_file)
 
@@ -726,9 +551,10 @@ if __name__ == "__main__":
                                           '../../../data/geographics/on_test.geojson')
     onshore_shapes_ = get_onshore_shapes(['BE'], minarea=10000, filterremote=True)
     print(onshore_shapes_)
+    onshore_shapes_union = cascaded_union(onshore_shapes_['geometry'].values)
     offshore_shapes_save_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                            '../../../data/geographics/off_test.geojson')
-    offshore_shapes_ = get_offshore_shapes(['BE'], onshore_shapes_, filterremote=True)
+    offshore_shapes_ = get_offshore_shapes(['BE'], onshore_shapes_union, filterremote=True)
     print(len(offshore_shapes_) == 0)
 
     us_off_shape = offshore_shapes_['geometry'].values
