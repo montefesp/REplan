@@ -278,7 +278,9 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
     # TODO: we are only using datasets for its coordinates so why not send directly the coordinates?
     # TODO: continue to improve this and filter_locations_by_layer
     # TODO: change the path
-    tech_config = yaml.safe_load(open('config_techs.yml'))
+
+    tech_config_path = join(dirname(abspath(__file__)), 'config_techs.yml')
+    tech_config = yaml.safe_load(open(tech_config_path))
     output_dict = {region: {tech: None for tech in technologies} for region in regions}
     all_coordinates = list(zip(dataset.longitude.values, dataset.latitude.values))
 
@@ -407,7 +409,8 @@ def return_output(input_dict, smooth_wind_power_curve=True):
 
     output_dict = deepcopy(input_dict)
     # TODO: change the path to absolute or sth like that
-    tech_dict = read_inputs('config_techs.yml')
+    tech_config_path = join(dirname(abspath(__file__)), 'config_techs.yml')
+    tech_dict = yaml.safe_load(open(tech_config_path))
 
     path_to_transfer_function = join(dirname(abspath(__file__)), '../../data/transfer_functions/')
     data_converter_wind = read_csv(join(path_to_transfer_function, 'data_wind_turbines.csv'), sep=';', index_col=0)

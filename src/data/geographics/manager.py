@@ -189,39 +189,26 @@ def return_region_shapefile(region, prepared=False):
     """
 
     # Load countries/regions shapes
+    # TODO: need to change that
     path_shapefile_data = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../data/shapefiles')
-    onshore_shapes_all = gpd.read_file(os.path.join(path_shapefile_data,'NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson'))
+    onshore_shapes_all = gpd.read_file(os.path.join(path_shapefile_data, 'NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson'))
 
-    if region == 'EU':
-        region_subdivisions = ['AT', 'BE', 'DE', 'DK', 'ES', 'BA',
-                            'FR', 'UK', 'IE', 'IT', 'LU',
-                            'NL', 'NO', 'PT', 'SE', 'CH', 'CZ',
-                            'AL', 'BG', 'EE', 'LV', 'ME',
-                            'FI', 'EL', 'HR', 'HU', 'LT',
-                            'MK', 'PL', 'RO', 'RS', 'SI', 'SK']
-    elif region == 'NA':
-        region_subdivisions = ['DZ', 'EG', 'MA', 'LY', 'TN']
-    elif region == 'ME':
-        region_subdivisions = ['AE', 'BH', 'CY', 'IR', 'IQ', 'IL', 'JO', 'KW', 'LB', 'OM', 'PS', 'QA', 'SA', 'SY', 'YE']
-    elif region == 'US_S':
-        region_subdivisions = ['US-TX']
-    elif region == 'US_W':
-        region_subdivisions = ['US-AZ', 'US-CA', 'US-CO', 'US-MT', 'US-WY', 'US-NM',
-                               'US-UT', 'US-ID', 'US-WA', 'US-NV', 'US-OR']
-    elif region == 'US_E':
-        region_subdivisions = ['US-ND', 'US-SD', 'US-NE', 'US-KS', 'US-OK', 'US-MN',
-                               'US-IA', 'US-MO', 'US-AR', 'US-LA', 'US-MS', 'US-AL', 'US-TN',
-                               'US-IL', 'US-WI', 'US-MI', 'US-IN', 'US-OH', 'US-KY', 'US-GA', 'US-FL',
-                               'US-PA', 'US-SC', 'US-NC', 'US-VA', 'US-WV',
-                               'US-MD', 'US-DE', 'US-NJ', 'US-NY', 'US-CT', 'US-RI',
-                               'US-MA', 'US-VT', 'US-ME', 'US-NH']
+    region_definition_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../resite/region_definition.csv')
+    region_definition = pd.read_csv(region_definition_fn, index_col=0, keep_default_na=False)
+    if region in region_definition.index:
+        region_subdivisions = region_definition.loc[region].subregions.split(";")
     elif region in onshore_shapes_all['CNTR_CODE'].values:
         region_subdivisions = [region]
     else:
         raise ValueError(' Unknown region ', region)
 
-    onshore_union = cascaded_union(get_onshore_shapes(region_subdivisions)["geometry"].values)
-    offshore_union = cascaded_union(get_offshore_shapes(region_subdivisions, onshore_union)["geometry"].values)
+    filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "../../../output/geographics/" + region + "_on.geojson")
+    onshore_union = cascaded_union(get_onshore_shapes(region_subdivisions, save_file=filename)["geometry"].values)
+    filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "../../../output/geographics/" + region + "_off.geojson")
+    offshore_union = \
+        cascaded_union(get_offshore_shapes(region_subdivisions, onshore_union, save_file=filename)["geometry"].values)
 
     if prepared:
         onshore_union = shapely.prepared.prep(onshore_union)
@@ -360,6 +347,7 @@ def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, sav
     if save_file is not None and os.path.isfile(save_file):
         return gpd.read_file(save_file).set_index('name')
 
+    # TODO: take ages to load file... --> need to do sth about this
     onshore_shapes_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                             '../../../data/geographics/generated/onshore_shapes.geojson')
     onshore_shapes = gpd.read_file(onshore_shapes_file_name).set_index("name")
