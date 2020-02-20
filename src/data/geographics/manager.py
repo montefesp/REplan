@@ -19,6 +19,8 @@ from matplotlib import pyplot as plt
 import cartopy.crs as ccrs
 # import cartopy.feature as cfeature
 
+from typing import *
+
 # from vresutils.graph import voronoi_partition_pts
 from time import time
 
@@ -193,6 +195,7 @@ def return_region_shapefile(region, prepared=False):
     path_shapefile_data = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../data/shapefiles')
     onshore_shapes_all = gpd.read_file(os.path.join(path_shapefile_data, 'NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson'))
 
+    # TODO: I would actually put that in another function
     region_definition_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../resite/region_definition.csv')
     region_definition = pd.read_csv(region_definition_fn, index_col=0, keep_default_na=False)
     if region in region_definition.index:
@@ -221,8 +224,6 @@ def return_region_shapefile(region, prepared=False):
     return output_dict
 
 
-# TODO:
-#  - can probably improve running time using shapely multipoint intersection
 def return_coordinates_from_shapefiles(coordinates, region_shapes):
     """
     Returning coordinate (lon, lat) pairs falling into the region(s) of interest.
@@ -248,7 +249,7 @@ def return_coordinates_from_shapefiles(coordinates, region_shapes):
 
 # -- Filter polygons functions -- #
 
-def filter_onshore_polys(polys, minarea=0.1, tolerance=0.01, filterremote=False):
+def filter_onshore_polys(polys: Union[Polygon, MultiPolygon], minarea=0.1, tolerance=0.01, filterremote=False):
     """Filter onshore polygons based on distance to main land.
 
     Parameters

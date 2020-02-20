@@ -1,7 +1,6 @@
 from src.data.geographics.manager import return_region_shapefile, return_coordinates_from_shapefiles,\
     match_point_to_region, return_ISO_codes_from_countries
 from src.resite.helpers import update_potential_files, collapse_dict_region_level, return_dict_keys, read_database
-from src.resite.utils import read_inputs
 from numpy import arange, interp, sqrt, \
                   asarray, clip, array, sum, \
                   max, hstack, dtype, radians, arctan2, sin, cos
@@ -9,23 +8,25 @@ import xarray as xr
 import xarray.ufuncs as xu
 import dask.array as da
 from os.path import *
-from geopandas import read_file
-from shapely.geometry import Point
+import geopandas as gpd
+from shapely.geometry import Point, MultiPoint
 import pandas as pd
 from pandas import read_csv, read_excel, Series, notnull
-from scipy.spatial import distance
+import scipy.spatial
 from ast import literal_eval
 from windpowerlib import power_curves, wind_speed
 from collections import Counter
 from copy import deepcopy, copy
 import dask.array as da
 import yaml
+import geopy.distance
+from time import time
+import numpy as np
 
 
 # TODO:
 #  - this function is pretty fat no? divide it?
-#  - data.geographics
-def filter_locations_by_layer(tech_dict, coordinates, spatial_resolution, which='dummy', filename='dummy'):
+def filter_locations_by_layer(tech_dict, coords, spatial_resolution, which, filename='dummy'):
     """
     Compute locations to remove from the initial set following various
     land-, resource-, populatio-based criteria.
@@ -34,14 +35,10 @@ def filter_locations_by_layer(tech_dict, coordinates, spatial_resolution, which=
     ----------
     tech_dict : dict
         Dict object containing technical parameters and constraints of a given technology.
-    coordinates : list
+    coords : list
         List of coordinates.
     spatial_resolution : float
         Spatial resolution of the resource data.
-    path_land_data : str
-        Relative path to land data.
-    path_population_data : str
-        Relative path to population density data.
     which : str
         Filter to be applied.
     filename : str
@@ -58,43 +55,24 @@ def filter_locations_by_layer(tech_dict, coordinates, spatial_resolution, which=
         protected_areas_selection = tech_dict['protected_areas_selection']
         threshold_distance = tech_dict['protected_areas_distance_threshold']
 
-        coords_to_remove = []
-
-        R = 6371.
-
-        path_land_data = join(dirname(abspath(__file__)), '../../data/land_data')
-        dataset = read_file(join(path_land_data, filename))
-
-        lons = []
-        lats = []
+        path_land_data = join(dirname(abspath(__file__)), '../../data/land_data/WDPA_Feb2019-shapefile-points.shp')
+        dataset = gpd.read_file(path_land_data)
 
         # Retrieve the geopandas Point objects and their coordinates
-        for item in protected_areas_selection:
-            for index, row in dataset.iterrows():
-                if (row['IUCN_CAT'] == item):
-                    lons.append(round(row.geometry[0].x, 2))
-                    lats.append(round(row.geometry[0].y, 2))
+        dataset = dataset[dataset['IUCN_CAT'].isin(protected_areas_selection)]
+        protected_coords = dataset.geometry.apply(lambda p: (round(p[0].x, 2), round(p[0].y, 2))).values
 
-        protected_coords = list(zip(lons, lats))
+        # Compute closest protected point for each coordinae
+        protected_coords = np.array([[p[0], p[1]] for p in protected_coords])
+        coords = np.array([[p[0], p[1]] for p in coords])
+        closest_points = \
+            protected_coords[np.argmin(scipy.spatial.distance.cdist(protected_coords, coords, 'euclidean'), axis=0)]
 
-        # Compute distance between reference coordinates and Points
-        for i in coordinates:
-            for j in protected_coords:
-                lat1 = radians(i[1])
-                lon1 = radians(i[0])
-                lat2 = radians(j[1])
-                lon2 = radians(j[0])
-
-                dlon = lon2 - lon1
-                dlat = lat2 - lat1
-
-                a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-                c = 2 * arctan2(sqrt(a), sqrt(1 - a))
-
-                distance = R * c
-
-                if distance < threshold_distance:
-                    coords_to_remove.append(i)
+        # Remove coordinates that are too close to protected areas
+        coords_to_remove = []
+        for coord1, coord2 in zip(coords, closest_points):
+            if geopy.distance.geodesic((coord1[1], coord1[0]), (coord2[1], coord2[0])).km < threshold_distance:
+                coords_to_remove.append(tuple(coord1))
 
     elif which == 'resource':
 
@@ -102,7 +80,7 @@ def filter_locations_by_layer(tech_dict, coordinates, spatial_resolution, which=
         # TODO: does it make sense to reload this dataset?
         path_resource_data = join(dirname(abspath(__file__)), '../../data/resource/' + str(spatial_resolution))
         database = read_database(path_resource_data)
-        database = database.sel(locations=coordinates)
+        database = database.sel(locations=coords)
 
         if tech_dict['resource'] == 'wind':
             array_resource = xu.sqrt(database.u100 ** 2 + database.v100 ** 2)
@@ -115,7 +93,7 @@ def filter_locations_by_layer(tech_dict, coordinates, spatial_resolution, which=
         array_resource_mean = array_resource.mean(dim='time')
         mask_resource = array_resource_mean.where(array_resource_mean.data < tech_dict['resource_threshold'], 0)
         coords_mask_resource = mask_resource[da.nonzero(mask_resource)].locations.values.tolist()
-        coords_to_remove = list(set(coordinates).intersection(set(coords_mask_resource)))
+        coords_to_remove = list(set(coords).intersection(set(coords_mask_resource)))
 
     elif which in ['orography', 'forestry', 'water_mask', 'bathymetry']:
 
@@ -123,9 +101,10 @@ def filter_locations_by_layer(tech_dict, coordinates, spatial_resolution, which=
         dataset = xr.open_dataset(join(path_land_data, filename))
         dataset = dataset.sortby([dataset.longitude, dataset.latitude])
 
+        # TODO: Question to David: What is the purpose of this?
         dataset = dataset.assign_coords(longitude=(((dataset.longitude + 180) % 360) - 180)).sortby('longitude')
         dataset = dataset.drop('time').squeeze().stack(locations=('longitude', 'latitude'))
-        dataset = dataset.sel(locations=coordinates)
+        dataset = dataset.sel(locations=coords)
 
         if which == 'orography':
 
@@ -136,13 +115,13 @@ def filter_locations_by_layer(tech_dict, coordinates, spatial_resolution, which=
             array_slope = dataset['slor']
 
             mask_altitude = array_altitude.where(array_altitude.data > altitude_threshold)
-            mask_slope = array_slope.where(array_slope.data > slope_threshold)
-
             coords_mask_altitude = mask_altitude[mask_altitude.notnull()].locations.values.tolist()
+
+            mask_slope = array_slope.where(array_slope.data > slope_threshold)
             coords_mask_slope = mask_slope[mask_slope.notnull()].locations.values.tolist()
 
-            coords_mask_orography = list(set(coords_mask_altitude).union(set(coords_mask_slope)))
-            coords_to_remove = list(set(coordinates).intersection(set(coords_mask_orography)))
+            coords_mask_orography = set(coords_mask_altitude).union(set(coords_mask_slope))
+            coords_to_remove = list(set(coords).intersection(coords_mask_orography))
 
         elif which == 'forestry':
 
@@ -153,7 +132,7 @@ def filter_locations_by_layer(tech_dict, coordinates, spatial_resolution, which=
             mask_forestry = array_forestry.where(array_forestry.data >= forestry_threshold)
             coords_mask_forestry = mask_forestry[mask_forestry.notnull()].locations.values.tolist()
 
-            coords_to_remove = list(set(coordinates).intersection(set(coords_mask_forestry)))
+            coords_to_remove = list(set(coords).intersection(set(coords_mask_forestry)))
 
         elif which == 'water_mask':
             array_watermask = dataset['lsm']
@@ -161,7 +140,7 @@ def filter_locations_by_layer(tech_dict, coordinates, spatial_resolution, which=
             mask_watermask = array_watermask.where(array_watermask.data < 0.9)
             coords_mask_watermask = mask_watermask[mask_watermask.notnull()].locations.values.tolist()
 
-            coords_to_remove = list(set(coordinates).intersection(set(coords_mask_watermask)))
+            coords_to_remove = list(set(coords).intersection(set(coords_mask_watermask)))
 
         elif which == 'bathymetry':
 
@@ -177,12 +156,14 @@ def filter_locations_by_layer(tech_dict, coordinates, spatial_resolution, which=
                 (array_watermask.data > 0.1))
             coords_mask_offshore = mask_offshore[mask_offshore.notnull()].locations.values.tolist()
 
-            coords_to_remove = list(set(coordinates).intersection(set(coords_mask_offshore)))
+            coords_to_remove = list(set(coords).intersection(set(coords_mask_offshore)))
 
     elif which == 'population':
 
-        path_population_data = join(dirname(abspath(__file__)), '../../data/population_density')
-        dataset = xr.open_dataset(join(path_population_data, filename))
+        path_population_data = \
+            join(dirname(abspath(__file__)),
+                 '../../data/population_density/gpw_v4_population_density_rev11_' + str(spatial_resolution) + '.nc')
+        dataset = xr.open_dataset(path_population_data)
 
         varname = [item for item in dataset.data_vars][0]
         dataset = dataset.rename({varname: 'data'})
@@ -198,10 +179,10 @@ def filter_locations_by_layer(tech_dict, coordinates, spatial_resolution, which=
         population_density_threshold_high = tech_dict['population_density_threshold_high']
 
         mask_population = array_pop_density.where((array_pop_density.data < population_density_threshold_low) |
-                                                    (array_pop_density.data > population_density_threshold_high))
+                                                  (array_pop_density.data > population_density_threshold_high))
         coords_mask_population = mask_population[mask_population.notnull()].locations.values.tolist()
 
-        coords_to_remove = list(set(coordinates).intersection(set(coords_mask_population)))
+        coords_to_remove = list(set(coords).intersection(set(coords_mask_population)))
 
     else:
 
@@ -278,6 +259,7 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
     # TODO: we are only using datasets for its coordinates so why not send directly the coordinates?
     # TODO: continue to improve this and filter_locations_by_layer
     # TODO: change the path
+    # TODO: take care of the case where you get a empty list of coordinates?
 
     tech_config_path = join(dirname(abspath(__file__)), 'config_techs.yml')
     tech_config = yaml.safe_load(open(tech_config_path))
@@ -287,19 +269,19 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
     # TODO: look if it is possible to remove the loop on regions
     for region in regions:
 
-        print(region)
+        # print(region)
         region_shapes = return_region_shapefile(region)
         region_coordinates = return_coordinates_from_shapefiles(all_coordinates, region_shapes['region_shapefiles'])
 
         for tech in technologies:
-            print(tech)
+            # print(tech)
 
             tech_dict = tech_config[tech]
             coordinates = copy(region_coordinates)
             start_coordinates = copy(region_coordinates)
 
             # TODO: I would rearrange this and filter_locations_by_layer
-            print("resource_quality_layer")
+            # print("resource_quality_layer")
             if resource_quality_layer:
 
                 coords_to_remove = filter_locations_by_layer(tech_dict, coordinates, spatial_resolution,
@@ -308,28 +290,26 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
 
             if tech_dict['deployment'] in ['onshore', 'utility', 'residential']:
 
-                print("population_density_layer")
-                if population_density_layer:
-                    filename = 'gpw_v4_population_density_rev11_' + str(spatial_resolution) + '.nc'
-                    coords_to_remove = filter_locations_by_layer(tech_dict, coordinates, spatial_resolution,
-                                                                 which='population', filename=filename)
-                    coordinates = list(set(coordinates) - set(coords_to_remove))
-
-                print("protected_areas_layer")
-                if protected_areas_layer:
-                    filename = 'WDPA_Feb2019-shapefile-points.shp'
-                    coords_to_remove = filter_locations_by_layer(tech_dict, coordinates, spatial_resolution,
-                                                                 which='protected_areas', filename=filename)
-                    coordinates = list(set(coordinates) - set(coords_to_remove))
-
-                print("orography_layer")
+                # print("orography_layer")
                 if orography_layer:
                     filename = 'ERA5_orography_characteristics_20181231_'+str(spatial_resolution)+'.nc'
                     coords_to_remove = filter_locations_by_layer(tech_dict, coordinates, spatial_resolution,
                                                                  which='orography', filename=filename)
                     coordinates = list(set(coordinates) - set(coords_to_remove))
 
-                print("forestry_layer")
+                # print("population_density_layer")
+                if population_density_layer:
+                    coords_to_remove = filter_locations_by_layer(tech_dict, coordinates, spatial_resolution,
+                                                                 which='population')
+                    coordinates = list(set(coordinates) - set(coords_to_remove))
+
+                # print("protected_areas_layer")
+                if protected_areas_layer:
+                    coords_to_remove = filter_locations_by_layer(tech_dict, coordinates, spatial_resolution,
+                                                                 which='protected_areas')
+                    coordinates = list(set(coordinates) - set(coords_to_remove))
+
+                # print("forestry_layer")
                 if forestry_layer:
                     filename = 'ERA5_surface_characteristics_20181231_'+str(spatial_resolution)+'.nc'
                     coords_to_remove = \
@@ -337,7 +317,7 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
                                                   which='forestry', filename=filename)
                     coordinates = list(set(coordinates) - set(coords_to_remove))
 
-                print("water_mask_layer")
+                # print("water_mask_layer")
                 if water_mask_layer:
                     filename = 'ERA5_land_sea_mask_20181231_' + str(spatial_resolution) + '.nc'
                     coords_to_remove = \
@@ -347,7 +327,7 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
 
             elif tech_dict['deployment'] in ['offshore', 'floating']:
 
-                print("bathymetry_layer")
+                # print("bathymetry_layer")
                 if bathymetry_layer:
                     filename = 'ERA5_land_sea_mask_20181231_' + str(spatial_resolution) + '.nc'
                     coords_to_remove = \
@@ -355,23 +335,21 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
                                                   which='bathymetry', filename=filename)
                     coordinates = list(set(coordinates) - set(coords_to_remove))
 
-            print("legacy_layer")
-            if legacy_layer:
+            # print("legacy_layer")
+            if tech in ["wind_onshore", "wind_offshore", "solar_utility"] and legacy_layer:
 
-                # TODO: need to improve the speed of this
+                # TODO: need to look if there is not another way to organize this
                 land_filtered_coordinates = filter_onshore_offshore_locations(start_coordinates,
                                                                               spatial_resolution, tech)
                 legacy_dict = read_legacy_capacity_data(land_filtered_coordinates,
                                                         region_shapes['region_subdivisions'], tech)
-                coords_to_add_legacy = retrieve_nodes_with_legacy_units(legacy_dict, region, tech)
+                locations = list(legacy_dict.keys())
+                coords_to_add_legacy = \
+                    retrieve_nodes_with_legacy_units(locations, region_shapes['region_shapefiles'], tech)
 
-                final_coordinates = set(coordinates).union(set(coords_to_add_legacy))
+                coordinates = list(set(coordinates).union(set(coords_to_add_legacy)))
 
-            else:
-
-                final_coordinates = coordinates
-
-            output_dict[region][tech] = list(final_coordinates)
+            output_dict[region][tech] = coordinates
 
     for key, value in output_dict.items():
 
@@ -606,8 +584,8 @@ def capacity_potential_per_node(input_dict, spatial_resolution):
     key_list = return_dict_keys(input_dict)
 
     path_shapefile_data = join(dirname(abspath(__file__)), '../../data/shapefiles')
-    shapefile_data_onshore = read_file(join(path_shapefile_data, 'NUTS_RG_01M_2016_4326_LEVL_2_incl_BA.geojson'))
-    shapefile_data_offshore = read_file(join(path_shapefile_data, 'EEZ_RG_01M_2016_4326_LEVL_0.geojson'))
+    shapefile_data_onshore = gpd.read_file(join(path_shapefile_data, 'NUTS_RG_01M_2016_4326_LEVL_2_incl_BA.geojson'))
+    shapefile_data_offshore = gpd.read_file(join(path_shapefile_data, 'EEZ_RG_01M_2016_4326_LEVL_0.geojson'))
 
     path_population_data = join(dirname(abspath(__file__)), '../../data/population_density')
     dataset_population = xr.open_dataset(join(path_population_data,
@@ -697,15 +675,14 @@ def capacity_potential_per_node(input_dict, spatial_resolution):
 # TODO:
 #  - data.existing_cap
 #  - update comment
-def read_legacy_capacity_data(start_coordinates, region_subdivisions, tech):
+def read_legacy_capacity_data(coordinates, region_subdivisions, tech):
     """
     Reads dataset of existing RES units in the given area. Available for EU only.
 
     Parameters
     ----------
-    start_coordinates : list
+    coordinates : list
     tech : str
-    path_legacy_data : str
 
     Returns
     -------
@@ -713,45 +690,40 @@ def read_legacy_capacity_data(start_coordinates, region_subdivisions, tech):
         Dict object storing existing capacities per node for a given technology.
     """
     path_legacy_data = join(dirname(abspath(__file__)), '../../data/legacy')
-    if (tech.split('_')[0] == 'wind') & (tech.split('_')[1] != 'floating'):
+    if tech in ["wind_onshore", "wind_offshore"]:  # (tech.split('_')[0] == 'wind')&(tech.split('_')[1] != 'floating'):
 
         data = read_excel(join(path_legacy_data, 'Windfarms_Europe_20200127.xls'), sheet_name='Windfarms',
-                               header=0, usecols=[2, 5, 9, 10, 18, 23], skiprows=[1])
-
-        data = data[~data['Latitude'].isin(['#ND'])]
-        data = data[~data['Longitude'].isin(['#ND'])]
-        data = data[~data['Total power'].isin(['#ND'])]
+                          header=0, usecols=[2, 5, 9, 10, 18, 23], skiprows=[1], na_values='#ND')
+        data = data.dropna(subset=['Latitude', 'Longitude', 'Total power'])
         data = data[data['Status'] != 'Dismantled']
         data = data[data['ISO code'].isin(region_subdivisions)]
 
+        # Keep only onshore or offshore point depending on technology
         if tech == 'wind_onshore':
+            capacity_threshold = 0.2  # TODO: ask David, where does this number comes from?
+            data = data[data['Area'] != 'Offshore']
 
-            capacity_threshold = 0.2
-            data_filtered = data[data['Area'] != 'Offshore'].copy()
-
-        elif tech == 'wind_offshore':
-
+        else:  # wind_offhsore
             capacity_threshold = 0.5
-            data_filtered = data[data['Area'] == 'Offshore'].copy()
+            data = data[data['Area'] == 'Offshore']
 
-        asset_coordinates = array(list(zip(data_filtered['Longitude'],
-                                           data_filtered['Latitude'])))
+        asset_coordinates = array(list(zip(data['Longitude'], data['Latitude'])))
 
-        node_list = []
-        for c in asset_coordinates:
-            node_list.append(tuple(start_coordinates[distance.cdist(start_coordinates, [c], 'euclidean').argmin()]))
+        coordinates = np.array(coordinates)
+        node_list = \
+            [(x[0], x[1]) for x in
+             coordinates[np.argmin(scipy.spatial.distance.cdist(coordinates, asset_coordinates, 'euclidean'), axis=0)]]
 
-        data_filtered['Node'] = node_list
-        aggregate_capacity_per_node = data_filtered.groupby(['Node'])['Total power'].agg('sum')
-        aggregate_capacity_per_node = aggregate_capacity_per_node * (1e-6)
+        data['Node'] = node_list
+        aggregate_capacity_per_node = data.groupby(['Node'])['Total power'].agg('sum')
+        aggregate_capacity_per_node = aggregate_capacity_per_node * 1e-6
 
         output_dict = aggregate_capacity_per_node[aggregate_capacity_per_node > capacity_threshold].to_dict()
 
-    elif (tech.split('_')[0] == 'solar') & (tech.split('_')[1] == 'utility'):
+    elif tech == "solar_utility":  # (tech.split('_')[0] == 'solar') & (tech.split('_')[1] == 'utility'):
 
         data = read_excel(join(path_legacy_data, 'Solarfarms_Europe_20200208.xlsx'), sheet_name='ProjReg_rpt',
                           header=0, usecols=[0, 3, 4, 5, 8])
-
         data = data[notnull(data['Coords'])]
         data['Longitude'] = data['Coords'].str.split(',', 1).str[1]
         data['Latitude'] = data['Coords'].str.split(',', 1).str[0]
@@ -767,29 +739,28 @@ def read_legacy_capacity_data(start_coordinates, region_subdivisions, tech):
 
         capacity_threshold = 0.05
 
-        asset_coordinates = array(list(zip(data['Longitude'],
-                                           data['Latitude'])))
+        asset_coordinates = array(list(zip(data['Longitude'], data['Latitude'])))
 
-        node_list = []
-        for c in asset_coordinates:
-            node_list.append(tuple(start_coordinates[distance.cdist(start_coordinates, [c], 'euclidean').argmin()]))
+        coordinates = np.array(coordinates)
+        node_list = \
+            [(x[0], x[1]) for x in
+             coordinates[np.argmin(scipy.spatial.distance.cdist(coordinates, asset_coordinates, 'euclidean'), axis=0)]]
 
         data['Node'] = node_list
         aggregate_capacity_per_node = data.groupby(['Node'])['MWac'].agg('sum')
-        aggregate_capacity_per_node = aggregate_capacity_per_node * (1e-3)
+        aggregate_capacity_per_node = aggregate_capacity_per_node * 1e-3
 
         output_dict = aggregate_capacity_per_node[aggregate_capacity_per_node > capacity_threshold].to_dict()
 
     else:
-
-        output_dict = None
+        raise ValueError(' Technology {} is not supposed to be used with this function.'.format(tech))
 
     return output_dict
 
 
 # TODO:
-#  - data.existing_cap
-def retrieve_nodes_with_legacy_units(input_dict, region, tech):
+#  - I suspect that we could get rid off this function by merging it with other ones
+def retrieve_nodes_with_legacy_units(locations, offshore_onshore_shapes, tech):
     """
     Returns list of nodes where capacity exists.
 
@@ -797,11 +768,10 @@ def retrieve_nodes_with_legacy_units(input_dict, region, tech):
     ----------
     input_dict : dict
         Dict object storing existing capacities per node for a given technology.
-    region : str
-        Region.
+    offshore_onshore_shapes : Dict[str, Polygon or MultiPolygon]
+        Onshore and offshore region shape
     tech : str
         Technology.
-    path_shapefile_data : str
 
     Returns
     -------
@@ -810,26 +780,21 @@ def retrieve_nodes_with_legacy_units(input_dict, region, tech):
 
     """
 
-    if input_dict is None:
+    # TODO: should directly pass the locations
+    # TODO: should add as argument of this function if we want just onshore or offshore, need to change that
 
-        existing_locations_filtered = []
-
+    if tech in ['wind_offshore', 'wind_floating']:
+        region_shape = offshore_onshore_shapes['offshore']
     else:
+        region_shape = offshore_onshore_shapes['onshore']
 
-        existing_locations = list(input_dict.keys())
+    if len(locations) > 1:
+        locations = [(point.x, point.y) for point in MultiPoint(locations).intersection(region_shape)]
+    else:
+        locations = [(locations[0][0], locations[0][1])] \
+            if Point(locations[0][0], locations[0][1]).within(region_shape) else []
 
-        if tech in ['wind_offshore', 'wind_floating']:
-
-            region_shapefile = return_region_shapefile(region, True)['region_shapefiles']['offshore']
-
-        else:
-
-            region_shapefile = return_region_shapefile(region, True)['region_shapefiles']['onshore']
-
-        existing_locations_filtered = array(existing_locations, dtype('float,float'))[
-                                            [region_shapefile.contains(Point(p)) for p in existing_locations]].tolist()
-
-    return existing_locations_filtered
+    return locations
 
 
 # TODO:
@@ -843,7 +808,6 @@ def retrieve_capacity_share_legacy_units(input_dict, init_coordinate_dict, datas
     ----------
     input_dict : dict
         Dict object used to retrieve the (region, tech) keys.
-    path_legacy_data : str
 
     Returns
     -------
@@ -865,14 +829,10 @@ def retrieve_capacity_share_legacy_units(input_dict, init_coordinate_dict, datas
         region_subdivisions = region_shapefile_data['region_subdivisions']
 
         land_filtered_coordinates = filter_onshore_offshore_locations(start_coordinates, spatial_resolution, tech)
-        legacy_dict = read_legacy_capacity_data(land_filtered_coordinates, region_subdivisions, tech)
 
-        if legacy_dict is None:
+        if tech in ["wind_onshore", "wind_offshore", "solar_utility"]:
 
-            dict_developed_potential = {coord: 0. for coord in init_coordinate_dict[region][tech]}
-
-        else:
-
+            legacy_dict = read_legacy_capacity_data(land_filtered_coordinates, region_subdivisions, tech)
             dict_developed_potential = {coord: None for coord in init_coordinate_dict[region][tech]}
 
             for item in dict_developed_potential.keys():
@@ -884,6 +844,8 @@ def retrieve_capacity_share_legacy_units(input_dict, init_coordinate_dict, datas
                 else:
 
                     dict_developed_potential[item] = 0.
+        else:
+            dict_developed_potential = {coord: 0. for coord in init_coordinate_dict[region][tech]}
 
         dict_to_xarray = {'coords': {'locations': {'dims': 'locations',
                                                    'data': asarray(list(dict_developed_potential.keys()),
@@ -900,15 +862,14 @@ def retrieve_capacity_share_legacy_units(input_dict, init_coordinate_dict, datas
 
 
 # TODO:
-#  - don't know what to do with this
-#  - data.geographics
-def filter_onshore_offshore_locations(coordinates_in_region, spatial_resolution, tech):
+#  - don't know what to do with this -> Ask David
+def filter_onshore_offshore_locations(coordinates, spatial_resolution, tech):
     """
     Filters on- and offshore coordinates.
 
     Parameters
     ----------
-    coordinates_in_region : list
+    coordinates : list
     spatial_resolution : float
     tech : str
 
@@ -918,14 +879,12 @@ def filter_onshore_offshore_locations(coordinates_in_region, spatial_resolution,
         Coordinates filtered via land/water mask.
     """
     # TODO: why do this in three lines?
-    filename = 'ERA5_land_sea_mask_20181231_' + str(spatial_resolution) + '.nc'
-    path_land_data = '../../data/land_data'
+    path_land_data = '../../data/land_data/ERA5_land_sea_mask_20181231_' + str(spatial_resolution) + '.nc'
 
-    dataset = xr.open_dataset(join(path_land_data, filename))
+    dataset = xr.open_dataset(path_land_data)
     dataset = dataset.sortby([dataset.longitude, dataset.latitude])
 
-    dataset = dataset.assign_coords(longitude=(((dataset.longitude
-                                                 + 180) % 360) - 180)).sortby('longitude')
+    dataset = dataset.assign_coords(longitude=(((dataset.longitude + 180) % 360) - 180)).sortby('longitude')
     dataset = dataset.drop('time').squeeze().stack(locations=('longitude', 'latitude'))
     array_watermask = dataset['lsm']
 
@@ -942,9 +901,7 @@ def filter_onshore_offshore_locations(coordinates_in_region, spatial_resolution,
 
     coords_mask_watermask = mask_watermask[mask_watermask.notnull()].locations.values.tolist()
 
-    updated_coordinates = list(set(coordinates_in_region).intersection(set(coords_mask_watermask)))
-
-    return updated_coordinates
+    return list(set(coordinates).intersection(set(coords_mask_watermask)))
 
 
 # TODO:
