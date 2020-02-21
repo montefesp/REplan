@@ -111,9 +111,10 @@ def display_polygons(polygons_list):
 
 # TODO:
 #  - Might need to use that too
-def match_point_to_region(point, shape_data, indicator_data):
+#  - The workings of this function look strange, especially the indicator stuff
+def match_point_to_region(point, shape_data, indicator_data_keys):
     """
-    Assings a given coordinate tuple (lon, lat) to a NUTS (or any other) region.
+    Find the NUTS (or any other) region associated to given coordinate tuple (lon, lat)
 
     Parameters
     ----------
@@ -121,7 +122,7 @@ def match_point_to_region(point, shape_data, indicator_data):
         Coordinate in (lon, lat) form.
     shape_data : GeoDataFrame
         Dataframe storing geometries of NUTS regions.
-    indicator_data : dict
+    indicator_data_keys : List[str]
         Dict object storing technical potential of NUTS regions.
 
     Returns
@@ -133,7 +134,7 @@ def match_point_to_region(point, shape_data, indicator_data):
     p = Point(point)
     incumbent_region = None
 
-    for subregion in list(indicator_data.keys()):
+    for subregion in indicator_data_keys:
 
         if subregion in shape_data.index:
             if p.within(shape_data.loc[subregion, 'geometry']):
@@ -221,6 +222,7 @@ def return_region_shapefile(region_code, prepared=False):
         ii) associated onshore and offshore shapes.
 
     """
+    # TODO: pass this as argument
     subregions_list = get_subregions_list(region_code)
 
     # Get onshore shape

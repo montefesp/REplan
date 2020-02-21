@@ -12,6 +12,7 @@ from time import time
 
 # TODO: Goal: Understand the full pipeline to improve it
 
+# TODO: shouldn't all the 'solar' technologies be called 'pv'
 
 # TODO: this function should not be in this file -> data handeling
 # TODO: missing comments
@@ -74,26 +75,25 @@ def read_input_data(params):
     # TODO: fifth part: obtaining existing legacy
 
     print("Retrieve existing capacity")
-    init_deployed_potential = retrieve_capacity_share_legacy_units(init_technical_potential, filtered_coordinates,
-                                                                   database, params['spatial_resolution'])
+    deployment_shares = retrieve_capacity_share_legacy_units(init_technical_potential, filtered_coordinates,
+                                                              database, params['spatial_resolution'])
 
     # TODO: fourth part bis: obtain potential for each coordinate (this function should come before the fifth part)
 
     print("Update potential")
-    updated_site_data = update_potential_per_node(init_technical_potential, init_deployed_potential)
+    updated_potential, updated_legacy_shares = update_potential_per_node(init_technical_potential, deployment_shares)
 
     if 'RES_targets' in params['formulation']:
         deployment_dict = dict(zip(params['regions'], params['deployment_vector']))
     else:
         deployment_dict = dict(zip(params['technologies'], params['deployment_vector']))
 
-    output_dict = {
-                'capacity_factors_dict': output_data,
-                'technical_potential_dict': updated_site_data['updated_potential'],
-                'starting_deployment_dict': updated_site_data['updated_legacy_shares'],
-                'load_data': load_dict,
-                'deployment_dict': deployment_dict,
-                'technologies': params['technologies']}
+    output_dict = {'capacity_factors_dict': output_data,
+                   'technical_potential_dict': updated_potential,
+                   'starting_deployment_dict': updated_legacy_shares,
+                   'load_data': load_dict,
+                   'deployment_dict': deployment_dict,
+                   'technologies': params['technologies']}
 
     custom_log(' Input data read...')
 
