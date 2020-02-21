@@ -47,7 +47,7 @@ def xarray_to_dict(input_dict, levels):
     ----------
     input_dict : dict
 
-    levels : int
+    levels : int # TODO: isn't it a cleaner way to access the depth of a dictionary?
         Depth of (nested) dict. Available values: 1 or 2.
 
     Returns

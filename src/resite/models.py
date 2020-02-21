@@ -14,6 +14,7 @@ from time import time
 
 # TODO: shouldn't all the 'solar' technologies be called 'pv'
 
+
 # TODO: this function should not be in this file -> data handeling
 # TODO: missing comments
 def read_input_data(params):
@@ -139,18 +140,22 @@ def build_model(input_data, formulation, output_folder, write_lp=False):
 
     """
 
-    # TODO: Done : I move this out of the if-else
-    # TODO: why is this called output_dict?
-    output_dict = xarray_to_dict(input_data['capacity_factors_dict'], levels=2)
+    cap_factor_dict = xarray_to_dict(input_data['capacity_factors_dict'], levels=2)
+    print(cap_factor_dict)
     load_dict = input_data['load_data']
     technical_potential_dict = xarray_to_dict(input_data['technical_potential_dict'], levels=2)
     l_init = xarray_to_dict(input_data['starting_deployment_dict'], levels=1)
     deployment_dict = input_data['deployment_dict']
     technologies = input_data['technologies']
 
-    output_array = dict_to_xarray(input_data['capacity_factors_dict'])  # TODO: why do we need the dict AND the xarray
+    # TODO: why do we need the dict AND the xarray
+    cap_factor_array = dict_to_xarray(input_data['capacity_factors_dict'])
     tech_coordinates_list = retrieve_tech_coordinates_tuples(l_init)
-    generation_potential = compute_generation_potential(output_dict, technical_potential_dict)
+    generation_potential = compute_generation_potential(cap_factor_dict, technical_potential_dict)
+
+    # TODO: could maybe replace with cap_factor_array.time.values
+    time_indexes = list(arange(len(cap_factor_array.time)))
+    regions = list(cap_factor_dict)
 
     custom_log(' Model being built...')
 
@@ -159,13 +164,12 @@ def build_model(input_data, formulation, output_folder, write_lp=False):
     if formulation == 'meet_RES_targets_year_round':
 
         # TODO: what is x?
-        model.x = Var(list(output_dict), list(arange(len(output_array.time))),
-                      within=NonNegativeReals, bounds=(0, 1))
+        model.x = Var(regions, time_indexes, within=NonNegativeReals, bounds=(0, 1))
         # TODO: what is y?
         model.y = VarList()
         y = {tech: {loc: None for loc in arange(retrieve_dict_max_length_item(input_data['capacity_factors_dict']))}
              for tech in technologies}
-        for region, dict_per_region in output_dict.items():
+        for region, dict_per_region in cap_factor_dict.items():
             for tech, array_per_tech in dict_per_region.items():
                 for loc in arange(array_per_tech.shape[1]):
                     y[tech][loc] = model.y.add()
@@ -174,13 +178,11 @@ def build_model(input_data, formulation, output_folder, write_lp=False):
 
         def generation_check_rule(model, region, t):
             return sum(generation_potential[region][tech][t, loc] *
-                       y[tech][loc] for tech in list(output_dict[region])
-                       for loc in arange(output_dict[region][tech].shape[1])) \
+                       y[tech][loc] for tech in list(cap_factor_dict[region])
+                       for loc in arange(cap_factor_dict[region][tech].shape[1])) \
                    >= load_dict[region][t] * model.x[region, t]
 
-        model.generation_check = Constraint(list(output_dict),
-                                            list(arange(len(output_array.time))),
-                                            rule=generation_check_rule)
+        model.generation_check = Constraint(regions, time_indexes, rule=generation_check_rule)
 
         def potential_constraint_rule(model, *tech_loc):
             tech = tech_loc[0]
@@ -188,110 +190,29 @@ def build_model(input_data, formulation, output_folder, write_lp=False):
 
             return y[tech][loc] >= l_init[tech][loc]
 
-        model.potential_constraint = Constraint(list(tech_coordinates_list),
-                                                rule=potential_constraint_rule)
+        model.potential_constraint = Constraint(list(tech_coordinates_list), rule=potential_constraint_rule)
 
         def policy_target_rule(model, region):
-            return sum(model.x[region, t] for t in list(arange(len(output_array.time)))) \
-                   >= deployment_dict[region] * output_array.time.size
+            return sum(model.x[region, t] for t in time_indexes) \
+                   >= deployment_dict[region] * cap_factor_array.time.size
 
-        model.policy_target = Constraint(list(output_dict), rule=policy_target_rule)
+        model.policy_target = Constraint(regions, rule=policy_target_rule)
 
         def objective_rule(model):
             return sum(y[tech][loc] * technical_potential_dict[region][tech][loc]
-                       for region in list(output_dict)
-                       for tech in list(output_dict[region])
-                       for loc in arange(output_dict[region][tech].shape[1]))
+                       for region in regions
+                       for tech in list(cap_factor_dict[region])
+                       for loc in arange(cap_factor_dict[region][tech].shape[1]))
 
         model.objective = Objective(rule=objective_rule, sense=minimize)
 
-        # generation_check_constraint = {}
-        # for region in list(output_dict):
-        #     for t in list(arange(len(output_array.time))):
-        #         lhs = LExpression([(generation_potential[region][tech][t, loc], y[tech][loc])
-        #                            for tech in list(output_dict[region])
-        #                            for loc in arange(output_dict[region][tech].shape[1])])
-        #         rhs = LExpression([(load_dict[region][t], model.x[region, t])])
-        #
-        #         generation_check_constraint[region, t] = LConstraint(lhs, ">=", rhs)
-        # l_constraint(model, "generation_check_constraint", generation_check_constraint,
-        #              list(output_dict), list(arange(len(output_array.time))))
-        #
-        # potential_constraint = {}
-        # for tech_loc in list(tech_coordinates_list):
-        #     tech = tech_loc[0]
-        #     loc = tech_loc[1]
-        #
-        #     lhs = LExpression([(1, y[tech][loc])])
-        #     rhs = LExpression(constant=l_init[tech][loc])
-        #
-        #     potential_constraint[tech_loc] = LConstraint(lhs, ">=", rhs)
-        # l_constraint(model, "potential_constraint", potential_constraint, list(tech_coordinates_list))
-        #
-        # policy_constraint = {}
-        # for region in list(output_dict):
-        #
-        #     lhs = LExpression([(1, model.x[region, t]) for t in list(arange(len(output_array.time)))])
-        #     rhs = LExpression(constant=float(deployment_dict[region] * output_array.time.size))
-        #
-        #     policy_constraint[region] = LConstraint(lhs, ">=", rhs)
-        # l_constraint(model, "policy_constraint", policy_constraint, list(output_dict))
-        #
-        # objective = LExpression([(y[tech][loc], technical_potential_dict[region][tech][loc])
-        #                          for region in list(output_dict)
-        #                          for tech in list(output_dict[region])
-        #                          for loc in arange(output_dict[region][tech].shape[1])])
-        # l_objective(model, objective, sense=minimize)
-
-        # def generation_check_rule(model, region, t):
-        #     return sum(float(output_dict[region][tech].sel(locations=loc, time=t)) *
-        #                float(technical_potential_dict[region][tech].sel(locations=loc)) *
-        #                y[tech][loc] for tech in list(output_dict[region])
-        #                for loc in list(output_dict[region][tech].locations.values)) \
-        #            >= load_dict[region][t] * model.x[region, t]
-        #
-        #
-        # model.generation_check = Constraint(list(output_dict),
-        #                                     list(to_datetime(output_array.time.values)),
-        #                                     rule=generation_check_rule)
-        #
-        #
-        # def potential_constraint_rule(model, *tech_loc):
-        #     tech = tech_loc[0]
-        #     loc = tech_loc[1:]
-        #
-        #     return y[tech][loc] >= float(l_init[tech].sel(locations=loc))
-        #
-        #
-        # model.potential_constraint = Constraint(list(tech_coordinates_list),
-        #                                         rule=potential_constraint_rule)
-        #
-        #
-        # def policy_target_rule(model, region):
-        #     return sum(model.x[region, t] for t in list(to_datetime(output_array.time.values))) \
-        #            >= deployment_dict[region] * output_array.time.size
-        #
-        #
-        # model.policy_target = Constraint(list(output_dict), rule=policy_target_rule)
-        #
-        #
-        # def objective_rule(model):
-        #     return sum(y[tech][loc] * float(technical_potential_dict[region][tech].sel(locations=loc))
-        #                for region in list(output_dict)
-        #                for tech in list(output_dict[region])
-        #                for loc in list(output_dict[region][tech].locations.values))
-        #
-        #
-        # model.objective = Objective(rule=objective_rule, sense=minimize)
-
     elif formulation == 'meet_RES_targets_hourly':
 
-        model.x = Var(list(output_dict), list(arange(len(output_array.time))),
-                      within=NonNegativeReals, bounds=(0, 1))
+        model.x = Var(regions, time_indexes, within=NonNegativeReals, bounds=(0, 1))
         model.y = VarList()
         y = {tech: {loc: None for loc in arange(retrieve_dict_max_length_item(input_data['capacity_factors_dict']))} for
              tech in technologies}
-        for region, dict_per_region in output_dict.items():
+        for region, dict_per_region in cap_factor_dict.items():
             for tech, array_per_tech in dict_per_region.items():
                 for loc in arange(array_per_tech.shape[1]):
                     y[tech][loc] = model.y.add()
@@ -300,13 +221,11 @@ def build_model(input_data, formulation, output_folder, write_lp=False):
 
         def generation_check_rule(model, region, t):
             return sum(generation_potential[region][tech][t, loc] *
-                       y[tech][loc] for tech in list(output_dict[region])
-                       for loc in arange(output_dict[region][tech].shape[1])) \
+                       y[tech][loc] for tech in list(cap_factor_dict[region])
+                       for loc in arange(cap_factor_dict[region][tech].shape[1])) \
                    >= load_dict[region][t] * model.x[region, t]
 
-        model.generation_check = Constraint(list(output_dict),
-                                            list(arange(len(output_array.time))),
-                                            rule=generation_check_rule)
+        model.generation_check = Constraint(regions, time_indexes, rule=generation_check_rule)
 
         def potential_constraint_rule(model, *tech_loc):
             tech = tech_loc[0]
@@ -314,33 +233,29 @@ def build_model(input_data, formulation, output_folder, write_lp=False):
 
             return y[tech][loc] >= l_init[tech][loc]
 
-        model.potential_constraint = Constraint(list(tech_coordinates_list),
-                                                rule=potential_constraint_rule)
+        model.potential_constraint = Constraint(list(tech_coordinates_list), rule=potential_constraint_rule)
 
         def policy_target_rule(model, region, t):
             return model.x[region, t] \
-                   >= deployment_dict[region] * output_array.time.size
+                   >= deployment_dict[region] * cap_factor_array.time.size
 
-        model.policy_target = Constraint(list(output_dict),
-                                         list(arange(len(output_array.time))),
-                                         rule=policy_target_rule)
+        model.policy_target = Constraint(regions, time_indexes, rule=policy_target_rule)
 
         def objective_rule(model):
             return sum(y[tech][loc] * technical_potential_dict[region][tech][loc]
-                       for region in list(output_dict)
-                       for tech in list(output_dict[region])
-                       for loc in arange(output_dict[region][tech].shape[1]))
+                       for region in regions
+                       for tech in list(cap_factor_dict[region])
+                       for loc in arange(cap_factor_dict[region][tech].shape[1]))
 
         model.objective = Objective(rule=objective_rule, sense=minimize)
 
     elif formulation == 'meet_demand_with_capacity':
 
-        model.x = Var(list(output_dict), list(arange(len(output_array.time))),
-                      within=NonNegativeReals, bounds=(0, 1))
+        model.x = Var(regions, time_indexes, within=NonNegativeReals, bounds=(0, 1))
         model.y = VarList()
         y = {tech: {loc: None for loc in arange(retrieve_dict_max_length_item(input_data['capacity_factors_dict']))} for
              tech in technologies}
-        for region, dict_per_region in output_dict.items():
+        for region, dict_per_region in cap_factor_dict.items():
             for tech, array_per_tech in dict_per_region.items():
                 for loc in arange(array_per_tech.shape[1]):
                     y[tech][loc] = model.y.add()
@@ -349,13 +264,11 @@ def build_model(input_data, formulation, output_folder, write_lp=False):
 
         def generation_check_rule(model, region, t):
             return sum(generation_potential[region][tech][t, loc] *
-                       y[tech][loc] for tech in list(output_dict[region])
-                       for loc in arange(output_dict[region][tech].shape[1])) \
+                       y[tech][loc] for tech in list(cap_factor_dict[region])
+                       for loc in arange(cap_factor_dict[region][tech].shape[1])) \
                    >= load_dict[region][t] * model.x[region, t]
 
-        model.generation_check = Constraint(list(output_dict),
-                                            list(arange(len(output_array.time))),
-                                            rule=generation_check_rule)
+        model.generation_check = Constraint(regions, time_indexes, rule=generation_check_rule)
 
         def potential_constraint_rule(model, *tech_loc):
             tech = tech_loc[0]
@@ -369,13 +282,13 @@ def build_model(input_data, formulation, output_folder, write_lp=False):
         def capacity_target_rule(model, tech):
 
             return sum(y[tech][loc] * technical_potential_dict[region][tech][loc]
-                    for region in list(output_dict)
+                    for region in regions
                     for loc in [item[1] for item in tech_coordinates_list if item[0] == tech]) == deployment_dict[tech]
 
         model.capacity_target = Constraint(list(technologies), rule=capacity_target_rule)
 
         def objective_rule(model):
-            return sum(model.x[region, t] for region in list(output_dict) for t in list(arange(len(output_array.time))))
+            return sum(model.x[region, t] for region in regions for t in time_indexes)
         model.objective = Objective(rule=objective_rule, sense=maximize)
 
     else:
