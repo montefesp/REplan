@@ -363,7 +363,7 @@ def filter_coordinates(all_coordinates, spatial_resolution, technologies, region
 #  - change name : compute_capacity_factors?
 #  - replace using atlite?
 #  - data. ?
-def return_output(input_dict, smooth_wind_power_curve=True):
+def compute_capacity_factors(input_dict, smooth_wind_power_curve=True):
     """
     Applies transfer function to raw resource data.
 

@@ -452,8 +452,8 @@ def chunk_split(l, n):
 
 
 # TODO:
-#  - i would change the name: truncate_dataset?
-def selected_data(dataset, coordinate_dict, time_slice):
+#  remove this function
+def selected_data(dataset, coordinate_dict):
     """
     Slices xarray.Dataset based on relevant i) time horizon and ii) location sets.
 
@@ -463,8 +463,6 @@ def selected_data(dataset, coordinate_dict, time_slice):
         Complete resource dataset.
     coordinate_dict : dict
         Dict object storing location sets per region and technology.
-    time_slice : list
-        List containing start and end timestamps for the study.
 
     Returns
     -------
@@ -472,29 +470,35 @@ def selected_data(dataset, coordinate_dict, time_slice):
         Dict object storing sliced data per region and technology.
 
     """
-    key_list = return_dict_keys(coordinate_dict)
-
-    # TODO: maybe a better way to create the dict that to copy the input
-    output_dict = deepcopy(coordinate_dict)
 
     # TODO: should do a test to see if this is still a problem
     # This is a test which raised some problems on Linux distros, where for some
     # unknown reason the dataset is not sorted on the time dimension.
+    """
     datetime_start = np.datetime64(time_slice[0])
     datetime_end = np.datetime64(time_slice[1])
     if (datetime_start < dataset.time.values[0]) or (datetime_end > dataset.time.values[-1]):
         raise ValueError(' At least one of the time indices exceeds the available data.')
+    """
 
-    for region, tech in key_list:
+    """
+    # TODO: maybe a better way to create the dict that to copy the input
+    output_dict = deepcopy(coordinate_dict)
+    for region, tech in return_dict_keys(coordinate_dict):
 
         dataset_temp = []
 
         for chunk in chunk_split(coordinate_dict[region][tech], n=50):
 
-            dataset_region = dataset.sel(locations=chunk, time=slice(datetime_start, datetime_end))
+            dataset_region = dataset.sel(locations=chunk)
             dataset_temp.append(dataset_region)
 
         output_dict[region][tech] = xr.concat(dataset_temp, dim='locations')
+    """
+
+    output_dict = deepcopy(coordinate_dict)
+    for region, tech in return_dict_keys(coordinate_dict):
+        output_dict[region][tech] = dataset.sel(locations=coordinate_dict[region][tech])
 
     return output_dict
 

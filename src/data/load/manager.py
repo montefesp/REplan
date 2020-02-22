@@ -487,7 +487,7 @@ def available_load():
 # --- David --- #
 # TODO:
 #   - Probably need to merge this function
-def retrieve_load_data(regions_code, time_slice):
+def retrieve_load_data(regions_code, time_stamps):
     """
     Returns load time series for given regions and time horizon.
 
@@ -495,8 +495,8 @@ def retrieve_load_data(regions_code, time_slice):
     ----------
     regions_code: List[str]
         Code of regions
-    time_slice: List[str] # TODO: shouldn't it be datetime?
-        Start and end datetime
+    time_stamps: List[datetime] # TODO: shouldn't it be datetime?
+        List of datetime
 
     Returns
     -------
@@ -504,18 +504,17 @@ def retrieve_load_data(regions_code, time_slice):
         Dictionary associating to each region code the corresponding load data
 
     """
-    assert len(time_slice) == 2, "Error: Time slice must be a list of two "
 
     path_load_data = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                   '../../../data/load/generated/load_opsd_2015_2018.csv')
     load_data = pd.read_csv(path_load_data, index_col=0, sep=';')
     load_data.index = pd.to_datetime(load_data.index)
 
-    assert time_slice[0] in load_data.index, "Error: Start datetime not in load data"
-    assert time_slice[1] in load_data.index, "Error: End datetime not in load data"
+    assert time_stamps[0] in load_data.index, "Error: Start datetime not in load data"
+    assert time_stamps[-1] in load_data.index, "Error: End datetime not in load data"
 
     # Slice data on time
-    load_data = load_data.loc[time_slice[0]:time_slice[1]]
+    load_data = load_data.loc[time_stamps]
 
     # Slice data on region
     load_per_region = dict.fromkeys(regions_code)

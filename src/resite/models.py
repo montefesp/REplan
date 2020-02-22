@@ -1,14 +1,15 @@
-from src.resite.helpers import dict_to_xarray, xarray_to_dict, read_database, retrieve_tech_coordinates_tuples, \
-    compute_generation_potential, selected_data
+from src.resite.helpers import xarray_to_dict, read_database, retrieve_tech_coordinates_tuples, \
+    compute_generation_potential, return_dict_keys
 from src.resite.utils import custom_log
-from src.resite.tools import filter_coordinates, return_output, \
+from src.resite.tools import filter_coordinates, compute_capacity_factors, \
                     capacity_potential_per_node, update_potential_per_node, retrieve_capacity_share_legacy_units
 from src.data.load.manager import retrieve_load_data
 from numpy import arange
 from pyomo.environ import ConcreteModel, Var, Constraint, Objective, minimize, maximize, NonNegativeReals, VarList
 from pyomo.opt import ProblemFormat
-from os.path import join
+from os.path import join, dirname, abspath
 from time import time
+from copy import deepcopy
 
 # TODO: Goal: Understand the full pipeline to improve it
 
@@ -17,7 +18,7 @@ from time import time
 
 # TODO: this function should not be in this file -> data handeling
 # TODO: missing comments
-def read_input_data(params):
+def read_input_data(params, time_stamps, regions, spatial_res, technologies):
     """Data pre-processing.
 
     Parameters:
@@ -27,18 +28,11 @@ def read_input_data(params):
     -----------
     """
 
-    if params['formulation'] == 'meet_demand_with_capacity' and len(params['regions']) != 1:
-        raise ValueError('The selected formulation works for one region only!')
-    elif 'meet_RES_targets' in params['formulation'] and len(params['deployment_vector']) != len(params['regions']):
-        raise ValueError('For the selected formulation, the "regions" and "deployment_vector" '
-                         'lists must have the same cardinality!')
-    else:
-        pass
-
     print("Reading Database")
-    path_resource_data = params['path_resource_data'] + '/' + str(params['spatial_resolution'])
+    path_resource_data = join(dirname(abspath(__file__)), '../../data/resource/' + str(spatial_res))
     # TODO: Move that down
     database = read_database(path_resource_data)
+    database = database.sel(time=time_stamps)
 
     # TODO: First part: Obtaining coordinates
 
@@ -46,7 +40,7 @@ def read_input_data(params):
     start = time()
     all_coordinates = list(zip(database.longitude.values, database.latitude.values))
     filtered_coordinates = filter_coordinates(
-        all_coordinates, params['spatial_resolution'], params['technologies'], params['regions'],
+        all_coordinates, spatial_res, technologies, regions,
         resource_quality_layer=params['resource_quality_layer'],
         population_density_layer=params['population_density_layer'],
         protected_areas_layer=params['protected_areas_layer'],
@@ -55,31 +49,33 @@ def read_input_data(params):
         legacy_layer=params['legacy_layer'])
     print(time()-start)
 
-    print(filtered_coordinates)
     print("Truncate data")
-    truncated_data = selected_data(database, filtered_coordinates, params['time_slice'])
+    # TODO: maybe a better way to create the dict that to copy the input
+    truncated_data = deepcopy(filtered_coordinates)
+    for region, tech in return_dict_keys(filtered_coordinates):
+        truncated_data[region][tech] = database.sel(locations=filtered_coordinates[region][tech])
 
     # TODO: second part: computing capacity factors
 
     print("Compute cap factor")
     # TODO: looks ok, to see if we merge it with my tool using atlite
-    cap_factor_data = return_output(truncated_data)
+    cap_factor_data = compute_capacity_factors(truncated_data)
 
     # TODO: third part: obtaining load
 
     print("Loading load")
-    load = retrieve_load_data(params['regions'], params['time_slice'])
+    load = retrieve_load_data(regions, time_stamps)
 
     # TODO: fourth part: obtain potential for each coordinate
 
     print("Compute capacity potential per node")
-    capacity_potential = capacity_potential_per_node(filtered_coordinates, params['spatial_resolution'])
+    capacity_potential = capacity_potential_per_node(filtered_coordinates, spatial_res)
 
     # TODO: fifth part: obtaining existing legacy
 
     print("Retrieve existing capacity")
     deployment_shares = retrieve_capacity_share_legacy_units(capacity_potential, filtered_coordinates,
-                                                             database, params['spatial_resolution'])
+                                                             database, spatial_res)
 
     # TODO: fourth part bis: obtain potential for each coordinate (this function should come before the fifth part)
 
