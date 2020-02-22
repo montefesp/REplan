@@ -34,9 +34,12 @@ def read_input_data(params, time_stamps, regions, spatial_res, technologies):
     -----------
     """
 
+    print("Loading load")
+    load = retrieve_load_data(regions, time_stamps)
+
+    # TODO: Move that down
     print("Reading Database")
     path_resource_data = join(dirname(abspath(__file__)), '../../data/resource/' + str(spatial_res))
-    # TODO: Move that down
     database = read_database(path_resource_data)
     database = database.sel(time=time_stamps)
 
@@ -66,11 +69,6 @@ def read_input_data(params, time_stamps, regions, spatial_res, technologies):
     print("Compute cap factor")
     # TODO: looks ok, to see if we merge it with my tool using atlite
     cap_factor_data = compute_capacity_factors(truncated_data)
-
-    # TODO: third part: obtaining load
-
-    print("Loading load")
-    load = retrieve_load_data(regions, time_stamps)
 
     # TODO: fourth part: obtain potential for each coordinate
 
@@ -143,6 +141,7 @@ def build_model(input_data, params, formulation, time_stamps, output_folder, wri
 
     nb_time_stamps = len(time_stamps)
     # TODO: need to update the dataframes to be able to use directly time_stamps
+    # TODO: change load indexing when this is done
     time_indexes = list(arange(nb_time_stamps))
 
     technologies = params['technologies']
@@ -152,7 +151,7 @@ def build_model(input_data, params, formulation, time_stamps, output_folder, wri
     cap_factor_dict = xarray_to_dict(input_data['capacity_factors'], levels=2)
 
     # Load
-    load_dict = input_data['load_data']
+    load_df = input_data['load_data']
 
     cap_potential_dict = xarray_to_dict(input_data['capacity_potential'], levels=2)
     existing_cap_perc = xarray_to_dict(input_data['existing_cap_percentage'], levels=1)
@@ -177,7 +176,7 @@ def build_model(input_data, params, formulation, time_stamps, output_folder, wri
             generation = sum(generation_potential[region][tech][t, loc] * model.y[tech, loc]
                              for tech in list(cap_factor_dict[region])
                              for loc in arange(cap_factor_dict[region][tech].shape[1]))
-            return generation >= load_dict[region][t] * model.x[region, t]
+            return generation >= load_df.iloc[t][region] * model.x[region, t]
         model.generation_check = Constraint(regions, time_indexes, rule=generation_check_rule)
 
         # Percentage of capacity installed must be bigger than existing percentage
@@ -213,7 +212,7 @@ def build_model(input_data, params, formulation, time_stamps, output_folder, wri
             generation = sum(generation_potential[region][tech][t, loc] * model.y[tech, loc]
                              for tech in list(cap_factor_dict[region])
                              for loc in arange(cap_factor_dict[region][tech].shape[1]))
-            return generation >= load_dict[region][t] * model.x[region, t]
+            return generation >= load_df.iloc[t][region] * model.x[region, t]
         model.generation_check = Constraint(regions, time_indexes, rule=generation_check_rule)
 
         # Percentage of capacity installed must be bigger than existing percentage
@@ -248,7 +247,7 @@ def build_model(input_data, params, formulation, time_stamps, output_folder, wri
             generation = sum(generation_potential[region][tech][t, loc] *
                              model.y[tech, loc] for tech in list(cap_factor_dict[region])
                              for loc in arange(cap_factor_dict[region][tech].shape[1]))
-            return generation >= load_dict[region][t] * model.x[region, t]
+            return generation >= load_df.iloc[t][region] * model.x[region, t]
         model.generation_check = Constraint(regions, time_indexes, rule=generation_check_rule)
 
         # Percentage of capacity installed must be bigger than existing percentage

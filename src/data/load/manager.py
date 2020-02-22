@@ -487,21 +487,21 @@ def available_load():
 # --- David --- #
 # TODO:
 #   - Probably need to merge this function
-def retrieve_load_data(regions_code, time_stamps):
+def retrieve_load_data(regions, time_stamps):
     """
     Returns load time series for given regions and time horizon.
 
     Parameters
     ----------
-    regions_code: List[str]
+    regions: List[str]
         Code of regions
     time_stamps: List[datetime] # TODO: shouldn't it be datetime?
         List of datetime
 
     Returns
     -------
-    load_per_region: Dict[str, pd.DataFrame]
-        Dictionary associating to each region code the corresponding load data
+    load_per_region: pd.DataFrame (index = time_stamps, columns = regions)
+        DataFrame associating to each region code the corresponding load data
 
     """
 
@@ -517,10 +517,10 @@ def retrieve_load_data(regions_code, time_stamps):
     load_data = load_data.loc[time_stamps]
 
     # Slice data on region
-    load_per_region = dict.fromkeys(regions_code)
-    for region_code in regions_code:
+    load_per_region = pd.DataFrame(columns=regions, index=time_stamps)
+    for region in regions:
         # Get load date for all subregions, sum it and transform to GW # TODO: check it is indeed GW
-        load_per_region[region_code] = load_data[get_subregions_list(region_code)].sum(axis=1).values * 1e-3
+        load_per_region[region] = load_data[get_subregions_list(region)].sum(axis=1).values * 1e-3
 
     return load_per_region
 
