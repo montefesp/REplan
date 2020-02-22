@@ -6,36 +6,6 @@ from pandas import DataFrame
 import xarray as xr
 
 
-# TODO: unused
-def xarray_to_ndarray(input_dict):
-    """
-    Converts dict of xarray objects to ndarray to be passed to the optimisation problem.
-
-    Parameters
-    ----------
-    input_dict : dict
-
-    Returns
-    -------
-    ndarray : ndarray
-
-    """
-    key_list = []
-    for k1, v1 in input_dict.items():
-        for k2, v2 in v1.items():
-            key_list.append((k1, k2))
-
-    array_list = ()
-
-    for region, tech in key_list:
-
-        array_list = (*array_list, input_dict[region][tech].values)
-
-    ndarray = np.hstack(array_list)
-
-    return ndarray
-
-
 # TODO:
 #  - resite.dataset
 #  - Why is this called xarray_to_dict? xarray_to_ndarray?
@@ -151,31 +121,6 @@ def return_dict_keys(input_dict):
     return key_list
 
 
-# TODO: unused
-def concatenate_dict_keys(input_dict):
-    """
-    Converts nested dict (dict[region][tech]) keys into tuples (dict[(region, tech)]).
-
-    Parameters
-    ----------
-
-    Returns
-    -------
-    output_dict : dict
-
-    """
-
-    output_dict = {}
-
-    key_list = return_dict_keys(input_dict)
-
-    for region, tech in key_list:
-
-        output_dict[(region, tech)] = input_dict[region][tech]
-
-    return output_dict
-
-
 # TODO:
 #  - resite.dataset
 def retrieve_coordinates_from_dict(input_dict):
@@ -223,143 +168,6 @@ def retrieve_tech_coordinates_tuples(input_dict):
             d[(key, idx)] = val
 
     return d
-
-
-# TODO: unused
-def retrieve_incidence_matrix(input_dict):
-    """
-    Computes the (region, tech) vs. (lon, lat) incidence matrix.
-
-    Parameters
-    ----------
-    input_dict : dict containing xarray.Dataset objects indexed by (region, tech) tuples.
-
-    Returns
-    -------
-    incidence_matrix : DataFrame
-
-    """
-    coord_list = []
-    for concat_key in input_dict.keys():
-        coord_list.extend(list(input_dict[concat_key].locations.values))
-
-    idx = list(set(coord_list))
-    cols = list(input_dict.keys())
-
-    incidence_matrix = DataFrame(0, index=idx, columns=cols)
-
-    for concat_key in input_dict.keys():
-
-        coordinates = input_dict[concat_key].locations.values
-
-        for c in coordinates:
-
-            incidence_matrix.loc[c, concat_key] = 1
-
-    return incidence_matrix
-
-
-# TODO: unused
-def retrieve_location_indices_per_tech(input_dict):
-    """
-    Retrieves integer indices of locations associated with each technology.
-
-    Parameters
-    ----------
-    input_dict : dict
-
-    Returns
-    -------
-    output_dict : dict
-
-    """
-    key_list = []
-
-    for k1, v1 in input_dict.items():
-        for k2, v2 in v1.items():
-            key_list.append((k1, k2))
-
-    output_dict = deepcopy(input_dict)
-
-    for region, tech in key_list:
-
-        output_dict[region][tech] = np.arange(len(input_dict[region][tech].locations))
-
-    return output_dict
-
-
-# TODO: unused
-def get_partition_index(input_dict, deployment_vector, capacity_split='per_tech'):
-    """
-    Returns start and end indices for each (region, technology) tuple. Required in case the problem
-    is defined with partitioning constraints.
-
-    Parameters
-    ----------
-    input_dict : dict
-        Dict object storing coordinates per region and tech.
-    deployment_vector : list
-        List containing the deployment requirements (un-partitioned or not).
-    capacity_split : str
-        Capacity splitting rule. To choose between "per_tech" and "per_country".
-
-    Returns
-    -------
-    index_list : list
-        List of indices associated with each (region, technology) tuple.
-
-    """
-    key_list = return_dict_keys(input_dict)
-
-    init_index_dict = deepcopy(input_dict)
-
-    regions = list(set([i[0] for i in key_list]))
-    technologies = list(set([i[1] for i in key_list]))
-
-    start_index = 0
-    for region, tech in key_list:
-        init_index_dict[region][tech] = list(np.arange(start_index, start_index + len(input_dict[region][tech])))
-        start_index = start_index + len(input_dict[region][tech])
-
-    if capacity_split == 'per_country':
-
-        if len(deployment_vector) == len(regions):
-
-            index_dict = dict.fromkeys(regions)
-            for region in regions:
-                index_list_per_region = []
-                tech_list_in_region = [i[1] for i in key_list if i[0] == region]
-                for tech in tech_list_in_region:
-                    index_list_per_region.extend(init_index_dict[region][tech])
-                index_dict[region] = [i+1 for i in index_list_per_region]
-
-        else:
-
-            raise ValueError(' Number of regions ({}) does not match number of deployment constraints ({}).'.format
-                                            (len(regions), len(deployment_vector)))
-
-    elif capacity_split == 'per_tech':
-
-        if len(deployment_vector) == len(technologies):
-
-            index_dict = dict.fromkeys(technologies)
-            for tech in technologies:
-                index_list_per_tech = []
-                region_list_with_tech = [i[0] for i in key_list if i[1] == tech]
-                for region in region_list_with_tech:
-                    index_list_per_tech.extend(init_index_dict[region][tech])
-                index_dict[tech] = [i+1 for i in index_list_per_tech]
-
-        else:
-
-            raise ValueError(' Number of technologies ({}) does not match number of deployment constraints ({}).'.format
-                             (len(technologies), len(deployment_vector)))
-
-    index_list = []
-    for key, value in index_dict.items():
-        index_list.append([i+1 for i in value])
-
-    return init_index_dict
 
 
 # TODO:
@@ -435,7 +243,8 @@ def read_database(file_path, coordinates=None):
 
     return dataset
 
-
+# TODO:
+#  remove this function
 def chunk_split(l, n):
     """
     Splits large lists in smaller chunks. Done to avoid xarray warnings when slicing large datasets.

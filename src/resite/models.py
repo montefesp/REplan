@@ -11,7 +11,13 @@ from os.path import join, dirname, abspath
 from time import time
 from copy import deepcopy
 
-# TODO: Goal: Understand the full pipeline to improve it
+# TODO: Goal: Understand the full pipeline to improve it -> ok
+#  Now need to regroup the function below into 4 or 5
+#  1) Get load
+#  2) Get coordinates
+#  3) Get capacity factors
+#  4) Get legacy data
+#  5) Get potential (function that can take as argument legacy data)
 
 # TODO: shouldn't all the 'solar' technologies be called 'pv'
 
