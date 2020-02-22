@@ -1,7 +1,6 @@
 import os
 import glob
 import numpy as np
-from xarray import concat
 from copy import deepcopy
 from pandas import DataFrame
 import xarray as xr
@@ -39,6 +38,7 @@ def xarray_to_ndarray(input_dict):
 
 # TODO:
 #  - resite.dataset
+#  - Why is this called xarray_to_dict? xarray_to_ndarray?
 def xarray_to_dict(input_dict, levels):
     """
     Converts dict of xarray objects to dict of ndarrays to be passed to the optimisation problem.
@@ -58,57 +58,14 @@ def xarray_to_dict(input_dict, levels):
     output_dict = deepcopy(input_dict)
 
     if levels == 2:
-
-        key_list = return_dict_keys(input_dict)
-
-        for region, tech in key_list:
-
+        for region, tech in return_dict_keys(input_dict):
             output_dict[region][tech] = input_dict[region][tech].values
 
     else:
-
-        key_list = input_dict.keys()
-
-        for tech in key_list:
-
+        for tech in input_dict.keys():
             output_dict[tech] = input_dict[tech].values
 
     return output_dict
-
-
-# TODO:
-#  - resite.dataset
-#  - not very clear what this function is meant to
-def retrieve_dict_max_length_item(input_dict):
-    """
-    Retrieve size of largest dict value.
-
-    Parameters
-    ----------
-    input_dict : dict
-
-    Returns
-    -------
-    max_len : int
-
-    """
-    key_list = []
-
-    for k1, v1 in input_dict.items():
-        for k2, v2 in v1.items():
-            key_list.append((k1, k2))
-
-    max_len = 0
-
-    for region, tech in key_list:
-
-        incumbent_len = len(input_dict[region][tech].locations)
-
-        if incumbent_len > max_len:
-
-            max_len = incumbent_len
-
-    return max_len
 
 
 # TODO:
@@ -127,15 +84,13 @@ def dict_to_xarray(input_dict):
 
     """
 
-    key_list = return_dict_keys(input_dict)
-
     array_list = []
 
-    for region, tech in key_list:
+    for region, tech in return_dict_keys(input_dict):
 
         array_list.append(input_dict[region][tech])
 
-    dataset = concat(array_list, dim='locations')
+    dataset = xr.concat(array_list, dim='locations')
 
     return dataset
 
@@ -166,7 +121,7 @@ def collapse_dict_region_level(input_dict):
             for tech in input_dict[region]:
                 if tech == item:
                     l.append(input_dict[region][tech])
-        output_dict[item] = concat(l, dim='locations')
+        output_dict[item] = xr.concat(l, dim='locations')
 
     return output_dict
 
@@ -260,13 +215,14 @@ def retrieve_tech_coordinates_tuples(input_dict):
     l : list
 
     """
-    l = []
 
-    for key, value in input_dict.items():
-        for idx, val in enumerate(value):
-            l.append((key, idx))
+    d = {}
+    for key in input_dict.keys():
+        array = input_dict[key]
+        for idx, val in enumerate(array.locations):
+            d[(key, idx)] = val
 
-    return l
+    return d
 
 
 # TODO: unused
@@ -407,22 +363,21 @@ def get_partition_index(input_dict, deployment_vector, capacity_split='per_tech'
 
 
 # TODO:
-#  - comments - I don't understand what this does
-def retrieve_location_dict(input_dict, site_dict):
+#  - Need to change this function
+#  - we should pass only the parts of the input dict that are actually used
+def retrieve_location_dict(input_dict, instance, technologies):
 
-    output_dict = {key: {} for key in input_dict['technologies']}
+    output_dict = {key: {} for key in technologies}
+    potential_dict = collapse_dict_region_level(input_dict['capacity_potential'])
 
-    potential_dict = collapse_dict_region_level(input_dict['technical_potential_dict'])
+    dict_ = retrieve_tech_coordinates_tuples(input_dict['existing_cap_percentage'])
+    for tuple_key in dict_:
+        if instance.y[tuple_key].value > 0.:
+            tech = tuple_key[0]
+            loc = dict_[tuple_key]
+            cap = instance.y[tuple_key].value * potential_dict[tech].sel(locations=loc).values
 
-    for tech in site_dict.keys():
-        for idx, y_object in site_dict[tech].items():
-            if y_object is not None:
-                if y_object.value > 0.:
-
-                    loc = input_dict['starting_deployment_dict'][tech].isel(locations=idx).locations.values.flatten()[0]
-                    cap = y_object.value * potential_dict[tech].isel(locations=idx).values
-
-                    output_dict[tech][loc] = cap
+            output_dict[tech][loc.values.item()] = cap
 
     output_dict = {k: v for k, v in output_dict.items() if len(v) > 0}
 
@@ -431,7 +386,8 @@ def retrieve_location_dict(input_dict, site_dict):
 
 # TODO:
 #  - need to more precise on description of function, and name it more specifically
-def read_database(file_path):
+#  - add the filtering on coordinates
+def read_database(file_path, coordinates=None):
     """
     Reads resource database from .nc files.
 

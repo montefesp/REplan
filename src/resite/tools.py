@@ -81,6 +81,7 @@ def filter_locations_by_layer(tech_dict, coords, spatial_resolution, which, file
         path_resource_data = join(dirname(abspath(__file__)), '../../data/resource/' + str(spatial_resolution))
         database = read_database(path_resource_data)
         database = database.sel(locations=coords)
+        # TODO: slice on time?
 
         if tech_dict['resource'] == 'wind':
             array_resource = xu.sqrt(database.u100 ** 2 + database.v100 ** 2)
@@ -101,7 +102,7 @@ def filter_locations_by_layer(tech_dict, coords, spatial_resolution, which, file
         dataset = xr.open_dataset(join(path_land_data, filename))
         dataset = dataset.sortby([dataset.longitude, dataset.latitude])
 
-        # TODO: Question to David: What is the purpose of this?
+        # Changing longitude from 0-360 to -180-180
         dataset = dataset.assign_coords(longitude=(((dataset.longitude + 180) % 360) - 180)).sortby('longitude')
         dataset = dataset.drop('time').squeeze().stack(locations=('longitude', 'latitude'))
         dataset = dataset.sel(locations=coords)
@@ -194,16 +195,16 @@ def filter_locations_by_layer(tech_dict, coords, spatial_resolution, which, file
 # TODO
 #  - need to update comment, rename just 'filter_coordinates'?
 #  - Why is protected_areas_layer to False?
-def return_filtered_coordinates(dataset, spatial_resolution, technologies, regions,
-                                resource_quality_layer=True, population_density_layer=True,
-                                protected_areas_layer=False, orography_layer=True, forestry_layer=True,
-                                water_mask_layer=True, bathymetry_layer=True, legacy_layer=True):
+def filter_coordinates(all_coordinates, spatial_resolution, technologies, regions,
+                       resource_quality_layer=True, population_density_layer=True,
+                       protected_areas_layer=False, orography_layer=True, forestry_layer=True,
+                       water_mask_layer=True, bathymetry_layer=True, legacy_layer=True):
     """
     Returns the set of potential deployment locations for each region and available technology.
 
     Parameters
     ----------
-    coordinates_in_region : list
+    all_coordinates : list
         List of coordinate pairs in the region of interest.
     spatial_resolution : float
         Spatial resolution of the resource data.
@@ -264,7 +265,6 @@ def return_filtered_coordinates(dataset, spatial_resolution, technologies, regio
     tech_config_path = join(dirname(abspath(__file__)), 'config_techs.yml')
     tech_config = yaml.safe_load(open(tech_config_path))
     output_dict = {region: {tech: None for tech in technologies} for region in regions}
-    all_coordinates = list(zip(dataset.longitude.values, dataset.latitude.values))
 
     # TODO: look if it is possible to remove the loop on regions
     for region in regions:
@@ -586,7 +586,7 @@ def capacity_potential_per_node(input_dict, spatial_resolution):
     # The value of 5 for "raster" fetches data for the latest estimate available in the dataset, that is, 2020.
     data_pop = dataset_population.sel(raster=5)
 
-    # TODO: ask David to explain
+    # Compute population density at intermediate points
     array_pop_density = data_pop['data'].interp(longitude=arange(-180, 180, float(spatial_resolution)),
                                                 latitude=arange(-89, 91, float(spatial_resolution))[::-1],
                                                 method='linear').fillna(0.)
@@ -657,10 +657,9 @@ def capacity_potential_per_node(input_dict, spatial_resolution):
                     distribution_key = incumbent_loc_pop_dens / sum(region_loc_pop_dens)
                 coords_potentials[coord] = float(potential_per_tech[coords_subregions[coord]]) * distribution_key
 
-        # TODO: the format of the coordinates of the array is pretty strange, ask David
+        # Converting the potential dicts into the right format
         dict_to_xarray = {'coords': {'locations': {'dims': 'locations',
-                                                   'data': asarray(coords,
-                                                                   dtype='f4,f4')}},
+                                                   'data': asarray(coords, dtype='f4,f4')}},
                           'dims': 'locations',
                           'data': asarray(list(coords_potentials.values()), dtype=float)}
 
@@ -697,7 +696,7 @@ def read_legacy_capacity_data(coordinates, region_subdivisions, tech):
 
         # Keep only onshore or offshore point depending on technology
         if tech == 'wind_onshore':
-            capacity_threshold = 0.2  # TODO: ask David, where does this number comes from?
+            capacity_threshold = 0.2  # TODO: ask David -> to avoid to many points
             data = data[data['Area'] != 'Offshore']
 
         else:  # wind_offhsore
@@ -851,14 +850,12 @@ def retrieve_capacity_share_legacy_units(max_cap_potential, init_coordinate_dict
         developed_potential_array = xr.DataArray.from_dict(dict_to_xarray)
         # Compute the percentage of capacity potential the existing capacity corresponds to
         potential_array_as_share = developed_potential_array.__truediv__(max_cap_potential[region][tech])
-        # TODO: why do I obtain stuff that is above 1? maybe i did not understand what happened here -> ask David?
         output_dict[region][tech] = potential_array_as_share.where(xu.isfinite(potential_array_as_share), other=0.)
 
     return output_dict
 
 
 # TODO:
-#  - don't know what to do with this -> Ask David
 #  - It's actually probably smarter than using shapes to differentiate between onshore and offshore
 #  - I think we should actually change the tech argument to an onshore or offshore argument
 def filter_onshore_offshore_locations(coordinates, spatial_resolution: float, tech: str):

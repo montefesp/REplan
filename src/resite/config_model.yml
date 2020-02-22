@@ -23,10 +23,10 @@ technologies: ['wind_onshore', 'wind_offshore', 'solar_utility', 'solar_resident
 solver: 'gurobi'
 
 # Type of problem to be solved. Check models.py for a full list.
-formulation: 'meet_demand_with_capacity' # 'meet_RES_targets_hourly', 'meet_RES_targets_year_round'
+formulation: 'meet_RES_targets_year_round' # 'meet_RES_targets_hourly', 'meet_RES_targets_year_round'
 
 # List of deployments per region (ordered as the 'regions' list above)
-deployment_vector: [1.0, 2.5, 2.0, 15.0]
+deployment_vector: [0.1] # [1.0, 2.5, 2.0, 15.0]
 
 # Keeping files at the end of the run.
 keep_files: True

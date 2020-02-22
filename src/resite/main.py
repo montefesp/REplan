@@ -13,6 +13,7 @@ parameters = read_inputs('config_model.yml')
 keepfiles = parameters['keep_files']
 formulation = parameters['formulation']
 # low_mem = parameters['low_memory']
+time_stamps = pd.date_range(parameters['time_slice'][0], parameters['time_slice'][1], freq='1H').values
 
 output_folder = init_folder(keepfiles)
 copy('config_model.yml', output_folder)
@@ -20,7 +21,7 @@ copy('config_techs.yml', output_folder)
 
 input_dict = read_input_data(parameters)
 
-instance, site_dict = build_model(input_dict, formulation, output_folder, write_lp=True)
+instance = build_model(input_dict, parameters, formulation, time_stamps, output_folder, write_lp=True)
 solver = parameters['solver']  # TODO: to remove
 custom_log(' Sending model to solver.')
 
@@ -31,7 +32,7 @@ opt.options['Crossover'] = 0
 results = opt.solve(instance, tee=True, keepfiles=False, report_timing=True,
                     logfile=join(output_folder, 'solver_log.log'))
 
-location_dict = retrieve_location_dict(input_dict, site_dict)
+location_dict = retrieve_location_dict(input_dict, instance, parameters['technologies'])
 pickle.dump(location_dict, open(join(output_folder, 'output_model.p'), 'wb'))
 
 remove_garbage(keepfiles, output_folder)
