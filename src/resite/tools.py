@@ -193,8 +193,7 @@ def filter_locations_by_layer(tech_dict, coords, spatial_resolution, which, file
 
 
 # TODO
-#  - need to update comment, rename just 'filter_coordinates'?
-#  - Why is protected_areas_layer to False?
+#  - Ask david: Why is protected_areas_layer to False?
 def filter_coordinates(all_coordinates, spatial_resolution, technologies, regions,
                        resource_quality_layer=True, population_density_layer=True,
                        protected_areas_layer=False, orography_layer=True, forestry_layer=True,
@@ -352,8 +351,8 @@ def filter_coordinates(all_coordinates, spatial_resolution, technologies, region
 
             output_dict[region][tech] = coordinates
 
+    # For each region, remove technos for which there are no points left
     for key, value in output_dict.items():
-
         output_dict[key] = {k: v for k, v in output_dict[key].items() if len(v) > 0}
 
     return output_dict

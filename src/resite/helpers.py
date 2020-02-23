@@ -8,65 +8,6 @@ import xarray as xr
 
 # TODO:
 #  - resite.dataset
-#  - Why is this called xarray_to_dict? xarray_to_ndarray?
-def xarray_to_dict(input_dict, levels):
-    """
-    Converts dict of xarray objects to dict of ndarrays to be passed to the optimisation problem.
-
-    Parameters
-    ----------
-    input_dict : dict
-
-    levels : int # TODO: isn't it a cleaner way to access the depth of a dictionary?
-        Depth of (nested) dict. Available values: 1 or 2.
-
-    Returns
-    -------
-    output_dict : dict
-
-    """
-    output_dict = deepcopy(input_dict)
-
-    if levels == 2:
-        for region, tech in return_dict_keys(input_dict):
-            output_dict[region][tech] = input_dict[region][tech].values
-
-    else:
-        for tech in input_dict.keys():
-            output_dict[tech] = input_dict[tech].values
-
-    return output_dict
-
-
-# TODO:
-#  - resite.dataset
-def dict_to_xarray(input_dict):
-    """
-    Converts dict of xarray objects to xarray DataArray to be passed to the optimisation problem.
-
-    Parameters
-    ----------
-    input_dict : dict
-
-    Returns
-    -------
-    dataset : xr.DataArray
-
-    """
-
-    array_list = []
-
-    for region, tech in return_dict_keys(input_dict):
-
-        array_list.append(input_dict[region][tech])
-
-    dataset = xr.concat(array_list, dim='locations')
-
-    return dataset
-
-
-# TODO:
-#  - resite.dataset
 #  - (need to have a more specific name)
 def collapse_dict_region_level(input_dict):
     """
@@ -120,12 +61,12 @@ def return_dict_keys(input_dict):
 
     return key_list
 
-
 # TODO:
 #  - resite.dataset
-def retrieve_coordinates_from_dict(input_dict):
+#  - more specific name or create some sort of class with this kind of dict
+def return_dict_keys_2(input_dict):
     """
-    Retrieves coordinate list for each (region, tech) tuple key. Requires dict values to be xarray.DataArray objects!
+    Returns (region, tech) keys of nested dict.
 
     Parameters
     ----------
@@ -133,23 +74,24 @@ def retrieve_coordinates_from_dict(input_dict):
 
     Returns
     -------
-    output_dict : dict
+    key_list : list
 
     """
-    output_dict = {}
 
-    for concat_key in input_dict.keys():
+    key_list = []
+    for k1, v1 in input_dict.items():
+        for k2, v2 in v1.items():
+            for coord in v2.locations.values:
+                key_list.append((k1, k2, coord.item()))
 
-        output_dict[concat_key] = list(input_dict[concat_key].locations.values)
-
-    return output_dict
-
+    return key_list
 
 # TODO:
 #  - resite.dataset
-def retrieve_tech_coordinates_tuples(input_dict):
+#  - more specific name or create some sort of class with this kind of dict
+def return_dict_keys_3(input_dict):
     """
-    Retrieves list of all (tech, loc) tuples.
+    Returns (region, tech) keys of nested dict.
 
     Parameters
     ----------
@@ -157,17 +99,16 @@ def retrieve_tech_coordinates_tuples(input_dict):
 
     Returns
     -------
-    l : list
+    key_list : list
 
     """
 
-    d = {}
-    for key in input_dict.keys():
-        array = input_dict[key]
-        for idx, val in enumerate(array.locations):
-            d[(key, idx)] = val
+    key_list = []
+    for k1, v1 in input_dict.items():
+        for coord in v1.locations.values:
+            key_list.append((k1, coord))
 
-    return d
+    return key_list
 
 
 # TODO:
@@ -176,18 +117,26 @@ def retrieve_tech_coordinates_tuples(input_dict):
 def retrieve_location_dict(input_dict, instance, technologies):
 
     output_dict = {key: {} for key in technologies}
-    potential_dict = collapse_dict_region_level(input_dict['capacity_potential'])
+    potential_dict = input_dict['capacity_potential_df']
 
-    dict_ = retrieve_tech_coordinates_tuples(input_dict['existing_cap_percentage'])
-    for tuple_key in dict_:
+    tech_coordinates_list = list(input_dict['existing_cap_percentage_df'].index)
+    # TODO: it's a bit shitty to have to do that but it's bugging otherwise
+    tech_coordinates_list = [(tech, coord[0], coord[1]) for tech, coord in tech_coordinates_list]
+
+    for tuple_key in tech_coordinates_list:
+        print(tuple_key)
         if instance.y[tuple_key].value > 0.:
             tech = tuple_key[0]
-            loc = dict_[tuple_key]
-            cap = instance.y[tuple_key].value * potential_dict[tech].sel(locations=loc).values
+            loc = (tuple_key[1], tuple_key[2])
+            print(tech)
+            print(loc)
+            print(potential_dict)
+            cap = instance.y[tuple_key].value * potential_dict[tech, loc].values
 
-            output_dict[tech][loc.values.item()] = cap
+            output_dict[tech][loc] = cap
 
     output_dict = {k: v for k, v in output_dict.items() if len(v) > 0}
+    print(output_dict)
 
     return output_dict
 
@@ -243,33 +192,6 @@ def read_database(file_path, coordinates=None):
 
     return dataset
 
-
-# TODO:
-#  - don't really know where this should go
-#  - I would just remove this function and make the computation directly where it is used (i.e. models.py)
-def compute_generation_potential(capacity_factor_dict, potential_dict):
-    """
-    Computes generation potential (GWh) to be passed to the optimisation problem.
-
-    Parameters
-    ----------
-    capacity_factor_dict : dict containing capacity factor time series.
-
-    potential_dict : dict containing technical potential figures per location.
-
-    Returns
-    -------
-    output_dict : dict
-
-    """
-    # TODO: this is a pretty heavy operation just to copy the structure no?
-    output_dict = deepcopy(capacity_factor_dict)
-
-    for region in capacity_factor_dict:
-        for tech in capacity_factor_dict[region]:
-            output_dict[region][tech] = capacity_factor_dict[region][tech] * potential_dict[region][tech]
-
-    return output_dict
 
 
 # TODO:

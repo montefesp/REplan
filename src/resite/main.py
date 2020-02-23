@@ -38,7 +38,8 @@ opt.options['Crossover'] = 0
 results = opt.solve(instance, tee=True, keepfiles=False, report_timing=True,
                     logfile=join(output_folder, 'solver_log.log'))
 
-location_dict = retrieve_location_dict(input_dict, instance, params['technologies'])
-pickle.dump(location_dict, open(join(output_folder, 'output_model.p'), 'wb'))
+# TODO: solve this
+# location_dict = retrieve_location_dict(input_dict, instance, params['technologies'])
+# pickle.dump(location_dict, open(join(output_folder, 'output_model.p'), 'wb'))
 
 remove_garbage(params['keep_files'], output_folder)

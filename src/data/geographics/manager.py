@@ -434,6 +434,8 @@ def get_offshore_shapes(ids, onshore_shape, minarea=0.1, tolerance=0.01, filterr
     region_names = [idx.split('-')[0] for idx in filtered_ids]  # Allows to consider states and provinces
     offshore_shapes = offshore_shapes.loc[region_names]
 
+    # TODO: bug if non of the country in the list has an offshore shape
+
     # Keep only offshore 'close' to onshore
     offshore_shapes['geometry'] = offshore_shapes['geometry']\
         .map(lambda x: filter_offshore_polys(x, onshore_shape, minarea, tolerance, filterremote))

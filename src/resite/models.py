@@ -1,5 +1,4 @@
-from src.resite.helpers import xarray_to_dict, read_database, retrieve_tech_coordinates_tuples, \
-    compute_generation_potential, return_dict_keys
+from src.resite.helpers import read_database, return_dict_keys, return_dict_keys_2, return_dict_keys_3
 from src.resite.utils import custom_log
 from src.resite.tools import filter_coordinates, compute_capacity_factors, \
                     capacity_potential_per_node, update_potential_per_node, retrieve_capacity_share_legacy_units
@@ -10,6 +9,7 @@ from pyomo.opt import ProblemFormat
 from os.path import join, dirname, abspath
 from time import time
 from copy import deepcopy
+import pandas as pd
 
 # TODO: Goal: Understand the full pipeline to improve it -> ok
 #  Now need to regroup the function below into 4 or 5
@@ -58,17 +58,12 @@ def read_input_data(params, time_stamps, regions, spatial_res, technologies):
         legacy_layer=params['legacy_layer'])
     print(time()-start)
 
+    print(filtered_coordinates)
     print("Truncate data")
     # TODO: maybe a better way to create the dict that to copy the input
     truncated_data = deepcopy(filtered_coordinates)
     for region, tech in return_dict_keys(filtered_coordinates):
         truncated_data[region][tech] = database.sel(locations=filtered_coordinates[region][tech])
-
-    # TODO: second part: computing capacity factors
-
-    print("Compute cap factor")
-    # TODO: looks ok, to see if we merge it with my tool using atlite
-    cap_factor_data = compute_capacity_factors(truncated_data)
 
     # TODO: fourth part: obtain potential for each coordinate
 
@@ -85,10 +80,30 @@ def read_input_data(params, time_stamps, regions, spatial_res, technologies):
 
     print("Update potential")
     capacity_potential, existing_cap_percentage = update_potential_per_node(capacity_potential, deployment_shares)
+    special_index = pd.MultiIndex.from_tuples(return_dict_keys_2(capacity_potential), names=["region", "tech", "coords"])
+    cap_pot_df = pd.Series(index=special_index)
+    for region, tech, coord in special_index:
+        cap_pot_df.loc[region, tech, coord] = capacity_potential[region][tech].sel(locations=coord).item()
 
-    output_dict = {'capacity_factors': cap_factor_data,
-                   'capacity_potential': capacity_potential,
-                   'existing_cap_percentage': existing_cap_percentage,
+    # TODO: it's king of strange that existing_cap_percentage is not indexed on region no? or that the other are
+    special_index_2 = pd.MultiIndex.from_tuples(return_dict_keys_3(existing_cap_percentage), names=["tech", "coords"])
+    existing_cap_percentage_df = pd.Series(index=special_index_2)
+    for tech, coord in special_index_2:
+        existing_cap_percentage_df.loc[tech, coord] = existing_cap_percentage[tech].sel(locations=coord).item()
+
+
+    # TODO: second part: computing capacity factors
+
+    print("Compute cap factor")
+    # TODO: looks ok, to see if we merge it with my tool using atlite
+    cap_factor_data = compute_capacity_factors(truncated_data)
+    cap_factor_data_df = pd.DataFrame(index=time_stamps, columns=special_index)
+    for region, tech, coord in special_index:
+        cap_factor_data_df[region, tech, coord] = cap_factor_data[region][tech].sel(locations=coord).values
+
+    output_dict = {'capacity_factors_df': cap_factor_data_df,
+                   'capacity_potential_df': cap_pot_df,
+                   'existing_cap_percentage_df': existing_cap_percentage_df,
                    'load_data': load}
 
     custom_log(' Input data read...')
@@ -135,30 +150,20 @@ def build_model(input_data, params, formulation, time_stamps, output_folder, wri
 
     """
 
-    # TODO: shoulldn't we replace all those dictionaries by dataframes with one column
-    #   coordinate, one column region and one column with the value? or by xarrays.Datarrays
-    #   with as dimensions the regions and technologies
-
     nb_time_stamps = len(time_stamps)
-    # TODO: need to update the dataframes to be able to use directly time_stamps
-    # TODO: change load indexing when this is done
-    time_indexes = list(arange(nb_time_stamps))
-
     technologies = params['technologies']
     regions = params["regions"]
 
     # Capacity factors
-    cap_factor_dict = xarray_to_dict(input_data['capacity_factors'], levels=2)
-
-    # Load
+    cap_factor_df = input_data['capacity_factors_df']
     load_df = input_data['load_data']
+    cap_potential_df = input_data['capacity_potential_df']
+    existing_cap_perc_df = input_data['existing_cap_percentage_df']
+    generation_potential = cap_factor_df*cap_potential_df
 
-    cap_potential_dict = xarray_to_dict(input_data['capacity_potential'], levels=2)
-    existing_cap_perc = xarray_to_dict(input_data['existing_cap_percentage'], levels=1)
-
-    tech_coordinates_list = list(retrieve_tech_coordinates_tuples(input_data['existing_cap_percentage']).keys())
-    # TODO: why is this computed here and not in input data?
-    generation_potential = compute_generation_potential(cap_factor_dict, cap_potential_dict)
+    tech_coordinates_list = list(existing_cap_perc_df.index)
+    # TODO: it's a bit shitty to have to do that but it's bugging otherwise
+    tech_coordinates_list = [(tech, coord[0], coord[1]) for tech, coord in tech_coordinates_list]
 
     custom_log(' Model being built...')
 
@@ -167,108 +172,104 @@ def build_model(input_data, params, formulation, time_stamps, output_folder, wri
     if formulation == 'meet_RES_targets_year_round':  # TODO: probaly shouldn't be called year round
 
         # Variables for the portion of demand that is met at each time-stamp for each region
-        model.x = Var(regions, time_indexes, within=NonNegativeReals, bounds=(0, 1))
+        model.x = Var(regions, time_stamps, within=NonNegativeReals, bounds=(0, 1))
         # Variables for the portion of capacity at each location for each technology
         model.y = Var(tech_coordinates_list, within=NonNegativeReals, bounds=(0, 1))
 
         # Generation must be greater than x percent of the load in each region for each time step
         def generation_check_rule(model, region, t):
-            generation = sum(generation_potential[region][tech][t, loc] * model.y[tech, loc]
-                             for tech in list(cap_factor_dict[region])
-                             for loc in arange(cap_factor_dict[region][tech].shape[1]))
-            return generation >= load_df.iloc[t][region] * model.x[region, t]
-        model.generation_check = Constraint(regions, time_indexes, rule=generation_check_rule)
+            generation = sum(generation_potential[region, tech, loc].loc[t] * model.y[tech, loc]
+                             for tech, loc in generation_potential[region].keys())
+            return generation >= load_df.loc[t, region] * model.x[region, t]
+        model.generation_check = Constraint(regions, time_stamps, rule=generation_check_rule)
 
         # Percentage of capacity installed must be bigger than existing percentage
-        def potential_constraint_rule(model, tech, loc):
-            return model.y[tech, loc] >= existing_cap_perc[tech][loc]
+        def potential_constraint_rule(model, tech, lon, lat):
+            return model.y[tech, lon, lat] >= existing_cap_perc_df[tech][(lon, lat)]
         model.potential_constraint = Constraint(tech_coordinates_list, rule=potential_constraint_rule)
 
         # Impose a certain percentage of the load to be covered over the whole time slice
         covered_load_perc_per_region = dict(zip(params['regions'], params['deployment_vector']))
 
+        # TODO: call mean instead of sum? and remove * nb_time_stamps
         def policy_target_rule(model, region):
-            return sum(model.x[region, t] for t in time_indexes) \
+            return sum(model.x[region, t] for t in time_stamps) \
                    >= covered_load_perc_per_region[region] * nb_time_stamps
         model.policy_target = Constraint(regions, rule=policy_target_rule)
 
         # Minimize the capacity that is deployed
         def objective_rule(model):
-            return sum(model.y[tech, loc] * cap_potential_dict[region][tech][loc]
-                       for region in regions
-                       for tech in list(cap_factor_dict[region])
-                       for loc in arange(cap_factor_dict[region][tech].shape[1]))
+            return sum(model.y[tech, loc] * cap_potential_df[region, tech, loc]
+                       for region, tech, loc in cap_potential_df.keys())
         model.objective = Objective(rule=objective_rule, sense=minimize)
 
     elif formulation == 'meet_RES_targets_hourly':
 
         # Variables for the portion of demand that is met at each time-stamp for each region
-        model.x = Var(regions, time_indexes, within=NonNegativeReals, bounds=(0, 1))
+        model.x = Var(regions, time_stamps, within=NonNegativeReals, bounds=(0, 1))
         # Variables for the portion of capacity at each location for each technology
         model.y = Var(tech_coordinates_list, within=NonNegativeReals, bounds=(0, 1))
 
         # Generation must be greater than x percent of the load in each region for each time step
         def generation_check_rule(model, region, t):
-            generation = sum(generation_potential[region][tech][t, loc] * model.y[tech, loc]
-                             for tech in list(cap_factor_dict[region])
-                             for loc in arange(cap_factor_dict[region][tech].shape[1]))
-            return generation >= load_df.iloc[t][region] * model.x[region, t]
-        model.generation_check = Constraint(regions, time_indexes, rule=generation_check_rule)
+            generation = sum(generation_potential[region, tech, loc].loc[t] * model.y[tech, loc]
+                             for tech, loc in generation_potential[region].keys())
+            return generation >= load_df.loc[t, region] * model.x[region, t]
+        model.generation_check = Constraint(regions, time_stamps, rule=generation_check_rule)
 
         # Percentage of capacity installed must be bigger than existing percentage
-        def potential_constraint_rule(model, tech, loc):
-            return model.y[tech, loc] >= existing_cap_perc[tech][loc]
+        def potential_constraint_rule(model, tech, lon, lat):
+            return model.y[tech, lon, lat] >= existing_cap_perc_df[tech][(lon, lat)]
         model.potential_constraint = Constraint(tech_coordinates_list, rule=potential_constraint_rule)
 
         # Impose a certain percentage of the load to be covered for each time step
         covered_load_perc_per_region = dict(zip(params['regions'], params['deployment_vector']))
 
+        # TODO: why are we multiplicating by nb_time_stamps?
         def policy_target_rule(model, region, t):
             return model.x[region, t] >= covered_load_perc_per_region[region] * nb_time_stamps
-        model.policy_target = Constraint(regions, time_indexes, rule=policy_target_rule)
+        model.policy_target = Constraint(regions, time_stamps, rule=policy_target_rule)
 
         # Minimize the capacity that is deployed
         def objective_rule(model):
-            return sum(model.y[tech, loc] * cap_potential_dict[region][tech][loc]
-                       for region in regions
-                       for tech in list(cap_factor_dict[region])
-                       for loc in arange(cap_factor_dict[region][tech].shape[1]))
+            return sum(model.y[tech, loc] * cap_potential_df[region, tech, loc]
+                       for region, tech, loc in cap_potential_df.keys())
         model.objective = Objective(rule=objective_rule, sense=minimize)
 
     elif formulation == 'meet_demand_with_capacity':
 
         # Variables for the portion of demand that is met at each time-stamp for each region
-        model.x = Var(regions, time_indexes, within=NonNegativeReals, bounds=(0, 1))
+        model.x = Var(regions, time_stamps, within=NonNegativeReals, bounds=(0, 1))
         # Variables for the portion of capacity at each location for each technology
         model.y = Var(tech_coordinates_list, within=NonNegativeReals, bounds=(0, 1))
 
         # Generation must be greater than x percent of the load in each region for each time step
         def generation_check_rule(model, region, t):
-            generation = sum(generation_potential[region][tech][t, loc] *
-                             model.y[tech, loc] for tech in list(cap_factor_dict[region])
-                             for loc in arange(cap_factor_dict[region][tech].shape[1]))
-            return generation >= load_df.iloc[t][region] * model.x[region, t]
-        model.generation_check = Constraint(regions, time_indexes, rule=generation_check_rule)
+            generation = sum(generation_potential[region, tech, loc].loc[t] * model.y[tech, loc]
+                             for tech, loc in generation_potential[region].keys())
+            return generation >= load_df.loc[t, region] * model.x[region, t]
+        model.generation_check = Constraint(regions, time_stamps, rule=generation_check_rule)
 
         # Percentage of capacity installed must be bigger than existing percentage
-        def potential_constraint_rule(model, tech, loc):
-            return model.y[tech, loc] >= existing_cap_perc[tech][loc]
+        def potential_constraint_rule(model, tech, lon, lat):
+            return model.y[tech, lon, lat] >= existing_cap_perc_df[tech][(lon, lat)]
         model.potential_constraint = Constraint(tech_coordinates_list, rule=potential_constraint_rule)
 
         # Impose a certain installed capacity per technology
         required_installed_cap_per_tech = dict(zip(params['technologies'], params['deployment_vector']))
 
         def capacity_target_rule(model, tech):
-            total_cap = sum(model.y[tech, loc] * cap_potential_dict[region][tech][loc]
+            # TODO: probably a cleaner way to do this loop
+            total_cap = sum(model.y[tech, loc] * cap_potential_df[region][tech][loc]
                             for region in regions
-                            for loc in [item[1] for item in tech_coordinates_list
+                            for loc in [(item[1], item[2]) for item in tech_coordinates_list
                             if item[0] == tech])
             return total_cap == required_installed_cap_per_tech[tech]  # TODO: shouldn't we make that a soft constraint
         model.capacity_target = Constraint(technologies, rule=capacity_target_rule)
 
         # Maximize the proportion of load that is satisfied
         def objective_rule(model):
-            return sum(model.x[region, t] for region in regions for t in time_indexes)
+            return sum(model.x[region, t] for region in regions for t in time_stamps)
         model.objective = Objective(rule=objective_rule, sense=maximize)
 
     else:
