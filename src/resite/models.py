@@ -48,7 +48,7 @@ def read_input_data(params, time_stamps, regions, spatial_res, technologies):
     print("Filtering coordinates")
     start = time()
     all_coordinates = list(zip(database.longitude.values, database.latitude.values))
-    filtered_coordinates = filter_coordinates(
+    filtered_coordinates, filtered_coordinates_index = filter_coordinates(
         all_coordinates, spatial_res, technologies, regions,
         resource_quality_layer=params['resource_quality_layer'],
         population_density_layer=params['population_density_layer'],
@@ -57,8 +57,10 @@ def read_input_data(params, time_stamps, regions, spatial_res, technologies):
         water_mask_layer=params['water_mask_layer'], bathymetry_layer=params['bathymetry_layer'],
         legacy_layer=params['legacy_layer'])
     print(time()-start)
-
     print(filtered_coordinates)
+    print(filtered_coordinates_index)
+    exit()
+
     print("Truncate data")
     # TODO: maybe a better way to create the dict that to copy the input
     truncated_data = deepcopy(filtered_coordinates)

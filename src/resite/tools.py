@@ -355,11 +355,17 @@ def filter_coordinates(all_coordinates, spatial_resolution, technologies, region
     for key, value in output_dict.items():
         output_dict[key] = {k: v for k, v in output_dict[key].items() if len(v) > 0}
 
-    return output_dict
+    key_list = []
+    for region, region_dict in output_dict.items():
+        for tech, tech_coords in region_dict.items():
+            for coord in tech_coords:
+                key_list.append((region, tech, coord))
+    output_index = pd.MultiIndex.from_tuples(key_list, names=['regions', 'technologies', 'coordinates'])
+
+    return output_dict, output_index
 
 
 # TODO:
-#  - change name : compute_capacity_factors?
 #  - replace using atlite?
 #  - data. ?
 def compute_capacity_factors(input_dict, smooth_wind_power_curve=True):
