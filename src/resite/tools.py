@@ -613,26 +613,23 @@ def get_capacity_potential(tech_coordinates_dict, regions, spatial_resolution, e
 
         # Compute potential for each NUTS2 or EEZ
         potential_per_subregion = capacity_potential_from_enspresso(tech)
-        potential_per_subregion_df = pd.Series(list(potential_per_subregion.values()), index=list(potential_per_subregion.keys()))
+        potential_per_subregion_df = pd.Series(list(potential_per_subregion.values()),
+                                               index=list(potential_per_subregion.keys()))
         coords = tech_coordinates_dict[tech]
         coords_to_subregions = dict.fromkeys(coords)
-        coords_to_subregions_df = pd.DataFrame(columns=['subregion', 'pop_dens'], index=coords) # pd.MultiIndex.from_tuples(coords))
-        subregions_to_coords = {}
+        coords_to_subregions_df = pd.DataFrame(columns=['subregion', 'pop_dens'], index=coords)
 
         # Find the geographical region code associated to each coordinate
         for coord in coords:
             region = match_point_to_region(coord, filter_shape_data, list(potential_per_subregion.keys()))
             coords_to_subregions_df.loc[coord, 'subregion'] = region
             coords_to_subregions[coord] = region
-            if region in subregions_to_coords:
-                subregions_to_coords[region] += [coord]
-            else:
-                subregions_to_coords[region] = [coord]
 
         if tech in ['wind_offshore', 'wind_floating']:
 
             # For offshore sites, divide the total potential of the region by the number of coordinates
             # associated to that region
+            # TODO: need to modify that too
             region_freq = dict(Counter(coords_to_subregions.values()).most_common())
             for coord in coords:
                 coord_region = coords_to_subregions[coord]
@@ -641,43 +638,20 @@ def get_capacity_potential(tech_coordinates_dict, regions, spatial_resolution, e
 
         elif tech in ['wind_onshore', 'solar_utility', 'solar_residential']:
 
+            # TODO: change variable names
             coords_to_subregions_df['pop_dens'] = \
                  clip(array_pop_density.sel(locations=coords).values, a_min=1., a_max=None)
             if tech in ['wind_onshore', 'solar_utility']:
                 coords_to_subregions_df['pop_dens'] = 1./coords_to_subregions_df['pop_dens']
             coords_to_subregions_df_sum = coords_to_subregions_df.groupby(['subregion']).sum()
             coords_to_subregions_df_sum["cap_pot"] = potential_per_subregion_df[coords_to_subregions_df_sum.index]
-            print(coords_to_subregions_df_sum)
             coords_to_subregions_df_sum.columns = ['sum_per_subregion', 'cap_pot']
             coords_to_subregions_df_merge = \
                 coords_to_subregions_df.merge(coords_to_subregions_df_sum,
                                               left_on='subregion', right_on='subregion', right_index=True)
-            print(coords_to_subregions_df_merge['pop_dens']/coords_to_subregions_df_merge['sum_per_subregion'])
-
-            # TODO: this seems pretty inefficient
-            for coord in coords:
-
-                # Get population density of the current coordinate
-                incumbent_loc_pop_dens = float(array_pop_density.sel(locations=coord).values)
-                # TODO: if incumbent_loc_pop_dens is 0, I have an error
-                if incumbent_loc_pop_dens < 1.:
-                    incumbent_loc_pop_dens = 1.
-
-                # Get population densities of all coordinates associated to the current coordinate region
-                loc_in_region = subregions_to_coords[coords_to_subregions[coord]]
-                # TODO: why are we clipping?
-                region_loc_pop_dens = clip(array_pop_density.sel(locations=loc_in_region).values, a_min=1., a_max=None)
-
-                # Associate to the coordinate a portion of the regions potential
-                if tech in ['wind_onshore', 'solar_utility']:
-                    # Inversely proportional to population density
-                    distribution_key = (1/incumbent_loc_pop_dens) / sum(1/region_loc_pop_dens)
-                else:
-                    # Proportional to population density
-                    distribution_key = incumbent_loc_pop_dens / sum(region_loc_pop_dens)
-                capacity_potential_df[tech, coord] = float(potential_per_subregion[coords_to_subregions[coord]]) \
-                                                     * distribution_key
-            print(capacity_potential_df)
+            capacity_potential_per_coord = coords_to_subregions_df_merge['pop_dens'] * \
+                coords_to_subregions_df_merge['cap_pot']/coords_to_subregions_df_merge['sum_per_subregion']
+            capacity_potential_df[tech][capacity_potential_per_coord.index] = capacity_potential_per_coord.values
 
     # Update capacity potential with existing potential if present
     if existing_capacity is not None:

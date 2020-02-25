@@ -31,7 +31,7 @@ input_dict = read_input_data(params, time_stamps,
                              params['regions'], params['spatial_resolution'], params['technologies'])
 
 instance = build_model(input_dict, params, params['formulation'], time_stamps, output_folder, write_lp=True)
-instance.pprint()
+# instance.pprint()
 custom_log(' Sending model to solver.')
 opt = SolverFactory(params['solver'])
 # TODO: should probably be added to parameters file
