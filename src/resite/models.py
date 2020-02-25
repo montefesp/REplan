@@ -62,13 +62,12 @@ def read_input_data(params, time_stamps, regions, spatial_res, technologies):
     print("Filtering coordinates")
     start = time()
     tech_coordinate_dict = filter_coordinates(
-        full_coordinates, spatial_res, technologies, regions,
+        full_coordinates, spatial_res, technologies,
         resource_quality_layer=params['resource_quality_layer'],
         population_density_layer=params['population_density_layer'],
         protected_areas_layer=params['protected_areas_layer'],
         orography_layer=params['orography_layer'], forestry_layer=params['forestry_layer'],
-        water_mask_layer=params['water_mask_layer'], bathymetry_layer=params['bathymetry_layer'],
-        legacy_layer=params['legacy_layer'])
+        water_mask_layer=params['water_mask_layer'], bathymetry_layer=params['bathymetry_layer'])
     print(time()-start)
 
     print("Get existing legacy capacity")

@@ -154,11 +154,10 @@ def read_database(file_path, coordinates=None):
     return dataset
 
 
-
 # TODO:
 #  - need to change this - use what I have done in my code or try at least
 #  - data.res_potential
-def update_potential_files(input_dict, tech):
+def update_potential_files(input_ds, tech):
     """
     Updates NUTS2 potentials with i) non-EU data and ii) re-indexed (2013 vs 2016) NUTS2 regions.
 
@@ -177,8 +176,7 @@ def update_potential_files(input_dict, tech):
     """
     regions_to_remove = ['AD00', 'SM00', 'CY00', 'LI00', 'FRY1', 'FRY2', 'FRY3', 'FRY4', 'FRY5', 'ES63', 'ES64', 'ES70']
 
-    for key in regions_to_remove:
-        input_dict.pop(key, None)
+    input_ds = input_ds.drop(regions_to_remove, errors='ignore')
 
     if tech in ['wind_onshore', 'solar_residential', 'solar_utility']:
 
@@ -188,173 +186,173 @@ def update_potential_files(input_dict, tech):
                                'FR63': 'FRI2', 'FR71': 'FRK2', 'FR72': 'FRK1', 'FR81': 'FRJ1', 'FR82': 'FRL0',
                                'FR83': 'FRM0'}
 
-        for key in dict_regions_update.keys():
-            input_dict[dict_regions_update[key]] = input_dict.pop(key, dict_regions_update[key])
+        new_index = [dict_regions_update[x] if x in dict_regions_update else x for x in input_ds.index]
+        input_ds.index = new_index
 
     if tech == 'wind_onshore':
 
-        input_dict['AL01'] = 2.
-        input_dict['AL02'] = 2.
-        input_dict['AL03'] = 2.
-        input_dict['BA00'] = 3.
-        input_dict['ME00'] = 3.
-        input_dict['MK00'] = 5.
-        input_dict['RS11'] = 0.
-        input_dict['RS12'] = 10.
-        input_dict['RS21'] = 10.
-        input_dict['RS22'] = 10.
-        input_dict['CH01'] = 1.
-        input_dict['CH02'] = 1.
-        input_dict['CH03'] = 1.
-        input_dict['CH04'] = 1.
-        input_dict['CH05'] = 1.
-        input_dict['CH06'] = 1.
-        input_dict['CH07'] = 1.
-        input_dict['NO01'] = 3.
-        input_dict['NO02'] = 3.
-        input_dict['NO03'] = 3.
-        input_dict['NO04'] = 3.
-        input_dict['NO05'] = 3.
-        input_dict['NO06'] = 3.
-        input_dict['NO07'] = 3.
-        input_dict['IE04'] = input_dict['IE01']
-        input_dict['IE05'] = input_dict['IE02']
-        input_dict['IE06'] = input_dict['IE02']
-        input_dict['LT01'] = input_dict['LT00']
-        input_dict['LT02'] = input_dict['LT00']
-        input_dict['UKM7'] = input_dict['UKM2']
-        input_dict['UKM8'] = input_dict['UKM5']
-        input_dict['UKM9'] = input_dict['UKM3']
-        input_dict['PL71'] = input_dict['PL11']
-        input_dict['PL72'] = input_dict['PL33']
-        input_dict['PL81'] = input_dict['PL31']
-        input_dict['PL82'] = input_dict['PL32']
-        input_dict['PL84'] = input_dict['PL34']
-        input_dict['PL92'] = input_dict['PL12']
-        input_dict['PL91'] = 0.
-        input_dict['HU11'] = 0.
-        input_dict['HU12'] = input_dict['HU10']
-        input_dict['UKI5'] = 0.
-        input_dict['UKI6'] = 0.
-        input_dict['UKI7'] = 0.
+        input_ds['AL01'] = 2.
+        input_ds['AL02'] = 2.
+        input_ds['AL03'] = 2.
+        input_ds['BA00'] = 3.
+        input_ds['ME00'] = 3.
+        input_ds['MK00'] = 5.
+        input_ds['RS11'] = 0.
+        input_ds['RS12'] = 10.
+        input_ds['RS21'] = 10.
+        input_ds['RS22'] = 10.
+        input_ds['CH01'] = 1.
+        input_ds['CH02'] = 1.
+        input_ds['CH03'] = 1.
+        input_ds['CH04'] = 1.
+        input_ds['CH05'] = 1.
+        input_ds['CH06'] = 1.
+        input_ds['CH07'] = 1.
+        input_ds['NO01'] = 3.
+        input_ds['NO02'] = 3.
+        input_ds['NO03'] = 3.
+        input_ds['NO04'] = 3.
+        input_ds['NO05'] = 3.
+        input_ds['NO06'] = 3.
+        input_ds['NO07'] = 3.
+        input_ds['IE04'] = input_ds['IE01']
+        input_ds['IE05'] = input_ds['IE02']
+        input_ds['IE06'] = input_ds['IE02']
+        input_ds['LT01'] = input_ds['LT00']
+        input_ds['LT02'] = input_ds['LT00']
+        input_ds['UKM7'] = input_ds['UKM2']
+        input_ds['UKM8'] = input_ds['UKM5']
+        input_ds['UKM9'] = input_ds['UKM3']
+        input_ds['PL71'] = input_ds['PL11']
+        input_ds['PL72'] = input_ds['PL33']
+        input_ds['PL81'] = input_ds['PL31']
+        input_ds['PL82'] = input_ds['PL32']
+        input_ds['PL84'] = input_ds['PL34']
+        input_ds['PL92'] = input_ds['PL12']
+        input_ds['PL91'] = 0.
+        input_ds['HU11'] = 0.
+        input_ds['HU12'] = input_ds['HU10']
+        input_ds['UKI5'] = 0.
+        input_ds['UKI6'] = 0.
+        input_ds['UKI7'] = 0.
 
     elif tech == 'wind_offshore':
 
-        input_dict['EZAL'] = 2.
-        input_dict['EZBA'] = 0.
-        input_dict['EZME'] = 0.
-        input_dict['EZMK'] = 0.
-        input_dict['EZRS'] = 0.
-        input_dict['EZCH'] = 0.
-        input_dict['EZNO'] = 20.
-        input_dict['EZIE'] = 20.
-        input_dict['EZEL'] = input_dict['EZGR']
+        input_ds['EZAL'] = 2.
+        input_ds['EZBA'] = 0.
+        input_ds['EZME'] = 0.
+        input_ds['EZMK'] = 0.
+        input_ds['EZRS'] = 0.
+        input_ds['EZCH'] = 0.
+        input_ds['EZNO'] = 20.
+        input_ds['EZIE'] = 20.
+        input_ds['EZEL'] = input_ds['EZGR']
 
     elif tech == 'wind_floating':
 
-        input_dict['EZAL'] = 2.
-        input_dict['EZBA'] = 0.
-        input_dict['EZME'] = 0.
-        input_dict['EZMK'] = 0.
-        input_dict['EZRS'] = 0.
-        input_dict['EZCH'] = 0.
-        input_dict['EZNO'] = 100.
-        input_dict['EZIE'] = 120.
-        input_dict['EZEL'] = input_dict['EZGR']
+        input_ds['EZAL'] = 2.
+        input_ds['EZBA'] = 0.
+        input_ds['EZME'] = 0.
+        input_ds['EZMK'] = 0.
+        input_ds['EZRS'] = 0.
+        input_ds['EZCH'] = 0.
+        input_ds['EZNO'] = 100.
+        input_ds['EZIE'] = 120.
+        input_ds['EZEL'] = input_ds['EZGR']
 
     elif tech == 'solar_residential':
 
-        input_dict['AL01'] = 1.
-        input_dict['AL02'] = 1.
-        input_dict['AL03'] = 1.
-        input_dict['BA00'] = 3.
-        input_dict['ME00'] = 1.
-        input_dict['MK00'] = 1.
-        input_dict['RS11'] = 5.
-        input_dict['RS12'] = 2.
-        input_dict['RS21'] = 2.
-        input_dict['RS22'] = 2.
-        input_dict['CH01'] = 6.
-        input_dict['CH02'] = 6.
-        input_dict['CH03'] = 6.
-        input_dict['CH04'] = 6.
-        input_dict['CH05'] = 6.
-        input_dict['CH06'] = 6.
-        input_dict['CH07'] = 6.
-        input_dict['NO01'] = 3.
-        input_dict['NO02'] = 0.
-        input_dict['NO03'] = 3.
-        input_dict['NO04'] = 3.
-        input_dict['NO05'] = 0.
-        input_dict['NO06'] = 0.
-        input_dict['NO07'] = 0.
-        input_dict['IE04'] = input_dict['IE01']
-        input_dict['IE05'] = input_dict['IE02']
-        input_dict['IE06'] = input_dict['IE02']
-        input_dict['LT01'] = input_dict['LT00']
-        input_dict['LT02'] = input_dict['LT00']
-        input_dict['UKM7'] = input_dict['UKM2']
-        input_dict['UKM8'] = input_dict['UKM5']
-        input_dict['UKM9'] = input_dict['UKM3']
-        input_dict['PL71'] = input_dict['PL11']
-        input_dict['PL72'] = input_dict['PL33']
-        input_dict['PL81'] = input_dict['PL31']
-        input_dict['PL82'] = input_dict['PL32']
-        input_dict['PL84'] = input_dict['PL34']
-        input_dict['PL92'] = input_dict['PL12']
-        input_dict['PL91'] = 5.
-        input_dict['HU11'] = input_dict['HU10']
-        input_dict['HU12'] = input_dict['HU10']
-        input_dict['UKI5'] = 1.
-        input_dict['UKI6'] = 1.
-        input_dict['UKI7'] = 1.
+        input_ds['AL01'] = 1.
+        input_ds['AL02'] = 1.
+        input_ds['AL03'] = 1.
+        input_ds['BA00'] = 3.
+        input_ds['ME00'] = 1.
+        input_ds['MK00'] = 1.
+        input_ds['RS11'] = 5.
+        input_ds['RS12'] = 2.
+        input_ds['RS21'] = 2.
+        input_ds['RS22'] = 2.
+        input_ds['CH01'] = 6.
+        input_ds['CH02'] = 6.
+        input_ds['CH03'] = 6.
+        input_ds['CH04'] = 6.
+        input_ds['CH05'] = 6.
+        input_ds['CH06'] = 6.
+        input_ds['CH07'] = 6.
+        input_ds['NO01'] = 3.
+        input_ds['NO02'] = 0.
+        input_ds['NO03'] = 3.
+        input_ds['NO04'] = 3.
+        input_ds['NO05'] = 0.
+        input_ds['NO06'] = 0.
+        input_ds['NO07'] = 0.
+        input_ds['IE04'] = input_ds['IE01']
+        input_ds['IE05'] = input_ds['IE02']
+        input_ds['IE06'] = input_ds['IE02']
+        input_ds['LT01'] = input_ds['LT00']
+        input_ds['LT02'] = input_ds['LT00']
+        input_ds['UKM7'] = input_ds['UKM2']
+        input_ds['UKM8'] = input_ds['UKM5']
+        input_ds['UKM9'] = input_ds['UKM3']
+        input_ds['PL71'] = input_ds['PL11']
+        input_ds['PL72'] = input_ds['PL33']
+        input_ds['PL81'] = input_ds['PL31']
+        input_ds['PL82'] = input_ds['PL32']
+        input_ds['PL84'] = input_ds['PL34']
+        input_ds['PL92'] = input_ds['PL12']
+        input_ds['PL91'] = 5.
+        input_ds['HU11'] = input_ds['HU10']
+        input_ds['HU12'] = input_ds['HU10']
+        input_ds['UKI5'] = 1.
+        input_ds['UKI6'] = 1.
+        input_ds['UKI7'] = 1.
 
     elif tech == 'solar_utility':
 
-        input_dict['AL01'] = 1.
-        input_dict['AL02'] = 1.
-        input_dict['AL03'] = 1.
-        input_dict['BA00'] = 3.
-        input_dict['ME00'] = 1.
-        input_dict['MK00'] = 1.
-        input_dict['RS11'] = 0.
-        input_dict['RS12'] = 2.
-        input_dict['RS21'] = 2.
-        input_dict['RS22'] = 1.
-        input_dict['CH01'] = 6.
-        input_dict['CH02'] = 6.
-        input_dict['CH03'] = 6.
-        input_dict['CH04'] = 6.
-        input_dict['CH05'] = 6.
-        input_dict['CH06'] = 6.
-        input_dict['CH07'] = 6.
-        input_dict['NO01'] = 3.
-        input_dict['NO02'] = 0.
-        input_dict['NO03'] = 3.
-        input_dict['NO04'] = 3.
-        input_dict['NO05'] = 0.
-        input_dict['NO06'] = 0.
-        input_dict['NO07'] = 0.
-        input_dict['IE04'] = input_dict['IE01']
-        input_dict['IE05'] = input_dict['IE02']
-        input_dict['IE06'] = input_dict['IE02']
-        input_dict['LT01'] = input_dict['LT00']
-        input_dict['LT02'] = input_dict['LT00']
-        input_dict['UKM7'] = input_dict['UKM2']
-        input_dict['UKM8'] = input_dict['UKM5']
-        input_dict['UKM9'] = input_dict['UKM3']
-        input_dict['PL71'] = input_dict['PL11']
-        input_dict['PL72'] = input_dict['PL33']
-        input_dict['PL81'] = input_dict['PL31']
-        input_dict['PL82'] = input_dict['PL32']
-        input_dict['PL84'] = input_dict['PL34']
-        input_dict['PL92'] = input_dict['PL12']
-        input_dict['PL91'] = 2.
-        input_dict['HU11'] = 0.
-        input_dict['HU12'] = 2.
-        input_dict['UKI5'] = 0.
-        input_dict['UKI6'] = 0.
-        input_dict['UKI7'] = 0.
+        input_ds['AL01'] = 1.
+        input_ds['AL02'] = 1.
+        input_ds['AL03'] = 1.
+        input_ds['BA00'] = 3.
+        input_ds['ME00'] = 1.
+        input_ds['MK00'] = 1.
+        input_ds['RS11'] = 0.
+        input_ds['RS12'] = 2.
+        input_ds['RS21'] = 2.
+        input_ds['RS22'] = 1.
+        input_ds['CH01'] = 6.
+        input_ds['CH02'] = 6.
+        input_ds['CH03'] = 6.
+        input_ds['CH04'] = 6.
+        input_ds['CH05'] = 6.
+        input_ds['CH06'] = 6.
+        input_ds['CH07'] = 6.
+        input_ds['NO01'] = 3.
+        input_ds['NO02'] = 0.
+        input_ds['NO03'] = 3.
+        input_ds['NO04'] = 3.
+        input_ds['NO05'] = 0.
+        input_ds['NO06'] = 0.
+        input_ds['NO07'] = 0.
+        input_ds['IE04'] = input_ds['IE01']
+        input_ds['IE05'] = input_ds['IE02']
+        input_ds['IE06'] = input_ds['IE02']
+        input_ds['LT01'] = input_ds['LT00']
+        input_ds['LT02'] = input_ds['LT00']
+        input_ds['UKM7'] = input_ds['UKM2']
+        input_ds['UKM8'] = input_ds['UKM5']
+        input_ds['UKM9'] = input_ds['UKM3']
+        input_ds['PL71'] = input_ds['PL11']
+        input_ds['PL72'] = input_ds['PL33']
+        input_ds['PL81'] = input_ds['PL31']
+        input_ds['PL82'] = input_ds['PL32']
+        input_ds['PL84'] = input_ds['PL34']
+        input_ds['PL92'] = input_ds['PL12']
+        input_ds['PL91'] = 2.
+        input_ds['HU11'] = 0.
+        input_ds['HU12'] = 2.
+        input_ds['UKI5'] = 0.
+        input_ds['UKI6'] = 0.
+        input_ds['UKI7'] = 0.
 
-    return input_dict
+    return input_ds
 

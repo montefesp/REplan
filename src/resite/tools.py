@@ -195,10 +195,10 @@ def filter_locations_by_layer(tech_dict, coords, spatial_resolution, which, file
 
 # TODO
 #  - Ask david: Why is protected_areas_layer to False?
-def filter_coordinates(all_coordinates, spatial_resolution, technologies, regions,
+def filter_coordinates(all_coordinates, spatial_resolution, technologies,
                        resource_quality_layer=True, population_density_layer=True,
                        protected_areas_layer=False, orography_layer=True, forestry_layer=True,
-                       water_mask_layer=True, bathymetry_layer=True, legacy_layer=True):
+                       water_mask_layer=True, bathymetry_layer=True):
     """
     Returns the set of potential deployment locations for each region and available technology.
 
@@ -246,10 +246,6 @@ def filter_coordinates(all_coordinates, spatial_resolution, technologies, region
         (valid for offshore technologies) it discards points in coordinates_in_region
         based on the water depth. Associated threshold defined in the config_tech.yaml
         file for offshore and floating wind, respectively.
-    legacy_layer : boolean
-        "True" if the layer to be applied, "False" otherwise. If taken into account,
-        it adds points to the final set based on the existence of RES projects in the area,
-        thus avoiding a greenfield approach.
 
     Returns
     -------
@@ -269,16 +265,8 @@ def filter_coordinates(all_coordinates, spatial_resolution, technologies, region
 
         tech_dict = tech_config[tech]
         coordinates = copy(all_coordinates)
-        start_coordinates = copy(all_coordinates)
 
         # TODO: I would rearrange this and filter_locations_by_layer
-        # print("resource_quality_layer")
-        if resource_quality_layer:
-
-            coords_to_remove = filter_locations_by_layer(tech_dict, coordinates, spatial_resolution,
-                                                         which='resource')
-            coordinates = list(set(coordinates) - set(coords_to_remove))
-
         if tech_dict['deployment'] in ['onshore', 'utility', 'residential']:
 
             # print("orography_layer")
@@ -326,22 +314,13 @@ def filter_coordinates(all_coordinates, spatial_resolution, technologies, region
                                               which='bathymetry', filename=filename)
                 coordinates = list(set(coordinates) - set(coords_to_remove))
 
-        """
-        # TODO: Move this out of here
-        # print("legacy_layer")
-        if tech in ["wind_onshore", "wind_offshore", "solar_utility"] and legacy_layer:
+        # print("resource_quality_layer")
+        if resource_quality_layer:
 
-            # TODO: need to look if there is not another way to organize this
-            land_filtered_coordinates = filter_onshore_offshore_locations(start_coordinates,
-                                                                          spatial_resolution, tech)
-            legacy_dict = read_legacy_capacity_data(land_filtered_coordinates,
-                                                    region_shapes['region_subdivisions'], tech)
-            locations = list(legacy_dict.keys())
-            coords_to_add_legacy = \
-                retrieve_nodes_with_legacy_units(locations, region_shapes['region_shapefiles'], tech)
+            coords_to_remove = filter_locations_by_layer(tech_dict, coordinates, spatial_resolution,
+                                                         which='resource')
+            coordinates = list(set(coordinates) - set(coords_to_remove))
 
-            coordinates = list(set(coordinates).union(set(coords_to_add_legacy)))
-        """
         output_dict[tech] = coordinates
 
     return output_dict
@@ -496,7 +475,8 @@ def capacity_potential_from_enspresso(tech: str):
             (cap_potential_file['Unit'] == 'GWe') &
             (cap_potential_file['Onshore Offshore'] == 'Onshore') &
             (cap_potential_file['Scenario'] == 'EU-Wide high restrictions')]
-        nuts2_capacity_potentials = onshore_wind.groupby(onshore_wind.index)['Value'].sum().to_dict()
+
+        nuts2_capacity_potentials_ds = onshore_wind.groupby(onshore_wind.index)['Value'].sum()
 
     elif tech == 'wind_offshore':
 
@@ -512,7 +492,7 @@ def capacity_potential_from_enspresso(tech: str):
             (cap_potential_file['Onshore Offshore'] == 'Offshore') &
             (cap_potential_file['Scenario'] == 'EU-Wide low restrictions') &
             (cap_potential_file['Offshore categories'].isin(offshore_categories))]
-        nuts2_capacity_potentials = offshore_wind.groupby(offshore_wind.index)['Value'].sum().to_dict()
+        nuts2_capacity_potentials_ds = offshore_wind.groupby(offshore_wind.index)['Value'].sum()
 
     elif tech == 'wind_floating':
 
@@ -525,23 +505,22 @@ def capacity_potential_from_enspresso(tech: str):
             (cap_potential_file['Scenario'] == 'EU-Wide low restrictions') &
             (cap_potential_file['Wind condition'] == 'CF > 25%') &
             (cap_potential_file['Offshore categories'] == 'Water depth 100-1000m Floating')]
-        nuts2_capacity_potentials = offshore_wind.groupby(offshore_wind.index)['Value'].sum().to_dict()
+        nuts2_capacity_potentials_ds = offshore_wind.groupby(offshore_wind.index)['Value'].sum()
 
     elif tech == 'solar_utility':
 
         cap_potential_file = read_excel(join(path_potential_data, 'ENSPRESO_SOLAR_PV_CSP.XLSX'),
                                         sheet_name='NUTS2 170 W per m2 and 3%', skiprows=2, index_col=2)
-
-        nuts2_capacity_potentials = cap_potential_file['PV - ground'].to_dict()
+        nuts2_capacity_potentials_ds = cap_potential_file['PV - ground']
 
     elif tech == 'solar_residential':
 
         cap_potential_file = read_excel(join(path_potential_data, 'ENSPRESO_SOLAR_PV_CSP.XLSX'),
                                         sheet_name='NUTS2 170 W per m2 and 3%', skiprows=2, index_col=2)
+        nuts2_capacity_potentials_ds = cap_potential_file['PV - roof/facades']
 
-        nuts2_capacity_potentials = cap_potential_file['PV - roof/facades'].to_dict()
-
-    return update_potential_files(nuts2_capacity_potentials, tech)
+    # TODO: need to update this function
+    return update_potential_files(nuts2_capacity_potentials_ds, tech)
 
 
 # TODO:
@@ -597,6 +576,7 @@ def get_capacity_potential(tech_coordinates_dict, regions, spatial_resolution, e
     capacity_potential_df = pd.Series(0., index=pd.MultiIndex.from_tuples(tech_coords_tuples))
     for tech in tech_coordinates_dict.keys():
 
+        print(tech)
         # Get NUTS2 and EEZ shapes
         if tech in ['wind_offshore', 'wind_floating']:
 
@@ -612,29 +592,29 @@ def get_capacity_potential(tech_coordinates_dict, regions, spatial_resolution, e
             filter_shape_data.index = filter_shape_data['NUTS_ID']
 
         # Compute potential for each NUTS2 or EEZ
-        potential_per_subregion = capacity_potential_from_enspresso(tech)
-        potential_per_subregion_df = pd.Series(list(potential_per_subregion.values()),
-                                               index=list(potential_per_subregion.keys()))
+        potential_per_subregion_df = capacity_potential_from_enspresso(tech)
         coords = tech_coordinates_dict[tech]
-        coords_to_subregions = dict.fromkeys(coords)
-        coords_to_subregions_df = pd.DataFrame(columns=['subregion', 'pop_dens'], index=coords)
+        coords_to_subregions_df = pd.DataFrame(columns=['subregion'], index=coords)
 
         # Find the geographical region code associated to each coordinate
         for coord in coords:
-            region = match_point_to_region(coord, filter_shape_data, list(potential_per_subregion.keys()))
+            region = match_point_to_region(coord, filter_shape_data, list(potential_per_subregion_df.index))
             coords_to_subregions_df.loc[coord, 'subregion'] = region
-            coords_to_subregions[coord] = region
 
+        print("Computing potential")
         if tech in ['wind_offshore', 'wind_floating']:
 
             # For offshore sites, divide the total potential of the region by the number of coordinates
             # associated to that region
-            # TODO: need to modify that too
-            region_freq = dict(Counter(coords_to_subregions.values()).most_common())
-            for coord in coords:
-                coord_region = coords_to_subregions[coord]
-                capacity_potential_df[tech, coord] = float(potential_per_subregion[coord_region]) / \
-                    float(region_freq.get(coord_region))
+            # TODO: change variable names
+            region_freq_ds = coords_to_subregions_df.groupby(['subregion'])['subregion'].count()
+            region_freq_df = pd.DataFrame(region_freq_ds.values, index=region_freq_ds.index, columns=['freq'])
+            region_freq_df["cap_pot"] = potential_per_subregion_df[region_freq_df.index]
+            coords_to_subregions_df = \
+                coords_to_subregions_df.merge(region_freq_df,
+                                              left_on='subregion', right_on='subregion', right_index=True)
+            capacity_potential = coords_to_subregions_df["cap_pot"]/coords_to_subregions_df["freq"]
+            capacity_potential_df[tech][capacity_potential.index] = capacity_potential.values
 
         elif tech in ['wind_onshore', 'solar_utility', 'solar_residential']:
 
@@ -659,122 +639,6 @@ def get_capacity_potential(tech_coordinates_dict, regions, spatial_resolution, e
         capacity_potential_df[underestimated_capacity] = existing_capacity[underestimated_capacity]
 
     return capacity_potential_df
-
-# TODO:
-#  - data.res_potential or  data.cap_potential
-def capacity_potential_per_node(input_dict, spatial_resolution):
-    """
-    Assigning a technical potential to each individual node: TODO: what node? precise
-
-    Parameters
-    ----------
-    input_dict : Dict[str, Dict[str, List[tuple(float, float)]]
-        Dict object containing coordinates for regions and technologies
-    spatial_resolution : float
-        Spatial resolution of the study.
-
-    Returns
-    -------
-    output_dict : Dict[str, Dict[str, xr.DataArray]]
-        Dict object storing technical potential for each point per region and technology.
-
-    """
-
-    # Reading shape files # TODO: why not used the same function as before (return_region_shapefile)
-    path_shapefile_data = join(dirname(abspath(__file__)), '../../data/shapefiles')
-    shapefile_data_onshore = gpd.read_file(join(path_shapefile_data, 'NUTS_RG_01M_2016_4326_LEVL_2_incl_BA.geojson'))
-    shapefile_data_offshore = gpd.read_file(join(path_shapefile_data, 'EEZ_RG_01M_2016_4326_LEVL_0.geojson'))
-
-    # Load population density dataset
-    path_pop_data = join(dirname(abspath(__file__)), '../../data/population_density')
-    dataset_population = \
-        xr.open_dataset(join(path_pop_data, 'gpw_v4_population_density_rev11_' + str(spatial_resolution) + '.nc'))
-    # Rename the only variable to data # TODO: is there not a cleaner way to do this?
-    varname = [item for item in dataset_population.data_vars][0]
-    dataset_population = dataset_population.rename({varname: 'data'})
-    # The value of 5 for "raster" fetches data for the latest estimate available in the dataset, that is, 2020.
-    data_pop = dataset_population.sel(raster=5)
-
-    # Compute population density at intermediate points
-    array_pop_density = data_pop['data'].interp(longitude=arange(-180, 180, float(spatial_resolution)),
-                                                latitude=arange(-89, 91, float(spatial_resolution))[::-1],
-                                                method='linear').fillna(0.)
-    array_pop_density = array_pop_density.stack(locations=('longitude', 'latitude'))
-
-    output_dict = deepcopy(input_dict)
-    key_list = return_dict_keys(input_dict)
-    accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'solar_utility', 'solar_residential']
-    for region, tech in key_list:
-
-        assert tech in accepted_techs, "Error: tech {} is not in {}".format(tech, accepted_techs)
-
-        subregions_list = get_subregions_list(region)
-
-        # Get NUTS2 and EEZ shapes
-        if tech in ['wind_offshore', 'wind_floating']:
-
-            filter_shape_data = \
-                shapefile_data_offshore[shapefile_data_offshore['ISO_ID'].str.contains('|'.join(subregions_list))]
-            filter_shape_data.index = filter_shape_data['ISO_ID']
-            filter_shape_data.index = 'EZ' + filter_shape_data.index
-
-        else:
-
-            filter_shape_data = shapefile_data_onshore[(shapefile_data_onshore['NUTS_ID'].str.contains(
-                                                       '|'.join(subregions_list)))]
-            filter_shape_data.index = filter_shape_data['NUTS_ID']
-
-        # Compute potential for each NUTS2 or EEZ
-        potential_per_tech = capacity_potential_from_enspresso(tech)
-
-        coords = input_dict[region][tech]
-        coords_subregions = dict.fromkeys(coords)
-        coords_potentials = dict.fromkeys(coords)
-
-        # Find the geographical region code associated to each coordinate
-        for coord in coords:
-            coords_subregions[coord] = match_point_to_region(coord, filter_shape_data, list(potential_per_tech.keys()))
-
-        if tech in ['wind_offshore', 'wind_floating']:
-
-            # For offshore sites, divide the total potential of the region by the number of coordinates
-            # associated to that region
-            region_freq = dict(Counter(coords_subregions.values()).most_common())
-            for coord in coords:
-                coord_region = coords_subregions[coord]
-                coords_potentials[coord] = float(potential_per_tech[coord_region]) / \
-                                    float(region_freq.get(coord_region))
-
-        elif tech in ['wind_onshore', 'solar_utility', 'solar_residential']:
-
-            # TODO: this seems pretty inefficient
-            for coord in coords:
-
-                # Get population density of the current coordinate
-                incumbent_loc_pop_dens = float(array_pop_density.sel(locations=coord).values)
-
-                # Get population densities of all coordinates associated to the current coordinate region
-                loc_in_region = [key for key, value in coords_subregions.items() if value == coords_subregions[coord]]
-                region_loc_pop_dens = clip(array_pop_density.sel(locations=loc_in_region).values, a_min=1., a_max=None)
-
-                # Associate to the coordinate a portion of the regions potential
-                if tech in ['wind_onshore', 'solar_utility']:
-                    # Inversely proportional to population density
-                    distribution_key = (1/incumbent_loc_pop_dens) / sum(1/region_loc_pop_dens)
-                else:
-                    # Proportional to population density
-                    distribution_key = incumbent_loc_pop_dens / sum(region_loc_pop_dens)
-                coords_potentials[coord] = float(potential_per_tech[coords_subregions[coord]]) * distribution_key
-
-        # Converting the potential dicts into the right format
-        dict_to_xarray = {'coords': {'locations': {'dims': 'locations',
-                                                   'data': asarray(coords, dtype='f4,f4')}},
-                          'dims': 'locations',
-                          'data': asarray(list(coords_potentials.values()), dtype=float)}
-
-        output_dict[region][tech] = xr.DataArray.from_dict(dict_to_xarray)
-
-    return output_dict
 
 
 # TODO:
@@ -865,44 +729,6 @@ def read_legacy_capacity_data(coordinates, region_subdivisions, tech):
 
 
 # TODO:
-#  - I suspect that we could get rid off this function by merging it with other ones
-def retrieve_nodes_with_legacy_units(locations, offshore_onshore_shapes, tech):
-    """
-    Returns list of nodes where capacity exists.
-
-    Parameters
-    ----------
-    input_dict : dict
-        Dict object storing existing capacities per node for a given technology.
-    offshore_onshore_shapes : Dict[str, Polygon or MultiPolygon]
-        Onshore and offshore region shape
-    tech : str
-        Technology.
-
-    Returns
-    -------
-    existing_locations_filtered : array
-        Array populated with coordinate tuples where capacity exists, for a given region and technology.
-
-    """
-
-    # TODO: should directly pass the locations
-    # TODO: should add as argument of this function if we want just onshore or offshore, need to change that
-
-    if tech in ['wind_offshore', 'wind_floating']:
-        region_shape = offshore_onshore_shapes['offshore']
-    else:
-        region_shape = offshore_onshore_shapes['onshore']
-
-    if len(locations) > 1:
-        locations = [(point.x, point.y) for point in MultiPoint(locations).intersection(region_shape)]
-    else:
-        locations = [(locations[0][0], locations[0][1])] \
-            if Point(locations[0][0], locations[0][1]).within(region_shape) else []
-
-    return locations
-
-# TODO:
 #  - data.existing_cap
 #  - update comments
 def get_legacy_capacity(start_coordinates, regions, technologies, spatial_resolution):
@@ -939,67 +765,6 @@ def get_legacy_capacity(start_coordinates, regions, technologies, spatial_resolu
             ex_cap_dict[tech] = read_legacy_capacity_data(land_filtered_coordinates, region_subdivisions, tech)
 
     return ex_cap_dict
-
-# TODO:
-#  - data.existing_cap
-#  - update comments
-def retrieve_capacity_share_legacy_units(max_cap_potential, init_coordinate_dict, all_coordinates, spatial_resolution):
-    """
-    Returns, for each point, the technical potential share covered by existing (legacy) capacity.
-
-    Parameters
-    ----------
-    input_dict : dict
-        Dict object used to retrieve the (region, tech) keys.
-
-    Returns
-    -------
-    output_dict : dict
-        Dict object storing information on the relative shares of the technical potential of
-        each technology and in each region, covered by existing capacity.
-
-    """
-    key_list = return_dict_keys(max_cap_potential)
-
-    output_dict = deepcopy(max_cap_potential)
-
-    for region, tech in key_list:
-
-        # Get shape of region and list of subregions
-        # TODO: as this only depend on region, maybe we should do a double loop
-        region_shapefile_data = return_region_shapefile(region)
-        # TODO: change return coordinates from shapefiles so that it doesn't take all_coordinates as argument
-        start_coordinates = return_coordinates_from_shapefiles(all_coordinates, region_shapefile_data['region_shapefiles'])
-        region_subdivisions = region_shapefile_data['region_subdivisions']
-
-        # Filter coordinates to obtain only the ones on land or offshore
-        land_filtered_coordinates = filter_onshore_offshore_locations(start_coordinates, spatial_resolution, tech)
-
-        init_coords = init_coordinate_dict[region][tech]
-        dict_developed_potential = dict.fromkeys(init_coords, 0.)
-        if tech in ["wind_onshore", "wind_offshore", "solar_utility"]:
-
-            # Get legacy capacity at points in land_filtered_coordinates where legacy capacity exists
-            #  and save it in a dict
-            legacy_dict = read_legacy_capacity_data(land_filtered_coordinates, region_subdivisions, tech)
-
-            for coord in init_coords:
-
-                if coord in legacy_dict.keys():
-                    dict_developed_potential[coord] = legacy_dict[coord]
-
-        dict_to_xarray = {'coords': {'locations': {'dims': 'locations',
-                                                   'data': asarray(init_coords,
-                                                                   dtype='f4,f4')}},
-                          'dims': 'locations',
-                          'data': asarray(list(dict_developed_potential.values()), dtype=float)}
-
-        developed_potential_array = xr.DataArray.from_dict(dict_to_xarray)
-        # Compute the percentage of capacity potential the existing capacity corresponds to
-        potential_array_as_share = developed_potential_array.__truediv__(max_cap_potential[region][tech])
-        output_dict[region][tech] = potential_array_as_share.where(xu.isfinite(potential_array_as_share), other=0.)
-
-    return output_dict
 
 
 # TODO:
@@ -1048,47 +813,3 @@ def filter_onshore_offshore_locations(coordinates, spatial_resolution: float, te
 
     return list(set(coordinates).intersection(set(coords_mask_watermask)))
 
-
-# TODO:
-#  - would it not be possible to merge this with previous computations?
-#  - data.existing_cap ?
-def update_potential_per_node(potential_per_node_dict, deployment_shares_dict):
-    """
-    Updates the technical potential per node, for nodes where existing capacity
-    goes beyond the calculated potential via the ENSPRESSO dataset.
-
-    Parameters
-    ----------
-    potential_per_node_dict : dict
-        Dict object storing (for each region and technology) the per node potential,
-        as computed from the ENSPRESSO dataset.
-    deployment_shares_dict : dict
-        Dict object storing (for each region and technology) the shares of technical potential
-        covered by existing capacities.
-
-    Returns
-    -------
-    potential_per_node_dict: Dict[str, Dict[str, xr.DataArray]
-        Updated potential per node for each region and each tech
-    , Dict[str, xr.DataArray]
-        Updated deployment shares per node for each tech
-    """
-
-    key_list = return_dict_keys(potential_per_node_dict)
-    for region, tech in key_list:
-
-        deployment_shares = deployment_shares_dict[region][tech]
-        potential_per_node = potential_per_node_dict[region][tech]
-
-        # For 'nodes' where existing capacity is greater than max potential, increase max potential to reach
-        # existing capacity
-        # TODO: it is a bit strange to already have a share here rather than the installed capacity no?
-        for p in deployment_shares[deployment_shares > 1.].locations.values:
-
-            potential_per_node.loc[dict(locations=p)].values *= deployment_shares.sel(locations=p).values
-
-        # Set to 1. deployment share for nodes where potential is now equal to existing cap
-        deployment_shares_dict[region][tech] = deployment_shares.clip(max=1.0)
-
-    # TODO: does it make sense to do this collapsing here?
-    return potential_per_node_dict, collapse_dict_region_level(deployment_shares_dict)
