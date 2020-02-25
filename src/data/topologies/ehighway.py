@@ -273,6 +273,7 @@ def voronoi_special(centroids, shape, resolution: float = 0.5):
 
     print("0")
     # Get all the points in the shape at a certain resolution
+    # TODO: use return_coordinates_from_shape
     minx, maxx, miny, maxy = shape.bounds
     minx = round(minx/resolution)*resolution
     maxx = round(maxx/resolution)*resolution

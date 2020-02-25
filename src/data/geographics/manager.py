@@ -4,6 +4,7 @@ import numpy as np
 from operator import attrgetter
 from six.moves import reduce
 from itertools import takewhile
+import itertools
 from random import random
 
 import pandas as pd
@@ -103,7 +104,7 @@ def display_polygons(polygons_list):
             latitudes = [i[1] for i in poly.exterior.coords]
             ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color=c)
 
-    plt.show()
+    # plt.show()
 
 
 # --- David --- #
@@ -143,7 +144,7 @@ def match_point_to_region(point, shape_data, indicator_data_keys):
             dist[subregion] = p.distance(shape_data.loc[subregion, 'geometry'])
 
     if incumbent_region is None:
-        print(p, min(dist, key=dist.get))
+        # print(p, min(dist, key=dist.get))
         incumbent_region = min(dist, key=dist.get)
 
         # else:
@@ -228,24 +229,58 @@ def return_region_shapefile(region_code, prepared=False):
     # Get onshore shape
     filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "../../../output/geographics/" + region_code + "_on.geojson")
-    onshore_union = cascaded_union(get_onshore_shapes(subregions_list, save_file=filename)["geometry"].values)
+    onshore_union = cascaded_union(get_onshore_shapes(subregions_list, save_file=filename, filterremote=True)["geometry"].values)
 
     # Get offshore shape
     filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "../../../output/geographics/" + region_code + "_off.geojson")
     offshore_union = \
-        cascaded_union(get_offshore_shapes(subregions_list, onshore_union, save_file=filename)["geometry"].values)
+        cascaded_union(get_offshore_shapes(subregions_list, onshore_union, save_file=filename,
+                                           filterremote=True)["geometry"].values)
 
     if prepared:
         onshore_union = shapely.prepared.prep(onshore_union)
         offshore_union = shapely.prepared.prep(offshore_union)
 
+    # TODO: replace this dict by multiple outputs
     output_dict = {'region_subdivisions': subregions_list,
                    'region_shapefiles': {'onshore': onshore_union,
                                          'offshore': offshore_union}}
 
     return output_dict
 
+
+def return_coordinates_from_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
+                                  points = None) -> List[Tuple[float, float]]:
+    """
+    Return list of coordinates (lon, lat) located inside a geographical shape at a certain resolution
+
+    Parameters
+    ----------
+    shape: Polygon or MultiPolygon
+        Geographical shape made of points (lon, lat)
+    resolution: float
+    points: List[(float, float)]
+        Points from which to start
+
+    Returns
+    -------
+    points: List[(float, float)]
+
+    """
+    if points is None:
+        minx, miny, maxx, maxy = shape.bounds
+        minx = round(minx / resolution) * resolution
+        maxx = round(maxx / resolution) * resolution
+        miny = round(miny / resolution) * resolution
+        maxy = round(maxy / resolution) * resolution
+        xs = np.linspace(minx, maxx, num=(maxx - minx) / resolution + 1)
+        ys = np.linspace(miny, maxy, num=(maxy - miny) / resolution + 1)
+        points = list(itertools.product(xs, ys))
+    points = MultiPoint(points)
+    points = [(point.x, point.y) for point in points.intersection(shape)]
+
+    return points
 
 def return_coordinates_from_shapefiles(coordinates, region_shapes):
     """
@@ -419,6 +454,10 @@ def get_offshore_shapes(ids, onshore_shape, minarea=0.1, tolerance=0.01, filterr
     offshore_shapes: geopandas dataframe
         indexed by the name of the region and containing the shape of each offshore territory
     """
+
+    # TODO: shitty hack to deal with UK and GR
+    ids = ['GB' if x == 'UK' else x for x in ids]
+    ids = ['GR' if x == 'EL' else x for x in ids]
 
     if save_file is not None and os.path.isfile(save_file):
         return gpd.read_file(save_file).set_index('name')

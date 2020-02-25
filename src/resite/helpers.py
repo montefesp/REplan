@@ -37,6 +37,16 @@ def collapse_dict_region_level(input_dict):
     return output_dict
 
 
+def get_tech_coords_tuples(tech_coord_dict):
+
+    tech_coords_tuples = []
+    for tech, tech_coords in tech_coord_dict.items():
+        for coord in tech_coords:
+            tech_coords_tuples.append((tech, coord))
+
+    return tech_coords_tuples
+
+
 # TODO:
 #  - resite.dataset
 #  - more specific name or create some sort of class with this kind of dict
@@ -58,55 +68,6 @@ def return_dict_keys(input_dict):
     for k1, v1 in input_dict.items():
         for k2, v2 in v1.items():
             key_list.append((k1, k2))
-
-    return key_list
-
-# TODO:
-#  - resite.dataset
-#  - more specific name or create some sort of class with this kind of dict
-def return_dict_keys_2(input_dict):
-    """
-    Returns (region, tech) keys of nested dict.
-
-    Parameters
-    ----------
-    input_dict : dict
-
-    Returns
-    -------
-    key_list : list
-
-    """
-
-    key_list = []
-    for k1, v1 in input_dict.items():
-        for k2, v2 in v1.items():
-            for coord in v2.locations.values:
-                key_list.append((k1, k2, coord.item()))
-
-    return key_list
-
-# TODO:
-#  - resite.dataset
-#  - more specific name or create some sort of class with this kind of dict
-def return_dict_keys_3(input_dict):
-    """
-    Returns (region, tech) keys of nested dict.
-
-    Parameters
-    ----------
-    input_dict : dict
-
-    Returns
-    -------
-    key_list : list
-
-    """
-
-    key_list = []
-    for k1, v1 in input_dict.items():
-        for coord in v1.locations.values:
-            key_list.append((k1, coord))
 
     return key_list
 

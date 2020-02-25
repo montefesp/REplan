@@ -1,15 +1,19 @@
-from src.resite.helpers import read_database, return_dict_keys, return_dict_keys_2, return_dict_keys_3
+from src.resite.helpers import get_tech_coords_tuples
 from src.resite.utils import custom_log
-from src.resite.tools import filter_coordinates, compute_capacity_factors, \
-                    capacity_potential_per_node, update_potential_per_node, retrieve_capacity_share_legacy_units
+from src.resite.tools import filter_coordinates, compute_capacity_factors, read_database, \
+    get_legacy_capacity, get_capacity_potential
 from src.data.load.manager import retrieve_load_data
+from src.data.geographics.manager import return_region_shapefile, return_coordinates_from_shape, display_polygons
 from numpy import arange
-from pyomo.environ import ConcreteModel, Var, Constraint, Objective, minimize, maximize, NonNegativeReals, VarList
+from pyomo.environ import ConcreteModel, Var, Constraint, Objective, minimize, maximize, NonNegativeReals
 from pyomo.opt import ProblemFormat
 from os.path import join, dirname, abspath
 from time import time
 from copy import deepcopy
 import pandas as pd
+from shapely.ops import cascaded_union
+from shapely.geometry import MultiPoint
+from matplotlib import pyplot as plt
 
 # TODO: Goal: Understand the full pipeline to improve it -> ok
 #  Now need to regroup the function below into 4 or 5
@@ -37,19 +41,28 @@ def read_input_data(params, time_stamps, regions, spatial_res, technologies):
     print("Loading load")
     load = retrieve_load_data(regions, time_stamps)
 
-    # TODO: Move that down
-    print("Reading Database")
+    print("Getting region shapes")
+    region_shapes = pd.DataFrame(index=regions, columns=['onshore', 'offshore', 'full', 'subregions'])
+    for region in regions:
+        shapes = return_region_shapefile(region)
+        region_shapes.loc[region, 'onshore'] = shapes['region_shapefiles']['onshore']
+        region_shapes.loc[region, 'offshore'] = shapes['region_shapefiles']['offshore']
+        region_shapes.loc[region, 'full'] = cascaded_union([shapes['region_shapefiles']['onshore'], shapes['region_shapefiles']['offshore']])
+        region_shapes.loc[region, 'subregions'] = shapes['region_subdivisions']
+
+    full_region = cascaded_union(region_shapes['full'].values)
+
+    # TODO: need to remove that -> need to load more data points
     path_resource_data = join(dirname(abspath(__file__)), '../../data/resource/' + str(spatial_res))
     database = read_database(path_resource_data)
-    database = database.sel(time=time_stamps)
+    start_coordinates = list(zip(database.longitude.values, database.latitude.values))
 
-    # TODO: First part: Obtaining coordinates
+    full_coordinates = return_coordinates_from_shape(full_region, spatial_res, start_coordinates)
 
     print("Filtering coordinates")
     start = time()
-    all_coordinates = list(zip(database.longitude.values, database.latitude.values))
-    filtered_coordinates, filtered_coordinates_index = filter_coordinates(
-        all_coordinates, spatial_res, technologies, regions,
+    tech_coordinate_dict = filter_coordinates(
+        full_coordinates, spatial_res, technologies, regions,
         resource_quality_layer=params['resource_quality_layer'],
         population_density_layer=params['population_density_layer'],
         protected_areas_layer=params['protected_areas_layer'],
@@ -57,56 +70,60 @@ def read_input_data(params, time_stamps, regions, spatial_res, technologies):
         water_mask_layer=params['water_mask_layer'], bathymetry_layer=params['bathymetry_layer'],
         legacy_layer=params['legacy_layer'])
     print(time()-start)
-    print(filtered_coordinates)
-    print(filtered_coordinates_index)
-    exit()
 
-    print("Truncate data")
-    # TODO: maybe a better way to create the dict that to copy the input
-    truncated_data = deepcopy(filtered_coordinates)
-    for region, tech in return_dict_keys(filtered_coordinates):
-        truncated_data[region][tech] = database.sel(locations=filtered_coordinates[region][tech])
+    print("Get existing legacy capacity")
+    existing_capacity_dict = get_legacy_capacity(full_coordinates, regions, technologies, spatial_res)
 
-    # TODO: fourth part: obtain potential for each coordinate
+    # Update filter coordinates
+    for tech in tech_coordinate_dict:
+        if existing_capacity_dict[tech] is not None:
+            tech_coordinate_dict[tech] += list(existing_capacity_dict[tech].keys())
+        tech_coordinate_dict[tech] = list(set(tech_coordinate_dict[tech]))
 
-    print("Compute capacity potential per node")
-    capacity_potential = capacity_potential_per_node(filtered_coordinates, spatial_res)
+    # Remove techs that have no coordinates
+    tech_coordinate_dict_final = {}
+    for key, value in tech_coordinate_dict.items():
+        if len(value) != 0:
+            tech_coordinate_dict_final[key] = tech_coordinate_dict[key]
 
-    # TODO: fifth part: obtaining existing legacy
+    # Associating coordinates to regions
+    # regions_coords_dict = {region: set() for region in regions}
+    region_tech_coords_dict = {i: set() for i, region in enumerate(regions)}
+    for tech, coords in tech_coordinate_dict.items():
+        coords_multipoint = MultiPoint(coords)
+        for i, region in enumerate(regions):
+            coords_in_region = coords_multipoint.intersection(region_shapes.loc[region, 'full'])
+            coords_in_region = [(tech, (point.x, point.y)) for point in coords_in_region] \
+                if isinstance(coords_in_region, MultiPoint) \
+                else [(tech, (coords_in_region.x, coords_in_region.y))]
+            region_tech_coords_dict[i] = region_tech_coords_dict[i].union(set(coords_in_region))
+    print(region_tech_coords_dict)
 
-    print("Retrieve existing capacity")
-    deployment_shares = retrieve_capacity_share_legacy_units(capacity_potential, filtered_coordinates,
-                                                             database, spatial_res)
-
-    # TODO: fourth part bis: obtain potential for each coordinate (this function should come before the fifth part)
-
-    print("Update potential")
-    capacity_potential, existing_cap_percentage = update_potential_per_node(capacity_potential, deployment_shares)
-    special_index = pd.MultiIndex.from_tuples(return_dict_keys_2(capacity_potential), names=["region", "tech", "coords"])
-    cap_pot_df = pd.Series(index=special_index)
-    for region, tech, coord in special_index:
-        cap_pot_df.loc[region, tech, coord] = capacity_potential[region][tech].sel(locations=coord).item()
-
-    # TODO: it's king of strange that existing_cap_percentage is not indexed on region no? or that the other are
-    special_index_2 = pd.MultiIndex.from_tuples(return_dict_keys_3(existing_cap_percentage), names=["tech", "coords"])
-    existing_cap_percentage_df = pd.Series(index=special_index_2)
-    for tech, coord in special_index_2:
-        existing_cap_percentage_df.loc[tech, coord] = existing_cap_percentage[tech].sel(locations=coord).item()
-
-
-    # TODO: second part: computing capacity factors
+    # Create dataframe with existing capacity
+    tech_coords_tuples = get_tech_coords_tuples(tech_coordinate_dict_final)
+    existing_capacity_df = pd.Series(0., index=pd.MultiIndex.from_tuples(tech_coords_tuples))
+    for tech, coord in existing_capacity_df.index:
+        if tech in existing_capacity_dict and existing_capacity_dict[tech] is not None and coord in existing_capacity_dict[tech]:
+            existing_capacity_df[tech, coord] = existing_capacity_dict[tech][coord]
 
     print("Compute cap factor")
     # TODO: looks ok, to see if we merge it with my tool using atlite
-    cap_factor_data = compute_capacity_factors(truncated_data)
-    cap_factor_data_df = pd.DataFrame(index=time_stamps, columns=special_index)
-    for region, tech, coord in special_index:
-        cap_factor_data_df[region, tech, coord] = cap_factor_data[region][tech].sel(locations=coord).values
+    cap_factor_df = compute_capacity_factors(tech_coordinate_dict_final, spatial_res, time_stamps)
 
-    output_dict = {'capacity_factors_df': cap_factor_data_df,
-                   'capacity_potential_df': cap_pot_df,
+    print("Compute capacity potential per node")
+    capacity_potential_df = get_capacity_potential(tech_coordinate_dict_final, regions, spatial_res,
+                                                   existing_capacity_df)
+
+    # Compute percentage of existing capacity and set to 1. when capacity is zero
+    existing_cap_percentage_df = existing_capacity_df.divide(capacity_potential_df)
+    existing_cap_percentage_df = existing_cap_percentage_df.fillna(1.)
+
+    output_dict = {'capacity_factors_df': cap_factor_df,
+                   'capacity_potential_df': capacity_potential_df,
                    'existing_cap_percentage_df': existing_cap_percentage_df,
-                   'load_data': load}
+                   'load_data': load,
+                   'regions_coordinates_dict': region_tech_coords_dict,
+                   'tech_coordinates_dict': tech_coordinate_dict}
 
     custom_log(' Input data read...')
 
@@ -157,11 +174,13 @@ def build_model(input_data, params, formulation, time_stamps, output_folder, wri
     regions = params["regions"]
 
     # Capacity factors
+    region_tech_coords_dict = input_data['regions_coordinates_dict']
     cap_factor_df = input_data['capacity_factors_df']
-    load_df = input_data['load_data']
+    load_df = input_data['load_data'].values
     cap_potential_df = input_data['capacity_potential_df']
     existing_cap_perc_df = input_data['existing_cap_percentage_df']
-    generation_potential = cap_factor_df*cap_potential_df
+    generation_potential_df = cap_factor_df*cap_potential_df
+    generation_potential = generation_potential_df.values
 
     tech_coordinates_list = list(existing_cap_perc_df.index)
     # TODO: it's a bit shitty to have to do that but it's bugging otherwise
@@ -174,36 +193,52 @@ def build_model(input_data, params, formulation, time_stamps, output_folder, wri
     if formulation == 'meet_RES_targets_year_round':  # TODO: probaly shouldn't be called year round
 
         # Variables for the portion of demand that is met at each time-stamp for each region
-        model.x = Var(regions, time_stamps, within=NonNegativeReals, bounds=(0, 1))
+        model.x = Var(arange(len(regions)), arange(len(time_stamps)), within=NonNegativeReals, bounds=(0, 1))
         # Variables for the portion of capacity at each location for each technology
         model.y = Var(tech_coordinates_list, within=NonNegativeReals, bounds=(0, 1))
 
-        # Generation must be greater than x percent of the load in each region for each time step
-        def generation_check_rule(model, region, t):
-            generation = sum(generation_potential[region, tech, loc].loc[t] * model.y[tech, loc]
-                             for tech, loc in generation_potential[region].keys())
-            return generation >= load_df.loc[t, region] * model.x[region, t]
-        model.generation_check = Constraint(regions, time_stamps, rule=generation_check_rule)
+        start = time()
+        generation_dict = dict.fromkeys(arange(len(regions)))
+        for i, region in enumerate(regions):
+            generation_pot = generation_potential_df[region_tech_coords_dict[i]]
+            ys = pd.Series([model.y[tech, loc] for tech, loc in region_tech_coords_dict[i]],
+                            index=pd.MultiIndex.from_tuples(region_tech_coords_dict[i]))
+            generation = generation_pot*ys
+            generation_dict[i] = generation.sum(axis=1).values
 
+        # Generation must be greater than x percent of the load in each region for each time step
+        # TODO: use a varlist?
+
+        def generation_check_rule(model, region, t):
+            return generation_dict[region][t] >= load_df[t, region] * model.x[region, t]  # TODO: change load to dict based on regions
+        model.generation_check = Constraint(arange(len(regions)), arange(len(time_stamps)), rule=generation_check_rule)
+        print(time()-start)
+
+        start = time()
         # Percentage of capacity installed must be bigger than existing percentage
         def potential_constraint_rule(model, tech, lon, lat):
             return model.y[tech, lon, lat] >= existing_cap_perc_df[tech][(lon, lat)]
         model.potential_constraint = Constraint(tech_coordinates_list, rule=potential_constraint_rule)
+        print(time()-start)
 
         # Impose a certain percentage of the load to be covered over the whole time slice
-        covered_load_perc_per_region = dict(zip(params['regions'], params['deployment_vector']))
+        covered_load_perc_per_region = dict(zip(arange(len(params['regions'])), params['deployment_vector']))
 
+        start = time()
         # TODO: call mean instead of sum? and remove * nb_time_stamps
         def policy_target_rule(model, region):
-            return sum(model.x[region, t] for t in time_stamps) \
+            return sum(model.x[region, t] for t in arange(len(time_stamps))) \
                    >= covered_load_perc_per_region[region] * nb_time_stamps
-        model.policy_target = Constraint(regions, rule=policy_target_rule)
+        model.policy_target = Constraint(arange(len(regions)), rule=policy_target_rule)
+        print(time()-start)
 
+        start = time()
         # Minimize the capacity that is deployed
         def objective_rule(model):
-            return sum(model.y[tech, loc] * cap_potential_df[region, tech, loc]
-                       for region, tech, loc in cap_potential_df.keys())
+            return sum(model.y[tech, loc] * cap_potential_df[tech, loc]
+                       for tech, loc in cap_potential_df.keys())
         model.objective = Objective(rule=objective_rule, sense=minimize)
+        print(time()-start)
 
     elif formulation == 'meet_RES_targets_hourly':
 
@@ -214,8 +249,8 @@ def build_model(input_data, params, formulation, time_stamps, output_folder, wri
 
         # Generation must be greater than x percent of the load in each region for each time step
         def generation_check_rule(model, region, t):
-            generation = sum(generation_potential[region, tech, loc].loc[t] * model.y[tech, loc]
-                             for tech, loc in generation_potential[region].keys())
+            generation = sum(generation_potential[tech, loc].loc[t] * model.y[tech, loc]
+                             for tech, loc in region_tech_coords_dict[region])
             return generation >= load_df.loc[t, region] * model.x[region, t]
         model.generation_check = Constraint(regions, time_stamps, rule=generation_check_rule)
 
@@ -247,8 +282,8 @@ def build_model(input_data, params, formulation, time_stamps, output_folder, wri
 
         # Generation must be greater than x percent of the load in each region for each time step
         def generation_check_rule(model, region, t):
-            generation = sum(generation_potential[region, tech, loc].loc[t] * model.y[tech, loc]
-                             for tech, loc in generation_potential[region].keys())
+            generation = sum(generation_potential[tech, loc].loc[t] * model.y[tech, loc]
+                             for tech, loc in region_tech_coords_dict[region])
             return generation >= load_df.loc[t, region] * model.x[region, t]
         model.generation_check = Constraint(regions, time_stamps, rule=generation_check_rule)
 

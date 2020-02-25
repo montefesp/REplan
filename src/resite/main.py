@@ -6,6 +6,7 @@ from shutil import copy
 from os.path import *
 import pandas as pd
 import pickle
+from time import time
 
 
 params = read_inputs('config_model.yml')
@@ -25,12 +26,13 @@ output_folder = init_folder(params['keep_files'])
 copy('config_model.yml', output_folder)
 copy('config_techs.yml', output_folder)
 
+start = time()
 input_dict = read_input_data(params, time_stamps,
                              params['regions'], params['spatial_resolution'], params['technologies'])
 
 instance = build_model(input_dict, params, params['formulation'], time_stamps, output_folder, write_lp=True)
+instance.pprint()
 custom_log(' Sending model to solver.')
-
 opt = SolverFactory(params['solver'])
 # TODO: should probably be added to parameters file
 opt.options['Threads'] = 0

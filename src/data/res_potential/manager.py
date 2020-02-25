@@ -416,7 +416,7 @@ def add_res_generators_at_resolution(network: pypsa.Network, total_shape, area_p
     resolution = 0.5
 
     # Obtain the list of point in the geographical region
-    # TODO: need to use David's filters
+    # TODO: need to use David's filters + use return_coordinates_from_shape
     minx, miny, maxx, maxy = total_shape.bounds
     left = round(minx/resolution)*resolution
     right = round(maxx/resolution)*resolution
