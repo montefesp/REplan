@@ -122,14 +122,14 @@ def get_total_gen_opex_costs(generators, types):
 runs = ['20191214_135908', '20191214_140610', '20191214_140624', '20191214_140641',
         '20191214_140652', '20191214_140809', '20191214_230851']
 names = ['no_siting', '200', '250', '300', '400', '400_co2', '400_max']
-max_capacities = pd.DataFrame(index=names, columns=["wind", "solar"])
-opt_capacities = pd.DataFrame(index=names, columns=["ccgt", "wind", "solar", "trans-tot", "trans-new", "store"])
-total_gen = pd.DataFrame(index=names, columns=["wind", "solar"])
-lost_load_and_curtailment = pd.DataFrame(index=names, columns=["lost load", "wind curt", "solar curt"])
-tech_unit_capex_costs = pd.DataFrame(index=names, columns=["ccgt", "wind", "solar", "trans", "store"])
-tech_unit_opex_costs = pd.DataFrame(index=names, columns=["ccgt", "wind", "solar", "store"])
-tech_capex_costs = pd.DataFrame(index=names, columns=["ccgt", "wind", "solar", "trans", "store", "total"])
-tech_opex_costs = pd.DataFrame(index=names, columns=["ccgt", "wind", "solar", "trans", "store", "total"])
+max_capacities = pd.DataFrame(index=names, columns=["wind", "pv"])
+opt_capacities = pd.DataFrame(index=names, columns=["ccgt", "wind", "pv", "trans-tot", "trans-new", "store"])
+total_gen = pd.DataFrame(index=names, columns=["wind", "pv"])
+lost_load_and_curtailment = pd.DataFrame(index=names, columns=["lost load", "wind curt", "pv curt"])
+tech_unit_capex_costs = pd.DataFrame(index=names, columns=["ccgt", "wind", "pv", "trans", "store"])
+tech_unit_opex_costs = pd.DataFrame(index=names, columns=["ccgt", "wind", "pv", "store"])
+tech_capex_costs = pd.DataFrame(index=names, columns=["ccgt", "wind", "pv", "trans", "store", "total"])
+tech_opex_costs = pd.DataFrame(index=names, columns=["ccgt", "wind", "pv", "trans", "store", "total"])
 lost_load_costs = pd.DataFrame(index=names, columns=["total"])
 total_costs = pd.DataFrame(index=names, columns=["total"])
 total_lines = pd.DataFrame(index=names, columns=["total"])

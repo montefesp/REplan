@@ -44,9 +44,9 @@ wind_floating:
   terrain_slope_threshold: 1.
   forestry_ratio_threshold: 1.
 
-solar_utility:
+pv_utility:
   converter: 'DEG15MC'
-  resource: 'solar'
+  resource: 'pv'
   deployment: 'utility'
   resource_threshold: 130. #W/m2
   population_density_threshold_low: 0.
@@ -59,9 +59,9 @@ solar_utility:
   terrain_slope_threshold: 0.05
   forestry_ratio_threshold: 0.8
 
-solar_residential:
+pv_residential:
   converter: 'DD06M'
-  resource: 'solar'
+  resource: 'pv'
   deployment: 'residential'
   resource_threshold: 100. #W/m2
   population_density_threshold_low: 10.

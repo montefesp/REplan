@@ -73,7 +73,7 @@ start_date = datetime.datetime(time_slice[0][0], time_slice[0][1],
                                time_slice[0][2], time_slice[0][3])
 end_date = datetime.datetime(time_slice[1][0], time_slice[1][1],
                              time_slice[1][2], time_slice[1][3])
-time_stamps = pd.date_range(start_date, end_date, freq=str(time_resolution) + 'H').values
+timestamps = pd.date_range(start_date, end_date, freq=str(time_resolution) + 'H').values
 
 
 # Building network
@@ -85,7 +85,7 @@ override_component_attrs["StorageUnit"].loc["x"] = ["float", np.nan, np.nan, "x 
 override_component_attrs["StorageUnit"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
 
 net = pypsa.Network(name="E-highway network", override_component_attrs=override_component_attrs)
-net.set_snapshots(time_stamps)
+net.set_snapshots(timestamps)
 
 
 # Adding carriers

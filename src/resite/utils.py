@@ -1,4 +1,3 @@
-import yaml
 from time import strftime
 from datetime import datetime
 from os import remove, getcwd, makedirs
@@ -7,42 +6,19 @@ from shutil import rmtree
 from os.path import join, isdir, abspath
 
 
-# TODO: do we really need a function for this? can be done in one line
-def read_inputs(inputs):
-    """
-
-    Parameters
-    ----------
-    inputs :
-
-    Returns
-    -------
-
-    """
-    with open(inputs) as infile:
-        data = yaml.safe_load(infile)
-
-    return data
-
-
 # TODO: used only once, do we need this as a function
-def init_folder(keepfiles):
-    """Initiliaze an output folder.
+def init_folder(keep_files: bool) -> str:
+    """Initialize an output folder.
 
     Parameters:
-
-    ------------
-
-    keepfiles : boolean
+    -----------
+    keep_files: bool
         If False, folder previously built is deleted.
 
     Returns:
-
-    ------------
-
-    path : str
+    --------
+    path: str
         Relative path of the folder.
-
 
     """
 
@@ -58,30 +34,31 @@ def init_folder(keepfiles):
 
     custom_log(' Folder path is: {}'.format(str(path)))
 
-    if not keepfiles:
+    if not keep_files:
         custom_log(' WARNING! Files will be deleted at the end of the run.')
 
     return path
 
 
 # TODO: do we need a function ?
-def remove_garbage(keepfiles, output_folder, lp=True, script=True, sol=True):
-
+def remove_garbage(keep_files: bool, output_folder: str, lp: bool = True, script: bool = True, sol: bool = True):
     """Remove different files after the run.
 
     Parameters:
-
-    ------------
-
-    keepfiles : boolean
+    -----------
+    keep_files: bool
         If False, folder previously built is deleted.
-
-    output_folder : str
+    output_folder: str
         Path of output folder.
-
+    lp: bool (default: True)
+        Whether to remove .lp file
+    script: bool (default: True)
+        Whether to remove .script file
+    sol: bool (default: True)
+        Whether to remove .sol file
     """
 
-    if not keepfiles:
+    if not keep_files:
         rmtree(output_folder)
 
     directory = getcwd()
@@ -103,10 +80,5 @@ def remove_garbage(keepfiles, output_folder, lp=True, script=True, sol=True):
 
 
 def custom_log(message):
-    """
-    Parameters
-    ----------
-    message : str
-
-    """
+    """Prints a given message preceded by current time."""
     print(datetime.now().strftime('%H:%M:%S')+' --- '+str(message))

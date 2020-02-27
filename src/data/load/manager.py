@@ -7,7 +7,7 @@ import shapely
 from shapely.geometry import Point
 from scipy import stats
 import matplotlib.pyplot as plt
-from src.data.geographics.manager import get_subregions_list, get_nuts_area
+from src.data.geographics.manager import get_subregions, get_nuts_area
 
 # --- Data pre-processing --- #
 
@@ -484,10 +484,9 @@ def available_load():
     return available_data
 
 
-# --- David --- #
 # TODO:
-#   - Probably need to merge this function
-def retrieve_load_data(regions, time_stamps):
+#   Need to merge this function
+def retrieve_load_data(regions: List[str], timestamps: List[np.datetime64]) -> pd.DataFrame:
     """
     Returns load time series for given regions and time horizon.
 
@@ -495,12 +494,12 @@ def retrieve_load_data(regions, time_stamps):
     ----------
     regions: List[str]
         Code of regions
-    time_stamps: List[datetime] # TODO: shouldn't it be datetime?
+    timestamps: List[np.datetime64]
         List of datetime
 
     Returns
     -------
-    load_per_region: pd.DataFrame (index = time_stamps, columns = regions)
+    load_per_region: pd.DataFrame (index = timestamps, columns = regions)
         DataFrame associating to each region code the corresponding load data
 
     """
@@ -510,17 +509,17 @@ def retrieve_load_data(regions, time_stamps):
     load_data = pd.read_csv(path_load_data, index_col=0, sep=';')
     load_data.index = pd.to_datetime(load_data.index)
 
-    assert time_stamps[0] in load_data.index, "Error: Start datetime not in load data"
-    assert time_stamps[-1] in load_data.index, "Error: End datetime not in load data"
+    assert timestamps[0] in load_data.index, "Error: Start datetime not in load data"
+    assert timestamps[-1] in load_data.index, "Error: End datetime not in load data"
 
     # Slice data on time
-    load_data = load_data.loc[time_stamps]
+    load_data = load_data.loc[timestamps]
 
     # Slice data on region
-    load_per_region = pd.DataFrame(columns=regions, index=time_stamps)
+    load_per_region = pd.DataFrame(columns=regions, index=timestamps)
     for region in regions:
         # Get load date for all subregions, sum it and transform to GW # TODO: check it is indeed GW
-        load_per_region[region] = load_data[get_subregions_list(region)].sum(axis=1).values * 1e-3
+        load_per_region[region] = load_data[get_subregions(region)].sum(axis=1).values * 1e-3
 
     return load_per_region
 
@@ -541,7 +540,7 @@ load_2016_2018.to_csv("load_opsd_2016_2018.csv")
 #
 #     # Get load per countries
 #     # load = get_load(self.regions, self.start_date, self.end_date, self.time_resolution)
-#     load = get_load_bis(network.regions, len(network.time_stamps))
+#     load = get_load_bis(network.regions, len(network.timestamps))
 #
 #     # Compute area of each countries # TODO: maybe do this somewhere else
 #     network.onshore_shapes['area'] = network.onshore_shapes.apply(lambda p: p['geometry'].area, axis=1)

@@ -2,27 +2,33 @@
 spatial_resolution: 0.5
 
 # Various data layers to be taken into account in potential site selection.
-resource_quality_layer: True
-population_density_layer: True
-protected_areas_layer: False
-bathymetry_layer: True
-orography_layer: True
-forestry_layer: True
-water_mask_layer: True
-legacy_layer: False
+filtering_layers:
+  resource_quality: True
+  population_density: True
+  protected_areas: False
+  bathymetry: True
+  orography: True
+  forestry: True
+  water_mask: True
 
-time_slice: ['2015-01-01T00:00', '2015-01-12T12:00']
+time_slice: ['2015-01-01T00:00', '2015-01-01T12:00']
 regions: ['BE']
-technologies: ['wind_onshore', 'wind_offshore', 'solar_utility', 'solar_residential']
+technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
 
-# Choice of solver. Available: 'gurobi' and 'cplex'.
+# Choice of solver. Available: 'gurobi' and 'cplex' and 'cbc'
 solver: 'gurobi'
+solver_options:
+  gurobi:
+    Threads: 0
+    Crossover: 0
+  cplex: 0
+  cbc: 0
 
 # Type of problem to be solved. Check models.py for a full list.
-formulation: 'meet_RES_targets_year_round' # 'meet_demand_with_capacity' # 'meet_RES_targets_hourly'
+formulation: 'meet_RES_targets_year_round' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
 
 # List of deployments per region (ordered as the 'regions' list above)
-deployment_vector: [0.1] # [1.0, 2.5, 2.0, 15.0]
+deployment_vector: [0.1] # [0.5, 0.5, 0.5, 0.5]
 
 # Keeping files at the end of the run.
 keep_files: False

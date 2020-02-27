@@ -107,55 +107,46 @@ def display_polygons(polygons_list):
     # plt.show()
 
 
-# --- David --- #
-# TODO: Merge the same functions
-
-# TODO:
-#  - Might need to use that too
-#  - The workings of this function look strange, especially the indicator stuff
-def match_point_to_region(point, shape_data, indicator_data_keys):
+def match_points_to_region(points: List[Tuple[float, float]], shapes_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Find the NUTS (or any other) region associated to given coordinate tuple (lon, lat)
+    TODO: improve description
 
     Parameters
     ----------
-    point : tuple
-        Coordinate in (lon, lat) form.
-    shape_data : GeoDataFrame
+    points: List[Tuple[float, float]]
+        List of points to assign to regions
+    shapes_df : pd.DataFrame
         Dataframe storing geometries of NUTS regions.
-    indicator_data_keys : List[str]
-        Dict object storing technical potential of NUTS regions.
 
     Returns
     -------
-    incumbent_region : str
-        Region in which point "p" falls.
+    points_region_ds : pd.DataFrame
+        DataFrame giving for each point the associated region
     """
-    dist = {}
-    p = Point(point)
-    incumbent_region = None
 
-    for subregion in indicator_data_keys:
+    points_region_ds = pd.DataFrame(index=points, columns=['subregion'])
+    points = MultiPoint(points)
+    for index, subregion in shapes_df.iterrows():
 
-        if subregion in shape_data.index:
-            if p.within(shape_data.loc[subregion, 'geometry']):
-                incumbent_region = subregion
+        points_in_region = points.intersection(subregion["geometry"])
+        if isinstance(points_in_region, Point):
+            points = points.difference(points_in_region)
+            points_in_region = (points_in_region.x, points_in_region.y)
+        elif len(points_in_region) == 0:
+            continue
+        else:
+            points = points.difference(points_in_region)
+            points_in_region = [(point.x, point.y) for point in points_in_region]
+        points_region_ds.loc[points_in_region, 'subregion'] = index
 
-            dist[subregion] = p.distance(shape_data.loc[subregion, 'geometry'])
+    if len(points) != 0:
+        print("Warning: Some points are not contained in any shape")
+        for point in points:
+            closest_index = np.argmin([point.distance(shapes_df.loc[subregion, 'geometry']) for subregion in shapes_df.index])
+            points_region_ds.loc[(point.x, point.y), 'subregion'] = shapes_df.index.values[closest_index]
 
-    if incumbent_region is None:
-        # print(p, min(dist, key=dist.get))
-        incumbent_region = min(dist, key=dist.get)
+    return points_region_ds
 
-        # else:
-        #
-        #     pass
-    #
-    # if incumbent_region == None:
-    #
-    #     warnings.warn(' Point {} does not fall in any of the pre-defined regions.'.format(point))
-
-    return incumbent_region
 
 
 # TODO: ok i have a file for this -> problem with UK
@@ -172,18 +163,18 @@ def return_ISO_codes_from_countries():
     return dict_ISO
 
 
-def get_subregions_list(region_code: str):
+def get_subregions(region: str):
     """
     Returns the list of the codes of the subregion of a given region
     Parameters
     ----------
-    region_code: str
+    region: str
         Code of a geographical region
 
     Returns
     -------
-    subregion_list: List[str]
-        List of subregion codes, if no subregions, returns List[region_code]
+    subregions: List[str]
+        List of subregion codes, if no subregions, returns list[region]
     """
 
     # TODO: need to change that
@@ -193,64 +184,61 @@ def get_subregions_list(region_code: str):
     region_definition_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                         '../../resite/region_definition.csv')
     region_definition = pd.read_csv(region_definition_fn, index_col=0, keep_default_na=False)
-    if region_code in region_definition.index:
-        subregions_list = region_definition.loc[region_code].subregions.split(";")
+    if region in region_definition.index:
+        subregions = region_definition.loc[region].subregions.split(";")
     #elif region_code in onshore_shapes_all['CNTR_CODE'].values: # TODO: to check
     else:
-        subregions_list = [region_code]
+        subregions = [region]
     #else:
     #    raise ValueError(' Unknown region ', region_code)
 
-    return subregions_list
+    return subregions
 
 
 # TODO:
 #  - why shapefile? just shape?
-def return_region_shapefile(region_code, prepared=False):
+def return_region_shape(region_name: str, subregions: List[str], prepare: bool = False) \
+        -> Dict[str, Union[Polygon, MultiPolygon]]:
     """
-    Returns shapefile associated with the region(s) of interest.
+    Returns union of onshore and union of offshore shapes of a series of geographical regions
 
     Parameters
     ----------
-    region_code : str
-        Code of a geographical region
-
+    region_name: str
+        Name of the region, used to store the result
+    subregions : List[str]
+        Codes of a geographical subregions composing the region
+    prepare: bool
+        Whether to apply shapely.prepared to final shapes or not
 
     Returns
     -------
-    output_dict : dict
-        Dict object containing i) region subdivisions and
-        ii) associated onshore and offshore shapes.
+    shape_dict : Dict[str, Union[Polygon, MultiPolygon]]
+        Dictionary containing onshore and offshore shapes
 
     """
-    # TODO: pass this as argument
-    subregions_list = get_subregions_list(region_code)
-
     # Get onshore shape
     filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "../../../output/geographics/" + region_code + "_on.geojson")
-    onshore_union = cascaded_union(get_onshore_shapes(subregions_list, save_file=filename, filterremote=True)["geometry"].values)
+                            "../../../output/geographics/" + region_name + "_on.geojson")
+    onshore_union = cascaded_union(get_onshore_shapes(subregions, save_file=filename, filterremote=True)["geometry"].values)
 
     # Get offshore shape
     filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "../../../output/geographics/" + region_code + "_off.geojson")
+                            "../../../output/geographics/" + region_name + "_off.geojson")
     offshore_union = \
-        cascaded_union(get_offshore_shapes(subregions_list, onshore_union, save_file=filename,
+        cascaded_union(get_offshore_shapes(subregions, onshore_shape=onshore_union, save_file=filename,
                                            filterremote=True)["geometry"].values)
 
-    if prepared:
+    if prepare:
         onshore_union = shapely.prepared.prep(onshore_union)
         offshore_union = shapely.prepared.prep(offshore_union)
 
-    # TODO: replace this dict by multiple outputs
-    output_dict = {'region_subdivisions': subregions_list,
-                   'region_shapefiles': {'onshore': onshore_union,
-                                         'offshore': offshore_union}}
+    shape_dict = {'onshore': onshore_union, 'offshore': offshore_union}
 
-    return output_dict
+    return shape_dict
 
 
-def return_coordinates_from_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
+def return_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
                                   points = None) -> List[Tuple[float, float]]:
     """
     Return list of coordinates (lon, lat) located inside a geographical shape at a certain resolution
@@ -281,28 +269,6 @@ def return_coordinates_from_shape(shape: Union[Polygon, MultiPolygon], resolutio
     points = [(point.x, point.y) for point in points.intersection(shape)]
 
     return points
-
-def return_coordinates_from_shapefiles(coordinates, region_shapes):
-    """
-    Returning coordinate (lon, lat) pairs falling into the region(s) of interest.
-
-    Parameters
-    ----------
-    coordinates : List[(float, float)]
-        Coordinates to filter
-    region_shapes : dict
-        Dict object containing the onshore and offshore shapes.
-
-    Returns
-    -------
-    List of coordinate pairs in the region of interest.
-
-    """
-    coords = MultiPoint(coordinates)
-    coords_in_region_onshore = [(point.x, point.y) for point in coords.intersection(region_shapes['onshore'])]
-    coords_in_region_offshore = [(point.x, point.y) for point in coords.intersection(region_shapes['offshore'])]
-
-    return coords_in_region_offshore + coords_in_region_onshore
 
 
 # -- Filter polygons functions -- #
@@ -403,6 +369,7 @@ def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, sav
         indexed by the id of the region and containing the shape of each region
     """
 
+    # TODO: add output dir directly here
     if save_file is not None and os.path.isfile(save_file):
         return gpd.read_file(save_file).set_index('name')
 
@@ -429,14 +396,14 @@ def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, sav
 
 
 # TODO: might need to revise this function
-def get_offshore_shapes(ids, onshore_shape, minarea=0.1, tolerance=0.01, filterremote=False, save_file=None):
+def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, filterremote=False, save_file=None):
     """Load the shapes of the offshore territories of a specified set of regions into a GeoPandas Dataframe
 
     Parameters
     ----------
     ids: list of strings
         ids of the onshore region for which we want associated offshore shape
-    onshore_shapes: geopandas dataframe
+    onshore_shape: geopandas dataframe
         indexed by the name of the countries and containing the shape of onshore
         territories of each countries
     minarea: float
@@ -476,8 +443,10 @@ def get_offshore_shapes(ids, onshore_shape, minarea=0.1, tolerance=0.01, filterr
     # TODO: bug if non of the country in the list has an offshore shape
 
     # Keep only offshore 'close' to onshore
-    offshore_shapes['geometry'] = offshore_shapes['geometry']\
-        .map(lambda x: filter_offshore_polys(x, onshore_shape, minarea, tolerance, filterremote))
+    if onshore_shape is not None:
+        offshore_shapes['geometry'] = offshore_shapes['geometry']\
+            .map(lambda x: filter_offshore_polys(x, onshore_shape, minarea, tolerance, filterremote))
+
     if save_file is not None:
         save_to_geojson(offshore_shapes, save_file)
 
@@ -607,7 +576,7 @@ if __name__ == "__main__":
     onshore_shapes_union = cascaded_union(onshore_shapes_['geometry'].values)
     offshore_shapes_save_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                            '../../../data/geographics/off_test.geojson')
-    offshore_shapes_ = get_offshore_shapes(['BE'], onshore_shapes_union, filterremote=True)
+    offshore_shapes_ = get_offshore_shapes(['BE'], onshore_shape=onshore_shapes_union, filterremote=True)
     print(len(offshore_shapes_) == 0)
 
     us_off_shape = offshore_shapes_['geometry'].values

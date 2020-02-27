@@ -167,6 +167,7 @@ def site_bus_association_test(network, region_shape, points):
     print(bus_ids)
 
 
+# TODO: merge with david function
 def filter_coordinates(coordinates, depth_threshold=100):
     """Filter coordinates by removing the ones corresponding to a depth below a certain threshold"""
 
