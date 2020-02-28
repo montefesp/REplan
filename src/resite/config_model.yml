@@ -15,8 +15,9 @@ time_slice: ['2015-01-01T00:00', '2015-01-01T12:00']
 regions: ['BE']
 technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
 
-# Choice of solver. Available: 'gurobi' and 'cplex' and 'cbc'
-solver: 'gurobi'
+
+modelling: 'pyomo' # Choice of modelling language
+solver: 'gurobi' # Choice of solver. Available: 'gurobi' and 'cplex' and 'cbc'
 solver_options:
   gurobi:
     Threads: 0
@@ -24,7 +25,7 @@ solver_options:
   cplex: 0
   cbc: 0
 
-# Type of problem to be solved. Check models.py for a full list.
+# Type of problem to be solved. Check resite.py for a full list.
 formulation: 'meet_RES_targets_year_round' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
 
 # List of deployments per region (ordered as the 'regions' list above)

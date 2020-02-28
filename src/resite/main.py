@@ -1,4 +1,4 @@
-from src.resite.models import Model
+from src.resite.resite import Resite
 from src.resite.utils import custom_log, remove_garbage
 import yaml
 
@@ -10,18 +10,18 @@ elif 'meet_RES_targets' in params['formulation'] and len(params['deployment_vect
     raise ValueError('For the selected formulation, the "regions" and "deployment_vector" '
                      'lists must have the same cardinality!')
 
-resite_model = Model(params)
+resite = Resite(params)
 
 custom_log('Reading input...')
-resite_model.build_input_data(params['filtering_layers'])
+resite.build_input_data(params['filtering_layers'])
 
 custom_log('Model being built...')
-resite_model.build_model(params['formulation'], params['deployment_vector'], write_lp=True)
+resite.build_model(params['modelling'], params['formulation'], params['deployment_vector'], write_lp=True)
 
 custom_log('Sending model to solver.')
-resite_model.solve_model(params['solver'], params['solver_options'][params['solver']])
+resite.solve_model(params['solver'], params['solver_options'][params['solver']])
 
 custom_log('Retrieving results')
-resite_model.retrieve_selected_points(save_file=True)
+resite.retrieve_selected_points(save_file=True)
 
 # remove_garbage(params['keep_files'], output_folder)
