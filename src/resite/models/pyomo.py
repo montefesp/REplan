@@ -11,6 +11,7 @@ import pickle
 #  - create three functions, so that the docstring at the beginning of each function explain the model
 #  -> modeling
 #  - Change self to another word?
+#  - Some constraints are so similar shouldn't we create function for creating them?
 def build_model(self, formulation: str, deployment_vector: List[float], write_lp: bool = False):
     """
     Model build-up.
@@ -26,6 +27,10 @@ def build_model(self, formulation: str, deployment_vector: List[float], write_lp
     write_lp : bool (default: False)
         If True, the model is written to an .lp file.
     """
+
+    accepted_formulations = ['meet_RES_targets_year_round', 'meet_RES_targets_hourly', 'meet_demand_with_capacity']
+    assert formulation in accepted_formulations, f"Error: formulation {formulation} is not implemented." \
+                                                 f"Accepted formulations are {accepted_formulations}."
 
     load = self.load_df.values
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in self.tech_points_tuples]
@@ -136,13 +141,9 @@ def build_model(self, formulation: str, deployment_vector: List[float], write_lp
 
         # Maximize the proportion of load that is satisfied
         def objective_rule(model):
-            return sum(model.x[region, t] for region in self.regions
-                       for t in arange(len(self.timestamps)))
+            return sum(model.x[region, t] for region in self.regions for t in arange(len(self.timestamps)))
 
         model.objective = Objective(rule=objective_rule, sense=maximize)
-
-    else:
-        raise ValueError(' This optimization setup is not available yet. Retry.')
 
     if write_lp:
         model.write(filename=join(self.output_folder, 'model.lp'),

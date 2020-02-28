@@ -20,7 +20,8 @@ from src.resite.models.pyomo import build_model as build_pyomo_model, \
     solve_model as solve_pyomo_model, retrieve_sites as retrieve_pyomo_sites
 from src.resite.models.docplex import build_model as build_docplex_model, \
     solve_model as solve_docplex_model, retrieve_sites as retrieve_docplex_sites
-
+from src.resite.models.gurobipy import build_model as build_gurobipy_model, \
+    solve_model as solve_gurobipy_model, retrieve_sites as retrieve_gurobipy_sites
 
 class Resite:
 
@@ -33,6 +34,11 @@ class Resite:
     build_docplex_model = build_docplex_model
     solve_docplex_model = solve_docplex_model
     retrieve_docplex_sites = retrieve_docplex_sites
+
+    # Gurobipy formulation
+    build_gurobipy_model = build_gurobipy_model
+    solve_gurobipy_model = solve_gurobipy_model
+    retrieve_gurobipy_sites = retrieve_gurobipy_sites
 
     def __init__(self, params):
 
@@ -67,46 +73,10 @@ class Resite:
         if not self.keep_files:
             custom_log(' WARNING! Files will be deleted at the end of the run.')
 
-    # TODO: is the last part of the function important
     def __del__(self):
-        """Remove different files after the run.
-
-        Parameters:
-        -----------
-        keep_files: bool
-            If False, folder previously built is deleted.
-        output_folder: str
-            Path of output folder.
-        lp: bool (default: True)
-            Whether to remove .lp file
-        script: bool (default: True)
-            Whether to remove .script file
-        sol: bool (default: True)
-            Whether to remove .sol file
-        """
-
+        """If self.keep_files is false, remove all outputs created during the run."""
         if not self.keep_files:
             rmtree(self.output_folder)
-
-        """
-        directory = getcwd()
-
-        if lp:
-            files = glob(join(directory, '*.lp'))
-            for f in files:
-                remove(f)
-
-        if script:
-            files = glob(join(directory, '*.script'))
-            for f in files:
-                remove(f)
-
-        if sol:
-            files = glob(join(directory, '*.sol'))
-            for f in files:
-                remove(f)
-        """
-
 
     def build_input_data(self, filtering_layers: Dict[str, bool]):
         """Data pre-processing.
@@ -207,7 +177,7 @@ class Resite:
             If True, the model is written to an .lp file.
         """
 
-        accepted_modelling = ['pyomo', 'docplex']
+        accepted_modelling = ['pyomo', 'docplex', 'gurobipy']
         assert modelling in accepted_modelling, f"Error: {modelling} is not available as modelling language. " \
                                                 f"Accepted languages are {accepted_modelling}"
         self.modelling = modelling
@@ -215,6 +185,8 @@ class Resite:
             self.build_pyomo_model(formulation, deployment_vector, write_lp)
         elif self.modelling == 'docplex':
             self.build_docplex_model(formulation, deployment_vector, write_lp)
+        elif self.modelling == 'gurobipy':
+            self.build_gurobipy_model(formulation, deployment_vector, write_lp)
 
     def solve_model(self, solver, solver_options):
         """
@@ -232,9 +204,9 @@ class Resite:
             self.solve_pyomo_model(solver, solver_options)
         elif self.modelling == 'docplex':
             self.solve_docplex_model(solver, solver_options)
+        elif self.modelling == 'gurobipy':
+            self.solve_gurobipy_model(solver, solver_options)
 
-    # TODO:
-    #  - comment
     def retrieve_sites(self, save_file: bool) -> Dict[str, List[Tuple[float, float]]]:
         """
         Get points that were selected during the optimization
@@ -247,14 +219,17 @@ class Resite:
         Returns
         -------
         Dict[str, List[Tuple[float, float]]]
-            Lists of points for each technology used in the model
+            Lists of selected points for each technology
 
         """
         if self.modelling == 'pyomo':
             return self.retrieve_pyomo_sites(save_file)
         elif self.modelling == 'docplex':
             return self.retrieve_docplex_sites(save_file)
+        elif self.modelling == 'gurobipy':
+            return self.retrieve_gurobipy_sites(save_file)
 
+    # TODO comment
     def retrieve_sites_data(self, data_names: List[str]):
         """
         This function returns the asked data for the optimal sites.

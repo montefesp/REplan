@@ -16,7 +16,7 @@ regions: ['BE']
 technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
 
 
-modelling: 'pyomo' # Choice of modelling language. Available: 'docplex' and 'pyomo'
+modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
 solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
 solver_options:
   gurobi:
@@ -26,10 +26,10 @@ solver_options:
   cbc: 0
 
 # Type of problem to be solved. Check resite.py for a full list.
-formulation: 'meet_RES_targets_year_round' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
+formulation: 'meet_demand_with_capacity' # 'meet_RES_targets_hourly' # 'meet_RES_targets_year_round' #
 
 # List of deployments per region (ordered as the 'regions' list above)
-deployment_vector: [0.3] # [0.5, 0.5, 0.5, 0.5]
+deployment_vector: [0.5, 0.5, 0.5, 0.5]
 
 # Keeping files at the end of the run.
 keep_files: False
