@@ -6,15 +6,17 @@ from shapely.ops import cascaded_union
 from shapely.geometry import MultiPoint
 import pandas as pd
 from src.resite.utils import custom_log, init_folder
-from src.resite.tools import filter_points, compute_capacity_factors, read_database, \
-    get_legacy_capacity, get_capacity_potential
+from src.data.legacy.manager import get_legacy_capacity
+from src.data.resource.manager import read_resource_database, compute_capacity_factors
+from src.data.land_data.manager import filter_points
+from src.data.res_potential.manager import get_capacity_potential
 from src.data.load.manager import retrieve_load_data
 from src.data.geographics.manager import return_region_shape, return_points_in_shape, get_subregions, \
     display_polygons
-from src.resite.tools import get_tech_points_tuples
-from typing import List, Dict, Any
+from typing import List, Dict
 from shutil import copy
 import pickle
+import yaml
 
 
 class Model:
@@ -24,6 +26,9 @@ class Model:
         self.output_folder = init_folder(params['keep_files'])
         copy('config_model.yml', self.output_folder)
         copy('config_techs.yml', self.output_folder)
+
+        tech_config_path = join(dirname(abspath(__file__)), 'config_techs.yml')
+        self.tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
 
         self.technologies = params['technologies']
         self.regions = params['regions']
@@ -57,12 +62,13 @@ class Model:
 
         # TODO: Need to remove the first init_points by downloading new data
         path_resource_data = join(dirname(abspath(__file__)), '../../data/resource/' + str(self.spatial_res))
-        database = read_database(path_resource_data)
+        database = read_resource_database(path_resource_data)
         init_points = list(zip(database.longitude.values, database.latitude.values))
         init_points = return_points_in_shape(regions_shapes_union, self.spatial_res, init_points)
 
         custom_log("Filtering coordinates")
-        self.tech_points_dict = filter_points(self.technologies, init_points, self.spatial_res, filtering_layers)
+        self.tech_points_dict = filter_points(self.technologies, self.tech_config, init_points, self.spatial_res,
+                                              filtering_layers)
 
         custom_log("Get existing legacy capacity")
         tech_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility']))
@@ -91,7 +97,7 @@ class Model:
                 self.region_tech_points_dict[i] = self.region_tech_points_dict[i].union(set(coords_in_region))
 
         # Create dataframe with existing capacity
-        self.tech_points_tuples = get_tech_points_tuples(self.tech_points_dict)
+        self.tech_points_tuples = [(tech, point) for tech, points in self.tech_points_dict.items() for point in points]
         existing_capacity_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(self.tech_points_tuples))
         for tech, coord in existing_capacity_ds.index:
             if tech in existing_capacity_dict and existing_capacity_dict[tech] is not None \
@@ -99,7 +105,8 @@ class Model:
                 existing_capacity_ds[tech, coord] = existing_capacity_dict[tech][coord]
 
         custom_log("Compute cap factor")
-        self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.spatial_res, self.timestamps)
+        self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.tech_config,
+                                                      self.spatial_res, self.timestamps)
 
         custom_log("Compute capacity potential per node")
         self.cap_potential_ds = get_capacity_potential(self.tech_points_dict, self.spatial_res, self.regions,
@@ -108,7 +115,6 @@ class Model:
         # Compute percentage of existing capacity and set to 1. when capacity is zero
         existing_cap_percentage_ds = existing_capacity_ds.divide(self.cap_potential_ds)
         self.existing_cap_percentage_ds = existing_cap_percentage_ds.fillna(1.)
-
 
     # TODO:
     #  - create three functions, so that the docstring at the beginning of each function explain the model

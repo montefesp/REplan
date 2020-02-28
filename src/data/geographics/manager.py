@@ -9,9 +9,11 @@ from random import random
 
 import pandas as pd
 import geopandas as gpd
+import xarray as xr
 import shapely
 from shapely.geometry import MultiPolygon, Polygon, Point, MultiPoint
 from shapely.ops import cascaded_union, unary_union
+import shapely.prepared
 
 import pycountry as pyc
 # from copy import copy
@@ -148,7 +150,6 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_df: pd.Data
     return points_region_ds
 
 
-
 # TODO: ok i have a file for this -> problem with UK
 def return_ISO_codes_from_countries():
 
@@ -195,8 +196,6 @@ def get_subregions(region: str):
     return subregions
 
 
-# TODO:
-#  - why shapefile? just shape?
 def return_region_shape(region_name: str, subregions: List[str], prepare: bool = False) \
         -> Dict[str, Union[Polygon, MultiPolygon]]:
     """

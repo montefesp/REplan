@@ -2,7 +2,7 @@ from src.resite.models import Model
 from src.resite.utils import custom_log, remove_garbage
 import yaml
 
-params = yaml.safe_load(open('config_model.yml'))
+params = yaml.load(open('config_model.yml'), Loader=yaml.FullLoader)
 
 if params['formulation'] == 'meet_demand_with_capacity' and len(params['regions']) != 1:
     raise ValueError('The selected formulation works for one region only!')
