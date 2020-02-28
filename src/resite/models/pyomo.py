@@ -1,16 +1,19 @@
 from numpy import arange
 from pyomo.environ import ConcreteModel, Var, Constraint, Objective, minimize, maximize, NonNegativeReals
 from pyomo.opt import ProblemFormat, SolverFactory
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import pandas as pd
 from os.path import join
+import pickle
 
 
 # TODO:
 #  - create three functions, so that the docstring at the beginning of each function explain the model
 #  -> modeling
+#  - Change self to another word?
 def build_model(self, formulation: str, deployment_vector: List[float], write_lp: bool = False):
-    """Model build-up.
+    """
+    Model build-up.
 
     Parameters:
     ------------
@@ -25,35 +28,33 @@ def build_model(self, formulation: str, deployment_vector: List[float], write_lp
     """
 
     load = self.load_df.values
-    # Maximum generation that can be produced if max capacity installed
-    generation_potential_df = self.cap_factor_df * self.cap_potential_ds
-    # generation_potential = generation_potential_df.values
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in self.tech_points_tuples]
 
     model = ConcreteModel()
 
+    # Variables for the portion of demand that is met at each time-stamp for each region
+    model.x = Var(self.regions, arange(len(self.timestamps)), within=NonNegativeReals, bounds=(0, 1))
+    # Variables for the portion of capacity at each location for each technology
+    model.y = Var(tech_points_tuples, within=NonNegativeReals, bounds=(0, 1))
+
+    # Create generation dictionary for building speed up
+    region_generation_y_dict = dict.fromkeys(self.regions)
+    for region in self.regions:
+        # Get generation potential for points in region for each techno
+        region_tech_points = self.region_tech_points_dict[region]
+        tech_points_generation_potential = self.generation_potential_df[region_tech_points]
+        region_ys = pd.Series([model.y[tech, loc] for tech, loc in region_tech_points],
+                              index=pd.MultiIndex.from_tuples(region_tech_points))
+        region_generation = tech_points_generation_potential * region_ys
+        region_generation_y_dict[region] = region_generation.sum(axis=1).values
+
+    region_indexes = dict(zip(self.regions, arange(len(self.regions))))
+
     if formulation == 'meet_RES_targets_year_round':  # TODO: probaly shouldn't be called year round
-
-        # Variables for the portion of demand that is met at each time-stamp for each region
-        model.x = Var(self.regions, arange(len(self.timestamps)), within=NonNegativeReals, bounds=(0, 1))
-        # Variables for the portion of capacity at each location for each technology
-        model.y = Var(tech_points_tuples, within=NonNegativeReals, bounds=(0, 1))
-
-        # Create generation dictionary for building speed up
-        region_generation_y_dict = dict.fromkeys(self.regions)
-        for i, region in enumerate(self.regions):
-            # Get generation potential for points in region for each techno
-            tech_points_generation_potential = generation_potential_df[self.region_tech_points_dict[i]]
-            region_ys = pd.Series([model.y[tech, loc] for tech, loc in self.region_tech_points_dict[i]],
-                                  index=pd.MultiIndex.from_tuples(self.region_tech_points_dict[i]))
-            region_generation = tech_points_generation_potential * region_ys
-            region_generation_y_dict[region] = region_generation.sum(axis=1).values
-
-        region_indexes = dict(zip(self.regions, arange(len(self.regions))))
 
         # Generation must be greater than x percent of the load in each region for each time step
         def generation_check_rule(model, region, t):
-            return region_generation_y_dict[region][t] >= load[t, region_indexes[region]] * model.x[region, t]
+            return region_generation_y_dict[region][t] >= load[t, self.regions.index(region)] * model.x[region, t]
 
         model.generation_check = Constraint(self.regions, arange(len(self.timestamps)), rule=generation_check_rule)
 
@@ -81,26 +82,9 @@ def build_model(self, formulation: str, deployment_vector: List[float], write_lp
 
     elif formulation == 'meet_RES_targets_hourly':
 
-        # Variables for the portion of demand that is met at each time-stamp for each region
-        model.x = Var(self.regions, arange(len(self.timestamps)), within=NonNegativeReals, bounds=(0, 1))
-        # Variables for the portion of capacity at each location for each technology
-        model.y = Var(tech_points_tuples, within=NonNegativeReals, bounds=(0, 1))
-
-        # Create generation dictionary for building speed up
-        region_generation_y_dict = dict.fromkeys(self.regions)
-        for i, region in enumerate(self.regions):
-            # Get generation potential for points in region for each techno
-            tech_points_generation_potential = generation_potential_df[self.region_tech_points_dict[i]]
-            region_ys = pd.Series([model.y[tech, loc] for tech, loc in self.region_tech_points_dict[i]],
-                                  index=pd.MultiIndex.from_tuples(self.region_tech_points_dict[i]))
-            region_generation = tech_points_generation_potential * region_ys
-            region_generation_y_dict[region] = region_generation.sum(axis=1).values
-
-        region_indexes = dict(zip(self.regions, arange(len(self.regions))))
-
         # Generation must be greater than x percent of the load in each region for each time step
         def generation_check_rule(model, region, t):
-            return region_generation_y_dict[region][t] >= load[t, region_indexes[region]] * model.x[region, t]
+            return region_generation_y_dict[region][t] >= load[t, self.regions.index(region)] * model.x[region, t]
 
         model.generation_check = Constraint(self.regions, arange(len(self.timestamps)), rule=generation_check_rule)
 
@@ -128,26 +112,9 @@ def build_model(self, formulation: str, deployment_vector: List[float], write_lp
 
     elif formulation == 'meet_demand_with_capacity':
 
-        # Variables for the portion of demand that is met at each time-stamp for each region
-        model.x = Var(self.regions, arange(len(self.timestamps)), within=NonNegativeReals, bounds=(0, 1))
-        # Variables for the portion of capacity at each location for each technology
-        model.y = Var(tech_points_tuples, within=NonNegativeReals, bounds=(0, 1))
-
-        # Create generation dictionary for building speed up
-        region_generation_y_dict = dict.fromkeys(self.regions)
-        for i, region in enumerate(self.regions):
-            # Get generation potential for points in region for each techno
-            tech_points_generation_potential = generation_potential_df[self.region_tech_points_dict[i]]
-            region_ys = pd.Series([model.y[tech, loc] for tech, loc in self.region_tech_points_dict[i]],
-                                  index=pd.MultiIndex.from_tuples(self.region_tech_points_dict[i]))
-            region_generation = tech_points_generation_potential * region_ys
-            region_generation_y_dict[region] = region_generation.sum(axis=1).values
-
-        region_indexes = dict(zip(self.regions, arange(len(self.regions))))
-
         # Generation must be greater than x percent of the load in each region for each time step
         def generation_check_rule(model, region, t):
-            return region_generation_y_dict[region][t] >= load[t, region_indexes[region]] * model.x[region, t]
+            return region_generation_y_dict[region][t] >= load[t, self.regions.index(region)] * model.x[region, t]
 
         model.generation_check = Constraint(self.regions, arange(len(self.timestamps)), rule=generation_check_rule)
 
@@ -202,3 +169,34 @@ def solve_model(self, solver, solver_options):
         opt.options[key] = value
     opt.solve(self.instance, tee=True, keepfiles=False, report_timing=True,
               logfile=join(self.output_folder, 'solver_log.log'))
+
+
+def retrieve_sites(self, save_file: bool) -> Dict[str, List[Tuple[float, float]]]:
+    """
+    Get points that were selected during the optimization
+
+    Parameters
+    ----------
+    save_file: bool
+        Whether to save the results in the output folder or not
+
+    Returns
+    -------
+    selected_tech_points_dict: Dict[str, List[Tuple[float, float]]]
+        Lists of points for each technology used in the model
+
+    """
+    selected_tech_points_dict = {tech: [] for tech in self.technologies}
+
+    tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in self.tech_points_tuples]
+    for tech, lon, lat in tech_points_tuples:
+        if self.instance.y[tech, lon, lat].value > 0.:
+            selected_tech_points_dict[tech] += [(lon, lat)]
+
+    # Remove tech for which no points was selected
+    selected_tech_points_dict = {k: v for k, v in selected_tech_points_dict.items() if len(v) > 0}
+
+    if save_file:
+        pickle.dump(selected_tech_points_dict, open(join(self.output_folder, 'output_model.p'), 'wb'))
+
+    return selected_tech_points_dict

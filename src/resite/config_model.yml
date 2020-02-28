@@ -11,13 +11,13 @@ filtering_layers:
   forestry: True
   water_mask: True
 
-time_slice: ['2015-01-01T00:00', '2015-01-01T12:00']
+time_slice: ['2015-01-01T00:00', '2015-01-31T23:00']
 regions: ['BE']
 technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
 
 
-modelling: 'pyomo' # Choice of modelling language
-solver: 'gurobi' # Choice of solver. Available: 'gurobi' and 'cplex' and 'cbc'
+modelling: 'pyomo' # Choice of modelling language. Available: 'docplex' and 'pyomo'
+solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
 solver_options:
   gurobi:
     Threads: 0
@@ -29,7 +29,7 @@ solver_options:
 formulation: 'meet_RES_targets_year_round' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
 
 # List of deployments per region (ordered as the 'regions' list above)
-deployment_vector: [0.1] # [0.5, 0.5, 0.5, 0.5]
+deployment_vector: [0.3] # [0.5, 0.5, 0.5, 0.5]
 
 # Keeping files at the end of the run.
 keep_files: False

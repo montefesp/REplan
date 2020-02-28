@@ -1,30 +1,44 @@
-from os.path import join, dirname, abspath
+from os.path import join, dirname, abspath, isdir
+from os import makedirs
 from shapely.ops import cascaded_union
 from shapely.geometry import MultiPoint
 import pandas as pd
-from src.resite.utils import custom_log, init_folder
+from src.resite.utils import custom_log
 from src.data.legacy.manager import get_legacy_capacity
 from src.data.resource.manager import read_resource_database, compute_capacity_factors
 from src.data.land_data.manager import filter_points
 from src.data.res_potential.manager import get_capacity_potential
 from src.data.load.manager import retrieve_load_data
 from src.data.geographics.manager import return_region_shape, return_points_in_shape, get_subregions
-from typing import List, Dict
-from shutil import copy
-import pickle
+from typing import List, Dict, Tuple
+from shutil import copy, rmtree
 import yaml
+from time import strftime
 
-from src.resite.models.pyomo import build_model as build_pyomo_model, solve_model as solve_pyomo_model
+
+from src.resite.models.pyomo import build_model as build_pyomo_model, \
+    solve_model as solve_pyomo_model, retrieve_sites as retrieve_pyomo_sites
+from src.resite.models.docplex import build_model as build_docplex_model, \
+    solve_model as solve_docplex_model, retrieve_sites as retrieve_docplex_sites
 
 
 class Resite:
 
+    # Pyomo formulation
     build_pyomo_model = build_pyomo_model
     solve_pyomo_model = solve_pyomo_model
+    retrieve_pyomo_sites = retrieve_pyomo_sites
+
+    # Docplex formulation
+    build_docplex_model = build_docplex_model
+    solve_docplex_model = solve_docplex_model
+    retrieve_docplex_sites = retrieve_docplex_sites
 
     def __init__(self, params):
 
-        self.output_folder = init_folder(params['keep_files'])
+        self.params = params
+        self.keep_files = params['keep_files']
+        self.init_output_folder()
         copy('config_model.yml', self.output_folder)
         copy('config_techs.yml', self.output_folder)
 
@@ -37,6 +51,62 @@ class Resite:
         self.spatial_res = params['spatial_resolution']
 
         self.instance = None
+
+    def init_output_folder(self):
+        """Initialize an output folder."""
+
+        dir_name = "../../output/resite/"
+        if not isdir(dir_name):
+            makedirs(abspath(dir_name))
+
+        self.output_folder = abspath(dir_name + str(strftime("%Y%m%d_%H%M%S")))
+        makedirs(self.output_folder)
+
+        custom_log(' Folder path is: {}'.format(str(self.output_folder)))
+
+        if not self.keep_files:
+            custom_log(' WARNING! Files will be deleted at the end of the run.')
+
+    # TODO: is the last part of the function important
+    def __del__(self):
+        """Remove different files after the run.
+
+        Parameters:
+        -----------
+        keep_files: bool
+            If False, folder previously built is deleted.
+        output_folder: str
+            Path of output folder.
+        lp: bool (default: True)
+            Whether to remove .lp file
+        script: bool (default: True)
+            Whether to remove .script file
+        sol: bool (default: True)
+            Whether to remove .sol file
+        """
+
+        if not self.keep_files:
+            rmtree(self.output_folder)
+
+        """
+        directory = getcwd()
+
+        if lp:
+            files = glob(join(directory, '*.lp'))
+            for f in files:
+                remove(f)
+
+        if script:
+            files = glob(join(directory, '*.script'))
+            for f in files:
+                remove(f)
+
+        if sol:
+            files = glob(join(directory, '*.sol'))
+            for f in files:
+                remove(f)
+        """
+
 
     def build_input_data(self, filtering_layers: Dict[str, bool]):
         """Data pre-processing.
@@ -87,15 +157,15 @@ class Resite:
 
         # Associating coordinates to regions
         # regions_coords_dict = {region: set() for region in regions}
-        self.region_tech_points_dict = {i: set() for i, region in enumerate(self.regions)}
+        self.region_tech_points_dict = {region: set() for region in self.regions}
         for tech, coords in self.tech_points_dict.items():
             coords_multipoint = MultiPoint(coords)
-            for i, region in enumerate(self.regions):
+            for region in self.regions:
                 coords_in_region = coords_multipoint.intersection(region_shapes.loc[region, 'full'])
                 coords_in_region = [(tech, (point.x, point.y)) for point in coords_in_region] \
                     if isinstance(coords_in_region, MultiPoint) \
                     else [(tech, (coords_in_region.x, coords_in_region.y))]
-                self.region_tech_points_dict[i] = self.region_tech_points_dict[i].union(set(coords_in_region))
+                self.region_tech_points_dict[region] = self.region_tech_points_dict[region].union(set(coords_in_region))
 
         # Create dataframe with existing capacity
         self.tech_points_tuples = [(tech, point) for tech, points in self.tech_points_dict.items() for point in points]
@@ -117,6 +187,9 @@ class Resite:
         existing_cap_percentage_ds = existing_capacity_ds.divide(self.cap_potential_ds)
         self.existing_cap_percentage_ds = existing_cap_percentage_ds.fillna(1.)
 
+        # Maximum generation that can be produced if max capacity installed
+        self.generation_potential_df = self.cap_factor_df * self.cap_potential_ds
+
     def build_model(self, modelling: str, formulation: str, deployment_vector: List[float], write_lp: bool = False):
         """Model build-up.
 
@@ -134,12 +207,14 @@ class Resite:
             If True, the model is written to an .lp file.
         """
 
-        accepted_modelling = ['pyomo']
+        accepted_modelling = ['pyomo', 'docplex']
         assert modelling in accepted_modelling, f"Error: {modelling} is not available as modelling language. " \
                                                 f"Accepted languages are {accepted_modelling}"
         self.modelling = modelling
         if self.modelling == 'pyomo':
             self.build_pyomo_model(formulation, deployment_vector, write_lp)
+        elif self.modelling == 'docplex':
+            self.build_docplex_model(formulation, deployment_vector, write_lp)
 
     def solve_model(self, solver, solver_options):
         """
@@ -153,25 +228,50 @@ class Resite:
             Dictionary of solver options name and value
 
         """
-        self.solve_pyomo_model(solver, solver_options)
+        if self.modelling == 'pyomo':
+            self.solve_pyomo_model(solver, solver_options)
+        elif self.modelling == 'docplex':
+            self.solve_docplex_model(solver, solver_options)
 
-    # TODO: shouldn't this function just return the points and not the capacity?
-    def retrieve_selected_points(self, save_file):
+    # TODO:
+    #  - comment
+    def retrieve_sites(self, save_file: bool) -> Dict[str, List[Tuple[float, float]]]:
+        """
+        Get points that were selected during the optimization
 
-        selected_tech_points_dict = {tech: {} for tech in self.technologies}
+        Parameters
+        ----------
+        save_file: bool
+            Whether to save the results in the output folder or not
 
-        tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in self.tech_points_tuples]
-        for tech, lon, lat in tech_points_tuples:
-            y_value = self.instance.y[tech, lon, lat].value
-            if y_value > 0.:
-                cap = y_value * self.cap_potential_ds[tech, (lon, lat)]
-                selected_tech_points_dict[tech][(lon, lat)] = cap
+        Returns
+        -------
+        Dict[str, List[Tuple[float, float]]]
+            Lists of points for each technology used in the model
 
-        # Remove tech for which no technology was selected
-        selected_tech_points_dict = {k: v for k, v in selected_tech_points_dict.items() if len(v) > 0}
+        """
+        if self.modelling == 'pyomo':
+            return self.retrieve_pyomo_sites(save_file)
+        elif self.modelling == 'docplex':
+            return self.retrieve_docplex_sites(save_file)
 
-        if save_file:
-            pickle.dump(selected_tech_points_dict, open(join(self.output_folder, 'output_model.p'), 'wb'))
+    def retrieve_sites_data(self, data_names: List[str]):
+        """
+        This function returns the asked data for the optimal sites.
 
-        return selected_tech_points_dict
+        Parameters
+        ----------
+        data_names: List[str]
+            Name of the data that is required
+            Possibilities: 'potential_capacity', 'existing_capacity', 'capacity_factors'
+
+        Returns
+        -------
+        sites_data_dict: Dict[str, Any]
+
+        """
+
+        sites_data_dict = dict.fromkeys(data_names)
+
+
 
