@@ -3,7 +3,6 @@ from os import makedirs
 from shapely.ops import cascaded_union
 from shapely.geometry import MultiPoint
 import pandas as pd
-from src.resite.utils import custom_log
 from src.data.legacy.manager import get_legacy_capacity
 from src.data.resource.manager import read_resource_database, compute_capacity_factors
 from src.data.land_data.manager import filter_points
@@ -40,9 +39,10 @@ class Resite:
     solve_gurobipy_model = solve_gurobipy_model
     retrieve_gurobipy_sites = retrieve_gurobipy_sites
 
-    def __init__(self, params):
+    def __init__(self, params, logger):
 
         self.params = params
+        self.logger = logger
         self.keep_files = params['keep_files']
         self.init_output_folder()
         copy('config_model.yml', self.output_folder)
@@ -68,10 +68,10 @@ class Resite:
         self.output_folder = abspath(dir_name + str(strftime("%Y%m%d_%H%M%S")))
         makedirs(self.output_folder)
 
-        custom_log(' Folder path is: {}'.format(str(self.output_folder)))
+        self.logger.info('Folder path is: {}'.format(str(self.output_folder)))
 
         if not self.keep_files:
-            custom_log(' WARNING! Files will be deleted at the end of the run.')
+            self.logger.info('WARNING! Files will be deleted at the end of the run.')
 
     def __del__(self):
         """If self.keep_files is false, remove all outputs created during the run."""
@@ -88,10 +88,10 @@ class Resite:
             associated to a True boolean, then the corresponding is applied.
         """
 
-        custom_log("Loading load")
+        self.logger.info("Loading load")
         self.load_df = retrieve_load_data(self.regions, self.timestamps)
 
-        custom_log("Getting region shapes")
+        self.logger.info("Getting region shapes")
         region_shapes = pd.DataFrame(index=self.regions, columns=['full'])
         all_subregions = []
         for region in self.regions:
@@ -107,11 +107,11 @@ class Resite:
         init_points = list(zip(database.longitude.values, database.latitude.values))
         init_points = return_points_in_shape(regions_shapes_union, self.spatial_res, init_points)
 
-        custom_log("Filtering coordinates")
+        self.logger.info("Filtering coordinates")
         self.tech_points_dict = filter_points(self.technologies, self.tech_config, init_points, self.spatial_res,
                                               filtering_layers)
 
-        custom_log("Get existing legacy capacity")
+        self.logger.info("Get existing legacy capacity")
         tech_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility']))
         existing_capacity_dict = get_legacy_capacity(tech_with_legacy_data, all_subregions, init_points, self.spatial_res)
 
@@ -145,11 +145,11 @@ class Resite:
                     and coord in existing_capacity_dict[tech]:
                 existing_capacity_ds[tech, coord] = existing_capacity_dict[tech][coord]
 
-        custom_log("Compute cap factor")
+        self.logger.info("Compute cap factor")
         self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.tech_config,
                                                       self.spatial_res, self.timestamps)
 
-        custom_log("Compute capacity potential per node")
+        self.logger.info("Compute capacity potential per node")
         self.cap_potential_ds = get_capacity_potential(self.tech_points_dict, self.spatial_res, self.regions,
                                                        existing_capacity_ds)
 
