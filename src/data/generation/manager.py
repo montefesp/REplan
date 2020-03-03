@@ -3,7 +3,7 @@ from shapely.geometry import Point
 import pandas as pd
 
 from typing import *
-import os
+from os.path import join, dirname, abspath
 import pypsa
 import numpy as np
 # TODO: need to make all this more generic
@@ -52,7 +52,7 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "") -> pd.DataFrame:
         plants = plants[plants.Technology == technology]
 
     # Convert country to code
-    countries_codes_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../data/countries-codes.csv")
+    countries_codes_fn = join(dirname(abspath(__file__)), "../../../data/countries-codes.csv")
     countries_code = pd.read_csv(countries_codes_fn)
 
     def convert_country_name_to_code(country_name):
@@ -152,7 +152,7 @@ def add_nuclear_gen_pypsa(network: pypsa.Network, costs: Dict[str, float], use_e
     costs: Dict[str, float]
         Contains capex and opex
     use_ex_cap: bool
-        Whether to consider existing capacity or not # TODO: will probably remove that at some point
+        Whether to consider existing capacity or not #  TODO: will probably remove that at some point
     extendable: bool
         Whether generators are extendable
     ramp_rate: float
@@ -170,10 +170,10 @@ def add_nuclear_gen_pypsa(network: pypsa.Network, costs: Dict[str, float], use_e
 
     # Load existing nuclear plants
     if ppm_file_name is not None:
-        ppm_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../data/ppm/")
+        ppm_folder = join(dirname(abspath(__file__)), "../../../data/ppm/")
         gens = pd.read_csv(ppm_folder + "/" + ppm_file_name, index_col=0, delimiter=";")
         # Convert countries code
-        countries_codes_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+        countries_codes_fn = join(dirname(abspath(__file__)),
                                           "../../../data/countries-codes.csv")
         countries_code = pd.read_csv(countries_codes_fn)
 
@@ -355,7 +355,7 @@ def add_phs_plants(network: pypsa.Network, costs: Dict[str, float], extendable: 
         Updated network
     """
 
-    hydro_capacities_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+    hydro_capacities_fn = join(dirname(abspath(__file__)),
                                        "../../../data/hydro/generated/hydro_capacities_per_nuts.csv")
     hydro_capacities = pd.read_csv(hydro_capacities_fn, index_col=0, delimiter=";",
                                    usecols=[0, 4, 5])
@@ -526,12 +526,12 @@ def add_ror_plants(network: pypsa.Network, costs: Dict[str, float], extendable: 
         Updated network
     """
 
-    hydro_capacities_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+    hydro_capacities_fn = join(dirname(abspath(__file__)),
                                        "../../../data/hydro/generated/hydro_capacities_per_nuts.csv")
     hydro_capacities = pd.read_csv(hydro_capacities_fn, index_col=0, delimiter=";",
                                    usecols=[0, 1])
 
-    ror_inflow_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+    ror_inflow_fn = join(dirname(abspath(__file__)),
                                  "../../../data/hydro/generated/hydro_ror_time_series_per_nuts_pu.csv")
     ror_inflow = pd.read_csv(ror_inflow_fn, index_col=0, delimiter=";")
     ror_inflow.index = pd.DatetimeIndex(ror_inflow.index)
@@ -724,7 +724,7 @@ def add_sto_plants(network: pypsa.Network, costs: Dict[str, float], extendable: 
         Updated network
     """
 
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../data/hydro/generated/")
+    data_dir = join(dirname(abspath(__file__)), "../../../data/hydro/generated/")
 
     hydro_capacities = pd.read_csv(data_dir + "hydro_capacities_per_nuts.csv",
                                    index_col=0, delimiter=";", usecols=[0, 2, 3])

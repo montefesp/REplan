@@ -1,50 +1,25 @@
 import numpy as np
 from shapely.geometry import Point, Polygon
 import shapely
-import os
+from os.path import join, dirname, abspath
 import pickle
 from src.data.res_potential.manager import get_potential_ehighway
 from typing import *
 import pypsa
-import geopy
-from src.data.topologies.ehighway import plot_topology
-import xarray as xr
+from src.data.geographics.manager import is_onshore, match_points_to_region
+from src.resite.resite import Resite
+import pandas as pd
+import yaml
+from itertools import product
 
-
-# TODO: need to add to the resite data the area to which it corresponds
-def is_onshore(point: Point, onshore_shape: Polygon, dist_threshold: float = 20.0) -> bool:
-    """
-    Determines if a point is onshore (considering that onshore means belonging to the onshore_shape or less than
-    dist_threshold km away from it)
-
-    Parameters
-    ----------
-    point: shapely.geometry.Point
-        Point corresponding to a coordinate
-    onshore_shape: shapely.geometry.Polygon
-        Polygon representing a geographical shape
-    dist_threshold: float (default: 20.0)
-        Distance in kms
-
-    Returns
-    -------
-    True if the point is considered onshore, False otherwise
-    """
-
-    if onshore_shape.contains(point):
-        return True
-
-    closest_p = shapely.ops.nearest_points(onshore_shape, point)
-    dist_to_closest_p = geopy.distance.geodesic((point.y, point.x), (closest_p[0].y, closest_p[0].x)).km
-    if dist_to_closest_p < dist_threshold:
-        return True
-
-    return False
+import logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
+logger = logging.getLogger()
 
 
 def add_generators_pypsa(network: pypsa.Network, onshore_region_shape, gen_costs: Dict[str, Dict[str, float]],
-                         strategy: str,
-                         site_nb: int, area_per_site: int, cap_dens_dict: Dict[str, float]) -> pypsa.Network:
+                         strategy: str, site_nb: int, area_per_site: int, cap_dens_dict: Dict[str, float]) \
+        -> pypsa.Network:
     """Adds wind and pv generator that where selected via a certain siting method to a Network class.
 
     Parameters
@@ -70,8 +45,8 @@ def add_generators_pypsa(network: pypsa.Network, onshore_region_shape, gen_costs
         Updated network
     """
 
-    resite_data_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                  "../../../data/resite/generated/" + strategy + "_site_data_" + str(site_nb) + ".p")
+    resite_data_fn = join(dirname(abspath(__file__)),
+                          "../../../data/resite/generated/" + strategy + "_site_data_" + str(site_nb) + ".p")
     selected_points = pickle.load(open(resite_data_fn, "rb"))
 
     # regions = network.buses.region.values
@@ -135,55 +110,93 @@ def add_generators_pypsa(network: pypsa.Network, onshore_region_shape, gen_costs
     return network
 
 
-def site_bus_association_test(network, region_shape, points):
-    """Test function to see how coordinates are linked to buses based on their distance to the regions associated
-    to the buses"""
+def add_generators(network: pypsa.Network, region: str, gen_costs: Dict[str, Any], use_ex_cap: bool):
+    """
+    This function will add generators for different technologies at a series of location selected via an optimization
+    mechanism.
 
-    # regions = network.buses.region.values
-    onshore_buses = network.buses[network.buses.onshore]
-    onshore_bus_positions = [Point(x, y) for x, y in zip(onshore_buses.x, onshore_buses.y)]
+    Parameters
+    ----------
+    network: pypsa.Network
+        A network with region associated to each buses.
+    region: str
+        Region over which the network is defined
+    gen_costs: Dict[str, Any]
+        Dictionary containing the prices of technologies
+    use_ex_cap: bool
+        Whether to use existing capacity
 
-    offshore_buses = network.buses[network.buses.onshore == False]
-    offshore_bus_positions = [Point(x, y) for x, y in zip(offshore_buses.x, offshore_buses.y)]
+    Returns
+    -------
+    network: pypsa.Network
+        Updated network
+    """
 
-    # TODO: would probably be nice to invert the dictionary
-    #  so that for each point we have the technology(ies) we need to install there
-    # Detect to which bus the node should be associated
+    # TODO: remove parameter region but keep the rest?
+    params_fn = join(dirname(abspath(__file__)), "../../resite/config_model.yml")
+    params = yaml.load(open(params_fn), Loader=yaml.FullLoader)
 
-    bus_ids = [(onshore_buses.index[
-               np.argmin([Point(point[0], point[1]).distance(region) for region in onshore_buses.region])]
-               if is_onshore(Point(point), region_shape)
-               else offshore_buses.index[
-               np.argmin([bus_pos.distance(Point(point[0], point[1])) for bus_pos in offshore_bus_positions])])
-               for point in points]
+    params["regions"] = [region] # TODO: not sure that is very optimal
 
-    ax, colors = plot_topology(network.buses, network.lines)
+    logger.info('Building class.')
+    resite = Resite(params)
 
-    xs = [point[0] for point in points]
-    ys = [point[1] for point in points]
-    colors_points = [colors[bus_ids[i]] for i in range(len(points))]
-    ax.scatter(xs, ys, c=colors_points)
+    logger.info('Reading input.')
+    resite.build_input_data(params['filtering_layers'])
 
-    print(bus_ids)
+    logger.info('Model being built.')
+    resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'],
+                       write_lp=True)  # TODO: parametrize?
 
+    logger.info('Sending model to solver.')
+    resite.solve_model(params['solver'], params['solver_options'][params['solver']])
 
-# TODO: merge with david function
-def filter_coordinates(coordinates, depth_threshold=100):
-    """Filter coordinates by removing the ones corresponding to a depth below a certain threshold"""
+    logger.info('Retrieving results.')
+    tech_location_dict = resite.retrieve_sites(save_file=True)  # TODO: parametrize?
+    existing_cap_ds, cap_potential_ds, cap_factor_df = resite.retrieve_sites_data()
 
-    dataset_land_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                   "../../../data/land_data/ERA5_surface_characteristics_20181231_0.5.nc")
-    dataset_land = xr.open_dataset(dataset_land_fn)
+    if not resite.timestamps.equals(network.snapshots):
+        # If network snapshots is a subset of resite snapshots just crop the data
+        # TODO: probably need a better condition
+        if network.snapshots[0] in resite.timestamps and network.snapshots[-1] in resite.timestamps:
+            cap_factor_df = cap_factor_df.loc[network.snapshots]
+        else:
+            # In other case, need to recompute capacity factors
+            # TODO: to be implemented
+            pass
 
-    data_bath = dataset_land['wmb'].assign_coords(longitude=(((dataset_land.longitude
-                                                               + 180) % 360) - 180)).sortby('longitude')
+    for tech, points in tech_location_dict.items():
 
-    data_bath = data_bath.drop('time').squeeze().stack(locations=('longitude', 'latitude'))
-    array_offshore = data_bath.fillna(0.)
+        if tech in ['wind_offshore', 'wind_floating']:
+            offshore_buses = network.buses[network.buses.onshore == False]
+            # TODO: this is shit change
+            offshore_buses_regions = pd.DataFrame(offshore_buses.region.values, index=offshore_buses.index,
+                                                  columns=["geometry"])
+            associated_buses = match_points_to_region(points, offshore_buses_regions)
+        else:
+            onshore_buses = network.buses[network.buses.onshore]
+            # TODO: this is shit change
+            onshore_buses_regions = pd.DataFrame(onshore_buses.region.values, index=onshore_buses.index,
+                                                 columns=["geometry"])
+            associated_buses = match_points_to_region(points, onshore_buses_regions)
 
-    mask_offshore = array_offshore.where(array_offshore.data < depth_threshold)
-    coords_mask_offshore = mask_offshore[mask_offshore.notnull()].locations.values.tolist()
+        existing_cap = 0
+        if use_ex_cap:
+            existing_cap = existing_cap_ds[tech][points].values
 
-    coordinates = list(set(coordinates).intersection(set(coords_mask_offshore)))
+        network.madd("Generator",
+                     "Gen " + tech + " " + pd.Index([str(x) for x, _ in points]) + "-" +
+                     pd.Index([str(y) for _, y in points]),
+                     bus=associated_buses["subregion"].values,
+                     p_nom_extendable=True,
+                     p_nom_max=cap_potential_ds[tech][points].values,
+                     p_nom_min=existing_cap,
+                     p_max_pu=cap_factor_df[tech][points].values,
+                     type=tech,
+                     carrier=tech,
+                     x=[x for x, _ in points],
+                     y=[y for _, y in points],
+                     marginal_cost=gen_costs[tech.split("_")[0]]["opex"] / 1000.0,
+                     capital_cost=gen_costs[tech.split("_")[0]]["capex"] * len(network.snapshots) / (8760 * 1000.0))
 
-    return coordinates
+    return network

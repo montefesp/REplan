@@ -71,7 +71,7 @@ def read_resource_database(file_path, coords=None):
 # TODO:
 #  - replace using atlite?
 def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float]]], tech_config: Dict[str, Any],
-                             spatial_res: float, timestamps: List[np.datetime64],
+                             spatial_res: float, timestamps: pd.DatetimeIndex,
                              smooth_wind_power_curve: bool = True) -> pd.DataFrame:
     """
     Computes capacity factors for a list of points associated to a list of technologies.
@@ -84,7 +84,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
         Todo: comment
     spatial_res: float
         Spatial resolution of coordinates
-    timestamps: List[np.datetime64]
+    timestamps: pd.DatetimeIndex
         Time stamps for which we want capacity factors
     smooth_wind_power_curve : boolean
         If "True", the transfer function of wind assets replicates the one of a wind farm,

@@ -17,12 +17,13 @@ class PyPSAResults:
     def display_generation(self):
         """Display information about generation"""
 
-        print(self.get_generators_capacity())
-        print(self.get_generators_generation())
-        print(self.get_generators_average_usage())
-        print(self.get_generators_opex())
-        print(self.get_generators_capex())
-        print(self.get_generators_cost())
+        init_capacities, new_capacities, opt_capacities = self.get_generators_capacity()
+        print(f"Generators capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
+        print(f"Generators generation:\n{self.get_generators_generation()}\n")
+        print(f"Generators Average Use:\n{self.get_generators_average_usage()}\n")
+        print(f"Generators Opex:\n{self.get_generators_opex()}\n")
+        print(f"Generators Capex:\n{self.get_generators_capex()}\n")
+        print(f"Generators Cost:\n{self.get_generators_cost()}\n")
 
     def get_generators_capacity(self):
         """Returns the original, new and optimal generation capacities (in MW) for each type of generator."""
@@ -90,10 +91,11 @@ class PyPSAResults:
     def display_transmission(self):
         """Display information about transmission"""
 
-        print(self.get_lines_capacity())
-        print(self.get_lines_power())
-        print(self.get_lines_usage())
-        print(self.get_lines_capex())
+        init_capacities, new_capacities, opt_capacities = self.get_lines_capacity()
+        print(f"Lines capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
+        print(f"Lines power:\n{self.get_lines_power()}\n")
+        print(f"Lines use:\n{self.get_lines_usage()}\n")
+        print(f"Lines capex:\n{self.get_lines_capex()}\n")
 
     def get_lines_capacity(self):
         """Returns the original, new and optimal transmission capacities (in MW) for each type of line."""
@@ -144,13 +146,15 @@ class PyPSAResults:
     def display_storage(self):
         """Display information about storage"""
 
-        print(self.get_storage_power_capacity())
-        print(self.get_storage_energy_capacity())
-        print(self.get_storage_power())
-        print(self.get_storage_energy())
-        print(self.get_storage_power_usage())
-        print(self.get_storage_energy_usage())
-        print(self.get_lines_capex())
+        init_capacities, new_capacities, opt_capacities = self.get_storage_power_capacity()
+        print(f"Storage power capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
+        init_capacities, new_capacities, opt_capacities = self.get_storage_energy_capacity()
+        print(f"Storage energy capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
+        print(f"Storage power:\n{self.get_storage_power()}\n")
+        print(f"Storage energy:\n{self.get_storage_energy()}\n")
+        print(f"Storage power use:\n{self.get_storage_power_usage()}\n")
+        print(f"Storage energy use:\n{self.get_storage_energy_usage()}\n")
+        print(f"Storage capex:\n{self.get_storage_capex()}\n")
 
     def get_storage_power_capacity(self):
         """Returns the original, new and optimal power capacities (in MW) for each type of storage unit."""

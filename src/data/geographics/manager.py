@@ -1,5 +1,6 @@
 # This file is partly based on some similar file in the PyPSA-Eur project
-import os
+from os.path import join, dirname, abspath, isfile, exists
+from os import unlink
 import numpy as np
 from operator import attrgetter
 from six.moves import reduce
@@ -14,6 +15,7 @@ import shapely
 from shapely.geometry import MultiPolygon, Polygon, Point, MultiPoint
 from shapely.ops import cascaded_union, unary_union
 import shapely.prepared
+import geopy
 
 import pycountry as pyc
 # from copy import copy
@@ -26,6 +28,38 @@ from typing import *
 
 # from vresutils.graph import voronoi_partition_pts
 from time import time
+
+
+# TODO: need to add to the resite data the area to which it corresponds
+def is_onshore(point: Point, onshore_shape: Polygon, dist_threshold: float = 20.0) -> bool:
+    """
+    Determines if a point is onshore (considering that onshore means belonging to the onshore_shape or less than
+    dist_threshold km away from it)
+
+    Parameters
+    ----------
+    point: shapely.geometry.Point
+        Point corresponding to a coordinate
+    onshore_shape: shapely.geometry.Polygon
+        Polygon representing a geographical shape
+    dist_threshold: float (default: 20.0)
+        Distance in kms
+
+    Returns
+    -------
+    True if the point is considered onshore, False otherwise
+    """
+
+    if onshore_shape.contains(point):
+        return True
+
+    closest_p = shapely.ops.nearest_points(onshore_shape, point)
+    dist_to_closest_p = geopy.distance.geodesic((point.y, point.x), (closest_p[0].y, closest_p[0].x)).km
+    if dist_to_closest_p < dist_threshold:
+        return True
+
+    return False
+
 
 
 # TODO: might be nice to transform that into a full-fledged package
@@ -42,8 +76,7 @@ def nuts3_to_nuts2(nuts3_codes):
 
 def get_nuts_area():
 
-    area_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "../../../data/geographics/source/eurostat/reg_area3.xls")
+    area_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/reg_area3.xls")
     return pd.read_excel(area_fn, header=9, index_col=0)[:2193]
 
 
@@ -78,8 +111,8 @@ def save_to_geojson(df, fn):
     Returns
     -------
     """
-    if os.path.exists(fn):
-        os.unlink(fn)
+    if exists(fn):
+        unlink(fn)
     if not isinstance(df, gpd.GeoDataFrame):
         df = gpd.GeoDataFrame(dict(geometry=df))
     df = df.reset_index()
@@ -109,6 +142,7 @@ def display_polygons(polygons_list):
     # plt.show()
 
 
+# TODO: would be nice to change this function to take a pd.series as input and output a pandas series
 def match_points_to_region(points: List[Tuple[float, float]], shapes_df: pd.DataFrame) -> pd.DataFrame:
     """
     TODO: improve description
@@ -130,7 +164,12 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_df: pd.Data
     points = MultiPoint(points)
     for index, subregion in shapes_df.iterrows():
 
-        points_in_region = points.intersection(subregion["geometry"])
+        try:
+            points_in_region = points.intersection(subregion["geometry"])
+        except shapely.errors.TopologicalError:
+            print(f"Warning: Problem with shape {index}")
+            continue
+
         if isinstance(points_in_region, Point):
             points = points.difference(points_in_region)
             points_in_region = (points_in_region.x, points_in_region.y)
@@ -182,8 +221,7 @@ def get_subregions(region: str):
     # path_shapefile_data = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../data/shapefiles')
     # onshore_shapes_all = gpd.read_file(os.path.join(path_shapefile_data, 'NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson'))
 
-    region_definition_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                        '../../resite/region_definition.csv')
+    region_definition_fn = join(dirname(abspath(__file__)), '../../../data/region_definition.csv')
     region_definition = pd.read_csv(region_definition_fn, index_col=0, keep_default_na=False)
     if region in region_definition.index:
         subregions = region_definition.loc[region].subregions.split(";")
@@ -217,15 +255,14 @@ def return_region_shape(region_name: str, subregions: List[str], prepare: bool =
 
     """
     # Get onshore shape
-    filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "../../../output/geographics/" + region_name + "_on.geojson")
-    onshore_union = cascaded_union(get_onshore_shapes(subregions, save_file=filename, filterremote=True)["geometry"].values)
+    filename = region_name + "_on.geojson"
+    onshore_union = cascaded_union(get_onshore_shapes(subregions, save_file_name=filename,
+                                                      filterremote=True)["geometry"].values)
 
     # Get offshore shape
-    filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "../../../output/geographics/" + region_name + "_off.geojson")
+    filename = region_name + "_off.geojson"
     offshore_union = \
-        cascaded_union(get_offshore_shapes(subregions, onshore_shape=onshore_union, save_file=filename,
+        cascaded_union(get_offshore_shapes(subregions, onshore_shape=onshore_union, save_file_name=filename,
                                            filterremote=True)["geometry"].values)
 
     if prepare:
@@ -345,7 +382,7 @@ def filter_offshore_polys(offshore_polys, onshore_polys_union, minarea=0.1, tole
 
 # -- Get specific shapes functions -- #
 
-def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, save_file=None):
+def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, save_file_name=None):
     """Load the shapes of the onshore territories a specified set of countries into a GeoPandas Dataframe
     
     Parameters
@@ -358,7 +395,7 @@ def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, sav
         ?
     filterremote: boolean
         if we filter remote places or not
-    save_file: string
+    save_file_name: string
         file name to which the Dataframe must be saved, if the file already exists, the Dataframe
         is recovered from there
     
@@ -368,13 +405,14 @@ def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, sav
         indexed by the id of the region and containing the shape of each region
     """
 
-    # TODO: add output dir directly here
-    if save_file is not None and os.path.isfile(save_file):
-        return gpd.read_file(save_file).set_index('name')
+    if save_file_name is not None:
+        save_file_name = join(dirname(abspath(__file__)), "../../../output/geographics/" + save_file_name)
+        if isfile(save_file_name):
+            return gpd.read_file(save_file_name).set_index('name')
 
     # TODO: take ages to load file... --> need to do sth about this
-    onshore_shapes_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                            '../../../data/geographics/generated/onshore_shapes.geojson')
+    onshore_shapes_file_name = join(dirname(abspath(__file__)),
+                                    '../../../data/geographics/generated/onshore_shapes.geojson')
     onshore_shapes = gpd.read_file(onshore_shapes_file_name).set_index("name")
 
     # Keep only the required regions for which we have the data
@@ -388,14 +426,14 @@ def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, sav
     onshore_shapes['geometry'] = onshore_shapes['geometry']\
         .map(lambda x: filter_onshore_polys(x, minarea, tolerance, filterremote))
 
-    if save_file is not None:
-        save_to_geojson(onshore_shapes, save_file)
+    if save_file_name is not None:
+        save_to_geojson(onshore_shapes, save_file_name)
 
     return onshore_shapes
 
 
 # TODO: might need to revise this function
-def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, filterremote=False, save_file=None):
+def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, filterremote=False, save_file_name=None):
     """Load the shapes of the offshore territories of a specified set of regions into a GeoPandas Dataframe
 
     Parameters
@@ -411,7 +449,7 @@ def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, fi
         ?
     filterremote: boolean
         if we filter remote places or not
-    save_file: string
+    save_file_name: string
         file name to which the Dataframe must be saved, if the file already exists, the Dataframe
         is recovered from there
     
@@ -425,11 +463,13 @@ def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, fi
     ids = ['GB' if x == 'UK' else x for x in ids]
     ids = ['GR' if x == 'EL' else x for x in ids]
 
-    if save_file is not None and os.path.isfile(save_file):
-        return gpd.read_file(save_file).set_index('name')
+    if save_file_name is not None:
+        save_file_name = join(dirname(abspath(__file__)), "../../../output/geographics/" + save_file_name)
+        if isfile(save_file_name):
+            return gpd.read_file(save_file_name).set_index('name')
 
-    all_offshore_shapes_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                          '../../../data/geographics/generated/offshore_shapes.geojson')
+    all_offshore_shapes_fn = join(dirname(abspath(__file__)),
+                                  '../../../data/geographics/generated/offshore_shapes.geojson')
     offshore_shapes = gpd.read_file(all_offshore_shapes_fn).set_index("name")
 
     # Keep only the required regions for which we have the data
@@ -446,8 +486,8 @@ def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, fi
         offshore_shapes['geometry'] = offshore_shapes['geometry']\
             .map(lambda x: filter_offshore_polys(x, onshore_shape, minarea, tolerance, filterremote))
 
-    if save_file is not None:
-        save_to_geojson(offshore_shapes, save_file)
+    if save_file_name is not None:
+        save_to_geojson(offshore_shapes, save_file_name)
 
     return offshore_shapes
 
@@ -459,8 +499,8 @@ def generate_onshore_shapes_geojson():
     in a GeoJSON file
     """
 
-    onshore_shapes_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                     '../../../data/geographics/generated/onshore_shapes.geojson')
+    onshore_shapes_fn = join(dirname(abspath(__file__)),
+                             '../../../data/geographics/generated/onshore_shapes.geojson')
 
     nuts0123_shapes = generate_nuts0123_shapes()
     countries_shapes = generate_countries_shapes()
@@ -475,9 +515,9 @@ def generate_onshore_shapes_geojson():
 def generate_us_states_shapes():
     """Computes the coordinates-based (long, lat) shape of all US states"""
 
-    provinces_shapes_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                       '../../../data/geographics/source/naturalearth/states-provinces/'
-                                       'ne_10m_admin_1_states_provinces.shp')
+    provinces_shapes_fn = join(dirname(abspath(__file__)),
+                               '../../../data/geographics/source/naturalearth/states-provinces/'
+                               'ne_10m_admin_1_states_provinces.shp')
     df = gpd.read_file(provinces_shapes_fn)
     us_states_shapes = df.loc[df['iso_a2'] == 'US'][['iso_3166_2', 'geometry']]
     us_states_shapes.columns = ['name', 'geometry']
@@ -491,9 +531,8 @@ def generate_countries_shapes():
     """Computes the coordinates-based (long, lat) shape of all countries"""
 
     # Computes the coordinates-based (long, lat) shape of each countries
-    natural_earth_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                    "../../../data/geographics/source/naturalearth/"
-                                    "countries/ne_10m_admin_0_countries.shp")
+    natural_earth_fn = join(dirname(abspath(__file__)),
+                            "../../../data/geographics/source/naturalearth/countries/ne_10m_admin_0_countries.shp")
 
     # Read original file
     df = gpd.read_file(natural_earth_fn)
@@ -516,8 +555,8 @@ def generate_countries_shapes():
 
 def generate_nuts0123_shapes():
     """Computes the coordinates-based (long, lat) shape of each NUTS region of europe"""
-    nuts_shapes_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                  '../../../data/geographics/source/eurostat/NUTS_RG_01M_2016_4326.geojson')
+    nuts_shapes_fn = join(dirname(abspath(__file__)),
+                          '../../../data/geographics/source/eurostat/NUTS_RG_01M_2016_4326.geojson')
     df = gpd.read_file(nuts_shapes_fn)
     df = df.rename(columns={'NUTS_ID': 'name'})[['name', 'geometry']].set_index('name')['geometry']
 
@@ -530,10 +569,8 @@ def generate_offshore_shapes_geojson():
     """
 
     # Computes the coordinates-based (long, lat) shape for offshore territory
-    offshore_shapes_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                      '../../../data/geographics/generated/offshore_shapes.geojson')
-    eez_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          "../../../data/geographics/source/eez/World_EEZ_v8_2014.shp")
+    offshore_shapes_fn = join(dirname(abspath(__file__)), '../../../data/geographics/generated/offshore_shapes.geojson')
+    eez_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eez/World_EEZ_v8_2014.shp")
 
     df = gpd.read_file(eez_fn)
     df['name'] = df['ISO_3digit'].map(lambda code: _get_country('alpha_2', alpha_3=code))
@@ -568,13 +605,11 @@ if __name__ == "__main__":
     generate_onshore_shapes_geojson()
     generate_offshore_shapes_geojson()
 
-    onshore_shapes_save_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                          '../../../data/geographics/on_test.geojson')
+    onshore_shapes_save_fn = 'on_test.geojson'
     onshore_shapes_ = get_onshore_shapes(['BE'], minarea=10000, filterremote=True)
     print(onshore_shapes_)
     onshore_shapes_union = cascaded_union(onshore_shapes_['geometry'].values)
-    offshore_shapes_save_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                           '../../../data/geographics/off_test.geojson')
+    offshore_shapes_save_fn = 'off_test.geojson'
     offshore_shapes_ = get_offshore_shapes(['BE'], onshore_shape=onshore_shapes_union, filterremote=True)
     print(len(offshore_shapes_) == 0)
 

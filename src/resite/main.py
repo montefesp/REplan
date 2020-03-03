@@ -1,50 +1,28 @@
 from src.resite.resite import Resite
 import yaml
-from time import time
+from src.postprocessing.resite_output_plotly import ResiteOutput
 
 import logging
-LOG_FORMAT = "%(levelname)s %(asctime)s - %(message)s"
-logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
 
 params = yaml.load(open('config_model.yml'), Loader=yaml.FullLoader)
+logger.info('Building class.')
+resite = Resite(params)
 
-if params['formulation'] == 'meet_demand_with_capacity' and len(params['regions']) != 1:
-    raise ValueError('The selected formulation works for one region only!')
-elif 'meet_RES_targets' in params['formulation'] and len(params['deployment_vector']) != len(params['regions']):
-    raise ValueError('For the selected formulation, the "regions" and "deployment_vector" '
-                     'lists must have the same cardinality!')
-
-resite = Resite(params, logger)
-
-# custom_log('Reading input...')
-logger.info('Reading input...')
+logger.info('Reading input.')
 resite.build_input_data(params['filtering_layers'])
 
-start = time()
-# custom_log('Model being built...')
-logger.info('Model being built...')
-resite.build_model(params['modelling'], params['formulation'], params['deployment_vector'], write_lp=True)
+logger.info('Model being built.')
+resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], write_lp=True)  # TODO: parametrize?
 
-# custom_log('Sending model to solver.')
 logger.info('Sending model to solver.')
 resite.solve_model(params['solver'], params['solver_options'][params['solver']])
 
-# custom_log('Retrieving results')
-logger.info('Retrieving results')
-print(resite.retrieve_sites(save_file=True))
-print(f"{time()-start}\n")
+logger.info('Retrieving results.')
+resite.retrieve_sites(save_file=True)  # TODO: parametrize?
+resite.retrieve_sites_data()
 
-start = time()
-# custom_log('Model being built...')
-logger.info('Model being built...')
-resite.build_model('docplex', params['formulation'], params['deployment_vector'], write_lp=True)
+resite_output = ResiteOutput(resite)
+resite_output.show_points()
 
-# custom_log('Sending model to solver.')
-logger.info('Sending model to solver.')
-resite.solve_model('cplex', params['solver_options']['cplex'])
-
-# custom_log('Retrieving results')
-logger.info('Retrieving results')
-print(resite.retrieve_sites(save_file=True))
-print(time()-start)

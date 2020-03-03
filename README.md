@@ -16,7 +16,7 @@ The repository is organized as follows:
 - analyze/: Tools to visualize results
 	- run_network_visual.py: Interactive visualization
 - data/: Tools to manipulate data
-- examples/: Main scripts making use of the data/ tools, network.py and optimize.py to built a special case of network and optimize it
+- sizing/: Main scripts making use of the data/ tools, network.py and optimize.py to built a special case of network and optimize it
 	
 ## 2. The 'data/' folder
 
@@ -29,7 +29,7 @@ manipulate data in 'data/x'.
 
 The 'output/' folder is not contained in the git but can be created with the two following subdirectories:
 
-- examples/: This folder contains the results of the runs of the examples scripts.
+- sizing/: This folder contains the results of the runs of the examples scripts.
 - geographics/: Stores geographical shape allowing to not generate them at each run in the examples
 
 

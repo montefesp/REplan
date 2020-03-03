@@ -138,8 +138,8 @@ new_lines = pd.DataFrame(index=names, columns=["total"])
 for i, run in enumerate(runs):
     print(names[i])
     # Read the network
-    n = pickle.load(open("../output/examples/e-highways/" + run + "/optimized_network.pkl", 'rb'))
-    costs = yaml.safe_load(open("../output/examples/e-highways/" + run + "/costs.yaml", 'r'))
+    n = pickle.load(open("../output/sizing/e-highways/" + run + "/optimized_network.pkl", 'rb'))
+    costs = yaml.safe_load(open("../output/sizing/e-highways/" + run + "/costs.yaml", 'r'))
 
     # print("Total number of generators", len(n.generators.id))
     # print("Number of generators", get_nb_generators(n.generators, ["ccgt", "solar_tallmaxm", "wind_aeodyn"]))

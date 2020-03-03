@@ -486,7 +486,7 @@ def available_load():
 
 # TODO:
 #   Need to merge this function
-def retrieve_load_data(regions: List[str], timestamps: List[np.datetime64]) -> pd.DataFrame:
+def retrieve_load_data(regions: List[str], timestamps: pd.DatetimeIndex) -> pd.DataFrame:
     """
     Returns load time series for given regions and time horizon.
 
@@ -494,8 +494,8 @@ def retrieve_load_data(regions: List[str], timestamps: List[np.datetime64]) -> p
     ----------
     regions: List[str]
         Code of regions
-    timestamps: List[np.datetime64]
-        List of datetime
+    timestamps: pd.DatetimeIndex
+        Datetime index
 
     Returns
     -------

@@ -13,26 +13,21 @@ solver:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: [[2017, 1, 1, 0], [2017, 1, 1, 23]]
+  slice: ['2015-01-01T00:00', '2015-01-01T23:00']
   resolution: 1
 
 # Space
-regions:
-  # Regions to be considered (if you want all e-highways regions put 'ALL')
-  main: ["BE", "FR", "NL"] #
-  # Regions to be removed (to be used in case you want ALL regions except a few), keep to [] if no regions to remove
-  remove: ["TR", "UA", "MA", "TN"]
-  # Regions to add that are not initially in e-highway ex. Iceland
-  supp: []
+region: "EU"
 
 add_offshore: True
 
 # RES
 res:
   include: True
-  strategy: "full" # max or comp or asusual or bus or full
+  strategy: "generate" # max or comp or asusual or bus or full or generate
   resite_nb: 100 # can be multiples of 25
   area_per_site: 2500 #km2
+  use_ex_cap: False
   cap_dens:
     wind: ""  # GW/km2
     pv: ""  # GW/km2

@@ -11,8 +11,8 @@ filtering_layers:
   forestry: True
   water_mask: True
 
-time_slice: ['2015-01-01T00:00', '2015-01-31T23:00']
-regions: ['BE']
+timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
+regions: ['EU']
 technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
 
 
@@ -26,10 +26,10 @@ solver_options:
   cbc: 0
 
 # Type of problem to be solved. Check resite.py for a full list.
-formulation: 'meet_demand_with_capacity' # 'meet_RES_targets_hourly' # 'meet_RES_targets_year_round' #
+formulation: 'meet_RES_targets_year_round' # 'meet_demand_with_capacity' # 'meet_RES_targets_hourly' #
 
 # List of deployments per region (ordered as the 'regions' list above)
-deployment_vector: [0.5, 0.5, 0.5, 0.5]
+deployment_vector: [0.5] # [0.5, 0.5, 0.5, 0.5]
 
 # Keeping files at the end of the run.
 keep_files: False

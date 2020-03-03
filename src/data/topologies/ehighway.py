@@ -271,7 +271,6 @@ def voronoi_special(centroids, shape, resolution: float = 0.5):
     List of N Polygons
     """
 
-    print("0")
     # Get all the points in the shape at a certain resolution
     # TODO: use return_coordinates_from_shape
     minx, maxx, miny, maxy = shape.bounds
@@ -285,7 +284,6 @@ def voronoi_special(centroids, shape, resolution: float = 0.5):
     points = [(point.x, point.y) for point in points.intersection(shape)]
 
 
-    print("1")
     # Build a network from these points where each points correspond to a node
     #   and each points is connected to its adjacent points
     adjacency_matrix = np.zeros((len(points), len(points)))
@@ -295,7 +293,6 @@ def voronoi_special(centroids, shape, resolution: float = 0.5):
              for point in points]
         adjacency_matrix[i, i] = 0.0
     G = nx.from_numpy_matrix(adjacency_matrix)
-    print("2")
 
     # Find the closest node in the graph corresponding to each centroid
     nbrs = NearestNeighbors(n_neighbors=1).fit(points)
@@ -312,7 +309,6 @@ def voronoi_special(centroids, shape, resolution: float = 0.5):
             if i in shortest_paths_length and shortest_paths_length[i] < points_closest_centroid_length[i]:
                 points_closest_centroid_index[i] = index
                 points_closest_centroid_length[i] = shortest_paths_length[i]
-    print("3")
 
     # Compute the classic voronoi partitions of the shape using all points and then join the region
     # corresponding to the same centroid
@@ -395,7 +391,8 @@ def load_pypsa(network: pypsa.Network, countries, trans_costs: Dict[str, Dict[st
             onshore_buses_regions = pd.DataFrame(onshore_buses.region.values, index=onshore_buses.index, columns=["geometry"])
             onshore_buses_regions_union = cascaded_union(onshore_buses_regions['geometry'].values)
             offshore_zones_shape = cascaded_union(
-                get_offshore_shapes(offshore_zones_codes, onshore_shape=onshore_buses_regions_union, filterremote=True).values.flatten())
+                get_offshore_shapes(offshore_zones_codes, onshore_shape=onshore_buses_regions_union,
+                                    filterremote=True).values.flatten())
             offshore_buses = buses[buses.onshore == False]
             # offshore_buses_regions = voronoi_partition_pts(offshore_buses[["x", "y"]].values, offshore_zones_shape)
             buses.loc[buses.onshore == False, "region"] = voronoi_special(offshore_buses[["x", "y"]].values, offshore_zones_shape)

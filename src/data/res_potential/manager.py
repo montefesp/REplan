@@ -349,13 +349,18 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
         output_dir = join(dirname(abspath(__file__)), "../../../output/geographics/")
         if tech in ['wind_offshore', 'wind_floating']:
             onshore_shapes_union = \
-                cascaded_union(get_onshore_shapes(subregions, filterremote=True, save_file=output_dir + ''.join(sorted(subregions)) + "_subregions_on.geojson")["geometry"].values)
+                cascaded_union(get_onshore_shapes(subregions, filterremote=True,
+                                                  save_file_name=''.join(sorted(subregions))
+                                                                 + "_subregions_on.geojson")["geometry"].values)
             filter_shape_data = get_offshore_shapes(subregions, onshore_shape=onshore_shapes_union,
-                                                    filterremote=True, save_file=output_dir + ''.join(sorted(subregions)) + "_subregions_off.geojson")
+                                                    filterremote=True,
+                                                    save_file_name=''.join(sorted(subregions))
+                                                                   + "_subregions_off.geojson")
             filter_shape_data.index = ["EZ" + code if code != 'GB' else 'EZUK' for code in filter_shape_data.index]
         else:
             codes = [code for code in potential_per_subregion_df.index if code[:2] in subregions]
-            filter_shape_data = get_onshore_shapes(codes, filterremote=True, save_file=output_dir + ''.join(sorted(subregions)) + "_nuts2_on.geojson")
+            filter_shape_data = get_onshore_shapes(codes, filterremote=True,
+                                                   save_file_name=''.join(sorted(subregions)) + "_nuts2_on.geojson")
 
         # Find the geographical region code associated to each coordinate
         # TODO: might be cleaner to use a pd.series
@@ -510,6 +515,7 @@ missing_wind_dict = {
     "ME": ["HR"],
     "RS": ["BG"]
 }
+
 
 # TODO: this function and following probably shouldn't be in this file
 # TODO: the problem when including offshore in this function is what area to consider?

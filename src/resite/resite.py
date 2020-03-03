@@ -22,6 +22,11 @@ from src.resite.models.docplex import build_model as build_docplex_model, \
 from src.resite.models.gurobipy import build_model as build_gurobipy_model, \
     solve_model as solve_gurobipy_model, retrieve_sites as retrieve_gurobipy_sites
 
+import logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
+logger = logging.getLogger()
+
+
 class Resite:
 
     # Pyomo formulation
@@ -39,21 +44,28 @@ class Resite:
     solve_gurobipy_model = solve_gurobipy_model
     retrieve_gurobipy_sites = retrieve_gurobipy_sites
 
-    def __init__(self, params, logger):
+    def __init__(self, params):
+
+        if params['formulation'] == 'meet_demand_with_capacity' and len(params['regions']) != 1:
+            raise ValueError('The selected formulation works for one region only!')
+        elif 'meet_RES_targets' in params['formulation'] and len(params['deployment_vector']) != len(params['regions']):
+            raise ValueError('For the selected formulation, the "regions" and "deployment_vector" '
+                             'lists must have the same cardinality!')
 
         self.params = params
         self.logger = logger
         self.keep_files = params['keep_files']
         self.init_output_folder()
-        copy('config_model.yml', self.output_folder)
-        copy('config_techs.yml', self.output_folder)
 
-        tech_config_path = join(dirname(abspath(__file__)), 'config_techs.yml')
+        copy(join(dirname(abspath(__file__)), 'config_model.yml'), self.output_folder)
+        copy(join(dirname(abspath(__file__)), '../parameters/config_techs.yml'), self.output_folder)
+
+        tech_config_path = join(dirname(abspath(__file__)), '../parameters/config_techs.yml')
         self.tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
 
         self.technologies = params['technologies']
         self.regions = params['regions']
-        self.timestamps = pd.date_range(params['time_slice'][0], params['time_slice'][1], freq='1H').values
+        self.timestamps = pd.date_range(params['timeslice'][0], params['timeslice'][1], freq='1H')
         self.spatial_res = params['spatial_resolution']
 
         self.instance = None
@@ -139,11 +151,11 @@ class Resite:
 
         # Create dataframe with existing capacity
         self.tech_points_tuples = [(tech, point) for tech, points in self.tech_points_dict.items() for point in points]
-        existing_capacity_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(self.tech_points_tuples))
-        for tech, coord in existing_capacity_ds.index:
+        self.existing_capacity_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(self.tech_points_tuples))
+        for tech, coord in self.existing_capacity_ds.index:
             if tech in existing_capacity_dict and existing_capacity_dict[tech] is not None \
                     and coord in existing_capacity_dict[tech]:
-                existing_capacity_ds[tech, coord] = existing_capacity_dict[tech][coord]
+                self.existing_capacity_ds[tech, coord] = existing_capacity_dict[tech][coord]
 
         self.logger.info("Compute cap factor")
         self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.tech_config,
@@ -151,10 +163,10 @@ class Resite:
 
         self.logger.info("Compute capacity potential per node")
         self.cap_potential_ds = get_capacity_potential(self.tech_points_dict, self.spatial_res, self.regions,
-                                                       existing_capacity_ds)
+                                                       self.existing_capacity_ds)
 
         # Compute percentage of existing capacity and set to 1. when capacity is zero
-        existing_cap_percentage_ds = existing_capacity_ds.divide(self.cap_potential_ds)
+        existing_cap_percentage_ds = self.existing_capacity_ds.divide(self.cap_potential_ds)
         self.existing_cap_percentage_ds = existing_cap_percentage_ds.fillna(1.)
 
         # Maximum generation that can be produced if max capacity installed
@@ -223,30 +235,43 @@ class Resite:
 
         """
         if self.modelling == 'pyomo':
-            return self.retrieve_pyomo_sites(save_file)
+            self.selected_tech_points_dict = self.retrieve_pyomo_sites(save_file)
         elif self.modelling == 'docplex':
-            return self.retrieve_docplex_sites(save_file)
+            self.selected_tech_points_dict = self.retrieve_docplex_sites(save_file)
         elif self.modelling == 'gurobipy':
-            return self.retrieve_gurobipy_sites(save_file)
+            self.selected_tech_points_dict = self.retrieve_gurobipy_sites(save_file)
 
-    # TODO comment
-    def retrieve_sites_data(self, data_names: List[str]):
+        return self.selected_tech_points_dict
+
+    def retrieve_sites_data(self):
         """
-        This function returns the asked data for the optimal sites.
-
-        Parameters
-        ----------
-        data_names: List[str]
-            Name of the data that is required
-            Possibilities: 'potential_capacity', 'existing_capacity', 'capacity_factors'
+        This function returns the data for the optimal sites.
 
         Returns
         -------
-        sites_data_dict: Dict[str, Any]
+        self.selected_existing_capacity_ds: pd.Series
+            Pandas series giving for each (tech, coord) tuple in self.selected_tech_points_dict the existing
+            capacity at these positions
+        self.selected_capacity_potential_ds: pd.Series
+            Pandas series giving for each (tech, coord) tuple in self.selected_tech_points_dict the capacity
+            potential at these positions .
+        self.selected_cap_factor_df: pd.DataFrame
+            Pandas series indexed by time giving for each (tech, coord) tuple in self.selected_tech_points_dict
+            its capacity factors time series
 
         """
 
-        sites_data_dict = dict.fromkeys(data_names)
+        selected_tech_points_tuples = [(tech, point) for tech, points in self.selected_tech_points_dict.items()
+                                       for point in points]
+
+        self.selected_existing_capacity_ds = self.existing_capacity_ds.loc[selected_tech_points_tuples]
+        self.selected_capacity_potential_ds = self.cap_potential_ds.loc[selected_tech_points_tuples]
+        self.selected_cap_factor_df = self.cap_factor_df[selected_tech_points_tuples]
+
+        return self.selected_existing_capacity_ds, self.selected_capacity_potential_ds, self.selected_cap_factor_df
+
+    def save(self):
+        pass
 
 
 
