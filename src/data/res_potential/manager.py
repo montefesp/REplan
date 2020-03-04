@@ -4,14 +4,16 @@ import numpy as np
 from datetime import datetime
 from typing import *
 import pypsa
-from shapely.geometry import Point, Polygon, MultiPoint
+from shapely.geometry import Point, Polygon, MultiPoint, MultiPolygon
 import xarray as xr
 import matplotlib.pyplot as plt
 from itertools import product
 from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area, get_onshore_shapes, get_offshore_shapes, \
-    match_points_to_region, get_subregions
+    match_points_to_region, get_subregions, return_points_in_shape
 from src.data.resource.manager import get_cap_factor_for_regions, get_cap_factor_at_points
 from src.data.topologies.ehighway import get_ehighway_clusters
+from src.data.resource.manager import read_resource_database, compute_capacity_factors
+from src.data.land_data.manager import filter_points
 from shapely.ops import cascaded_union
 
 missing_region_dict = {
@@ -25,7 +27,7 @@ missing_region_dict = {
 }
 
 
-# TODO:
+# TODO: ask david
 #  - need to change this - use what I have done in my code or try at least
 def update_potential_files(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
     """
@@ -328,6 +330,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
                                                 method='linear').fillna(0.)
     array_pop_density = array_pop_density.stack(locations=('longitude', 'latitude'))
 
+    # TOD0: should maybe be passed as argument directly
     subregions = []
     for region in regions:
         subregions += get_subregions(region)
@@ -362,8 +365,10 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
                                                    save_file_name=''.join(sorted(subregions)) + "_nuts2_on.geojson")
 
         # Find the geographical region code associated to each coordinate
+        coords_to_subregions_ds = match_points_to_region(coords, filter_shape_data["geometry"])
         # TODO: might be cleaner to use a pd.series
-        coords_to_subregions_df = match_points_to_region(coords, filter_shape_data)
+        coords_to_subregions_df = pd.DataFrame(coords_to_subregions_ds.values, coords_to_subregions_ds.index,
+                                               columns=["subregion"])
 
         if tech in ['wind_offshore', 'wind_floating']:
 
@@ -683,8 +688,10 @@ def add_res_generators_per_bus(network: pypsa.Network, wind_costs: Dict[str, flo
     return network
 
 
-def add_res_generators_at_resolution(network: pypsa.Network, total_shape, area_per_site,
-                                     wind_costs: Dict[str, float], pv_costs: Dict[str, float]) -> pypsa.Network:
+def add_res_generators_at_resolution(network: pypsa.Network, total_shape: Union[Polygon, MultiPolygon], regions: List[str],
+                                     technologies: List[str], tech_config: Dict[str, Any], spatial_resolution: float,
+                                     filtering_layers: Dict[str, bool], gen_costs: Dict[str, Any]) \
+        -> pypsa.Network:
     """
     Creates pv and wind generators for every coordinate at a resolution of 0.5 inside the region associate to each bus
     and attach them to the corresponding bus.
@@ -706,77 +713,47 @@ def add_res_generators_at_resolution(network: pypsa.Network, total_shape, area_p
         Updated network
     """
 
-    assert network.snapshots[0].year == network.snapshots[-1].year, "This code only works for one year of data"
-
-    resolution = 0.5
+    # TODO: add existing capacity
 
     # Obtain the list of point in the geographical region
-    # TODO: need to use David's filters + use return_coordinates_from_shape
-    minx, miny, maxx, maxy = total_shape.bounds
-    left = round(minx/resolution)*resolution
-    right = round(maxx/resolution)*resolution
-    down = round(miny/resolution)*resolution
-    top = round(maxy/resolution)*resolution
-    coordinates = MultiPoint(list(product(np.linspace(right, left, (right - left)/resolution + 1),
-                             np.linspace(down, top, (top - down)/resolution + 1))))
-    coordinates = [point for point in coordinates.intersection(total_shape)]
+    # TODO: Need to remove the first init_points by downloading new data
+    path_resource_data = join(dirname(abspath(__file__)), '../../../data/resource/' + str(spatial_resolution))
+    database = read_resource_database(path_resource_data)
+    init_points = list(zip(database.longitude.values, database.latitude.values))
+    init_points = return_points_in_shape(total_shape, spatial_resolution, init_points)
+
+    tech_points_dict = filter_points(technologies, tech_config, init_points, spatial_resolution, filtering_layers)
 
     # Get capacity factors for all points
-    wind_cap_factor, _, pv_cap_factor, _ = get_cap_factor_at_points(coordinates, network.snapshots[0].month,
-                                                                    network.snapshots[-1].month)
+    cap_factor_df = compute_capacity_factors(tech_points_dict, tech_config, spatial_resolution, network.snapshots)
 
-    # TODO: this is shit, change it
-    total_number_hours = len(wind_cap_factor.time)
-    last_available_day = datetime.utcfromtimestamp((wind_cap_factor.time[-1] - np.datetime64('1970-01-01T00:00:00Z'))
-                                                   / np.timedelta64(1, 's')).day
+    # Get capacity per point
+    cap_potential_ds = get_capacity_potential(tech_points_dict, spatial_resolution, regions)
 
-    # Get only the slice we want
-    first_wanted_day = network.snapshots[0].day
-    last_wanted_day = network.snapshots[-1].day
-    desired_range = range((first_wanted_day-1)*24, total_number_hours-24*(last_available_day-last_wanted_day))
+    for tech in technologies:
 
-    wind_cap_factor = wind_cap_factor.isel(time=desired_range)
-    pv_cap_factor = pv_cap_factor.isel(time=desired_range)
+        points = tech_points_dict[tech]
 
-    # Get capacity per region
-    capacity_per_km_pv = get_potential_ehighway(network.buses.index.values, "pv")
-    capacity_per_km_wind = get_potential_ehighway(network.buses.index.values, "wind")
+        if tech in ['wind_offshore', 'wind_floating']:
+            offshore_buses = network.buses[network.buses.onshore == False]
+            associated_buses = match_points_to_region(points, offshore_buses.region)
+        else:
+            onshore_buses = network.buses[network.buses.onshore]
+            associated_buses = match_points_to_region(points, onshore_buses.region)
 
-    for bus_id in network.buses.index:
-
-        # Todo: do this with a multipoint + intersection
-        coordinates_in_region = [(coord.x, coord.y)
-                                 for coord in coordinates if network.buses.loc[bus_id].region.contains(coord)]
-        wind_cap_factor_in_region = wind_cap_factor.sel(dim_0=coordinates_in_region)
-        pv_cap_factor_in_region = pv_cap_factor.sel(dim_0=coordinates_in_region)
-
-        network.madd("Generator", "Gen wind " +
-                     pd.Index([str(coord[0]) + "-" + str(coord[1]) for coord in coordinates_in_region]) + " " + bus_id,
-                     bus=[bus_id] * len(coordinates_in_region),
-                     p_nom_extendable=True,  # consider that the tech can be deployed on 50*50 km2
-                     p_nom_max=capacity_per_km_wind.loc[bus_id] * area_per_site * 1000,
-                     p_max_pu=wind_cap_factor_in_region.values.T,
-                     type="wind",
-                     carrier="wind",
-                     x=[coord[0] for coord in coordinates_in_region],
-                     y=[coord[1] for coord in coordinates_in_region],
-                     marginal_cost=wind_costs["opex"] / 1000.0,
-                     capital_cost=wind_costs["capex"] * len(network.snapshots) / (8760 * 1000.0)
-                     )
-
-        if bus_id[0:3] != "OFF":
-            network.madd("Generator", "Gen pv " +
-                         pd.Index([str(coord[0]) + "-" + str(coord[1]) for coord in coordinates_in_region]) + " " + bus_id,
-                         bus=[bus_id] * len(coordinates_in_region),
-                         p_nom_extendable=True,  # consider that the tech can be deployed on 50*50 km2
-                         p_nom_max=capacity_per_km_pv.loc[bus_id] * area_per_site * 1000,
-                         p_max_pu=pv_cap_factor_in_region.values.T,
-                         type="pv",
-                         carrier="pv",
-                         x=[coord[0] for coord in coordinates_in_region],
-                         y=[coord[1] for coord in coordinates_in_region],
-                         marginal_cost=pv_costs["opex"] / 1000.0,
-                         capital_cost=pv_costs["capex"] * len(network.snapshots) / (8760 * 1000.0)
-                         )
+        network.madd("Generator",
+                     "Gen " + tech + " " + pd.Index([str(x) for x, _ in points]) + "-" +
+                     pd.Index([str(y) for _, y in points]),
+                     bus=associated_buses.values,
+                     p_nom_extendable=True,
+                     p_nom_max=cap_potential_ds[tech][points].values,
+                     # p_nom_min=existing_cap,
+                     p_max_pu=cap_factor_df[tech][points].values,
+                     type=tech,
+                     carrier=tech,
+                     x=[x for x, _ in points],
+                     y=[y for _, y in points],
+                     marginal_cost=gen_costs[tech.split("_")[0]]["opex"] / 1000.0,
+                     capital_cost=gen_costs[tech.split("_")[0]]["capex"] * len(network.snapshots) / (8760 * 1000.0))
 
     return network

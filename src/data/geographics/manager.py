@@ -142,8 +142,7 @@ def display_polygons(polygons_list):
     # plt.show()
 
 
-# TODO: would be nice to change this function to take a pd.series as input and output a pandas series
-def match_points_to_region(points: List[Tuple[float, float]], shapes_df: pd.DataFrame) -> pd.DataFrame:
+def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Series) -> pd.Series:
     """
     TODO: improve description
 
@@ -151,21 +150,22 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_df: pd.Data
     ----------
     points: List[Tuple[float, float]]
         List of points to assign to regions
-    shapes_df : pd.DataFrame
+    shapes_ds : pd.Series
         Dataframe storing geometries of NUTS regions.
 
     Returns
     -------
-    points_region_ds : pd.DataFrame
-        DataFrame giving for each point the associated region
+    points_region_ds : pd.Series
+        Series giving for each point the associated region
     """
 
-    points_region_ds = pd.DataFrame(index=points, columns=['subregion'])
+    points_region_ds = pd.Series(index=points)
     points = MultiPoint(points)
-    for index, subregion in shapes_df.iterrows():
+
+    for index, subregion in shapes_ds.items():
 
         try:
-            points_in_region = points.intersection(subregion["geometry"])
+            points_in_region = points.intersection(subregion)
         except shapely.errors.TopologicalError:
             print(f"Warning: Problem with shape {index}")
             continue
@@ -178,13 +178,13 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_df: pd.Data
         else:
             points = points.difference(points_in_region)
             points_in_region = [(point.x, point.y) for point in points_in_region]
-        points_region_ds.loc[points_in_region, 'subregion'] = index
+        points_region_ds.loc[points_in_region] = index
 
     if len(points) != 0:
         print("Warning: Some points are not contained in any shape")
         for point in points:
-            closest_index = np.argmin([point.distance(shapes_df.loc[subregion, 'geometry']) for subregion in shapes_df.index])
-            points_region_ds.loc[(point.x, point.y), 'subregion'] = shapes_df.index.values[closest_index]
+            closest_index = np.argmin([point.distance(shapes_ds.loc[subregion]) for subregion in shapes_ds.index])
+            points_region_ds.loc[(point.x, point.y)] = shapes_ds.index.values[closest_index]
 
     return points_region_ds
 

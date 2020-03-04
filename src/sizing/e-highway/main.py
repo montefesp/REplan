@@ -41,6 +41,9 @@ params = yaml.load(open(param_fn, 'r'), Loader=yaml.FullLoader)
 # Tech infos
 tech_info = pd.read_excel(join(tech_params_dir, 'tech_info/tech_info.xlsx'), sheet_name='values', index_col=0)
 
+tech_config_path = join(tech_params_dir, 'config_techs.yml')
+tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
+
 # Costs
 costs_fn = join(tech_params_dir, 'tech_info/costs.yaml')
 costs = yaml.load(open(costs_fn, 'r'), Loader=yaml.FullLoader)
@@ -107,10 +110,11 @@ if params['res']['include']:
     if params['res']["strategy"] == "bus":
         net = add_res_generators_per_bus(net, costs["generation"]["wind"], costs["generation"]["pv"])
     if params['res']["strategy"] == "full":
-        net = add_res_generators_at_resolution(net, total_shape, params["res"]["area_per_site"],
-                                               costs["generation"]["wind"], costs["generation"]["pv"])
+        net = add_res_generators_at_resolution(net, total_shape, [params["region"]], params["res"]["technologies"],
+                                               tech_config, params["res"]["spatial_resolution"],
+                                               params['res']['filtering_layers'], costs["generation"])
     if params['res']['strategy'] == 'generate':
-        net = add_resite_generators_2(net, params["region"], costs["generation"], params['res']['use_ex_cap'])
+        net = add_resite_generators_2(net, params['res'], tech_config, params["region"], costs["generation"])
 
 # Remove offshore locations that have no generators associated to them
 for bus_id in net.buses.index:

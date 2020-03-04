@@ -110,7 +110,8 @@ def add_generators_pypsa(network: pypsa.Network, onshore_region_shape, gen_costs
     return network
 
 
-def add_generators(network: pypsa.Network, region: str, gen_costs: Dict[str, Any], use_ex_cap: bool):
+def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any], region: str,
+                   gen_costs: Dict[str, Any]):
     """
     This function will add generators for different technologies at a series of location selected via an optimization
     mechanism.
@@ -132,17 +133,12 @@ def add_generators(network: pypsa.Network, region: str, gen_costs: Dict[str, Any
         Updated network
     """
 
-    # TODO: remove parameter region but keep the rest?
-    params_fn = join(dirname(abspath(__file__)), "../../resite/config_model.yml")
-    params = yaml.load(open(params_fn), Loader=yaml.FullLoader)
-
-    params["regions"] = [region] # TODO: not sure that is very optimal
-
     logger.info('Building class.')
-    resite = Resite(params)
+    resite = Resite([region], params["technologies"], tech_config, params["timeslice"], params["spatial_resolution"],
+                    params["keep_files"])
 
     logger.info('Reading input.')
-    resite.build_input_data(params['filtering_layers'])
+    resite.build_input_data(params['use_ex_cap'], params['filtering_layers'])
 
     logger.info('Model being built.')
     resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
@@ -151,7 +147,7 @@ def add_generators(network: pypsa.Network, region: str, gen_costs: Dict[str, Any
     resite.solve_model(params['solver'], params['solver_options'][params['solver']])
 
     logger.info('Retrieving results.')
-    tech_location_dict = resite.retrieve_sites(save_file=True)  # TODO: parametrize?
+    tech_location_dict = resite.retrieve_sites()  # TODO: parametrize?
     existing_cap_ds, cap_potential_ds, cap_factor_df = resite.retrieve_sites_data()
 
     if not resite.timestamps.equals(network.snapshots):
@@ -168,25 +164,19 @@ def add_generators(network: pypsa.Network, region: str, gen_costs: Dict[str, Any
 
         if tech in ['wind_offshore', 'wind_floating']:
             offshore_buses = network.buses[network.buses.onshore == False]
-            # TODO: this is shit change
-            offshore_buses_regions = pd.DataFrame(offshore_buses.region.values, index=offshore_buses.index,
-                                                  columns=["geometry"])
-            associated_buses = match_points_to_region(points, offshore_buses_regions)
+            associated_buses = match_points_to_region(points, offshore_buses.region)
         else:
             onshore_buses = network.buses[network.buses.onshore]
-            # TODO: this is shit change
-            onshore_buses_regions = pd.DataFrame(onshore_buses.region.values, index=onshore_buses.index,
-                                                 columns=["geometry"])
-            associated_buses = match_points_to_region(points, onshore_buses_regions)
+            associated_buses = match_points_to_region(points, onshore_buses.region)
 
         existing_cap = 0
-        if use_ex_cap:
+        if params['use_ex_cap']:
             existing_cap = existing_cap_ds[tech][points].values
 
         network.madd("Generator",
                      "Gen " + tech + " " + pd.Index([str(x) for x, _ in points]) + "-" +
                      pd.Index([str(y) for _, y in points]),
-                     bus=associated_buses["subregion"].values,
+                     bus=associated_buses.values,
                      p_nom_extendable=True,
                      p_nom_max=cap_potential_ds[tech][points].values,
                      p_nom_min=existing_cap,

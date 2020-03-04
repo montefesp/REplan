@@ -9,7 +9,7 @@ from src.data.land_data.manager import filter_points
 from src.data.res_potential.manager import get_capacity_potential
 from src.data.load.manager import retrieve_load_data
 from src.data.geographics.manager import return_region_shape, return_points_in_shape, get_subregions
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 from shutil import copy, rmtree
 import yaml
 from time import strftime
@@ -30,35 +30,46 @@ logger = logging.getLogger()
 
 class Resite:
 
-    def __init__(self, params):
+    def __init__(self, regions: List[str], technologies: List[str], tech_config: Dict[str, Any], timeslice: List[str],
+                 spatial_resolution: float, keep_files: bool = False):
+        """
 
-        if params['formulation'] == 'meet_demand_with_capacity' and len(params['regions']) != 1:
-            raise ValueError('The selected formulation works for one region only!')
-        elif 'meet_RES_targets' in params['formulation'] and len(params['deployment_vector']) != len(params['regions']):
-            raise ValueError('For the selected formulation, the "regions" and "deployment_vector" '
-                             'lists must have the same cardinality!')
+        Parameters
+        ----------
+        regions: List[str]
+            List of regions in which we want to site
+        technologies: List[str]
+            List of technologies for which we want to site
+        tech_config: Dict[str, Any]
+            Dictionary containing parameters configuration of each technology
+        timeslice: List[str]
+            List of 2 string containing starting and end date of the time horizon
+        spatial_resolution: float
+            Spatial resolution at which we want to site
+        keep_files: bool (default: False)
+            Whether to keep files at the end of the run
+        """
 
-        self.params = params
+        # self.params = params
         self.logger = logger
-        self.keep_files = params['keep_files']
+        self.keep_files = keep_files
         self.init_output_folder()
 
-        copy(join(dirname(abspath(__file__)), 'config_model.yml'), self.output_folder)
-        copy(join(dirname(abspath(__file__)), '../parameters/config_techs.yml'), self.output_folder)
+        # TODO: change this -> maybe we would need to have a function copying the parameters back to a file
+        # copy(join(dirname(abspath(__file__)), 'config_model.yml'), self.output_folder)
 
-        tech_config_path = join(dirname(abspath(__file__)), '../parameters/config_techs.yml')
-        self.tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
-
-        self.technologies = params['technologies']
-        self.regions = params['regions']
-        self.timestamps = pd.date_range(params['timeslice'][0], params['timeslice'][1], freq='1H')
-        self.spatial_res = params['spatial_resolution']
+        self.technologies = technologies
+        self.regions = regions
+        self.tech_config = tech_config
+        self.timestamps = pd.date_range(timeslice[0], timeslice[1], freq='1H')
+        self.spatial_res = spatial_resolution
 
         self.instance = None
 
     def init_output_folder(self):
         """Initialize an output folder."""
 
+        # TODO: change this to give dirname as argument?
         dir_name = join(dirname(abspath(__file__)), "../../output/resite/")
         if not isdir(dir_name):
             makedirs(abspath(dir_name))
@@ -77,11 +88,13 @@ class Resite:
             rmtree(self.output_folder)
 
     # TODO: this is pretty messy - find a way to clean it up
-    def build_input_data(self, filtering_layers: Dict[str, bool]):
+    def build_input_data(self, use_ex_cap: bool, filtering_layers: Dict[str, bool]):
         """Data pre-processing.
 
         Parameters:
         -----------
+        use_ex_cap: bool
+            Whether to compute or not existing capacity and use it in optimization
         filtering_layers: Dict[str, bool]
             Dictionary indicating if a given filtering layers needs to be applied. If the layer name is present as key and
             associated to a True boolean, then the corresponding is applied.
@@ -107,10 +120,11 @@ class Resite:
         init_points = return_points_in_shape(regions_shapes_union, self.spatial_res, init_points)
 
         self.logger.info("Filtering coordinates")
+        self.filtering_layers = filtering_layers
         self.tech_points_dict = filter_points(self.technologies, self.tech_config, init_points, self.spatial_res,
                                               filtering_layers)
 
-        if self.params['use_ex_cap']:
+        if use_ex_cap:
             self.logger.info("Get existing legacy capacity")
             tech_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility']))
             existing_capacity_dict = get_legacy_capacity(tech_with_legacy_data, all_subregions, init_points, self.spatial_res)
@@ -128,7 +142,7 @@ class Resite:
         # Create dataframe with existing capacity
         self.tech_points_tuples = [(tech, point) for tech, points in self.tech_points_dict.items() for point in points]
         self.existing_capacity_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(self.tech_points_tuples))
-        if self.params['use_ex_cap']:
+        if use_ex_cap:
             for tech, coord in self.existing_capacity_ds.index:
                 if tech in existing_capacity_dict and existing_capacity_dict[tech] is not None \
                         and coord in existing_capacity_dict[tech]:
@@ -190,10 +204,18 @@ class Resite:
             If True, the model is written to an .lp file.
         """
 
+        if formulation == 'meet_demand_with_capacity' and len(self.regions) != 1:
+            raise ValueError('The selected formulation works for one region only!')
+        elif 'meet_RES_targets' in formulation and len(deployment_vector) != len(self.regions):
+            raise ValueError('For the selected formulation, the "regions" and "deployment_vector" '
+                             'lists must have the same cardinality!')
+
         accepted_modelling = ['pyomo', 'docplex', 'gurobipy']
         assert modelling in accepted_modelling, f"Error: {modelling} is not available as modelling language. " \
                                                 f"Accepted languages are {accepted_modelling}"
+
         self.modelling = modelling
+        self.formulation = formulation
         if self.modelling == 'pyomo':
             build_pyomo_model(self, formulation, deployment_vector, write_lp)
         elif self.modelling == 'docplex':

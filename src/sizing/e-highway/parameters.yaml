@@ -17,7 +17,7 @@ time:
   resolution: 1
 
 # Space
-region: "EU"
+region: "BENELUX"
 
 add_offshore: True
 
@@ -25,12 +25,43 @@ add_offshore: True
 res:
   include: True
   strategy: "generate" # max or comp or asusual or bus or full or generate
+  technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+  spatial_resolution: 0.5
   resite_nb: 100 # can be multiples of 25
   area_per_site: 2500 #km2
   use_ex_cap: False
   cap_dens:
     wind: ""  # GW/km2
     pv: ""  # GW/km2
+  # Various data layers to be taken into account in potential site selection.
+  filtering_layers:
+    resource_quality: True
+    population_density: True
+    protected_areas: False
+    bathymetry: True
+    orography: True
+    forestry: True
+    water_mask: True
+  timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
+
+  modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
+  solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
+  solver_options:
+    gurobi:
+      Threads: 0
+      Crossover: 0
+    cplex: 0
+    cbc: 0
+  write_lp: True
+
+  # Type of problem to be solved. Check resite.py for a full list.
+  formulation: 'meet_RES_targets_year_round' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
+
+  # List of deployments per region (ordered as the 'regions' list above)
+  deployment_vector: [0.1] # [0.5, 0.5, 0.5, 0.5]
+
+  # Keeping files at the end of the run.
+  keep_files: False
 
 #
 dispatch:
