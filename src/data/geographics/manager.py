@@ -61,7 +61,6 @@ def is_onshore(point: Point, onshore_shape: Polygon, dist_threshold: float = 20.
     return False
 
 
-
 # TODO: might be nice to transform that into a full-fledged package
 def nuts3_to_nuts2(nuts3_codes):
 
@@ -275,7 +274,7 @@ def return_region_shape(region_name: str, subregions: List[str], prepare: bool =
 
 
 def return_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
-                                  points = None) -> List[Tuple[float, float]]:
+                           points: List[Tuple[float, float]] = None) -> List[Tuple[float, float]]:
     """
     Return list of coordinates (lon, lat) located inside a geographical shape at a certain resolution
 

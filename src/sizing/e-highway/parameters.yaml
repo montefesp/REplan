@@ -70,14 +70,14 @@ dispatch:
 
 # Nuclear
 nuclear:
-  include: False
+  include: True
   use_ex_cap: True # Whether to include existing cap
   extendable: False
   ramp_rate: 0.01 # for up and down (can go up or down 1O% of the total capacity every time step)
 
-# Storage
-storage:
-  include: False
+# Battery
+battery:
+  include: True
   max_hours: 4
 
 # Hydro

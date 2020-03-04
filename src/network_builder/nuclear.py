@@ -1,0 +1,73 @@
+from os.path import join, dirname, abspath
+from typing import Dict
+
+import pandas as pd
+
+import pypsa
+
+from src.data.generation.manager import get_gen_from_ppm, find_associated_buses_ehighway
+
+
+# TODO: this should not depend on e-highway
+def add_generators(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: bool, extendable: bool,
+                   ramp_rate: float, ppm_file_name: str = None) -> pypsa.Network:
+    """Adds nuclear generators to a PyPsa Network instance.
+
+    Parameters
+    ----------
+    network: pypsa.Network
+        A Network instance with nodes associated to regions.
+    costs: Dict[str, float]
+        Contains capex and opex
+    use_ex_cap: bool
+        Whether to consider existing capacity or not #  TODO: will probably remove that at some point
+    extendable: bool
+        Whether generators are extendable
+    ramp_rate: float
+        Percentage of the total capacity for which the generation can be increased or decreased between two time-steps
+    ppm_file_name: str
+        Name of the file from which to retrieve the data if value is not None
+
+    Returns
+    -------
+    network: pypsa.Network
+        Updated network
+    """
+
+    # TODO: add the possibility to remove some plants and allow it to built where it doesn't exist
+
+    # Load existing nuclear plants
+    if ppm_file_name is not None:
+        ppm_folder = join(dirname(abspath(__file__)), "../../data/ppm/")
+        gens = pd.read_csv(ppm_folder + "/" + ppm_file_name, index_col=0, delimiter=";")
+        # Convert countries code
+        countries_codes_fn = join(dirname(abspath(__file__)), "../../data/countries-codes.csv")
+        countries_code = pd.read_csv(countries_codes_fn)
+
+        # TODO: this is repeated in another function
+        def convert_country_name_to_code(country_name):
+            return countries_code[countries_code.Name == country_name]["Code"].values[0]
+        gens["Country"] = gens["Country"].map(convert_country_name_to_code)
+    else:
+        gens = get_gen_from_ppm(fuel_type="Nuclear")
+
+    gens = find_associated_buses_ehighway(gens, network)
+
+    if not use_ex_cap:
+        gens.Capacity = 0.
+
+    network.madd("Generator", "Gen nuclear " + gens.Name + " " + gens.bus_id,
+                 bus=gens.bus_id.values,
+                 p_nom=gens.Capacity.values,
+                 p_nom_min=gens.Capacity.values,
+                 p_nom_extendable=extendable,
+                 type='nuclear',
+                 carrier='nuclear',
+                 marginal_cost=costs["opex"]/1000.0,
+                 capital_cost=costs["capex"]*len(network.snapshots)/(8760*1000.0),
+                 ramp_limit_up=ramp_rate,
+                 ramp_limit_down=ramp_rate,
+                 x=gens.lon.values,
+                 y=gens.lat.values)
+
+    return network

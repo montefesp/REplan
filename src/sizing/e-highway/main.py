@@ -10,18 +10,19 @@ from shapely.ops import cascaded_union
 
 from src.data.load.manager import get_load_from_nuts_codes
 from src.data.topologies.ehighway import load_pypsa as load_topology
-from src.data.resite.manager import \
-    add_generators_pypsa as add_resite_generators, add_generators as add_resite_generators_2
-from src.data.generation.manager import \
-    add_conventional_gen_pypsa as add_conventional_gen, \
-    add_nuclear_gen_pypsa as add_nuclear_gen, \
+from src.network_builder.res import \
+    add_generators_from_file as add_res_from_file, \
+    add_generators as add_res, \
+    add_generators_at_resolution as add_res_at_resolution, \
+    add_generators_per_bus as add_res_per_bus,     \
+    add_generators_without_siting as add_res_without_siting
+from src.network_builder.nuclear import add_generators as add_nuclear
+from src.network_builder.hydro import \
     add_phs_plants as add_phs, \
     add_ror_plants as add_ror, \
     add_sto_plants as add_sto
-from src.data.res_potential.manager import \
-    add_generators_without_siting_pypsa as add_generators_without_siting, \
-    add_res_generators_per_bus, \
-    add_res_generators_at_resolution
+from src.network_builder.conventional import add_generators as add_conventional
+from src.network_builder.battery import add_batteries
 from src.data.geographics.manager import get_subregions
 from src.postprocessing.pypsa_results import PyPSAResults
 
@@ -102,19 +103,19 @@ net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)
 if params['res']['include']:
     logger.info("Adding RES")
     if params['res']['strategy'] == "comp" or params['res']['strategy'] == "max":
-        net = add_resite_generators(net, total_shape, costs["generation"], params['res']['strategy'],
+        net = add_res_from_file(net, total_shape, costs["generation"], params['res']['strategy'],
                                     params["res"]["resite_nb"], params["res"]["area_per_site"],
                                     params["res"]["cap_dens"])
     if params['res']["strategy"] == "asusual":
-        net = add_generators_without_siting(net, costs["generation"]["wind"], costs["generation"]["pv"])
+        net = add_res_without_siting(net, costs["generation"]["wind"], costs["generation"]["pv"])
     if params['res']["strategy"] == "bus":
-        net = add_res_generators_per_bus(net, costs["generation"]["wind"], costs["generation"]["pv"])
+        net = add_res_per_bus(net, costs["generation"]["wind"], costs["generation"]["pv"])
     if params['res']["strategy"] == "full":
-        net = add_res_generators_at_resolution(net, total_shape, [params["region"]], params["res"]["technologies"],
+        net = add_res_at_resolution(net, total_shape, [params["region"]], params["res"]["technologies"],
                                                tech_config, params["res"]["spatial_resolution"],
                                                params['res']['filtering_layers'], costs["generation"])
     if params['res']['strategy'] == 'generate':
-        net = add_resite_generators_2(net, params['res'], tech_config, params["region"], costs["generation"])
+        net = add_res(net, params['res'], tech_config, params["region"], costs["generation"])
 
 # Remove offshore locations that have no generators associated to them
 for bus_id in net.buses.index:
@@ -128,12 +129,12 @@ for bus_id in net.buses.index:
 if params["dispatch"]["include"]:
     logger.info("Adding Dispatch")
     dispatch_tech = params["dispatch"]["tech"]
-    net = add_conventional_gen(net, dispatch_tech, costs["generation"][dispatch_tech])
+    net = add_conventional(net, dispatch_tech, costs["generation"][dispatch_tech])
 
 # Adding nuclear
 if params["nuclear"]["include"]:
     logger.info("Adding Nuclear")
-    net = add_nuclear_gen(net, costs["generation"]["nuclear"], params["nuclear"]["use_ex_cap"],
+    net = add_nuclear(net, costs["generation"]["nuclear"], params["nuclear"]["use_ex_cap"],
                           params["nuclear"]["extendable"], params["nuclear"]["ramp_rate"], "pp_nuclear_WNA.csv")
 
 if params["sto"]["include"]:
@@ -151,17 +152,9 @@ if params["ror"]["include"]:
     logger.info("Adding ROR")
     net = add_ror(net, costs["generation"]["ror"], params["ror"]["extendable"], params["ror"]["efficiency"])
 
-
-if params["storage"]["include"]:
+if params["battery"]["include"]:
     logger.info("Adding Battery Storage")
-    nb_buses_onshore = len(onshore_bus_indexes)
-    net.madd("StorageUnit",
-             ["Battery store " + str(bus_id) for bus_id in onshore_bus_indexes],
-             carrier="battery",
-             bus=onshore_bus_indexes,
-             p_nom_extendable=[True]*nb_buses_onshore,
-             max_hours=[params["storage"]["max_hours"]]*nb_buses_onshore,
-             capital_cost=[costs["storage"]["capex"]*len(net.snapshots)/(8760*1000.0)]*nb_buses_onshore)
+    net = add_batteries(net, params["battery"]["max_hours"], costs["battery"])
 
 net.add("GlobalConstraint", "CO2Limit",
         carrier_attribute="co2_emissions", sense="<=",
