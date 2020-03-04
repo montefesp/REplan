@@ -12,9 +12,10 @@ filtering_layers:
   water_mask: True
 
 timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
-regions: ['EU']
+regions: ['BE']
 technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
 
+use_ex_cap: True
 
 modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
 solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
@@ -24,12 +25,13 @@ solver_options:
     Crossover: 0
   cplex: 0
   cbc: 0
+write_lp: True
 
 # Type of problem to be solved. Check resite.py for a full list.
-formulation: 'meet_RES_targets_year_round' # 'meet_demand_with_capacity' # 'meet_RES_targets_hourly' #
+formulation: 'meet_RES_targets_year_round' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
 
 # List of deployments per region (ordered as the 'regions' list above)
-deployment_vector: [0.5] # [0.5, 0.5, 0.5, 0.5]
+deployment_vector: [0.1] # [0.5, 0.5, 0.5, 0.5]
 
 # Keeping files at the end of the run.
-keep_files: False
+keep_files: True

@@ -14,15 +14,17 @@ logger.info('Reading input.')
 resite.build_input_data(params['filtering_layers'])
 
 logger.info('Model being built.')
-resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], write_lp=True)  # TODO: parametrize?
+resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
 
 logger.info('Sending model to solver.')
 resite.solve_model(params['solver'], params['solver_options'][params['solver']])
 
 logger.info('Retrieving results.')
-resite.retrieve_sites(save_file=True)  # TODO: parametrize?
+resite.retrieve_sites()
 resite.retrieve_sites_data()
 
-resite_output = ResiteOutput(resite)
-resite_output.show_points()
+resite.save()
+
+# resite_output = ResiteOutput(resite)
+# resite_output.show_points()
 

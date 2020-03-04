@@ -13,6 +13,7 @@ from typing import List, Dict, Tuple
 from shutil import copy, rmtree
 import yaml
 from time import strftime
+import pickle
 
 
 from src.resite.models.pyomo import build_model as build_pyomo_model, \
@@ -28,21 +29,6 @@ logger = logging.getLogger()
 
 
 class Resite:
-
-    # Pyomo formulation
-    build_pyomo_model = build_pyomo_model
-    solve_pyomo_model = solve_pyomo_model
-    retrieve_pyomo_sites = retrieve_pyomo_sites
-
-    # Docplex formulation
-    build_docplex_model = build_docplex_model
-    solve_docplex_model = solve_docplex_model
-    retrieve_docplex_sites = retrieve_docplex_sites
-
-    # Gurobipy formulation
-    build_gurobipy_model = build_gurobipy_model
-    solve_gurobipy_model = solve_gurobipy_model
-    retrieve_gurobipy_sites = retrieve_gurobipy_sites
 
     def __init__(self, params):
 
@@ -73,7 +59,7 @@ class Resite:
     def init_output_folder(self):
         """Initialize an output folder."""
 
-        dir_name = "../../output/resite/"
+        dir_name = join(dirname(abspath(__file__)), "../../output/resite/")
         if not isdir(dir_name):
             makedirs(abspath(dir_name))
 
@@ -90,6 +76,7 @@ class Resite:
         if not self.keep_files:
             rmtree(self.output_folder)
 
+    # TODO: this is pretty messy - find a way to clean it up
     def build_input_data(self, filtering_layers: Dict[str, bool]):
         """Data pre-processing.
 
@@ -123,39 +110,29 @@ class Resite:
         self.tech_points_dict = filter_points(self.technologies, self.tech_config, init_points, self.spatial_res,
                                               filtering_layers)
 
-        self.logger.info("Get existing legacy capacity")
-        tech_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility']))
-        existing_capacity_dict = get_legacy_capacity(tech_with_legacy_data, all_subregions, init_points, self.spatial_res)
+        if self.params['use_ex_cap']:
+            self.logger.info("Get existing legacy capacity")
+            tech_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility']))
+            existing_capacity_dict = get_legacy_capacity(tech_with_legacy_data, all_subregions, init_points, self.spatial_res)
 
-        # Update filtered points
-        for tech in existing_capacity_dict:
-            if existing_capacity_dict[tech] is not None:
-                self.tech_points_dict[tech] += list(existing_capacity_dict[tech].keys())
-            # Remove duplicates
-            self.tech_points_dict[tech] = list(set(self.tech_points_dict[tech]))
+            # Update filtered points
+            for tech in existing_capacity_dict:
+                if existing_capacity_dict[tech] is not None:
+                    self.tech_points_dict[tech] += list(existing_capacity_dict[tech].keys())
+                # Remove duplicates
+                self.tech_points_dict[tech] = list(set(self.tech_points_dict[tech]))
 
         # Remove techs that have no points associated to them
         self.tech_points_dict = {k: v for k, v in self.tech_points_dict.items() if len(v) > 0}
 
-        # Associating coordinates to regions
-        # regions_coords_dict = {region: set() for region in regions}
-        self.region_tech_points_dict = {region: set() for region in self.regions}
-        for tech, coords in self.tech_points_dict.items():
-            coords_multipoint = MultiPoint(coords)
-            for region in self.regions:
-                coords_in_region = coords_multipoint.intersection(region_shapes.loc[region, 'full'])
-                coords_in_region = [(tech, (point.x, point.y)) for point in coords_in_region] \
-                    if isinstance(coords_in_region, MultiPoint) \
-                    else [(tech, (coords_in_region.x, coords_in_region.y))]
-                self.region_tech_points_dict[region] = self.region_tech_points_dict[region].union(set(coords_in_region))
-
         # Create dataframe with existing capacity
         self.tech_points_tuples = [(tech, point) for tech, points in self.tech_points_dict.items() for point in points]
         self.existing_capacity_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(self.tech_points_tuples))
-        for tech, coord in self.existing_capacity_ds.index:
-            if tech in existing_capacity_dict and existing_capacity_dict[tech] is not None \
-                    and coord in existing_capacity_dict[tech]:
-                self.existing_capacity_ds[tech, coord] = existing_capacity_dict[tech][coord]
+        if self.params['use_ex_cap']:
+            for tech, coord in self.existing_capacity_ds.index:
+                if tech in existing_capacity_dict and existing_capacity_dict[tech] is not None \
+                        and coord in existing_capacity_dict[tech]:
+                    self.existing_capacity_ds[tech, coord] = existing_capacity_dict[tech][coord]
 
         self.logger.info("Compute cap factor")
         self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.tech_config,
@@ -167,10 +144,34 @@ class Resite:
 
         # Compute percentage of existing capacity and set to 1. when capacity is zero
         existing_cap_percentage_ds = self.existing_capacity_ds.divide(self.cap_potential_ds)
-        self.existing_cap_percentage_ds = existing_cap_percentage_ds.fillna(1.)
+
+        # Remove points which have zero potential capacity
+        self.logger.info("Removing points with zero potential capacity")
+        self.existing_cap_percentage_ds = existing_cap_percentage_ds.dropna()
+        self.cap_potential_ds = self.cap_potential_ds[self.existing_cap_percentage_ds.index]
+        self.cap_factor_df = self.cap_factor_df[self.existing_cap_percentage_ds.index]
+        self.existing_capacity_ds = self.existing_capacity_ds[self.existing_cap_percentage_ds.index]
+        self.tech_points_tuples = self.existing_cap_percentage_ds.index.values
+        self.tech_points_dict = {}
+        for tech, point in self.tech_points_tuples:
+            if tech in self.tech_points_dict:
+                self.tech_points_dict[tech] += [point]
+            else:
+                self.tech_points_dict[tech] = [point]
 
         # Maximum generation that can be produced if max capacity installed
         self.generation_potential_df = self.cap_factor_df * self.cap_potential_ds
+
+        # Associating coordinates to regions
+        self.region_tech_points_dict = {region: set() for region in self.regions}
+        for tech, coords in self.tech_points_dict.items():
+            coords_multipoint = MultiPoint(coords)
+            for region in self.regions:
+                coords_in_region = coords_multipoint.intersection(region_shapes.loc[region, 'full'])
+                coords_in_region = [(tech, (point.x, point.y)) for point in coords_in_region] \
+                    if isinstance(coords_in_region, MultiPoint) \
+                    else [(tech, (coords_in_region.x, coords_in_region.y))]
+                self.region_tech_points_dict[region] = self.region_tech_points_dict[region].union(set(coords_in_region))
 
     def build_model(self, modelling: str, formulation: str, deployment_vector: List[float], write_lp: bool = False):
         """Model build-up.
@@ -194,11 +195,11 @@ class Resite:
                                                 f"Accepted languages are {accepted_modelling}"
         self.modelling = modelling
         if self.modelling == 'pyomo':
-            self.build_pyomo_model(formulation, deployment_vector, write_lp)
+            build_pyomo_model(self, formulation, deployment_vector, write_lp)
         elif self.modelling == 'docplex':
-            self.build_docplex_model(formulation, deployment_vector, write_lp)
+            build_docplex_model(self, formulation, deployment_vector, write_lp)
         elif self.modelling == 'gurobipy':
-            self.build_gurobipy_model(formulation, deployment_vector, write_lp)
+            build_gurobipy_model(self, formulation, deployment_vector, write_lp)
 
     def solve_model(self, solver, solver_options):
         """
@@ -213,20 +214,15 @@ class Resite:
 
         """
         if self.modelling == 'pyomo':
-            self.solve_pyomo_model(solver, solver_options)
+            solve_pyomo_model(self, solver, solver_options)
         elif self.modelling == 'docplex':
-            self.solve_docplex_model(solver, solver_options)
+            solve_docplex_model(self, solver, solver_options)
         elif self.modelling == 'gurobipy':
-            self.solve_gurobipy_model(solver, solver_options)
+            solve_gurobipy_model(self, solver, solver_options)
 
-    def retrieve_sites(self, save_file: bool) -> Dict[str, List[Tuple[float, float]]]:
+    def retrieve_sites(self) -> Dict[str, List[Tuple[float, float]]]:
         """
         Get points that were selected during the optimization
-
-        Parameters
-        ----------
-        save_file: bool
-            Whether to save the results in the output folder or not
 
         Returns
         -------
@@ -235,11 +231,11 @@ class Resite:
 
         """
         if self.modelling == 'pyomo':
-            self.selected_tech_points_dict = self.retrieve_pyomo_sites(save_file)
+            self.selected_tech_points_dict = retrieve_pyomo_sites(self)
         elif self.modelling == 'docplex':
-            self.selected_tech_points_dict = self.retrieve_docplex_sites(save_file)
+            self.selected_tech_points_dict = retrieve_docplex_sites(self)
         elif self.modelling == 'gurobipy':
-            self.selected_tech_points_dict = self.retrieve_gurobipy_sites(save_file)
+            self.selected_tech_points_dict = retrieve_gurobipy_sites(self)
 
         return self.selected_tech_points_dict
 
@@ -271,7 +267,12 @@ class Resite:
         return self.selected_existing_capacity_ds, self.selected_capacity_potential_ds, self.selected_cap_factor_df
 
     def save(self):
-        pass
+
+        # Remove instance because it can't be pickled
+        self.instance = None
+        self.y = None
+        self.obj = None
+        pickle.dump(self, open(join(self.output_folder, 'resite_model.p'), 'wb'))
 
 
 

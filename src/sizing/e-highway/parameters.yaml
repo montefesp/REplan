@@ -70,7 +70,6 @@ sto:
   use_ex_cap: True
   extendable: False
   efficiency_dispatch: 0.9
-  max_hours: 6 # TODO: need to estimate that from data
   cyclic_sof: True
 
 

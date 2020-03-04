@@ -346,7 +346,6 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
         # Get NUTS2 and EEZ shapes
         # TODO: this is shit -> not generic enough, expl: would probably not work for us states
         #  would need to get this out of the loop
-        output_dir = join(dirname(abspath(__file__)), "../../../output/geographics/")
         if tech in ['wind_offshore', 'wind_floating']:
             onshore_shapes_union = \
                 cascaded_union(get_onshore_shapes(subregions, filterremote=True,

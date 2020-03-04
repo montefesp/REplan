@@ -145,8 +145,7 @@ def add_generators(network: pypsa.Network, region: str, gen_costs: Dict[str, Any
     resite.build_input_data(params['filtering_layers'])
 
     logger.info('Model being built.')
-    resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'],
-                       write_lp=True)  # TODO: parametrize?
+    resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
 
     logger.info('Sending model to solver.')
     resite.solve_model(params['solver'], params['solver_options'][params['solver']])

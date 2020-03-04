@@ -144,11 +144,10 @@ if params["phs"]["include"]:
                   params["phs"]["cyclic_sof"])
 
 if params["ror"]["include"]:
-    logger.info("ROR")
+    logger.info("Adding ROR")
     net = add_ror(net, costs["generation"]["ror"], params["ror"]["extendable"], params["ror"]["efficiency"])
 
 
-# TODO: transfer to function in other file
 if params["storage"]["include"]:
     logger.info("Adding Battery Storage")
     nb_buses_onshore = len(onshore_bus_indexes)
@@ -183,4 +182,3 @@ ppresults = PyPSAResults(net)
 ppresults.display_generation()
 ppresults.display_transmission()
 ppresults.display_storage()
-# TODO: save that in a file

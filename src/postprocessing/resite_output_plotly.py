@@ -1,6 +1,11 @@
 import plotly.graph_objs as go
 from typing import Dict, List, Tuple
 from src.resite.resite import Resite
+import sys
+import os
+from os.path import join
+import pickle
+
 
 class ResiteOutput:
 
@@ -12,17 +17,10 @@ class ResiteOutput:
                             "pv_residential": "rgba(255,153,255,0.5)",  # pink
                             }
         self.resite = resite
+        self.output_dir = resite.output_folder
 
     def show_points(self):
-        """
-        This function displays the list of geographical points (lon, lat) associated to a series of technology.
-
-        Parameters
-        ----------
-        tech_points_dict: Dict[str, List[Tuple[float, float]]]
-            Dictionary associating a list of points (lon, lat) to each technology
-
-        """
+        """This function displays the list of geographical points (lon, lat) associated to a series of technology."""
 
         for tech, initial_points in self.resite.tech_points_dict.items():
 
@@ -54,12 +52,16 @@ class ResiteOutput:
                 )
             ))
 
+            cap_potential_ds = self.resite.cap_potential_ds[tech]
+            avg_cap_factor = self.resite.cap_factor_df[tech].mean(axis=0)
+
             # Original points
             fig.add_trace(go.Scattergeo(
                 mode="markers",
                 lat=ys,
                 lon=xs,
-                # text=self.net.buses.index,
+                text=[f"Capacity potential: {cap_potential_ds[index]}<br>"
+                      f"Average cap factor: {avg_cap_factor[index]}" for index in cap_potential_ds.index],
                 hoverinfo='text',
                 marker=dict(
                     color='black',
@@ -72,6 +74,11 @@ class ResiteOutput:
 
                 selected_points = self.resite.selected_tech_points_dict[tech]
 
+                # Get points with existing capacity
+                existing_capacity_ds = self.resite.existing_capacity_ds[tech]
+                points_with_ex_cap = existing_capacity_ds[existing_capacity_ds > 0]
+                symbols = ['x' if point in points_with_ex_cap.index else 'circle' for point in selected_points]
+
                 xs = [x for x, _ in selected_points]
                 ys = [y for _, y in selected_points]
 
@@ -83,9 +90,27 @@ class ResiteOutput:
                     hoverinfo='text',
                     marker=dict(
                         color=self.tech_colors[tech],
-                        size=10
+                        size=10,
+                        symbol=symbols
                     ),
                     name='bus'
                 ))
 
-            fig.write_html(f'{tech}.html', auto_open=True)
+            fig.write_html(join(self.output_dir, f'{tech}.html'), auto_open=True)
+
+
+if __name__ == "__main__":
+
+    assert (len(sys.argv) == 2) or (len(sys.argv) == 3), \
+        "You need to provide one or two argument: output_dir (and test_number)"
+
+    main_output_dir = sys.argv[1]
+    test_number = sys.argv[2] if len(sys.argv) == 3 else None
+    if test_number is None:
+        test_number = sorted(os.listdir(main_output_dir))[-1]
+    output_dir = main_output_dir + test_number + "/"
+    print(output_dir)
+
+    resite = pickle.load(open(output_dir + "resite_model.p", 'rb'))
+    resite_output = ResiteOutput(resite)
+    resite_output.show_points()

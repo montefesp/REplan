@@ -1,5 +1,5 @@
 from numpy import arange
-from pyomo.environ import ConcreteModel, Var, Constraint, Objective, minimize, maximize, NonNegativeReals
+from pyomo.environ import ConcreteModel, Var, Constraint, Objective, minimize, maximize, NonNegativeReals, value
 from pyomo.opt import ProblemFormat, SolverFactory
 from typing import List, Dict, Tuple
 import pandas as pd
@@ -8,8 +8,6 @@ import pickle
 
 
 # TODO:
-#  - create three functions, so that the docstring at the beginning of each function explain the model
-#  -> modeling
 #  - Change self to another word?
 #  - Some constraints are so similar shouldn't we create function for creating them?
 def build_model(self, formulation: str, deployment_vector: List[float], write_lp: bool = False):
@@ -52,8 +50,6 @@ def build_model(self, formulation: str, deployment_vector: List[float], write_lp
                               index=pd.MultiIndex.from_tuples(region_tech_points))
         region_generation = tech_points_generation_potential * region_ys
         region_generation_y_dict[region] = region_generation.sum(axis=1).values
-
-    region_indexes = dict(zip(self.regions, arange(len(self.regions))))
 
     if formulation == 'meet_RES_targets_year_round':  # TODO: probaly shouldn't be called year round
 
@@ -172,14 +168,9 @@ def solve_model(self, solver, solver_options):
               logfile=join(self.output_folder, 'solver_log.log'))
 
 
-def retrieve_sites(self, save_file: bool) -> Dict[str, List[Tuple[float, float]]]:
+def retrieve_sites(self) -> Dict[str, List[Tuple[float, float]]]:
     """
     Get points that were selected during the optimization
-
-    Parameters
-    ----------
-    save_file: bool
-        Whether to save the results in the output folder or not
 
     Returns
     -------
@@ -187,17 +178,20 @@ def retrieve_sites(self, save_file: bool) -> Dict[str, List[Tuple[float, float]]
         Lists of points for each technology used in the model
 
     """
+    self.optimal_capacity_ds = pd.Series(index=self.tech_points_tuples)
     selected_tech_points_dict = {tech: [] for tech in self.technologies}
 
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in self.tech_points_tuples]
     for tech, lon, lat in tech_points_tuples:
-        if self.instance.y[tech, lon, lat].value > 0.:
+        y_value = self.instance.y[tech, (lon, lat)].value
+        self.optimal_capacity_ds[tech, (lon, lat)] = y_value*self.cap_potential_ds[tech, (lon, lat)]
+        if y_value > 0.:
             selected_tech_points_dict[tech] += [(lon, lat)]
 
     # Remove tech for which no points was selected
     selected_tech_points_dict = {k: v for k, v in selected_tech_points_dict.items() if len(v) > 0}
 
-    if save_file:
-        pickle.dump(selected_tech_points_dict, open(join(self.output_folder, 'output_model.p'), 'wb'))
+    # Save objective value
+    self.objective = value(self.instance.objective)
 
     return selected_tech_points_dict

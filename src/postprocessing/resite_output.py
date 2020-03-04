@@ -80,7 +80,6 @@ class Output(object):
             price_ts = tile(price_ts, el_ts_multiplier)
             price_ts = price_ts[:length_timeseries]
 
-        # TODO: too many parameters
         load_ts = retrieve_load_data(path_load_data, horizon, delta, regions,
                                      alpha_plan='centralized', alpha_load_norm='min')
 
