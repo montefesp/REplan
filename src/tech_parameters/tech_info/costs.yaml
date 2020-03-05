@@ -1,0 +1,37 @@
+transmission:
+  AC:
+    capex: 1.2 #M€/km/GW
+  DC:
+    capex: 1.2 #M€/km/GW
+
+generation:
+  wind:
+    opex: 0 #M€/GWh
+    capex: 93 #M€/GW/yr Note: This is actually not capex but fixed annual costs.
+  pv:
+    opex: 0
+    capex: 43
+  ccgt:
+    opex: 0.036 # Note: this is without CO2 costs
+    capex: 67
+  ocgt:
+    opex: 0.045
+    capex: 47
+  nuclear:
+    opex: 0.010
+    capex: 325
+  phs:
+    opex: 0
+    capex: 25 # ? PyPSA-Eur: 2k€/kW, lifetime : 80 years
+  ror:
+    opex: 0
+    capex: 37.5 # ? PyPSA-Eur: 3k€/kW, lifetime: 80 years
+  sto:
+    opex: 0
+    capex: 25 # ? PyPSA-Eur: 2k€/kW, lifetime : 80 years
+
+battery:
+  opex: 0
+  capex: 50 # because 1000€/1kW (price encompasing both power and energy), 10 year lifetime
+
+lost_load: 3. #M€/GWh

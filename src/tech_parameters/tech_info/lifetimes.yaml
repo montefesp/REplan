@@ -1,0 +1,12 @@
+transmission:
+  AC: 40.0
+  DC: 40.0
+
+generation:
+  wind: 25.0
+  pv: 25.0
+  ccgt: 30.0
+  ocgt: 30.0
+  nuclear: 60.0
+
+storage: 10.0
