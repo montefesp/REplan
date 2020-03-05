@@ -1,5 +1,5 @@
 import os
-from typing import *
+from typing import Dict, List, Tuple, Union
 
 import random
 import pandas as pd
@@ -7,7 +7,7 @@ import geopy.distance
 import shapely
 from shapely import wkt
 from shapely.ops import cascaded_union
-from shapely.geometry import Point, MultiPoint
+from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon
 
 
 import matplotlib.pyplot as plt
@@ -20,7 +20,7 @@ import networkx as nx
 import numpy as np
 import itertools
 
-from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes
+from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes, return_points_in_shape
 
 import pypsa
 
@@ -31,7 +31,18 @@ def get_ehighway_clusters():
     return pd.read_csv(eh_clusters_fn, delimiter=";", index_col="name")
 
 
-def plot_topology(buses, lines, show_lines=True):
+def plot_topology(buses: pd.DataFrame, lines: pd.DataFrame = None):
+    """
+    Plots a map with buses and lines.
+
+    Parameters
+    ----------
+    buses: pd.DataFrame
+        DataFrame with columns 'x', 'y' and 'region'
+    lines: pd.DataFrame (default: None)
+        DataFrame with columns 'bus0', 'bus1' whose values must be index of 'buses'.
+        If None, do not display the lines.
+    """
 
     # Fill the countries with one color
     def get_xy(shape):
@@ -46,48 +57,36 @@ def plot_topology(buses, lines, show_lines=True):
     ax.add_feature(cfeature.BORDERS, linestyle=':')
 
     # Plotting the buses
-    buses_colors = dict.fromkeys(buses.index)
     for idx in buses.index:
 
-        region = buses.loc[idx].region
-
-        if isinstance(region, str):
-            region = shapely.wkt.loads(region)
         color = (random.random(), random.random(), random.random())
-        buses_colors[idx] = color
-        if isinstance(region, shapely.geometry.MultiPolygon):
-            for polygon in region:
-                x, y = get_xy(polygon)
-                ax.fill(x, y, c=color, alpha=0.1)
-        elif isinstance(region, shapely.geometry.Polygon):
-            x, y = get_xy(region)
-            ax.fill(x, y, c=color, alpha=0.1)
 
+        # If buses are associated to regions, display the region
+        if 'region' in buses.columns:
+            region = buses.loc[idx].region
+            if isinstance(region, shapely.geometry.MultiPolygon):
+                for polygon in region:
+                    x, y = get_xy(polygon)
+                    ax.fill(x, y, c=color, alpha=0.1)
+            elif isinstance(region, shapely.geometry.Polygon):
+                x, y = get_xy(region)
+                ax.fill(x, y, c=color, alpha=0.1)
+
+        # Plot the bus position
         ax.scatter(buses.loc[idx].x, buses.loc[idx].y, c=[color], marker="s")
 
     # Plotting the lines
-    if show_lines:
+    if lines is not None:
         for idx in lines.index:
 
-            bus0 = lines.loc[idx]["bus0"]
-            bus1 = lines.loc[idx]["bus1"]
-            # carrier = line_data.loc[idx]["carrier"]
-            # Get the locations of the points
+            bus0 = lines.loc[idx].bus0
+            bus1 = lines.loc[idx].bus1
             if bus0 not in buses.index or bus1 not in buses.index:
-                print("{}-{}".format(bus0, bus1))
+                print(f"Warning: not showing line {idx} because missing bus {bus0} or {bus1}")
                 continue
 
-            x0 = buses.loc[bus0].x
-            y0 = buses.loc[bus0].y
-            x1 = buses.loc[bus1].x
-            y1 = buses.loc[bus1].y
-
-            color = 'b'
-            if type == "DC":
-                color = 'r'
-            plt.plot([x0, x1], [y0, y1], c=color)
-
-    return ax, buses_colors
+            color = 'r' if lines.loc[idx].carrier == "DC" else 'b'
+            plt.plot([buses.loc[bus0].x, buses.loc[bus1].x], [buses.loc[bus0].y, buses.loc[bus1].y], c=color)
 
 
 def preprocess(plotting: bool = False):
@@ -242,28 +241,17 @@ def preprocess(plotting: bool = False):
         plt.show()
 
 
-def _remove_dangling_branches(branches, buses):
-    return pd.DataFrame(branches.loc[branches.bus0.isin(buses.index) & branches.bus1.isin(buses.index)])
-
-
-def to_dict_aux(df):
-    _dict = {}
-    for key in df.keys():
-        _dict[key] = df[key].values
-    return _dict
-
-
-def voronoi_special(centroids, shape, resolution: float = 0.5):
+def voronoi_special(shape: Union[Polygon, MultiPolygon], centroids: List[List[float]], resolution: float = 0.5):
     """This function applies a special Voronoi partition of a non-convex polygon based on
     an approximation of the geodesic distance to a set of points which define the centroids
     of each partition.
 
     Parameters
     ----------
-    centroids: List[List[float]], shape = (Nx2)
-        List of coordinates
-    shape: shapely.geometry.Polygon or shapely.geometry.MultiPolygon
+    shape: Union[Polygon, MultiPolygon]
         Non-convex shape
+    centroids: List[List[float]], shape: Nx2
+        List of coordinates
     resolution: float (default: 0.5)
         The smaller this value the more precise the geodesic approximation
     Returns
@@ -272,17 +260,7 @@ def voronoi_special(centroids, shape, resolution: float = 0.5):
     """
 
     # Get all the points in the shape at a certain resolution
-    # TODO: use return_coordinates_from_shape
-    minx, maxx, miny, maxy = shape.bounds
-    minx = round(minx/resolution)*resolution
-    maxx = round(maxx/resolution)*resolution
-    miny = round(miny/resolution)*resolution
-    maxy = round(maxy/resolution)*resolution
-    xs = np.linspace(minx, maxx, num=(maxx-minx)/resolution+1)
-    ys = np.linspace(miny, maxy, num=(maxy-miny)/resolution+1)
-    points = MultiPoint(list(itertools.product(xs, ys)))
-    points = [(point.x, point.y) for point in points.intersection(shape)]
-
+    points = return_points_in_shape(shape, resolution)
 
     # Build a network from these points where each points correspond to a node
     #   and each points is connected to its adjacent points
@@ -318,24 +296,32 @@ def voronoi_special(centroids, shape, resolution: float = 0.5):
             for index in centroids_nodes_indexes]
 
 
-# --- PYPSA --- #
-def load_pypsa(network: pypsa.Network, countries, trans_costs: Dict[str, Dict[str, float]],
-               trans_lifetimes: Dict[str, float], add_offshore=False, plot=False) -> pypsa.Network:
+def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool,
+                 trans_costs: Dict[str, Dict[str, float]], trans_lifetimes: Dict[str, float],
+                 plot: bool = False) -> pypsa.Network:
     """Load the e-highway network topology (buses and links) using PyPSA
 
     Parameters
     ----------
     network: pypsa.Network
         Network instance
+    countries: List[str]
+        List of countries for which we want the e-highway topology
+    add_offshore: bool
+        Whether to include offshore nodes
     trans_costs: Dict[str, Dict[str, float]]
         Capex costs for AC and DC
     trans_lifetimes: Dict[str, float]
         Lifetime in years of AC and DC lines
+    plot: bool (default: False)
+        Whether to show loaded topology or not
+
     Returns
     -------
     network: pypsa.Network
         Updated network
     """
+
     topology_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "../../../data/topologies/e-highways/generated/")
     buses = pd.read_csv(topology_dir + "buses.csv", index_col='id')
@@ -344,17 +330,13 @@ def load_pypsa(network: pypsa.Network, countries, trans_costs: Dict[str, Dict[st
     if not add_offshore:
         buses = buses.loc[buses['onshore']]
 
-    # Remove onshore buses that are not in the considered region
-    def test(k):
-        country_name = k.name[2:]
-        country_name = "GB" if country_name == "UK" else country_name
-        return not k.onshore or country_name in countries
-    buses_to_keep = buses.apply(test, axis=1)
-    #buses_to_keep = buses[['x', 'y', 'onshore']].apply(lambda k: not k[2] or region_shape.contains(Point((k[0], k[1]))),
-    #                                                   axis=1)
-    buses = buses.loc[buses_to_keep]
+    # Remove onshore buses that are not in the considered region, keep also buses that are offshore
+    def filter_buses(bus):
+        country_name = bus.name[2:]
+        country_name = 'EL' if country_name == 'GR' else country_name  # TODO: raaaaaah
+        return not bus.onshore or country_name in countries
+    buses = buses.loc[buses.apply(filter_buses, axis=1)]
 
-    # Convert regions to
     # Converting polygons strings to Polygon object
     regions = buses.region.values
     # Convert strings
@@ -364,47 +346,53 @@ def load_pypsa(network: pypsa.Network, countries, trans_costs: Dict[str, Dict[st
 
     # Get corresponding lines
     lines = pd.read_csv(topology_dir + "lines.csv", index_col='id')
-    # Remove lines that are not associated to two buses in the chosen region
-    lines = _remove_dangling_branches(lines, buses)
+    # Remove lines for which one of the two end buses has been removed
+    lines = pd.DataFrame(lines.loc[lines.bus0.isin(buses.index) & lines.bus1.isin(buses.index)])
 
-    lines['s_nom'] = lines['s_nom']*1000.0
+    # Removing offshore buses that are not connected anymore
+    connected_buses = sorted(list(set(lines["bus0"]).union(set(lines["bus1"]))))
+    buses = buses.loc[connected_buses]
+
+    # Add offshore polygons to remaining offshore buses
+    if add_offshore:
+        # TODO: this is shitty no?
+        # Get list of countries which have offshore territories and are in the considered countries
+        offshore_zones_codes = ["AL", "BE", "BG", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GE",
+                                "GR", "HR", "IE", "IR", "IS", "IT", "LT", "LV", "ME", "NL", "NO",
+                                "PL", "PT", "RO", "RU", "SE", "TR", "UA", "EL", "UK"]
+        offshore_zones_codes = sorted(list(set(offshore_zones_codes).intersection(set(countries))))
+        if len(offshore_zones_codes) != 0:
+            onshore_buses = buses[buses.onshore]
+            onshore_buses_regions_union = cascaded_union(onshore_buses.region.values)
+            offshore_zones_shape = cascaded_union(
+                get_offshore_shapes(offshore_zones_codes, onshore_shape=onshore_buses_regions_union,
+                                    filterremote=True).values.flatten())
+            offshore_buses = buses[buses.onshore == False]
+            # Use a home-made 'voronoi' partition to assign a region to each offshore bus
+            buses.loc[buses.onshore == False, "region"] = voronoi_special(offshore_zones_shape,
+                                                                          offshore_buses[["x", "y"]])
+
+    # Setting line parameters
+    lines['s_nom'] *= 1000.0  # PyPSA uses MW
     lines['s_nom_min'] = lines['s_nom']
-    lines['x'] = pd.Series([0.00001]*len(lines.index), index=lines.index) # TODO: do sth more clever
-    lines['s_nom_extendable'] = pd.Series([True]*len(lines.index), index=lines.index)
+    # Define reactance   # TODO: do sth more clever
+    lines['x'] = pd.Series(0.00001, index=lines.index)
+    lines['s_nom_extendable'] = pd.Series(True, index=lines.index) # TODO: paramterize
     lines['capital_cost'] = pd.Series(index=lines.index)
     for idx in lines.index:
         carrier = lines.loc[idx].carrier
         lines.loc[idx, ('capital_cost', )] = trans_costs[carrier]["capex"] * \
             lines.length.loc[idx]*len(network.snapshots) / (trans_lifetimes[lines.loc[idx].carrier]*8760*1000.0)
 
-    # Removing offshore buses that are not connected anymore
-    connected_buses = sorted(list(set(lines["bus0"]).union(set(lines["bus1"]))))
-    buses = buses.loc[connected_buses]
-
-    # Add offshore polygons
-    if add_offshore:
-        offshore_zones_codes = ["AL", "BE", "BG", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GE", "GR", "HR", "IE",
-                                "IR", "IS", "IT", "LT", "LV", "ME", "NL", "NO", "PL", "PT", "RO", "RU", "SE", "TR", "UA"]
-        offshore_zones_codes = sorted(list(set(offshore_zones_codes).intersection(set(countries))))
-        if len(offshore_zones_codes) != 0:
-            onshore_buses = buses[buses.onshore]
-            onshore_buses_regions = pd.DataFrame(onshore_buses.region.values, index=onshore_buses.index, columns=["geometry"])
-            onshore_buses_regions_union = cascaded_union(onshore_buses_regions['geometry'].values)
-            offshore_zones_shape = cascaded_union(
-                get_offshore_shapes(offshore_zones_codes, onshore_shape=onshore_buses_regions_union,
-                                    filterremote=True).values.flatten())
-            offshore_buses = buses[buses.onshore == False]
-            # offshore_buses_regions = voronoi_partition_pts(offshore_buses[["x", "y"]].values, offshore_zones_shape)
-            buses.loc[buses.onshore == False, "region"] = voronoi_special(offshore_buses[["x", "y"]].values, offshore_zones_shape)
-
-    if plot:
-        plot_topology(buses, lines, True)
-        plt.show()
-
     network.import_components_from_dataframe(buses, "Bus")
     network.import_components_from_dataframe(lines, "Line")
+
+    if plot:
+        plot_topology(network.buses, network.lines)
+        plt.show()
 
     return network
 
 
-# preprocess(True)
+if __name__=="__main__":
+    preprocess(True)

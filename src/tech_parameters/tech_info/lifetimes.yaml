@@ -2,11 +2,13 @@ transmission:
   AC: 40.0
   DC: 40.0
 
-generation:
-  wind: 25.0
-  pv: 25.0
-  ccgt: 30.0
-  ocgt: 30.0
-  nuclear: 60.0
+wind_offshore: 25.0
+wind_onshore: 25.0
+wind_floating: 25.0
+pv_utility: 25.0
+pv_residential: 25.0
+ccgt: 30.0
+ocgt: 30.0
+nuclear: 60.0
 
-storage: 10.0
+battery: 10.0

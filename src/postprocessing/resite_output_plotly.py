@@ -1,4 +1,5 @@
 import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 from typing import Dict, List, Tuple
 from src.resite.resite import Resite
 import sys
@@ -19,9 +20,8 @@ class ResiteOutput:
         self.resite = resite
         self.output_dir = resite.output_folder
 
-    def show_points(self):
+    def show_points(self, color_variable: str, auto_open: bool):
         """This function displays the list of geographical points (lon, lat) associated to a series of technology."""
-
         for tech, initial_points in self.resite.tech_points_dict.items():
 
             xs = [x for x, _ in initial_points]
@@ -32,8 +32,12 @@ class ResiteOutput:
             maxy = max(ys) + 2
 
             fig = go.Figure(layout=go.Layout(
-                showlegend=False,
-                title=f"Selected points for {tech}",
+                showlegend=True,
+                legend_orientation="h",
+                title=f"Selected points for {tech}<br>"
+                      f"Formulation: {self.resite.formulation}<br>"
+                      f"Technologies: {self.resite.technologies}<br>"
+                      f"Deployment vector: {self.resite.deployment_vector}",
                 geo=dict(
                     showcountries=True,
                     scope='world',
@@ -58,48 +62,91 @@ class ResiteOutput:
             optimal_capacity_ds = self.resite.optimal_capacity_ds[tech]
 
             # Original points
-            fig.add_trace(go.Scattergeo(
-                mode="markers",
-                lat=ys,
-                lon=xs,
-                text=[f"Capacity potential: {cap_potential_ds[index]:.4f}<br>"
-                      f"Initial capacity: {existing_capacity_ds[index]:.4f}<br>"
-                      f"Optimal capacity: {optimal_capacity_ds[index]:.4f}<br>"
-                      f"Average cap factor: {avg_cap_factor[index]:.4f}" for index in cap_potential_ds.index],
-                hoverinfo='text',
-                marker=dict(
-                    color='black',
-                    size=5
-                ),
-                name='bus'
-            ))
-
-            if tech in self.resite.selected_tech_points_dict:
-
-                selected_points = self.resite.selected_tech_points_dict[tech]
-
-                # Get points with existing capacity
-                points_with_ex_cap = existing_capacity_ds[existing_capacity_ds > 0]
-                symbols = ['x' if point in points_with_ex_cap.index else 'circle' for point in selected_points]
-
-                xs = [x for x, _ in selected_points]
-                ys = [y for _, y in selected_points]
-
-                fig.add_trace(go.Scattergeo(
+            fig.add_trace(
+                go.Scattergeo(
                     mode="markers",
                     lat=ys,
                     lon=xs,
-                    # text=self.net.buses.index,
+                    text=[f"Capacity potential: {cap_potential_ds[index]:.4f}<br>"
+                          f"Initial capacity: {existing_capacity_ds[index]:.4f}<br>"
+                          f"Optimal capacity: {optimal_capacity_ds[index]:.4f}<br>"
+                          f"Average cap factor: {avg_cap_factor[index]:.4f}" for index in cap_potential_ds.index],
                     hoverinfo='text',
                     marker=dict(
-                        color=self.tech_colors[tech],
-                        size=10,
-                        symbol=symbols
+                        color='black',
+                        size=5
                     ),
-                    name='bus'
-                ))
+                    name="Available points"))
 
-            fig.write_html(join(self.output_dir, f'{tech}.html'), auto_open=True)
+            if tech in self.resite.selected_tech_points_dict:
+
+                colorscale = 'Blues'
+                if tech.split("_")[0] == 'pv':
+                    colorscale = 'Reds'
+
+                selected_points = self.resite.selected_tech_points_dict[tech]
+                if color_variable == 'optimal_capacity':
+                    color_values = optimal_capacity_ds[selected_points]
+                    colorbar_title = "Optimal capacity"
+                elif color_variable == 'percentage_of_potential':
+                    color_values = optimal_capacity_ds[selected_points]/cap_potential_ds[selected_points]
+                    colorbar_title = "Percentage of potential installed"
+
+                # Get points with existing capacity
+                pos_existing_capacity_ds = existing_capacity_ds[existing_capacity_ds > 0]
+                points_with_ex_cap = [point for point in selected_points if point in pos_existing_capacity_ds.index]
+                if len(points_with_ex_cap):
+                    fig.add_trace(go.Scattergeo(
+                        mode="markers",
+                        lat=[y for _, y in points_with_ex_cap],
+                        lon=[x for x, _ in points_with_ex_cap],
+                        name="Selected points (with existing capacity)",
+                        hoverinfo='text',
+                        marker=dict(
+                            size=10,
+                            opacity=0.8,
+                            reversescale=True,
+                            autocolorscale=False,
+                            symbol='x',
+                            line=dict(
+                                width=1,
+                                color='rgba(102, 102, 102)'
+                            ),
+                            colorscale=colorscale,
+                            cmin=0,
+                            color=color_values[points_with_ex_cap],
+                            cmax=color_values.max(),
+                            colorbar_title=colorbar_title
+                    )))
+
+                # Plotting points without existing cap
+                points_without_ex_cap = [point for point in selected_points
+                                         if point not in pos_existing_capacity_ds.index]
+                if len(points_without_ex_cap):
+                    fig.add_trace(go.Scattergeo(
+                        mode="markers",
+                        lat=[y for _, y in points_without_ex_cap],
+                        lon=[x for x, _ in points_without_ex_cap],
+                        name="Selected points (without existing capacity)",
+                        hoverinfo='text',
+                        marker=dict(
+                            size=10,
+                            opacity=0.8,
+                            reversescale=True,
+                            autocolorscale=False,
+                            symbol='circle',
+                            line=dict(
+                                width=1,
+                                color='rgba(102, 102, 102)'
+                            ),
+                            colorscale=colorscale,
+                            cmin=0,
+                            color=color_values[points_without_ex_cap],
+                            cmax=color_values.max(),
+                            colorbar_title=colorbar_title
+                    )))
+
+            fig.write_html(join(self.output_dir, f'{color_variable}_{tech}.html'), auto_open=auto_open)
 
 
 if __name__ == "__main__":
@@ -116,4 +163,5 @@ if __name__ == "__main__":
 
     resite = pickle.load(open(output_dir + "resite_model.p", 'rb'))
     resite_output = ResiteOutput(resite)
-    resite_output.show_points()
+    resite_output.show_points("percentage_of_potential", auto_open=False)
+    resite_output.show_points("optimal_capacity", auto_open=False)

@@ -56,7 +56,8 @@ class Resite:
         self.init_output_folder()
 
         # TODO: change this -> maybe we would need to have a function copying the tech_parameters back to a file
-        # copy(join(dirname(abspath(__file__)), 'config_model.yml'), self.output_folder)
+        copy(join(dirname(abspath(__file__)), 'config_model.yml'), self.output_folder)
+        copy(join(dirname(abspath(__file__)), '../tech_parameters/config_techs.yml'), self.output_folder)
 
         self.technologies = technologies
         self.regions = regions
@@ -100,6 +101,9 @@ class Resite:
             associated to a True boolean, then the corresponding is applied.
         """
 
+        self.use_ex_cap = use_ex_cap
+        self.filtering_layers = filtering_layers
+
         self.logger.info("Loading load")
         self.load_df = retrieve_load_data(self.regions, self.timestamps)
 
@@ -120,7 +124,6 @@ class Resite:
         init_points = return_points_in_shape(regions_shapes_union, self.spatial_res, init_points)
 
         self.logger.info("Filtering coordinates")
-        self.filtering_layers = filtering_layers
         self.tech_points_dict = filter_points(self.technologies, self.tech_config, init_points, self.spatial_res,
                                               filtering_layers)
 
@@ -216,6 +219,7 @@ class Resite:
 
         self.modelling = modelling
         self.formulation = formulation
+        self.deployment_vector = deployment_vector
         if self.modelling == 'pyomo':
             build_pyomo_model(self, formulation, deployment_vector, write_lp)
         elif self.modelling == 'docplex':
@@ -235,6 +239,8 @@ class Resite:
             Dictionary of solver options name and value
 
         """
+        self.solver = solver
+        self.solver_options = solver_options
         if self.modelling == 'pyomo':
             solve_pyomo_model(self, solver, solver_options)
         elif self.modelling == 'docplex':

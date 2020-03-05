@@ -9,7 +9,7 @@ import datetime
 from shapely.ops import cascaded_union
 
 from src.data.load.manager import get_load_from_nuts_codes
-from src.data.topologies.ehighway import load_pypsa as load_topology
+from src.data.topologies.ehighway import get_topology
 from src.network_builder.res import \
     add_generators_from_file as add_res_from_file, \
     add_generators as add_res, \
@@ -36,7 +36,7 @@ output_dir = join(dirname(abspath(__file__)),
                   '../../../output/sizing/e-highways/' + strftime("%Y%m%d") + "_" + strftime("%H%M%S") + "/")
 
 # Run tech_parameters
-param_fn = join(dirname(abspath(__file__)), 'tech_parameters.yaml')
+param_fn = join(dirname(abspath(__file__)), 'parameters.yaml')
 params = yaml.load(open(param_fn, 'r'), Loader=yaml.FullLoader)
 
 # Tech infos
@@ -82,7 +82,7 @@ for tech in emission["co2"]:
 
 logger.info("Loading topology")
 countries = get_subregions(params["region"])
-net = load_topology(net, countries, costs["transmission"], life["transmission"], params["add_offshore"], False)
+net = get_topology(net, countries, params["add_offshore"], costs["transmission"], life["transmission"], plot=True)
 
 # Computing shapes
 total_onshore_shape = cascaded_union(net.buses[net.buses.onshore].region.values.flatten())
