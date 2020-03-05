@@ -139,9 +139,8 @@ def phs_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en
 
 
 # TODO: this should not depend on e-highway
-def add_phs_plants(network: pypsa.Network, costs: Dict[str, float], extendable: bool = False,
-                   efficiency_store: float = 1.0, efficiency_dispatch: float = 1.0,
-                   cyclic_sof: bool = True) -> pypsa.Network:
+def add_phs_plants(network: pypsa.Network, costs: Dict[str, float], extendable: bool = False, cyclic_sof: bool = True,
+                   efficiency_store: float = 1.0, efficiency_dispatch: float = 1.0) -> pypsa.Network:
     """Adds pumped-hydro storage units to a PyPSA Network instance using other data
 
     Parameters
@@ -152,12 +151,12 @@ def add_phs_plants(network: pypsa.Network, costs: Dict[str, float], extendable: 
         Contains capex and opex
     extendable: bool (default: False)
         Whether generators are extendable
+    cyclic_sof: bool (default: True)
+        Whether to set to True the cyclic_state_of_charge for the storage_unit component
     efficiency_store: float (default: 1.0)
         Efficiency at storing between [0., 1.]
     efficiency_dispatch: float (default: 1.0)
         Efficiency at dispatching between [0., 1.]
-    cyclic_sof: bool (default: True)
-        Whether to set to True the cyclic_state_of_charge for the storage_unit component
 
     Returns
     -------
@@ -514,8 +513,8 @@ def sto_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en
 
 
 # TODO: this should not depend on e-highway
-def add_sto_plants(network: pypsa.Network, costs: Dict[str, float], extendable: bool = False,
-                   efficiency_dispatch: float = 1.0, cyclic_sof: bool = True) -> pypsa.Network:
+def add_sto_plants(network: pypsa.Network, costs: Dict[str, float], extendable: bool = False, cyclic_sof: bool = True,
+                   efficiency_dispatch: float = 1.0) -> pypsa.Network:
     """Adds run-of-river generators to a Network instance.
 
     Parameters
@@ -526,10 +525,10 @@ def add_sto_plants(network: pypsa.Network, costs: Dict[str, float], extendable: 
         Contains capex and opex
     extendable: bool (default: False)
         Whether generators are extendable
-    efficiency_dispatch: float (default: 1.0)
-        Efficiency of dispatch between [0., 1.]
     cyclic_sof: bool (default: True)
         Whether to set to True the cyclic_state_of_charge for the storage_unit component
+    efficiency_dispatch: float (default: 1.0)
+        Efficiency of dispatch between [0., 1.]
 
     Returns
     -------

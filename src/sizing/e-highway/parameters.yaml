@@ -9,7 +9,7 @@ time:
   resolution: 1
 
 # Space
-region: "EU"
+region: "BENELUX"
 add_offshore: True
 
 # RES
@@ -67,7 +67,6 @@ nuclear:
   include: True
   use_ex_cap: True # Whether to include existing cap
   extendable: False
-  ramp_rate: 0.01 # for up and down (can go up or down 1O% of the total capacity every time step)
 
 # Battery
 battery:
@@ -79,24 +78,18 @@ phs:
   include: True
   use_ex_cap: True
   extendable: False
-  efficiency_store: 0.75
-  efficiency_dispatch: 0.75
   cyclic_sof: True
-  max_hours: 6
 
 ror:
   include: True
   use_ex_cap: True
   extendable: False
-  efficiency: 0.9
 
 sto:
   include: True
   use_ex_cap: True
   extendable: False
-  efficiency_dispatch: 0.9
   cyclic_sof: True
-
 
 # Emissions
 co2_emissions:

@@ -10,12 +10,12 @@ from shapely.ops import cascaded_union
 
 from src.data.load.manager import get_load_from_nuts_codes
 from src.data.topologies.ehighway import get_topology
+# from src.network_builder.res import add_generators_from_file as add_res_from_file, \
 from src.network_builder.res import \
-    add_generators_from_file as add_res_from_file, \
     add_generators as add_res, \
     add_generators_at_resolution as add_res_at_resolution, \
-    add_generators_per_bus as add_res_per_bus,     \
-    add_generators_without_siting as add_res_without_siting
+    add_generators_per_bus as add_res_per_bus
+# from src.network_builder.res import add_generators_without_siting as add_res_without_siting
 from src.network_builder.nuclear import add_generators as add_nuclear
 from src.network_builder.hydro import \
     add_phs_plants as add_phs, \
@@ -82,7 +82,7 @@ for tech in emission["co2"]:
 
 logger.info("Loading topology")
 countries = get_subregions(params["region"])
-net = get_topology(net, countries, params["add_offshore"], costs["transmission"], life["transmission"], plot=True)
+net = get_topology(net, countries, params["add_offshore"], costs["transmission"], life["transmission"], plot=False)
 
 # Computing shapes
 total_onshore_shape = cascaded_union(net.buses[net.buses.onshore].region.values.flatten())
@@ -91,7 +91,7 @@ total_shape = cascaded_union([total_onshore_shape, total_offshore_shape])
 
 # Adding load
 logger.info("Adding Load")
-onshore_bus_indexes = pd.Index([bus_id for bus_id in net.buses.index if net.buses.loc[bus_id].onshore])
+onshore_bus_indexes = net.buses[net.buses.onshore].index
 load = get_load_from_nuts_codes(
     [eh_clusters.loc[bus_id].codes.split(',') for bus_id in onshore_bus_indexes],
     days_range_start=datetime.date(1, timestamps[0].month, timestamps[0].day),
@@ -102,13 +102,13 @@ net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)
 
 if params['res']['include']:
     logger.info("Adding RES")
-    if params['res']['strategy'] == "comp" or params['res']['strategy'] == "max":
-        net = add_res_from_file(net, total_shape, costs["generation"], params['res']['strategy'],
-                                params["res"]["resite_nb"], params["res"]["area_per_site"], params["res"]["cap_dens"])
-    if params['res']["strategy"] == "asusual":
-        net = add_res_without_siting(net, costs["generation"]["wind"], costs["generation"]["pv"])
+    # if params['res']['strategy'] == "comp" or params['res']['strategy'] == "max":
+    #     net = add_res_from_file(net, total_shape, costs["generation"], params['res']['strategy'],
+    #                            params["res"]["resite_nb"], params["res"]["area_per_site"], params["res"]["cap_dens"])
+    # if params['res']["strategy"] == "asusual":
+    #     net = add_res_without_siting(net, params["res"]["technologies"], costs["generation"])
     if params['res']["strategy"] == "bus":
-        net = add_res_per_bus(net, costs["generation"]["wind"], costs["generation"]["pv"])
+        net = add_res_per_bus(net, costs["generation"])
     if params['res']["strategy"] == "full":
         net = add_res_at_resolution(net, total_shape, [params["region"]], params["res"]["technologies"],
                                     tech_config, params["res"]["spatial_resolution"],
@@ -121,35 +121,34 @@ for bus_id in net.buses.index:
     if not net.buses.loc[bus_id].onshore and len(net.generators[net.generators.bus == bus_id]) == 0:
         # Remove the bus
         net.remove("Bus", bus_id)
-        # Remove the lines associated to it
+        # Remove the lines associated to the bus
         net.mremove("Line", net.lines[net.lines.bus0 == bus_id].index)
 
 # Add conv gen
 if params["dispatch"]["include"]:
     logger.info("Adding Dispatch")
-    dispatch_tech = params["dispatch"]["tech"]
-    net = add_conventional(net, dispatch_tech, costs["generation"][dispatch_tech])
+    tech = params["dispatch"]["tech"]
+    net = add_conventional(net, tech, tech_config[tech]["efficiency"], costs["generation"][tech])
 
 # Adding nuclear
 if params["nuclear"]["include"]:
     logger.info("Adding Nuclear")
     net = add_nuclear(net, costs["generation"]["nuclear"], params["nuclear"]["use_ex_cap"],
-                          params["nuclear"]["extendable"], params["nuclear"]["ramp_rate"], "pp_nuclear_WNA.csv")
+                      params["nuclear"]["extendable"], tech_config["nuclear"]["ramp_rate"], "pp_nuclear_WNA.csv")
 
 if params["sto"]["include"]:
     logger.info("Adding STO")
-    net = add_sto(net, costs["generation"]["sto"], params["sto"]["extendable"],
-                  params["sto"]["efficiency_dispatch"], params["sto"]["cyclic_sof"])
+    net = add_sto(net, costs["generation"]["sto"], params["sto"]["extendable"], params["sto"]["cyclic_sof"],
+                  tech_config["sto"]["efficiency_dispatch"])
 
 if params["phs"]["include"]:
     logger.info("Adding PHS")
-    net = add_phs(net, costs["generation"]["phs"], params["phs"]["extendable"],
-                  params["phs"]["efficiency_store"], params["phs"]["efficiency_dispatch"],
-                  params["phs"]["cyclic_sof"])
+    net = add_phs(net, costs["generation"]["phs"], params["phs"]["extendable"], params["phs"]["cyclic_sof"],
+                  tech_config["phs"]["efficiency_store"], tech_config["phs"]["efficiency_dispatch"])
 
 if params["ror"]["include"]:
     logger.info("Adding ROR")
-    net = add_ror(net, costs["generation"]["ror"], params["ror"]["extendable"], params["ror"]["efficiency"])
+    net = add_ror(net, costs["generation"]["ror"], params["ror"]["extendable"], tech_config["ror"]["efficiency"])
 
 if params["battery"]["include"]:
     logger.info("Adding Battery Storage")
@@ -167,9 +166,6 @@ yaml.dump(params, open(output_dir + 'tech_parameters.yaml', 'w'))
 yaml.dump(costs, open(output_dir + 'costs.yaml', 'w'))
 yaml.dump(life, open(output_dir + 'lifetimes.yaml', 'w'))
 yaml.dump(emission, open(output_dir + 'emissions.yaml', 'w'))
-
-# print(net.lines.s_nom)
-# print(net.lines.s_nom_opt)
 
 net.export_to_csv_folder(output_dir)
 

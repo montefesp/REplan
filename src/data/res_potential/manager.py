@@ -1,11 +1,12 @@
 from os.path import join, dirname, abspath
-from typing import *
+from typing import List, Dict, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 
 from shapely.ops import cascaded_union
+from shapely.geometry import Polygon, MultiPolygon
 
 from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area, get_onshore_shapes, get_offshore_shapes, \
     match_points_to_region, get_subregions
@@ -301,8 +302,8 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
 
     Returns
     -------
-    capacity_potential_df : pd.Series
-        TODO comment
+    capacity_potential_ds : pd.Series
+        Gives for each pair of technology - point the associated capacity potential
     """
 
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
@@ -333,10 +334,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
     tech_coords_tuples = [(tech, point) for tech, points in tech_points_dict.items() for point in points]
     capacity_potential_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(tech_coords_tuples))
 
-    for tech in tech_points_dict.keys():
-
-        # Get coordinates for which we want capacity
-        coords = tech_points_dict[tech]
+    for tech, coords in tech_points_dict.items():
 
         # Compute potential for each NUTS2 or EEZ
         potential_per_subregion_df = capacity_potential_from_enspresso(tech)
@@ -405,6 +403,43 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
     return capacity_potential_ds
 
 
+# TODO: to continue
+def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[Polygon, MultiPolygon]]]) -> pd.Series:
+    """
+    Get capacity potential for a series of technology for associated geographical regions
+
+    Parameters
+    ----------
+    tech_regions_dict: Dict[str, List[Union[Polygon, MultiPolygon]]]
+        Dictionary giving for each technology for which region we want to obtain potential capacity
+
+    Returns
+    -------
+    capacity_potential_ds: pd.Series
+        Gives for each pair of technology and region the associated potential capacity
+
+    """
+    accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
+    for tech in tech_regions_dict.keys():
+        assert tech in accepted_techs, "Error: tech {} is not in {}".format(tech, accepted_techs)
+
+    tech_coords_tuples = [(tech, point) for tech, points in tech_regions_dict.items() for point in points]
+    capacity_potential_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(tech_coords_tuples))
+
+    for tech, regions in tech_regions_dict.items():
+
+        # Compute potential for each NUTS2 or EEZ
+        potential_per_subregion_df = capacity_potential_from_enspresso(tech)
+        print(potential_per_subregion_df.index.values)
+        exit()
+
+        # Load shapes of NUTS2 regions
+        nuts2_shapes = get_onshore_shapes(potential_per_subregion_df.index.values)
+
+    return capacity_potential_ds
+
+
+# TODO: shitty because only working for e-highway -> should modify it or remove it from here
 # TODO: need to add offshore potential computation
 # TODO: improve based on similar function in generation.manager
 def get_potential_ehighway(bus_ids: List[str], carrier: str) -> pd.DataFrame:

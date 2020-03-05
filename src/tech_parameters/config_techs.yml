@@ -73,3 +73,23 @@ pv_residential:
   altitude_threshold: 3000.
   terrain_slope_threshold: 1.
   forestry_ratio_threshold: 1.
+
+ccgt:
+  efficiency: 0.9
+
+ocgt:
+  efficiency: 0.9
+
+nuclear:
+  ramp_rate: 0.01 # for up and down (can go up or down 1O% of the total capacity every time step)
+
+phs:
+  efficiency_store: 0.75
+  efficiency_dispatch: 0.75
+
+ror:
+  efficiency: 0.9
+
+sto:
+  efficiency_dispatch: 0.9
+
