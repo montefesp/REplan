@@ -1,7 +1,7 @@
-from src.resite.resite import Resite
-import yaml
-from src.postprocessing.resite_output_plotly import ResiteOutput
 from os.path import join, dirname, abspath
+import yaml
+
+from src.resite.resite import Resite
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -24,11 +24,7 @@ logger.info('Sending model to solver.')
 resite.solve_model(params['solver'], params['solver_options'][params['solver']])
 
 logger.info('Retrieving results.')
-resite.retrieve_sites()
+resite.retrieve_solution()
 resite.retrieve_sites_data()
 
 resite.save()
-
-# resite_output = ResiteOutput(resite)
-# resite_output.show_points()
-

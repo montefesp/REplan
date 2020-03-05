@@ -54,14 +54,18 @@ class ResiteOutput:
 
             cap_potential_ds = self.resite.cap_potential_ds[tech]
             avg_cap_factor = self.resite.cap_factor_df[tech].mean(axis=0)
+            existing_capacity_ds = self.resite.existing_capacity_ds[tech]
+            optimal_capacity_ds = self.resite.optimal_capacity_ds[tech]
 
             # Original points
             fig.add_trace(go.Scattergeo(
                 mode="markers",
                 lat=ys,
                 lon=xs,
-                text=[f"Capacity potential: {cap_potential_ds[index]}<br>"
-                      f"Average cap factor: {avg_cap_factor[index]}" for index in cap_potential_ds.index],
+                text=[f"Capacity potential: {cap_potential_ds[index]:.4f}<br>"
+                      f"Initial capacity: {existing_capacity_ds[index]:.4f}<br>"
+                      f"Optimal capacity: {optimal_capacity_ds[index]:.4f}<br>"
+                      f"Average cap factor: {avg_cap_factor[index]:.4f}" for index in cap_potential_ds.index],
                 hoverinfo='text',
                 marker=dict(
                     color='black',
@@ -75,7 +79,6 @@ class ResiteOutput:
                 selected_points = self.resite.selected_tech_points_dict[tech]
 
                 # Get points with existing capacity
-                existing_capacity_ds = self.resite.existing_capacity_ds[tech]
                 points_with_ex_cap = existing_capacity_ds[existing_capacity_ds > 0]
                 symbols = ['x' if point in points_with_ex_cap.index else 'circle' for point in selected_points]
 

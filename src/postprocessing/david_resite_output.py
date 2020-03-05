@@ -3,7 +3,7 @@ matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import pandas as pd
 from os.path import join, abspath
-from src.postprocessing.resite_output_tools import read_output, read_inputs_plotting, plot_basemap, \
+from src.postprocessing.david_resite_output_tools import read_output, read_inputs_plotting, plot_basemap, \
                                                 assess_firmness, clip_revenue, \
                                                 assess_capacity_credit, return_coordinates
 from itertools import chain, combinations, cycle, islice

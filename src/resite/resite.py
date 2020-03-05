@@ -17,11 +17,11 @@ import pickle
 
 
 from src.resite.models.pyomo import build_model as build_pyomo_model, \
-    solve_model as solve_pyomo_model, retrieve_sites as retrieve_pyomo_sites
+    solve_model as solve_pyomo_model, retrieve_solution as retrieve_pyomo_solution
 from src.resite.models.docplex import build_model as build_docplex_model, \
-    solve_model as solve_docplex_model, retrieve_sites as retrieve_docplex_sites
+    solve_model as solve_docplex_model, retrieve_solution as retrieve_docplex_solution
 from src.resite.models.gurobipy import build_model as build_gurobipy_model, \
-    solve_model as solve_gurobipy_model, retrieve_sites as retrieve_gurobipy_sites
+    solve_model as solve_gurobipy_model, retrieve_solution as retrieve_gurobipy_solution
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -242,7 +242,7 @@ class Resite:
         elif self.modelling == 'gurobipy':
             solve_gurobipy_model(self, solver, solver_options)
 
-    def retrieve_sites(self) -> Dict[str, List[Tuple[float, float]]]:
+    def retrieve_solution(self) -> Dict[str, List[Tuple[float, float]]]:
         """
         Get points that were selected during the optimization
 
@@ -253,11 +253,11 @@ class Resite:
 
         """
         if self.modelling == 'pyomo':
-            self.selected_tech_points_dict = retrieve_pyomo_sites(self)
+            self.objective, self.selected_tech_points_dict, self.optimal_capacity_ds = retrieve_pyomo_solution(self)
         elif self.modelling == 'docplex':
-            self.selected_tech_points_dict = retrieve_docplex_sites(self)
+            self.objective, self.selected_tech_points_dict, self.optimal_capacity_ds = retrieve_docplex_solution(self)
         elif self.modelling == 'gurobipy':
-            self.selected_tech_points_dict = retrieve_gurobipy_sites(self)
+            self.objective, self.selected_tech_points_dict, self.optimal_capacity_ds = retrieve_gurobipy_solution(self)
 
         return self.selected_tech_points_dict
 

@@ -23,6 +23,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
+# TODO: this will not work anymore because now we have costs for different type of wind and pv
 def add_generators_from_file(network: pypsa.Network, onshore_region_shape, gen_costs: Dict[str, Dict[str, float]],
                          strategy: str, site_nb: int, area_per_site: int, cap_dens_dict: Dict[str, float]) \
         -> pypsa.Network:
@@ -153,7 +154,7 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
     resite.solve_model(params['solver'], params['solver_options'][params['solver']])
 
     logger.info('Retrieving results.')
-    tech_location_dict = resite.retrieve_sites()  # TODO: parametrize?
+    tech_location_dict = resite.retrieve_solution()  # TODO: parametrize?
     existing_cap_ds, cap_potential_ds, cap_factor_df = resite.retrieve_sites_data()
 
     if not resite.timestamps.equals(network.snapshots):
@@ -191,8 +192,8 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
                      carrier=tech,
                      x=[x for x, _ in points],
                      y=[y for _, y in points],
-                     marginal_cost=gen_costs[tech.split("_")[0]]["opex"] / 1000.0,
-                     capital_cost=gen_costs[tech.split("_")[0]]["capex"] * len(network.snapshots) / (8760 * 1000.0))
+                     marginal_cost=gen_costs[tech]["opex"] / 1000.0,
+                     capital_cost=gen_costs[tech]["capex"] * len(network.snapshots) / (8760 * 1000.0))
 
     return network
 
@@ -262,8 +263,8 @@ def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Poly
                      carrier=tech,
                      x=[x for x, _ in points],
                      y=[y for _, y in points],
-                     marginal_cost=gen_costs[tech.split("_")[0]]["opex"] / 1000.0,
-                     capital_cost=gen_costs[tech.split("_")[0]]["capex"] * len(network.snapshots) / (8760 * 1000.0))
+                     marginal_cost=gen_costs[tech]["opex"] / 1000.0,
+                     capital_cost=gen_costs[tech]["capex"] * len(network.snapshots) / (8760 * 1000.0))
 
     return network
 

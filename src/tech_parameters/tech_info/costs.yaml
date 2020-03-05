@@ -5,10 +5,19 @@ transmission:
     capex: 1.2 #M€/km/GW
 
 generation:
-  wind:
+  wind_onshore:
     opex: 0 #M€/GWh
     capex: 93 #M€/GW/yr Note: This is actually not capex but fixed annual costs.
-  pv:
+  wind_offshore:
+    opex: 0
+    capex: 93
+  wind_floating:
+    opex: 0
+    capex: 93
+  pv_utility:
+    opex: 0
+    capex: 43
+  pv_residential:
     opex: 0
     capex: 43
   ccgt:

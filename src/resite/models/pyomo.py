@@ -168,23 +168,27 @@ def solve_model(self, solver, solver_options):
               logfile=join(self.output_folder, 'solver_log.log'))
 
 
-def retrieve_sites(self) -> Dict[str, List[Tuple[float, float]]]:
+def retrieve_solution(self) -> Dict[str, List[Tuple[float, float]]]:
     """
-    Get points that were selected during the optimization
+    Get the solution of the optimization
 
     Returns
     -------
+    objective: float
+        Objective value after optimization
     selected_tech_points_dict: Dict[str, List[Tuple[float, float]]]
         Lists of points for each technology used in the model
+    optimal_capacity_ds: pd.Series
+        Gives for each pair of technology-location the optimal capacity obtained via the optimization
 
     """
-    self.optimal_capacity_ds = pd.Series(index=self.tech_points_tuples)
+    optimal_capacity_ds = pd.Series(index=pd.MultiIndex.from_tuples(self.tech_points_tuples))
     selected_tech_points_dict = {tech: [] for tech in self.technologies}
 
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in self.tech_points_tuples]
     for tech, lon, lat in tech_points_tuples:
         y_value = self.instance.y[tech, (lon, lat)].value
-        self.optimal_capacity_ds[tech, (lon, lat)] = y_value*self.cap_potential_ds[tech, (lon, lat)]
+        optimal_capacity_ds[tech, (lon, lat)] = y_value*self.cap_potential_ds[tech, (lon, lat)]
         if y_value > 0.:
             selected_tech_points_dict[tech] += [(lon, lat)]
 
@@ -192,6 +196,6 @@ def retrieve_sites(self) -> Dict[str, List[Tuple[float, float]]]:
     selected_tech_points_dict = {k: v for k, v in selected_tech_points_dict.items() if len(v) > 0}
 
     # Save objective value
-    self.objective = value(self.instance.objective)
+    objective = value(self.instance.objective)
 
-    return selected_tech_points_dict
+    return objective, selected_tech_points_dict, optimal_capacity_ds
