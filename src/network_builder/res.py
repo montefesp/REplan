@@ -95,7 +95,7 @@ def add_generators_from_file(network: pypsa.Network, onshore_region_shape, gen_c
         for i, point in enumerate(points_dict):
 
             bus_id = bus_ids[i]
-            # Define the capacities per km from parameters if existing
+            # Define the capacities per km from tech_parameters if existing
             capacity_per_km = cap_dens_dict[tech_1]
             if capacity_per_km == "":
                 capacity_per_km = bus_capacity_per_km_dict[bus_id]

@@ -41,7 +41,7 @@ class Resite:
         technologies: List[str]
             List of technologies for which we want to site
         tech_config: Dict[str, Any]
-            Dictionary containing parameters configuration of each technology
+            Dictionary containing tech_parameters configuration of each technology
         timeslice: List[str]
             List of 2 string containing starting and end date of the time horizon
         spatial_resolution: float
@@ -55,7 +55,7 @@ class Resite:
         self.keep_files = keep_files
         self.init_output_folder()
 
-        # TODO: change this -> maybe we would need to have a function copying the parameters back to a file
+        # TODO: change this -> maybe we would need to have a function copying the tech_parameters back to a file
         # copy(join(dirname(abspath(__file__)), 'config_model.yml'), self.output_folder)
 
         self.technologies = technologies

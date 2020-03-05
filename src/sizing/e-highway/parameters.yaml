@@ -1,14 +1,6 @@
 # solver
 solver:
   Crossover: 0
-  #threads: 4
-  #method: 2 # barrier
-  #crossover: 0
-  #BarConvTol: 0.01
-  #FeasibilityTol: 0.01
-  #AggFill: 0
-  #PreDual: 0
-  #GURO_PAR_BARDENSETHRESH: 200
 
 # Time
 # Start time and end time for slicing the database.
@@ -18,22 +10,26 @@ time:
 
 # Space
 region: "BENELUX"
-
 add_offshore: True
 
 # RES
 res:
   include: True
   strategy: "generate" # max or comp or asusual or bus or full or generate
-  technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
-  spatial_resolution: 0.5
+
+  # For strategy = max or comp
   resite_nb: 100 # can be multiples of 25
   area_per_site: 2500 #km2
-  use_ex_cap: False
   cap_dens:
     wind: ""  # GW/km2
     pv: ""  # GW/km2
+
+  # For strategy = full or generate
   # Various data layers to be taken into account in potential site selection.
+  spatial_resolution: 0.5
+  technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+  timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
+  use_ex_cap: False
   filtering_layers:
     resource_quality: True
     population_density: True
@@ -42,8 +38,8 @@ res:
     orography: True
     forestry: True
     water_mask: True
-  timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
 
+  # For strategy = generate
   modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
   solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
   solver_options:
@@ -53,21 +49,19 @@ res:
     cplex: 0
     cbc: 0
   write_lp: True
-
   # Type of problem to be solved. Check resite.py for a full list.
   formulation: 'meet_RES_targets_year_round' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
-
   # List of deployments per region (ordered as the 'regions' list above)
   deployment_vector: [0.1] # [0.5, 0.5, 0.5, 0.5]
-
   # Keeping files at the end of the run.
   keep_files: False
 
-#
+# Conventional generation
 dispatch:
   include: True
   tech: "ccgt"
 
+# TODO: some of the tech_parameters here should be in the tech_parameters folder
 # Nuclear
 nuclear:
   include: True

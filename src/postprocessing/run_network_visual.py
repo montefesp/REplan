@@ -457,7 +457,7 @@ class App:
             return [{'label': dir_name, 'value': dir_name} for dir_name in sorted(os.listdir(self.output_dir))]
     
         def get_parameters_list():
-            attrs = yaml.load(open(self.output_dir + self.current_test_number + "/parameters.yaml", "rb"),
+            attrs = yaml.load(open(self.output_dir + self.current_test_number + "/tech_parameters.yaml", "rb"),
                               Loader=yaml.FullLoader)
             return [{'name': key, 'value': str(attrs[key])} for key in attrs]
 
@@ -574,7 +574,7 @@ class App:
 
                     html.Div([
                         dash_table.DataTable(
-                            id='parameters-table',
+                            id='tech_parameters-table',
                             columns=[{"name": "name", "id": "name"}, {"name": "value", "id": "value"}],
                             data=get_parameters_list()),
 
@@ -713,7 +713,7 @@ class App:
         """
 
         @self.app.callback(
-            Output('parameters-table', 'data'),
+            Output('tech_parameters-table', 'data'),
             [Input('output-selector', 'value')])
         def update_param_table(value):
             self.current_test_number = value

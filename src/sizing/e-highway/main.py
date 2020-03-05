@@ -31,12 +31,12 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 data_dir = join(dirname(abspath(__file__)), "../../../data/")
-tech_params_dir = join(dirname(abspath(__file__)), "../../parameters/")
+tech_params_dir = join(dirname(abspath(__file__)), "../../tech_parameters/")
 output_dir = join(dirname(abspath(__file__)),
                   '../../../output/sizing/e-highways/' + strftime("%Y%m%d") + "_" + strftime("%H%M%S") + "/")
 
-# Run parameters
-param_fn = join(dirname(abspath(__file__)), 'parameters.yaml')
+# Run tech_parameters
+param_fn = join(dirname(abspath(__file__)), 'tech_parameters.yaml')
 params = yaml.load(open(param_fn, 'r'), Loader=yaml.FullLoader)
 
 # Tech infos
@@ -104,16 +104,15 @@ if params['res']['include']:
     logger.info("Adding RES")
     if params['res']['strategy'] == "comp" or params['res']['strategy'] == "max":
         net = add_res_from_file(net, total_shape, costs["generation"], params['res']['strategy'],
-                                    params["res"]["resite_nb"], params["res"]["area_per_site"],
-                                    params["res"]["cap_dens"])
+                                params["res"]["resite_nb"], params["res"]["area_per_site"], params["res"]["cap_dens"])
     if params['res']["strategy"] == "asusual":
         net = add_res_without_siting(net, costs["generation"]["wind"], costs["generation"]["pv"])
     if params['res']["strategy"] == "bus":
         net = add_res_per_bus(net, costs["generation"]["wind"], costs["generation"]["pv"])
     if params['res']["strategy"] == "full":
         net = add_res_at_resolution(net, total_shape, [params["region"]], params["res"]["technologies"],
-                                               tech_config, params["res"]["spatial_resolution"],
-                                               params['res']['filtering_layers'], costs["generation"])
+                                    tech_config, params["res"]["spatial_resolution"],
+                                    params['res']['filtering_layers'], costs["generation"])
     if params['res']['strategy'] == 'generate':
         net = add_res(net, params['res'], tech_config, params["region"], costs["generation"])
 
@@ -164,7 +163,7 @@ makedirs(output_dir)
 net.lopf(solver_name='gurobi', solver_logfile=output_dir + "test.log", solver_options=params["solver"])
 
 # Compute and save results
-yaml.dump(params, open(output_dir + 'parameters.yaml', 'w'))
+yaml.dump(params, open(output_dir + 'tech_parameters.yaml', 'w'))
 yaml.dump(costs, open(output_dir + 'costs.yaml', 'w'))
 yaml.dump(life, open(output_dir + 'lifetimes.yaml', 'w'))
 yaml.dump(emission, open(output_dir + 'emissions.yaml', 'w'))
