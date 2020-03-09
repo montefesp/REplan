@@ -132,7 +132,7 @@ def preprocess(plotting: bool = False):
 
         # Get the shapes associated to each code and assemble them
         code_list = eh_clusters.loc[idx].codes
-        codes = code_list.split('[')[1].split(']')[0].split(',')
+        codes = code_list.strip('[]').split(',')
         total_shape = cascaded_union(all_shapes.loc[codes].values.flatten())
 
         # Compute centroid of shape

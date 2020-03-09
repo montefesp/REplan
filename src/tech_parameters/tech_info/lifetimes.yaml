@@ -3,10 +3,10 @@ transmission:
   DC: 40.0
 
 wind_offshore: 25.0
-wind_onshore: 25.0
-wind_floating: 25.0
-pv_utility: 25.0
-pv_residential: 25.0
+wind_onshore: 20.0
+wind_floating: 20.0
+pv_utility: 20.0
+pv_residential: 20.0
 ccgt: 30.0
 ocgt: 30.0
 nuclear: 60.0

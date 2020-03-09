@@ -110,13 +110,14 @@ def save_to_geojson(df, fn):
     Returns
     -------
     """
-    if exists(fn):
-        unlink(fn)
-    if not isinstance(df, gpd.GeoDataFrame):
-        df = gpd.GeoDataFrame(dict(geometry=df))
-    df = df.reset_index()
-    schema = {**gpd.io.file.infer_schema(df), 'geometry': 'Unknown'}
-    df.to_file(fn, driver='GeoJSON', schema=schema)
+    pass
+    # if exists(fn):
+    #     unlink(fn)
+    # if not isinstance(df, gpd.GeoDataFrame):
+    #     df = gpd.GeoDataFrame(dict(geometry=df))
+    # df = df.reset_index()
+    # schema = {**gpd.io.file.infer_schema(df), 'geometry': 'Unknown'}
+    # df.to_file(fn, driver='GeoJSON', schema=schema)
 
 
 def display_polygons(polygons_list):
@@ -168,8 +169,9 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Seri
         except shapely.errors.TopologicalError:
             print(f"Warning: Problem with shape {index}")
             continue
-
-        if isinstance(points_in_region, Point):
+        if points_in_region.is_empty:
+            continue
+        elif isinstance(points_in_region, Point):
             points = points.difference(points_in_region)
             points_in_region = (points_in_region.x, points_in_region.y)
         elif len(points_in_region) == 0:
@@ -179,11 +181,16 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Seri
             points_in_region = [(point.x, point.y) for point in points_in_region]
         points_region_ds.loc[points_in_region] = index
 
-    if len(points) != 0:
-        print("Warning: Some points are not contained in any shape")
-        for point in points:
-            closest_index = np.argmin([point.distance(shapes_ds.loc[subregion]) for subregion in shapes_ds.index])
-            points_region_ds.loc[(point.x, point.y)] = shapes_ds.index.values[closest_index]
+        if points.is_empty:
+            return points_region_ds
+
+    print("Warning: Some points are not contained in any shape")
+    if isinstance(points, Point):
+        points = [points]
+
+    for point in points:
+        closest_index = np.argmin([point.distance(shapes_ds.loc[subregion]) for subregion in shapes_ds.index])
+        points_region_ds.loc[(point.x, point.y)] = shapes_ds.index.values[closest_index]
 
     return points_region_ds
 
@@ -297,8 +304,8 @@ def return_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: floa
         maxx = round(maxx / resolution) * resolution
         miny = round(miny / resolution) * resolution
         maxy = round(maxy / resolution) * resolution
-        xs = np.linspace(minx, maxx, num=(maxx - minx) / resolution + 1)
-        ys = np.linspace(miny, maxy, num=(maxy - miny) / resolution + 1)
+        xs = np.linspace(minx, maxx, num=int((maxx - minx) / resolution) + 1)
+        ys = np.linspace(miny, maxy, num=int((maxy - miny) / resolution) + 1)
         points = list(itertools.product(xs, ys))
     points = MultiPoint(points)
     points = [(point.x, point.y) for point in points.intersection(shape)]
@@ -604,16 +611,16 @@ if __name__ == "__main__":
     generate_onshore_shapes_geojson()
     generate_offshore_shapes_geojson()
 
-    onshore_shapes_save_fn = 'on_test.geojson'
-    onshore_shapes_ = get_onshore_shapes(['BE'], minarea=10000, filterremote=True)
-    print(onshore_shapes_)
-    onshore_shapes_union = cascaded_union(onshore_shapes_['geometry'].values)
-    offshore_shapes_save_fn = 'off_test.geojson'
-    offshore_shapes_ = get_offshore_shapes(['BE'], onshore_shape=onshore_shapes_union, filterremote=True)
-    print(len(offshore_shapes_) == 0)
-
-    us_off_shape = offshore_shapes_['geometry'].values
-    us_on_shape = onshore_shapes_['geometry'].values
-
-    display_polygons(np.append(us_off_shape, us_on_shape))
+    # onshore_shapes_save_fn = 'on_test.geojson'
+    # onshore_shapes_ = get_onshore_shapes(['BE'], minarea=10000, filterremote=True)
+    # print(onshore_shapes_)
+    # onshore_shapes_union = cascaded_union(onshore_shapes_['geometry'].values)
+    # offshore_shapes_save_fn = 'off_test.geojson'
+    # offshore_shapes_ = get_offshore_shapes(['BE'], onshore_shape=onshore_shapes_union, filterremote=True)
+    # print(len(offshore_shapes_) == 0)
+    #
+    # us_off_shape = offshore_shapes_['geometry'].values
+    # us_on_shape = onshore_shapes_['geometry'].values
+    #
+    # display_polygons(np.append(us_off_shape, us_on_shape))
     #convert_nuts()
