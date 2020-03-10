@@ -1,15 +1,15 @@
 from os.path import join, dirname, abspath
-from typing import Dict
 
 import pandas as pd
 
 import pypsa
 
 from src.data.generation.manager import get_gen_from_ppm, find_associated_buses_ehighway
+from src.tech_parameters.costs import get_cost
 
 
 # TODO: this should not depend on e-highway
-def add_generators(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: bool, extendable: bool,
+def add_generators(network: pypsa.Network, use_ex_cap: bool, extendable: bool,
                    ramp_rate: float, ppm_file_name: str = None) -> pypsa.Network:
     """Adds nuclear generators to a PyPsa Network instance.
 
@@ -17,8 +17,6 @@ def add_generators(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: 
     ----------
     network: pypsa.Network
         A Network instance with nodes associated to regions.
-    costs: Dict[str, float]
-        Contains capex and opex
     use_ex_cap: bool
         Whether to consider existing capacity or not #  TODO: will probably remove that at some point
     extendable: bool
@@ -56,6 +54,8 @@ def add_generators(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: 
     if not use_ex_cap:
         gens.Capacity = 0.
 
+    capital_cost, marginal_cost = get_cost('nuclear', len(network.snapshots))
+
     network.madd("Generator", "Gen nuclear " + gens.Name + " " + gens.bus_id,
                  bus=gens.bus_id.values,
                  p_nom=gens.Capacity.values,
@@ -63,8 +63,8 @@ def add_generators(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: 
                  p_nom_extendable=extendable,
                  type='nuclear',
                  carrier='nuclear',
-                 marginal_cost=costs["opex"]/1000.0,
-                 capital_cost=costs["capex"]*len(network.snapshots)/(8760*1000.0),
+                 marginal_cost=marginal_cost,
+                 capital_cost=capital_cost,
                  ramp_limit_up=ramp_rate,
                  ramp_limit_down=ramp_rate,
                  x=gens.lon.values,

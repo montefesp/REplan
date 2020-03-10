@@ -21,6 +21,7 @@ import numpy as np
 import itertools
 
 from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes, return_points_in_shape
+from src.tech_parameters.costs import get_cost
 
 import pypsa
 
@@ -296,9 +297,7 @@ def voronoi_special(shape: Union[Polygon, MultiPolygon], centroids: List[List[fl
             for index in centroids_nodes_indexes]
 
 
-def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool,
-                 trans_costs: Dict[str, Dict[str, float]], trans_lifetimes: Dict[str, float],
-                 plot: bool = False) -> pypsa.Network:
+def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool, plot: bool = False) -> pypsa.Network:
     """Load the e-highway network topology (buses and links) using PyPSA
 
     Parameters
@@ -309,10 +308,6 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
         List of countries for which we want the e-highway topology
     add_offshore: bool
         Whether to include offshore nodes
-    trans_costs: Dict[str, Dict[str, float]]
-        Capex costs for AC and DC
-    trans_lifetimes: Dict[str, float]
-        Lifetime in years of AC and DC lines
     plot: bool (default: False)
         Whether to show loaded topology or not
 
@@ -381,8 +376,8 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     lines['capital_cost'] = pd.Series(index=lines.index)
     for idx in lines.index:
         carrier = lines.loc[idx].carrier
-        lines.loc[idx, ('capital_cost', )] = trans_costs[carrier]["capex"] * \
-            lines.length.loc[idx]*len(network.snapshots) / (trans_lifetimes[lines.loc[idx].carrier]*8760*1000.0)
+        cap_cost, _ = get_cost(carrier, len(network.snapshots))
+        lines.loc[idx, ('capital_cost', )] = cap_cost * lines.length.loc[idx]
 
     network.import_components_from_dataframe(buses, "Bus")
     network.import_components_from_dataframe(lines, "Line")

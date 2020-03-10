@@ -40,18 +40,10 @@ param_fn = join(dirname(abspath(__file__)), 'parameters.yaml')
 params = yaml.load(open(param_fn, 'r'), Loader=yaml.FullLoader)
 
 # Tech infos
-tech_info = pd.read_excel(join(tech_params_dir, 'tech_info/tech_info.xlsx'), sheet_name='values', index_col=0)
+tech_info = pd.read_excel(join(tech_params_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
 
 tech_config_path = join(tech_params_dir, 'config_techs.yml')
 tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
-
-# Costs
-costs_fn = join(tech_params_dir, 'tech_info/costs.yaml')
-costs = yaml.load(open(costs_fn, 'r'), Loader=yaml.FullLoader)
-
-# Lifetimes
-life_fn = join(tech_params_dir, 'tech_info/lifetimes.yaml')
-life = yaml.load(open(life_fn, 'r'), Loader=yaml.FullLoader)
 
 # Emissions
 emission_fn = join(tech_params_dir, 'tech_info/emissions.yaml')
@@ -82,7 +74,7 @@ for tech in emission["co2"]:
 
 logger.info("Loading topology")
 countries = get_subregions(params["region"])
-net = get_topology(net, countries, params["add_offshore"], costs["transmission"], life["transmission"], plot=False)
+net = get_topology(net, countries, params["add_offshore"], plot=False)
 
 # Computing shapes
 total_onshore_shape = cascaded_union(net.buses[net.buses.onshore].region.values.flatten())
@@ -108,13 +100,13 @@ if params['res']['include']:
     # if params['res']["strategy"] == "asusual":
     #     net = add_res_without_siting(net, params["res"]["technologies"], costs["generation"])
     if params['res']["strategy"] == "bus":
-        net = add_res_per_bus(net, costs["generation"])
+        net = add_res_per_bus(net)
     if params['res']["strategy"] == "full":
         net = add_res_at_resolution(net, total_shape, [params["region"]], params["res"]["technologies"],
                                     tech_config, params["res"]["spatial_resolution"],
-                                    params['res']['filtering_layers'], costs["generation"])
+                                    params['res']['filtering_layers'])
     if params['res']['strategy'] == 'generate':
-        net = add_res(net, params['res'], tech_config, params["region"], costs["generation"])
+        net = add_res(net, params['res'], tech_config, params["region"])
 
 # Remove offshore locations that have no generators associated to them
 for bus_id in net.buses.index:
@@ -128,31 +120,31 @@ for bus_id in net.buses.index:
 if params["dispatch"]["include"]:
     logger.info("Adding Dispatch")
     tech = params["dispatch"]["tech"]
-    net = add_conventional(net, tech, tech_config[tech]["efficiency"], costs["generation"][tech])
+    net = add_conventional(net, tech, tech_config[tech]["efficiency"])
 
 # Adding nuclear
 if params["nuclear"]["include"]:
     logger.info("Adding Nuclear")
-    net = add_nuclear(net, costs["generation"]["nuclear"], params["nuclear"]["use_ex_cap"],
+    net = add_nuclear(net, params["nuclear"]["use_ex_cap"],
                       params["nuclear"]["extendable"], tech_config["nuclear"]["ramp_rate"], "pp_nuclear_WNA.csv")
 
 if params["sto"]["include"]:
     logger.info("Adding STO")
-    net = add_sto(net, costs["generation"]["sto"], params["sto"]["extendable"], params["sto"]["cyclic_sof"],
+    net = add_sto(net, params["sto"]["extendable"], params["sto"]["cyclic_sof"],
                   tech_config["sto"]["efficiency_dispatch"])
 
 if params["phs"]["include"]:
     logger.info("Adding PHS")
-    net = add_phs(net, costs["generation"]["phs"], params["phs"]["extendable"], params["phs"]["cyclic_sof"],
+    net = add_phs(net, params["phs"]["extendable"], params["phs"]["cyclic_sof"],
                   tech_config["phs"]["efficiency_store"], tech_config["phs"]["efficiency_dispatch"])
 
 if params["ror"]["include"]:
     logger.info("Adding ROR")
-    net = add_ror(net, costs["generation"]["ror"], params["ror"]["extendable"], tech_config["ror"]["efficiency"])
+    net = add_ror(net, params["ror"]["extendable"], tech_config["ror"]["efficiency"])
 
 if params["battery"]["include"]:
     logger.info("Adding Battery Storage")
-    net = add_batteries(net, params["battery"]["max_hours"], costs["battery"])
+    net = add_batteries(net, params["battery"]["max_hours"])
 
 net.add("GlobalConstraint", "CO2Limit",
         carrier_attribute="co2_emissions", sense="<=",
@@ -163,8 +155,6 @@ net.lopf(solver_name='gurobi', solver_logfile=output_dir + "test.log", solver_op
 
 # Compute and save results
 yaml.dump(params, open(output_dir + 'tech_parameters.yaml', 'w'))
-yaml.dump(costs, open(output_dir + 'costs.yaml', 'w'))
-yaml.dump(life, open(output_dir + 'lifetimes.yaml', 'w'))
 yaml.dump(emission, open(output_dir + 'emissions.yaml', 'w'))
 
 net.export_to_csv_folder(output_dir)

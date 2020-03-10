@@ -17,6 +17,7 @@ from src.data.res_potential.manager import get_capacity_potential, get_potential
 # TODO: this shoulnd't be here normally
 from src.data.topologies.ehighway import get_ehighway_clusters
 from src.resite.resite import Resite
+from src.tech_parameters.costs import get_cost
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -117,8 +118,8 @@ logger = logging.getLogger()
 #     return network
 
 
-def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any], region: str,
-                   gen_costs: Dict[str, Any]):
+def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any], region: str) \
+        -> pypsa.Network:
     """
     This function will add generators for different technologies at a series of location selected via an optimization
     mechanism.
@@ -129,10 +130,6 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
         A network with region associated to each buses.
     region: str
         Region over which the network is defined
-    gen_costs: Dict[str, Any]
-        Dictionary containing the prices of technologies
-    use_ex_cap: bool
-        Whether to use existing capacity
 
     Returns
     -------
@@ -180,6 +177,8 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
         if params['use_ex_cap']:
             existing_cap = existing_cap_ds[tech][points].values
 
+        capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
+
         network.madd("Generator",
                      "Gen " + tech + " " + pd.Index([str(x) for x, _ in points]) + "-" +
                      pd.Index([str(y) for _, y in points]),
@@ -192,15 +191,15 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
                      carrier=tech,
                      x=[x for x, _ in points],
                      y=[y for _, y in points],
-                     marginal_cost=gen_costs[tech]["opex"] / 1000.0,
-                     capital_cost=gen_costs[tech]["capex"] * len(network.snapshots) / (8760 * 1000.0))
+                     marginal_cost=marginal_cost,
+                     capital_cost=capital_cost)
 
     return network
 
 
 def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Polygon, MultiPolygon], regions: List[str],
                                      technologies: List[str], tech_config: Dict[str, Any], spatial_resolution: float,
-                                     filtering_layers: Dict[str, bool], gen_costs: Dict[str, Any]) \
+                                     filtering_layers: Dict[str, bool]) \
         -> pypsa.Network:
     """
     Creates pv and wind generators for every coordinate at a resolution of 0.5 inside the region associate to each bus
@@ -212,10 +211,6 @@ def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Poly
         A PyPSA Network instance with buses associated to regions
     total_shape: Polygon
         Sum of all the regions associated to the buses in network
-    wind_costs
-        Dictionary containing opex and capex for wind generators
-    pv_costs
-        Dictionary containing opex and capex for pv generators
 
     Returns
     -------
@@ -251,6 +246,8 @@ def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Poly
             onshore_buses = network.buses[network.buses.onshore]
             associated_buses = match_points_to_region(points, onshore_buses.region)
 
+        capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
+
         network.madd("Generator",
                      "Gen " + tech + " " + pd.Index([str(x) for x, _ in points]) + "-" +
                      pd.Index([str(y) for _, y in points]),
@@ -263,15 +260,15 @@ def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Poly
                      carrier=tech,
                      x=[x for x, _ in points],
                      y=[y for _, y in points],
-                     marginal_cost=gen_costs[tech]["opex"] / 1000.0,
-                     capital_cost=gen_costs[tech]["capex"] * len(network.snapshots) / (8760 * 1000.0))
+                     marginal_cost=marginal_cost,
+                     capital_cost=capital_cost)
 
     return network
 
 
 # TODO: this only works for one year of data
 # TODO: this is shit because only works for e-highway
-def add_generators_per_bus(network: pypsa.Network, technologies: List[str], gen_costs: Dict[str, Any]) -> pypsa.Network:
+def add_generators_per_bus(network: pypsa.Network, technologies: List[str]) -> pypsa.Network:
     """
     Adds pv and wind generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
 
@@ -281,8 +278,6 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], gen_
         A PyPSA Network instance with buses associated to regions
     technologies: List[str]
         Technologies to each bus
-    gen_costs: Dict[str, Any]
-        Dictionary containing opex and capex for generation technologies
 
     Returns
     -------
@@ -322,6 +317,8 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], gen_
 
     for tech in technologies:
 
+        capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
+
         # Adding to the network
         network.madd("Generator", "Gen wind " + network.buses.index,
                      bus=network.buses.index,
@@ -332,9 +329,10 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], gen_
                      carrier="wind",
                      x=network.buses.x,
                      y=network.buses.y,
-                     marginal_cost=gen_costs[tech]["opex"] / 1000.0,
-                     capital_cost=gen_costs[tech]["capex"] * len(network.snapshots) / (8760 * 1000.0))
+                     marginal_cost=marginal_cost,
+                     capital_cost=capital_cost)
 
+        """
         # Adding to the network
         network.madd("Generator", "Gen pv " + network.buses.index,
                      bus=network.buses.index,
@@ -347,6 +345,7 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], gen_
                      y=network.buses.y,
                      marginal_cost=gen_costs[tech]["opex"] / 1000.0,
                      capital_cost=gen_costs[tech]["capex"] * len(network.snapshots) / (8760 * 1000.0))
+        """
 
     return network
 
