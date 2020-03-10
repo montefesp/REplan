@@ -5,7 +5,7 @@ import pypsa
 from src.tech_parameters.costs import get_cost
 
 
-def add_generators(network: pypsa.Network, tech: str, efficiency: float, costs: Dict[str, float]) -> pypsa.Network:
+def add_generators(network: pypsa.Network, tech: str, efficiency: float) -> pypsa.Network:
     """Adds conventional generators to a Network instance.
 
     Parameters

@@ -3,8 +3,6 @@ from typing import Tuple
 
 import pandas as pd
 
-from vresutils.costdata import annuity
-
 NHoursPerYear = 8760.0
 
 
@@ -46,7 +44,7 @@ def get_cost(tech: str, nb_hours: float) -> Tuple[float, float]:
     return round(capital_cost, 4), round(marginal_cost, 4)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     techs = ["ccgt", "ocgt", "nuclear", "sto", "ror", "phs", "wind_onshore", "wind_offshore", "wind_floating",
              "pv_utility", "pv_residential", "battery", "AC", "DC"]
     for tech in techs:

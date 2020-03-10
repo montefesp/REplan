@@ -7,9 +7,10 @@ import xarray as xr
 
 from shapely.ops import cascaded_union
 from shapely.geometry import Polygon, MultiPolygon
+from shapely.errors import TopologicalError
 
 from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area, get_onshore_shapes, get_offshore_shapes, \
-    match_points_to_region, get_subregions
+    match_points_to_region, get_subregions, display_polygons
 from src.data.topologies.ehighway import get_ehighway_clusters
 
 
@@ -303,7 +304,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
     Returns
     -------
     capacity_potential_ds : pd.Series
-        Gives for each pair of technology - point the associated capacity potential
+        Gives for each pair of technology - point the associated capacity potential in GW
     """
 
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
@@ -351,7 +352,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
                                                     filterremote=True,
                                                     save_file_name=''.join(sorted(subregions))
                                                                    + "_subregions_off.geojson")
-            filter_shape_data.index = ["EZ" + code if code != 'GB' else 'EZUK' for code in filter_shape_data.index]
+            filter_shape_data.index = ["EZ" + code for code in filter_shape_data.index]
         else:
             codes = [code for code in potential_per_subregion_df.index if code[:2] in subregions]
             filter_shape_data = get_onshore_shapes(codes, filterremote=True,
@@ -403,7 +404,6 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
     return capacity_potential_ds
 
 
-# TODO: to continue
 def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[Polygon, MultiPolygon]]]) -> pd.Series:
     """
     Get capacity potential for a series of technology for associated geographical regions
@@ -416,25 +416,55 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
     Returns
     -------
     capacity_potential_ds: pd.Series
-        Gives for each pair of technology and region the associated potential capacity
+        Gives for each pair of technology and region the associated potential capacity in GW
 
     """
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
     for tech in tech_regions_dict.keys():
         assert tech in accepted_techs, "Error: tech {} is not in {}".format(tech, accepted_techs)
 
-    tech_coords_tuples = [(tech, point) for tech, points in tech_regions_dict.items() for point in points]
-    capacity_potential_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(tech_coords_tuples))
+    tech_regions_tuples = [(tech, i) for tech, points in tech_regions_dict.items() for i in range(len(points))]
+    capacity_potential_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(tech_regions_tuples))
 
     for tech, regions in tech_regions_dict.items():
 
         # Compute potential for each NUTS2 or EEZ
         potential_per_subregion_df = capacity_potential_from_enspresso(tech)
-        print(potential_per_subregion_df.index.values)
-        exit()
 
-        # Load shapes of NUTS2 regions
-        nuts2_shapes = get_onshore_shapes(potential_per_subregion_df.index.values)
+        # Get NUTS2 or EEZ shapes
+        # TODO: this is shit -> not generic enough, expl: would probably not work for us states
+        #  would need to get this out of the loop
+        if tech in ['wind_offshore', 'wind_floating']:
+            codes = [code[2:4] for code in potential_per_subregion_df.index.values]
+            onshore_shapes_union = \
+                cascaded_union(get_onshore_shapes(codes, filterremote=True,
+                                                  save_file_name="cap_potential_regions_on.geojson")["geometry"].values)
+            shapes = get_offshore_shapes(codes, onshore_shape=onshore_shapes_union,
+                                         filterremote=True, save_file_name="cap_potential_regions_off.geojson")
+            shapes.index = ["EZ" + code for code in shapes.index]
+        else:
+            shapes = get_onshore_shapes(potential_per_subregion_df.index.values, filterremote=True,
+                                        save_file_name="cap_potential_regions_on.geojson")
+
+        # Compute capacity potential for the regions given as argument
+        for i, region in enumerate(regions):
+            cap_pot = 0
+            for index, shape in shapes.iterrows():
+                try:
+                    intersection = region.intersection(shape["geometry"])
+                except TopologicalError:
+                    print(f"Warning: Problem with shape for code {index}")
+                    continue
+                if intersection.is_empty or intersection.area == 0.:
+                    continue
+                cap_pot += potential_per_subregion_df[index]*intersection.area/region.area
+                try:
+                    region = region.difference(intersection)
+                except TopologicalError:
+                    print(f"Warning: Problem with shape for code {index}")
+                if region.is_empty or region.area == 0.:
+                    break
+            capacity_potential_ds.loc[tech, i] = cap_pot
 
     return capacity_potential_ds
 

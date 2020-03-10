@@ -100,7 +100,7 @@ if params['res']['include']:
     # if params['res']["strategy"] == "asusual":
     #     net = add_res_without_siting(net, params["res"]["technologies"], costs["generation"])
     if params['res']["strategy"] == "bus":
-        net = add_res_per_bus(net)
+        net = add_res_per_bus(net, params["res"]["technologies"], tech_config)
     if params['res']["strategy"] == "full":
         net = add_res_at_resolution(net, total_shape, [params["region"]], params["res"]["technologies"],
                                     tech_config, params["res"]["spatial_resolution"],

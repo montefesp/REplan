@@ -9,13 +9,13 @@ time:
   resolution: 1
 
 # Space
-region: "EU"
+region: "BENELUX"
 add_offshore: True
 
 # RES
 res:
   include: True
-  strategy: "generate" # max or comp or asusual or bus or full or generate
+  strategy: "bus" # (max or comp) or asusual or bus or full or generate
 
   # For strategy = max or comp
   resite_nb: 100 # can be multiples of 25

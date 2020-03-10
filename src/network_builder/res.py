@@ -13,7 +13,8 @@ from src.data.resource.manager import get_cap_factor_for_regions, get_cap_factor
     read_resource_database, compute_capacity_factors
 from src.data.land_data.manager import filter_points
 from src.data.geographics.manager import is_onshore, get_nuts_area, match_points_to_region, return_points_in_shape
-from src.data.res_potential.manager import get_capacity_potential, get_potential_ehighway
+from src.data.res_potential.manager import get_capacity_potential, get_potential_ehighway, \
+    get_capacity_potential_for_regions
 # TODO: this shoulnd't be here normally
 from src.data.topologies.ehighway import get_ehighway_clusters
 from src.resite.resite import Resite
@@ -198,8 +199,8 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
 
 
 def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Polygon, MultiPolygon], regions: List[str],
-                                     technologies: List[str], tech_config: Dict[str, Any], spatial_resolution: float,
-                                     filtering_layers: Dict[str, bool]) \
+                                 technologies: List[str], tech_config: Dict[str, Any], spatial_resolution: float,
+                                 filtering_layers: Dict[str, bool]) \
         -> pypsa.Network:
     """
     Creates pv and wind generators for every coordinate at a resolution of 0.5 inside the region associate to each bus
@@ -253,7 +254,7 @@ def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Poly
                      pd.Index([str(y) for _, y in points]),
                      bus=associated_buses.values,
                      p_nom_extendable=True,
-                     p_nom_max=cap_potential_ds[tech][points].values,
+                     p_nom_max=cap_potential_ds[tech][points].values*1000,
                      # p_nom_min=existing_cap,
                      p_max_pu=cap_factor_df[tech][points].values,
                      type=tech,
@@ -266,9 +267,7 @@ def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Poly
     return network
 
 
-# TODO: this only works for one year of data
-# TODO: this is shit because only works for e-highway
-def add_generators_per_bus(network: pypsa.Network, technologies: List[str]) -> pypsa.Network:
+def add_generators_per_bus(network: pypsa.Network, technologies: List[str], tech_config: Dict[str, Any]) -> pypsa.Network:
     """
     Adds pv and wind generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
 
@@ -285,67 +284,41 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str]) -> p
         Updated network
     """
 
-    assert network.snapshots[0].year == network.snapshots[-1].year, "This code only works for one year of data"
+    # Compute capacity potential for each bus region
+    spatial_res = 0.5
+    tech_regions_dict = dict.fromkeys(technologies)
+    tech_points_dict = dict.fromkeys(technologies)
+    for tech in technologies:
 
-    # Get capacity factors
-    wind_cap_factor, _, pv_cap_factor, _ = get_cap_factor_for_regions(network.buses.region, network.snapshots[0].month,
-                                                                      network.snapshots[-1].month)
+        is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
+        buses = network.buses[network.buses.onshore == is_onshore]
+        tech_points_dict[tech] = [(round(x/spatial_res)*spatial_res, round(y/spatial_res)*spatial_res)
+                      for x, y in buses[["x", "y"]].values]
+        tech_regions_dict[tech] = buses.region.values
+    cap_pot_ds = get_capacity_potential_for_regions(tech_regions_dict)
 
-    total_number_hours = len(wind_cap_factor.time)
-    last_available_day = datetime.utcfromtimestamp((wind_cap_factor.time[-1] - np.datetime64('1970-01-01T00:00:00Z'))
-                                                   / np.timedelta64(1, 's')).day
-
-    # Get only the slice we want
-    first_wanted_day = network.snapshots[0].day
-    last_wanted_day = network.snapshots[-1].day
-    desired_range = range((first_wanted_day-1)*24, total_number_hours-24*(last_available_day-last_wanted_day))
-
-    wind_cap_factor = wind_cap_factor.isel(time=desired_range)
-    pv_cap_factor = pv_cap_factor.isel(time=desired_range)
-
-    capacity_per_km_pv = get_potential_ehighway(network.buses.index.values, "pv").values
-    capacity_per_km_wind = get_potential_ehighway(network.buses.index.values, "wind").values
-
-    eh_clusters = get_ehighway_clusters()
-
-    areas = get_nuts_area()
-    areas.index.name = 'code'
-
-    bus_areas = np.zeros(len(network.buses.index))
-    for i, index in enumerate(network.buses.index):
-        bus_areas[i] = sum(areas.loc[eh_clusters.loc[index].codes.split(","), "2015"])
+    # Compute capacity factors
+    cap_factor_df = compute_capacity_factors(tech_points_dict, tech_config, spatial_res, network.snapshots)
 
     for tech in technologies:
+
+        is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
+        buses = network.buses[network.buses.onshore == is_onshore]
 
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 
         # Adding to the network
-        network.madd("Generator", "Gen wind " + network.buses.index,
-                     bus=network.buses.index,
-                     p_nom_extendable=True,  # consider that the tech can be deployed on 50*50 km2
-                     p_nom_max=capacity_per_km_wind * bus_areas * 1000,
-                     p_max_pu=wind_cap_factor.values.T,
+        network.madd("Generator", f"Gen {tech} " + buses.index,
+                     bus=buses.index,
+                     p_nom_extendable=True,
+                     p_nom_max=cap_pot_ds[tech].values*1000,  # Convert to MW
+                     p_max_pu=cap_factor_df[tech].values,
                      type="wind",
                      carrier="wind",
-                     x=network.buses.x,
-                     y=network.buses.y,
+                     x=buses.x,
+                     y=buses.y,
                      marginal_cost=marginal_cost,
                      capital_cost=capital_cost)
-
-        """
-        # Adding to the network
-        network.madd("Generator", "Gen pv " + network.buses.index,
-                     bus=network.buses.index,
-                     p_nom_extendable=True,  # consider that the tech can be deployed on 50*50 km2
-                     p_nom_max=capacity_per_km_pv * bus_areas * 1000,
-                     p_max_pu=pv_cap_factor.values.T,
-                     type="pv",
-                     carrier="pv",
-                     x=network.buses.x,
-                     y=network.buses.y,
-                     marginal_cost=gen_costs[tech]["opex"] / 1000.0,
-                     capital_cost=gen_costs[tech]["capex"] * len(network.snapshots) / (8760 * 1000.0))
-        """
 
     return network
 

@@ -15,6 +15,7 @@ import shapely
 from shapely.geometry import MultiPolygon, Polygon, Point, MultiPoint
 from shapely.ops import cascaded_union, unary_union
 import shapely.prepared
+from shapely.errors import TopologicalError
 import geopy
 
 import pycountry as pyc
@@ -110,25 +111,32 @@ def save_to_geojson(df, fn):
     Returns
     -------
     """
-    pass
-    # if exists(fn):
-    #     unlink(fn)
-    # if not isinstance(df, gpd.GeoDataFrame):
-    #     df = gpd.GeoDataFrame(dict(geometry=df))
-    # df = df.reset_index()
-    # schema = {**gpd.io.file.infer_schema(df), 'geometry': 'Unknown'}
-    # df.to_file(fn, driver='GeoJSON', schema=schema)
+    if exists(fn):
+        unlink(fn)
+    if not isinstance(df, gpd.GeoDataFrame):
+        df = gpd.GeoDataFrame(dict(geometry=df))
+    df = df.reset_index()
+    schema = {**gpd.io.file.infer_schema(df), 'geometry': 'Unknown'}
+    df.to_file(fn, driver='GeoJSON', schema=schema)
+
+
+def save_polygon(df: gpd.GeoDataFrame, fn: str):
+
+    assert isinstance(df, gpd.GeoDataFrame), \
+        "Error: The first argument of this function should be a geopandas.GeoDataFrame"
+    df.to_file(fn, driver='GeoJSON')
 
 
 def display_polygons(polygons_list):
 
-    print(polygons_list)
     assert isinstance(polygons_list, list) or isinstance(polygons_list, np.ndarray), \
         'The argument must be a list of polygons or multipolygons'
 
     fig = plt.figure(figsize=(13, 13))
 
     ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+
+    print(polygons_list)
 
     for polygons in polygons_list:
         c = (random(), random(), random())
@@ -138,8 +146,14 @@ def display_polygons(polygons_list):
             longitudes = [i[0] for i in poly.exterior.coords]
             latitudes = [i[1] for i in poly.exterior.coords]
             ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color=c)
+            # Remove interior
+            interior_polys = list(poly.interiors)
+            for i_poly in interior_polys:
+                longitudes = [i[0] for i in i_poly.coords]
+                latitudes = [i[1] for i in i_poly.coords]
+                ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color='white')
 
-    # plt.show()
+    plt.show()
 
 
 def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Series) -> pd.Series:
@@ -492,6 +506,12 @@ def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, fi
         offshore_shapes['geometry'] = offshore_shapes['geometry']\
             .map(lambda x: filter_offshore_polys(x, onshore_shape, minarea, tolerance, filterremote))
 
+    # Remove lines for which whole polygons as been removed
+    empty_shapes_index = offshore_shapes[offshore_shapes['geometry'].is_empty].index
+    if len(empty_shapes_index) != 0:
+        print(f"Warning: Shapes for following codes have been totally removed: {empty_shapes_index.values}")
+        offshore_shapes = offshore_shapes.drop(empty_shapes_index)
+
     if save_file_name is not None:
         save_to_geojson(offshore_shapes, save_file_name)
 
@@ -575,11 +595,12 @@ def generate_offshore_shapes_geojson():
     """
 
     # Computes the coordinates-based (long, lat) shape for offshore territory
-    offshore_shapes_fn = join(dirname(abspath(__file__)), '../../../data/geographics/generated/offshore_shapes.geojson')
     eez_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eez/World_EEZ_v8_2014.shp")
+    # eez_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/World_EEZ_v11_20191118/eez_v11.shp")
 
     df = gpd.read_file(eez_fn)
     df['name'] = df['ISO_3digit'].map(lambda code: _get_country('alpha_2', alpha_3=code))
+    # df['name'] = df['ISO_SOV1'].map(lambda code: _get_country('alpha_2', alpha_3=code))
     # if still nans remove them TODO: might need to check other codes
     df = df[pd.notnull(df['name'])]
     df = df[['name', 'geometry']].set_index('name')
@@ -593,24 +614,17 @@ def generate_offshore_shapes_geojson():
     unique_countries_shape = unique_countries_shape['geometry']
     unique_countries_shape.index.names = ['name']
 
+    offshore_shapes_fn = join(dirname(abspath(__file__)), '../../../data/geographics/generated/offshore_shapes.geojson')
     save_to_geojson(unique_countries_shape, offshore_shapes_fn)
-
-
-# # TODO: not sure that this must be here
-# def attach_region(self, region_type: str):
-#
-#     if region_type is "voronoi":
-#         points = np.column_stack((self.n.buses["x"].values, self.n.buses["y"].values))
-#         buses_shapes = voronoi_partition_pts(points, self.n.total_shape)
-#         self.n.buses["region"].values = buses_shapes
 
 
 if __name__ == "__main__":
 
     # Need to execute these lines only once
-    generate_onshore_shapes_geojson()
+    # generate_onshore_shapes_geojson()
     generate_offshore_shapes_geojson()
 
+    get_offshore_shapes(["GB"])
     # onshore_shapes_save_fn = 'on_test.geojson'
     # onshore_shapes_ = get_onshore_shapes(['BE'], minarea=10000, filterremote=True)
     # print(onshore_shapes_)
