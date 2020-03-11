@@ -1,4 +1,4 @@
-from os.path import join, dirname, abspath
+from typing import List
 
 import pandas as pd
 import numpy as np
@@ -15,7 +15,7 @@ def load_ppm():
     pm.powerplants(from_url=True)
 
 
-def get_gen_from_ppm(fuel_type: str = "", technology: str = "") -> pd.DataFrame:
+def get_gen_from_ppm(fuel_type: str = "", technology: str = "", countries: List[str] = None) -> pd.DataFrame:
     """Returns information about generator using a certain fuel type and/or technology
      as extracted from power plant matching tool
 
@@ -29,6 +29,8 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "") -> pd.DataFrame:
         One of the generator's technology contained in the power plant matching tool
         ['Pv', 'Reservoir', 'Offshore', 'OCGT', 'Storage Technologies', 'Run-Of-River', 'CCGT', 'CCGT, Thermal',
         'Steam Turbine', 'Pumped Storage']
+    countries: List[str]
+        List of ISO codes of countries for which we want to obtain plants
 
     Returns
     -------
@@ -47,15 +49,10 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "") -> pd.DataFrame:
         plants = plants[plants.Technology == technology]
 
     # Convert country to code
-    countries_codes_fn = join(dirname(abspath(__file__)), "../../../data/countries-codes.csv")
-    countries_code = pd.read_csv(countries_codes_fn)
-
-    # def convert_country_name_to_code(country_name):
-    #     if country_name == "Macedonia, Republic of":
-    #         country_name = "Macedonia"
-    #    return countries_code[countries_code.Name == country_name]["Code"].values[0]
-    # plants["Country"] = plants["Country"].map(convert_country_name_to_code)
     plants["Country"] = plants["Country"].apply(lambda c: _get_country('alpha_2', name=c))
+
+    # Get only plants in countries over which the network is defined
+    plants = plants[plants["Country"].isin(countries)]
 
     return plants
 

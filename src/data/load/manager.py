@@ -24,7 +24,7 @@ def get_countries_load(country_codes: List[str], nb_years: int = 1,
     Parameters
     ----------
     country_codes: List[str]
-        List of country codes
+        List of country ISO codes
     nb_years: int (default: 1)
         Number of years for which we want load
     days_range_start: datetime.date (default: datetime.date(1, 1, 31))
@@ -84,6 +84,7 @@ def get_countries_load(country_codes: List[str], nb_years: int = 1,
             load_data_time_sliced[code] = load_data_for_code.loc[start_date:end_date].values
 
         return load_data_time_sliced
+
     else:
 
         # Detect number of leap years
@@ -177,7 +178,7 @@ def get_countries_load_interpolated(target_countries: List[str], source_countrie
     return target_countries_load
 
 
-def get_load_from_nuts_codes(region_codes_lists: List[List[str]], nb_years: int = 1,
+def get_load_from_nuts_codes(nuts_codes_lists: List[List[str]], nb_years: int = 1,
                              days_range_start: datetime.date = datetime.date(1, 1, 1),
                              days_range_end: datetime.date = datetime.date(1, 12, 31),
                              years: List[int] = None) -> pd.DataFrame:
@@ -186,8 +187,8 @@ def get_load_from_nuts_codes(region_codes_lists: List[List[str]], nb_years: int 
 
     Parameters
     ----------
-    region_codes_lists: List[List[str]]
-        List of list of codes of regions. A load series will be returned for each list of regions.
+    nuts_codes_lists: List[List[str]]
+        List of list of nuts codes. A load series will be returned for each list of regions.
     nb_years: int (default: 1)
         Number of years for which we want load
     days_range_start: datetime.date (default: datetime.date(1, 1, 31))
@@ -227,17 +228,11 @@ def get_load_from_nuts_codes(region_codes_lists: List[List[str]], nb_years: int 
         range(((days_range_end-days_range_start).days+1) * len(years))
 
     all_countries = set.union(*[set([region[:2] for region in region_list])
-                                for region_list in region_codes_lists])
+                                for region_list in nuts_codes_lists])
 
-    # Replace some codes if present
-    if "EL" in all_countries:
-        all_countries.remove("EL")
-        all_countries.add("GR")
-    if "UK" in all_countries:
-        all_countries.remove("UK")
-        all_countries.add("GB")
-
-    all_countries = list(all_countries)
+    # Replace UK and EL
+    nuts0_problems = {"UK": "GB", "EL": "GR"}
+    all_countries = [nuts0_problems[r] if r in nuts0_problems else r for r in all_countries]
 
     # Divide countries for which we directly have access to data or not
     source_countries = [load_info.loc[c]["Source region"] for c in all_countries]
@@ -252,17 +247,13 @@ def get_load_from_nuts_codes(region_codes_lists: List[List[str]], nb_years: int 
         get_countries_load_interpolated(countries_to_interpolate, countries_to_interpolate_source, nb_years,
                                         days_range_start, days_range_end, years)
 
-    load = pd.DataFrame(0, index=index, columns=range(len(region_codes_lists)))
-    for idx, region_codes_list in enumerate(region_codes_lists):
+    load = pd.DataFrame(0, index=index, columns=range(len(nuts_codes_lists)))
+    for idx, region_codes_list in enumerate(nuts_codes_lists):
         for code in region_codes_list:
             nuts_country_code = code[:2]
 
-            country_code = nuts_country_code
-            if nuts_country_code == "EL":
-                country_code = "GR"
-            if nuts_country_code == "UK":
-                country_code = "GB"
-
+            country_code = \
+                nuts0_problems[nuts_country_code] if nuts_country_code in nuts0_problems else nuts_country_code
             country_load = countries_load[country_code]
 
             # Once we have the load for the countries, down scale it to the regions of interest by using population
@@ -323,8 +314,7 @@ def available_load():
     return available_data
 
 
-# TODO:
-#   Need to merge this function
+# TODO: Need to merge this function
 def retrieve_load_data(regions: List[str], timestamps: pd.DatetimeIndex) -> pd.DataFrame:
     """
     Returns load time series for given regions and time horizon.
@@ -356,7 +346,7 @@ def retrieve_load_data(regions: List[str], timestamps: pd.DatetimeIndex) -> pd.D
     # Slice data on region
     load_per_region = pd.DataFrame(columns=regions, index=timestamps)
     for region in regions:
-        # Get load date for all subregions, sum it and transform to GW # TODO: check it is indeed GW
+        # Get load date for all subregions, sum it and transform to GW
         load_per_region[region] = load_data[get_subregions(region)].sum(axis=1).values * 1e-3
 
     return load_per_region

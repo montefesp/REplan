@@ -70,6 +70,7 @@ if __name__ == "__main__":
     net.set_snapshots(timestamps)
 
     # Adding carriers
+    # TODO: need to change this and also generator creation
     for tech in emission["co2"]:
         net.add("Carrier", tech, co2_emissions=emission["co2"][tech]/1000.0)
 

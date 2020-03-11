@@ -200,20 +200,6 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Seri
     return points_region_ds
 
 
-# TODO: ok i have a file for this -> problem with UK
-def return_ISO_codes_from_countries():
-
-    dict_ISO = {'Albania': 'AL', 'Armenia': 'AR', 'Belarus': 'BL', 'Belgium': 'BE', 'Bulgaria': 'BG', 'Croatia': 'HR',
-                'Cyprus': 'CY', 'Czech Republic': 'CZ', 'Estonia': 'EE', 'Latvia': 'LV', 'Lithuania': 'LT',
-                'Denmark': 'DK', 'France': 'FR', 'Germany': 'DE', 'Greece': 'EL', 'Hungary': 'HU', 'Ireland': 'IE',
-                'Italy': 'IT', 'Macedonia': 'MK', 'Malta': 'MT', 'Norway': 'NO', 'Iceland': 'IS', 'Finland': 'FI',
-                'Montenegro': 'MN', 'Netherlands': 'NL', 'Poland': 'PL', 'Portugal': 'PT', 'Romania': 'RO',
-                'Slovak Republic': 'SK', 'Spain': 'ES', 'Sweden': 'SE',
-                'Switzerland': 'CH', 'Turkey': 'TR', 'Ukraine': 'UA', 'United Kingdom': 'UK'}
-
-    return dict_ISO
-
-
 def get_subregions(region: str):
     """
     Returns the list of the codes of the subregion of a given region
@@ -228,19 +214,12 @@ def get_subregions(region: str):
         List of subregion codes, if no subregions, returns list[region]
     """
 
-    # TODO: need to change that
-    # path_shapefile_data = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../data/shapefiles')
-    # onshore_shapes_all = gpd.read_file(os.path.join(path_shapefile_data, 'NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson'))
-
     region_definition_fn = join(dirname(abspath(__file__)), '../../../data/region_definition.csv')
     region_definition = pd.read_csv(region_definition_fn, index_col=0, keep_default_na=False)
     if region in region_definition.index:
         subregions = region_definition.loc[region].subregions.split(";")
-    #elif region_code in onshore_shapes_all['CNTR_CODE'].values: # TODO: to check
     else:
         subregions = [region]
-    #else:
-    #    raise ValueError(' Unknown region ', region_code)
 
     return subregions
 
@@ -470,9 +449,8 @@ def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, fi
         indexed by the name of the region and containing the shape of each offshore territory
     """
 
-    # TODO: shitty hack to deal with UK and GR
-    ids = ['GB' if x == 'UK' else x for x in ids]
-    ids = ['GR' if x == 'EL' else x for x in ids]
+    uk_el_to_gb_gr = {'UK': 'GB', 'EL': 'GR'}
+    ids = [uk_el_to_gb_gr[c] if c in uk_el_to_gb_gr else c for c in ids]
 
     if save_file_name is not None:
         save_file_name = join(dirname(abspath(__file__)), "../../../output/geographics/" + save_file_name)
@@ -490,7 +468,7 @@ def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, fi
     region_names = [idx.split('-')[0] for idx in filtered_ids]  # Allows to consider states and provinces
     offshore_shapes = offshore_shapes.loc[region_names]
 
-    # TODO: bug if non of the country in the list has an offshore shape
+    # TODO: bug if none of the country in the list has an offshore shape
 
     # Keep only offshore 'close' to onshore
     if onshore_shape is not None:

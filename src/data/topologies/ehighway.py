@@ -298,7 +298,8 @@ def voronoi_special(shape: Union[Polygon, MultiPolygon], centroids: List[List[fl
             for index in centroids_nodes_indexes]
 
 
-def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool, plot: bool = False) -> pypsa.Network:
+def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool, extend_line_cap: bool = True,
+                 use_ex_line_cap: bool = True, plot: bool = False) -> pypsa.Network:
     """Load the e-highway network topology (buses and links) using PyPSA
 
     Parameters
@@ -306,9 +307,13 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     network: pypsa.Network
         Network instance
     countries: List[str]
-        List of countries for which we want the e-highway topology
+        List of ISO codes of countries for which we want the e-highway topology
     add_offshore: bool
         Whether to include offshore nodes
+    extend_line_cap: bool (default True)
+        Whether line capacity is allowed to be expanded
+    use_ex_line_cap: bool (default True)
+        Whether to use existing line capacity
     plot: bool (default: False)
         Whether to show loaded topology or not
 
@@ -326,11 +331,13 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     if not add_offshore:
         buses = buses.loc[buses['onshore']]
 
+    # In e-highway, GB is referenced as UK
+    e_highway_problems = {"GB": "UK"}
+    e_highway_countries = [e_highway_problems[c] if c in e_highway_problems else c for c in countries]
+
     # Remove onshore buses that are not in the considered region, keep also buses that are offshore
     def filter_buses(bus):
-        country_name = bus.name[2:]
-        country_name = 'EL' if country_name == 'GR' else country_name  # TODO: raaaaaah
-        return not bus.onshore or country_name in countries
+        return not bus.onshore or bus.name[2:] in e_highway_countries
     buses = buses.loc[buses.apply(filter_buses, axis=1)]
 
     # Converting polygons strings to Polygon object
@@ -355,7 +362,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
         # Get list of countries which have offshore territories and are in the considered countries
         offshore_zones_codes = ["AL", "BE", "BG", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GE",
                                 "GR", "HR", "IE", "IR", "IS", "IT", "LT", "LV", "ME", "NL", "NO",
-                                "PL", "PT", "RO", "RU", "SE", "TR", "UA", "EL", "UK"]
+                                "PL", "PT", "RO", "RU", "SE", "TR", "UA"]
         offshore_zones_codes = sorted(list(set(offshore_zones_codes).intersection(set(countries))))
         if len(offshore_zones_codes) != 0:
             onshore_buses = buses[buses.onshore]
@@ -381,10 +388,13 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
         cap_cost, _ = get_cost(carrier, len(network.snapshots))
         lines.loc[idx, ('capital_cost', )] = cap_cost * lines.length.loc[idx]
     """
+
     lines['p_nom'] = lines["s_nom"] * 1000.0  # PyPSA uses MW
+    if not use_ex_line_cap:
+        lines['p_nom'] = 0
     lines['p_nom_min'] = lines['p_nom']
     lines = lines.drop('s_nom', axis=1)
-    lines['p_nom_extendable'] = pd.Series(True, index=lines.index)  # TODO: paramterize
+    lines['p_nom_extendable'] = pd.Series(extend_line_cap, index=lines.index)
     lines['capital_cost'] = pd.Series(index=lines.index)
     for idx in lines.index:
         carrier = lines.loc[idx].carrier
@@ -402,5 +412,5 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     return network
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     preprocess(True)

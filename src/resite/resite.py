@@ -129,8 +129,10 @@ class Resite:
 
         if use_ex_cap:
             self.logger.info("Get existing legacy capacity")
-            tech_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility']))
-            existing_capacity_dict = get_legacy_capacity(tech_with_legacy_data, all_subregions, init_points, self.spatial_res)
+            tech_with_legacy_data = \
+                list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility']))
+            existing_capacity_dict = get_legacy_capacity(tech_with_legacy_data, self.tech_config, all_subregions,
+                                                         init_points, self.spatial_res)
 
             # Update filtered points
             for tech in existing_capacity_dict:
@@ -156,7 +158,7 @@ class Resite:
                                                       self.spatial_res, self.timestamps)
 
         self.logger.info("Compute capacity potential per node")
-        self.cap_potential_ds = get_capacity_potential(self.tech_points_dict, self.spatial_res, self.regions,
+        self.cap_potential_ds = get_capacity_potential(self.tech_points_dict, self.spatial_res, all_subregions,
                                                        self.existing_capacity_ds)
 
         # Compute percentage of existing capacity and set to 1. when capacity is zero

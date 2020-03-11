@@ -1,7 +1,6 @@
 from os.path import join, dirname, abspath, isfile
 from os import listdir
 import glob
-import yaml
 from ast import literal_eval
 from typing import List, Dict, Tuple, Any
 
@@ -17,10 +16,10 @@ import windpowerlib
 
 import matplotlib.pyplot as plt
 
+# TODO: revise the functions in this file
 
-# TODO:
-#  - need to more precise on description of function
-#  - add the filtering on coordinates
+
+# TODO: add the filtering on coordinates and revise
 def read_resource_database(file_path, coords=None):
     """
     Reads resource database from .nc files.
@@ -70,8 +69,6 @@ def read_resource_database(file_path, coords=None):
     return dataset
 
 
-# TODO:
-#  - replace using atlite?
 def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float]]], tech_config: Dict[str, Any],
                              spatial_res: float, timestamps: pd.DatetimeIndex,
                              smooth_wind_power_curve: bool = True) -> pd.DataFrame:
@@ -124,8 +121,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 
         if resource == 'wind':
 
-            # TODO: should that be a parameter?
-            wind_speed_height = 100.
+            wind_speed_height = 100.  # TODO: parametrize?
             array_roughness = sub_dataset.fsr
 
             # Compute wind speed for the all the coordinates

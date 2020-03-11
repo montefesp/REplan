@@ -1,4 +1,3 @@
-from src.data.geographics.manager import return_ISO_codes_from_countries
 from src.data.land_data.manager import filter_onshore_offshore_points
 from os.path import join, dirname, abspath
 import pandas as pd
@@ -7,9 +6,11 @@ import scipy.spatial
 import numpy as np
 from typing import *
 
+from src.data.geographics.manager import _get_country
 
-def read_legacy_capacity_data(tech: str, regions: List[str], points: List[Tuple[float, float]]) \
-        -> Dict[List[Tuple[float, float]], float]:
+
+def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: List[str],
+                              points: List[Tuple[float, float]]) -> Dict[List[Tuple[float, float]], float]:
     """
     Reads dataset of existing RES units in the given area and associated to the closest points. Available for EU only.
 
@@ -17,8 +18,10 @@ def read_legacy_capacity_data(tech: str, regions: List[str], points: List[Tuple[
     ----------
     tech: str
         Technology for which we want existing capacity
-    regions: List[str]
-        List of regions codes for which we want data
+    legacy_min_capacity: float
+        Points with an aggregate capacity under this capacity will be removed
+    countries: List[str]
+        List of ISO codes of countries for which we want data
     points : List[Tuple[float, float]]
         Points to which existing capacity must be associated
 
@@ -39,17 +42,14 @@ def read_legacy_capacity_data(tech: str, regions: List[str], points: List[Tuple[
                              header=0, usecols=[2, 5, 9, 10, 18, 23], skiprows=[1], na_values='#ND')
         data = data.dropna(subset=['Latitude', 'Longitude', 'Total power'])
         data = data[data['Status'] != 'Dismantled']
-        data = data[data['ISO code'].isin(regions)]
+        data = data[data['ISO code'].isin(countries)]
         # Converting from kW to GW
         data['Total power'] *= 1e-6
 
         # Keep only onshore or offshore point depending on technology
         if tech == 'wind_onshore':
-            capacity_threshold = 0.2  # TODO: ask David -> to avoid to many points, Parametrize
             data = data[data['Area'] != 'Offshore']
-
         else:  # wind_offhsore
-            capacity_threshold = 0.5
             data = data[data['Area'] == 'Offshore']
 
         # Associate each location with legacy capacity to a point in points
@@ -62,23 +62,17 @@ def read_legacy_capacity_data(tech: str, regions: List[str], points: List[Tuple[
         data['Node'] = associated_points
         aggregate_capacity_per_node = data.groupby(['Node'])['Total power'].agg('sum')
 
-        point_capacity_dict = aggregate_capacity_per_node[aggregate_capacity_per_node > capacity_threshold].to_dict()
+        point_capacity_dict = aggregate_capacity_per_node[aggregate_capacity_per_node > legacy_min_capacity].to_dict()
 
     else:
 
         data = pd.read_excel(join(path_legacy_data, 'Solarfarms_Europe_20200208.xlsx'), sheet_name='ProjReg_rpt',
-                          header=0, usecols=[0, 3, 4, 5, 8])
+                             header=0, usecols=[0, 3, 4, 5, 8])
         data = data[pd.notnull(data['Coords'])]
         data['Longitude'] = data['Coords'].str.split(',', 1).str[1]
         data['Latitude'] = data['Coords'].str.split(',', 1).str[0]
-
-        # TODO: check if this possibility works -> problem with UK - GB
-        # countries_codes_fn = join(dirname(abspath(__file__)),
-        #                          "../../data/countries-codes.csv")
-        # countries_code = pd.read_csv(countries_codes_fn, index_col="Name")
-        # data['ISO code'] = countries_code[["Code"]].to_dict()["Code"]
-        data['ISO code'] = data['Country'].map(return_ISO_codes_from_countries())
-        data = data[data['ISO code'].isin(regions)]
+        data['Country'] = data['Country'].apply(lambda c: _get_country('alpha_2', name=c))
+        data = data[data['Country'].isin(countries)]
         # Converting from MW to GW
         data['MWac'] *= 1e-3
 
@@ -93,13 +87,13 @@ def read_legacy_capacity_data(tech: str, regions: List[str], points: List[Tuple[
         data['Node'] = associated_points
         aggregate_capacity_per_node = data.groupby(['Node'])['MWac'].agg('sum')
 
-        capacity_threshold = 0.05  # TODO: parametrize?
-        point_capacity_dict = aggregate_capacity_per_node[aggregate_capacity_per_node > capacity_threshold].to_dict()
+        point_capacity_dict = aggregate_capacity_per_node[aggregate_capacity_per_node > legacy_min_capacity].to_dict()
 
     return point_capacity_dict
 
 
-def get_legacy_capacity(technologies: List[str], regions: List[str], points: List[Tuple[float, float]],
+def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
+                        regions: List[str], points: List[Tuple[float, float]],
                         spatial_resolution: float) -> Dict[str, Dict[Tuple[float, float], float]]:
     """
     Returns, for each technology and for each point, the existing (legacy) capacity in GW.
@@ -118,7 +112,7 @@ def get_legacy_capacity(technologies: List[str], regions: List[str], points: Lis
     Returns
     -------
     existing_capacity_dict : Dict[str, Dict[Tuple[float, float], float]]
-        Dictionary giving for each technology a dictionary associating each location TODO: with non-zero capacity?
+        Dictionary giving for each technology a dictionary associating each location
         with its legacy capacity for that technology.
 
     """
@@ -133,9 +127,11 @@ def get_legacy_capacity(technologies: List[str], regions: List[str], points: Lis
         onshore = False if tech == 'wind_offshore' else True
         land_filtered_points = filter_onshore_offshore_points(onshore, points, spatial_resolution)
         # Get legacy capacity at points in land_filtered_coordinates where legacy capacity exists
-        existing_capacity_dict[tech] = read_legacy_capacity_data(tech, regions, land_filtered_points)
+        existing_capacity_dict[tech] = read_legacy_capacity_data(tech, tech_config[tech]['legacy_min_capacity'],
+                                                                 regions, land_filtered_points)
 
     return existing_capacity_dict
+
 
 def get_legacy_capacity_in_regions():
     pass

@@ -41,18 +41,15 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
         ppm_folder = join(dirname(abspath(__file__)), "../../data/ppm/")
         gens = pd.read_csv(ppm_folder + "/" + ppm_file_name, index_col=0, delimiter=";")
         gens["Country"] = gens["Country"].apply(lambda c: _get_country('alpha_2', name=c))
+        gens = gens[gens["Country"].isin(countries)]
     else:
-        gens = get_gen_from_ppm(fuel_type="Nuclear")
-
-    # Get only plants in countries over which the network is defined
-    gens = gens[gens["Country"].apply(lambda c: c in countries)]
-
-    # Round lon and lat
-    gens[["lon", "lat"]] = gens[["lon", "lat"]].round(2)
+        gens = get_gen_from_ppm(fuel_type="Nuclear", countries=countries)
 
     gens = find_associated_buses_ehighway(gens, network)
     # TODO: this could make the function more generic but for some weird reasons there is a fucking bug happening
     #    in match_points_to_region
+    # Round lon and lat
+    # gens[["lon", "lat"]] = gens[["lon", "lat"]].round(2)
     # print(gens)
     # onshore_buses = network.buses[network.buses.onshore]
     # match_points_to_region(gens[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values,

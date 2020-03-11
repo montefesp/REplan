@@ -56,8 +56,22 @@ def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, floa
     return list(set(points).intersection(set(points_in_mask)))
 
 
-# TODO: comment
-def read_filter_database(filename, coords=None):
+# TODO: merge with other read_database?
+def read_filter_database(filename: str, coords: List[Tuple[float, float]] = None) -> xr.Dataset:
+    """
+    Opens a file containing filtering information
+
+    Parameters
+    ----------
+    filename: str
+        Name of the file containing the filtering information
+    coords: List[Tuple[float, float]] (default: None)
+        List of points for which we want the filtering information
+
+    Returns
+    -------
+    dataset: xarray.Dataset
+    """
 
     dataset = xr.open_dataset(filename)
     dataset = dataset.sortby([dataset.longitude, dataset.latitude])
@@ -71,7 +85,6 @@ def read_filter_database(filename, coords=None):
     return dataset
 
 
-# TODO: Should we actually return the points to keep rather than the points to remove?
 def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], spatial_resolution: float,
                            tech_dict: Dict[str, Any]) -> List[Tuple[float, float]]:
     """
@@ -91,8 +104,8 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
 
     Returns
     -------
-    points_to_remove : List[Tuple[float, float]]
-        List of points to be removed from the initial set.
+    points : List[Tuple[float, float]]
+        List of filtered points.
 
     """
     if filter_name == 'protected_areas':
@@ -119,6 +132,8 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
             if geopy.distance.geodesic((coord1[1], coord1[0]), (coord2[1], coord2[0])).km < threshold_distance:
                 points_to_remove.append(tuple(coord1))
 
+        points = list(set(points) - set(points_to_remove))
+
     elif filter_name == 'resource_quality':
 
         # TODO: still fucking slow, make no sense to be so slow
@@ -138,7 +153,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
         array_resource_mean = array_resource.mean(dim='time')
         mask_resource = array_resource_mean.where(array_resource_mean.data < tech_dict['resource_threshold'], 0)
         coords_mask_resource = mask_resource[da.nonzero(mask_resource)].locations.values.tolist()
-        points_to_remove = list(set(points).intersection(set(coords_mask_resource)))
+        points = list(set(points).difference(set(coords_mask_resource)))
 
     elif filter_name == 'orography':
 
@@ -159,7 +174,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
         points_mask_slope = mask_slope[mask_slope.notnull()].locations.values.tolist()
 
         points_mask_orography = set(points_mask_altitude).union(set(points_mask_slope))
-        points_to_remove = list(set(points).intersection(points_mask_orography))
+        points = list(set(points).difference(points_mask_orography))
 
     elif filter_name == 'forestry':
 
@@ -174,7 +189,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
         mask_forestry = array_forestry.where(array_forestry.data >= forestry_threshold)
         points_mask_forestry = mask_forestry[mask_forestry.notnull()].locations.values.tolist()
 
-        points_to_remove = list(set(points).intersection(set(points_mask_forestry)))
+        points = list(set(points).difference(set(points_mask_forestry)))
 
     elif filter_name == 'water_mask':
 
@@ -187,7 +202,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
         mask_watermask = array_watermask.where(array_watermask.data < 0.9)
         points_mask_watermask = mask_watermask[mask_watermask.notnull()].locations.values.tolist()
 
-        points_to_remove = list(set(points).intersection(set(points_mask_watermask)))
+        points = list(set(points).difference(set(points_mask_watermask)))
 
     elif filter_name == 'bathymetry':
 
@@ -207,7 +222,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
             (array_watermask.data > 0.1))
         points_mask_offshore = mask_offshore[mask_offshore.notnull()].locations.values.tolist()
 
-        points_to_remove = list(set(points).intersection(set(points_mask_offshore)))
+        points = list(set(points).difference(set(points_mask_offshore)))
 
     # TODO: check how we organize this file within the structure
     elif filter_name == 'population_density':
@@ -234,13 +249,13 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
                                                   (array_pop_density.data > population_density_threshold_high))
         points_mask_population = mask_population[mask_population.notnull()].locations.values.tolist()
 
-        points_to_remove = list(set(points).intersection(set(points_mask_population)))
+        points = list(set(points).difference(set(points_mask_population)))
 
     else:
 
         raise ValueError(' Layer {} is not available.'.format(str(filter_name)))
 
-    return points_to_remove
+    return points
 
 
 def filter_points(technologies: List[str], tech_config: Dict[str, Any], init_points: List[Tuple[float, float]],
@@ -253,7 +268,7 @@ def filter_points(technologies: List[str], tech_config: Dict[str, Any], init_poi
     init_points : List[Tuple(float, float)]
         List of points to filter
     tech_config: Dict[str, Any]
-        TODO: comment
+        Gives for every technology, a set of configuration parameters and their associated values
     spatial_resolution : float
         Spatial resolution at which the points are defined.
     technologies : List[str]
@@ -292,7 +307,6 @@ def filter_points(technologies: List[str], tech_config: Dict[str, Any], init_poi
         Dict object giving for each technology the list of filtered points.
 
     """
-    # TODO: take care of the case where you get a empty list of coordinates?
     tech_points_dict = dict.fromkeys(technologies)
 
     for tech in technologies:
@@ -301,6 +315,9 @@ def filter_points(technologies: List[str], tech_config: Dict[str, Any], init_poi
 
         points = copy(init_points)
         for key in filtering_layers:
+
+            if len(points) == 0:
+                break
 
             # Apply the filter if it is set to true
             if filtering_layers[key]:
@@ -311,8 +328,7 @@ def filter_points(technologies: List[str], tech_config: Dict[str, Any], init_poi
                 if key in ['orography', 'population_density', 'protected_areas', 'forestry', 'water_mask'] \
                         and tech_dict['deployment'] in ['offshore', 'floating']:
                     continue
-                points_to_remove = filter_points_by_layer(key, points, spatial_resolution, tech_dict)
-                points = list(set(points) - set(points_to_remove))
+                points = filter_points_by_layer(key, points, spatial_resolution, tech_dict)
 
         tech_points_dict[tech] = points
 

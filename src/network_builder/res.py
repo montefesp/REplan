@@ -12,8 +12,7 @@ import pypsa
 from src.data.resource.manager import get_cap_factor_for_regions, get_cap_factor_at_points, \
     read_resource_database, compute_capacity_factors
 from src.data.geographics.manager import is_onshore, get_nuts_area, match_points_to_region, return_points_in_shape
-from src.data.res_potential.manager import get_capacity_potential, get_potential_ehighway, \
-    get_capacity_potential_for_regions
+from src.data.res_potential.manager import get_capacity_potential_for_regions  # get_capacity_potential, get_potential_ehighway
 from src.resite.resite import Resite
 from src.tech_parameters.costs import get_cost
 
@@ -205,8 +204,6 @@ def add_generators_at_resolution(network: pypsa.Network, regions: List[str], tec
     ----------
     network: pypsa.Network
         A PyPSA Network instance with buses associated to regions
-    total_shape: Polygon
-        Sum of all the regions associated to the buses in network
 
     Returns
     -------

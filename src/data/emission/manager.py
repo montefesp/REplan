@@ -26,7 +26,6 @@ def get_max_emission(max_co2_global_per_year: float, countries: List[str], nb_ho
 
     max_co2 = 0
     for country in countries:
-        # TODO: might actually be nice to combine all these files using xarray or sth similar
         key_ind_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                   "../../../data/key_indicators/generated/" + country + ".csv")
         pop = pd.read_csv(key_ind_fn, index_col=0).loc[2016]["Population (millions)"]*1000000

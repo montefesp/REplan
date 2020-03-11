@@ -13,6 +13,7 @@ wind_onshore:
   altitude_threshold: 1500.
   terrain_slope_threshold: 0.03
   forestry_ratio_threshold: 0.7
+  legacy_min_capacity: 0.2
 
 wind_offshore:
   converter: 'E-126'
@@ -28,6 +29,7 @@ wind_offshore:
   altitude_threshold: 0.
   terrain_slope_threshold: 1.
   forestry_ratio_threshold: 1.
+  legacy_min_capacity: 0.5
 
 wind_floating:
   converter: 'E-126'
@@ -58,6 +60,7 @@ pv_utility:
   altitude_threshold: 2000.
   terrain_slope_threshold: 0.05
   forestry_ratio_threshold: 0.8
+  legacy_min_capacity: 0.05
 
 pv_residential:
   converter: 'DD06M'
