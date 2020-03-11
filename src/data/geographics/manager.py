@@ -1,37 +1,28 @@
-# This file is partly based on some similar file in the PyPSA-Eur project
 from os.path import join, dirname, abspath, isfile, exists
 from os import unlink
 import numpy as np
 from operator import attrgetter
 from six.moves import reduce
-from itertools import takewhile
-import itertools
-from random import random
+from itertools import takewhile, product
 
 import pandas as pd
 import geopandas as gpd
-import xarray as xr
 import shapely
 from shapely.geometry import MultiPolygon, Polygon, Point, MultiPoint
-from shapely.ops import cascaded_union, unary_union
+from shapely.ops import cascaded_union
 import shapely.prepared
 from shapely.errors import TopologicalError
 import geopy
 
 import pycountry as pyc
-# from copy import copy
 
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
-# import cartopy.feature as cfeature
+from random import random
 
 from typing import *
 
-# from vresutils.graph import voronoi_partition_pts
-from time import time
 
-
-# TODO: need to add to the resite data the area to which it corresponds
 def is_onshore(point: Point, onshore_shape: Polygon, dist_threshold: float = 20.0) -> bool:
     """
     Determines if a point is onshore (considering that onshore means belonging to the onshore_shape or less than
@@ -62,7 +53,6 @@ def is_onshore(point: Point, onshore_shape: Polygon, dist_threshold: float = 20.
     return False
 
 
-# TODO: might be nice to transform that into a full-fledged package
 def nuts3_to_nuts2(nuts3_codes):
 
     nuts2_codes = []
@@ -321,7 +311,7 @@ def return_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: floa
         maxy = round(maxy / resolution) * resolution
         xs = np.linspace(minx, maxx, num=int((maxx - minx) / resolution) + 1)
         ys = np.linspace(miny, maxy, num=int((maxy - miny) / resolution) + 1)
-        points = list(itertools.product(xs, ys))
+        points = list(product(xs, ys))
     points = MultiPoint(points)
     points = [(point.x, point.y) for point in points.intersection(shape)]
 

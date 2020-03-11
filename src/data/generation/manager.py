@@ -7,6 +7,8 @@ from shapely.geometry import Point
 import pypsa
 import powerplantmatching as pm
 
+from src.data.geographics.manager import _get_country
+
 
 def load_ppm():
     """Load the power plant matching database. Needs to be done only once"""
@@ -48,11 +50,12 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "") -> pd.DataFrame:
     countries_codes_fn = join(dirname(abspath(__file__)), "../../../data/countries-codes.csv")
     countries_code = pd.read_csv(countries_codes_fn)
 
-    def convert_country_name_to_code(country_name):
-        if country_name == "Macedonia, Republic of":
-            country_name = "Macedonia"
-        return countries_code[countries_code.Name == country_name]["Code"].values[0]
-    plants["Country"] = plants["Country"].map(convert_country_name_to_code)
+    # def convert_country_name_to_code(country_name):
+    #     if country_name == "Macedonia, Republic of":
+    #         country_name = "Macedonia"
+    #    return countries_code[countries_code.Name == country_name]["Code"].values[0]
+    # plants["Country"] = plants["Country"].map(convert_country_name_to_code)
+    plants["Country"] = plants["Country"].apply(lambda c: _get_country('alpha_2', name=c))
 
     return plants
 

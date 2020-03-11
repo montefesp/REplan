@@ -4,9 +4,9 @@ import pandas as pd
 
 import pypsa
 
+from src.data.geographics.manager import _get_country
 from src.data.generation.manager import get_gen_from_ppm, find_associated_buses_ehighway
 from src.tech_parameters.costs import get_cost
-
 
 # TODO: this should not depend on e-highway
 def add_generators(network: pypsa.Network, use_ex_cap: bool, extendable: bool,
@@ -38,14 +38,7 @@ def add_generators(network: pypsa.Network, use_ex_cap: bool, extendable: bool,
     if ppm_file_name is not None:
         ppm_folder = join(dirname(abspath(__file__)), "../../data/ppm/")
         gens = pd.read_csv(ppm_folder + "/" + ppm_file_name, index_col=0, delimiter=";")
-        # Convert countries code
-        countries_codes_fn = join(dirname(abspath(__file__)), "../../data/countries-codes.csv")
-        countries_code = pd.read_csv(countries_codes_fn)
-
-        # TODO: this is repeated in another function
-        def convert_country_name_to_code(country_name):
-            return countries_code[countries_code.Name == country_name]["Code"].values[0]
-        gens["Country"] = gens["Country"].map(convert_country_name_to_code)
+        gens["Country"] = gens["Country"].apply(lambda c: _get_country('alpha_2', name=c))
     else:
         gens = get_gen_from_ppm(fuel_type="Nuclear")
 

@@ -9,13 +9,13 @@ time:
   resolution: 1
 
 # Space
-region: "BENELUX"
+region: "EU"
 add_offshore: True
 
 # RES
 res:
   include: True
-  strategy: "comp" # (max or comp) or asusual or bus or full or generate
+  strategy: "full" # (max or comp) or bus or full or generate
 
   # For strategy = max or comp
   resite_nb: 100 # can be multiples of 25
@@ -61,7 +61,6 @@ dispatch:
   include: True
   tech: "ccgt"
 
-# TODO: some of the tech_parameters here should be in the tech_parameters folder
 # Nuclear
 nuclear:
   include: True
