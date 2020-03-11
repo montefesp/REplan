@@ -177,7 +177,6 @@ class PyPSAResultsPlotly:
 
         if attribute in self.net.generators_t.keys():
             filter_generators_idx = [idx for idx in generators_idx.values if idx in self.net.generators_t[attribute].keys()]
-            # TODO: need a way to add back the values which are in self.net.generators ...
             values = self.net.generators_t[attribute][filter_generators_idx].mean()
             print(values)
         else:
@@ -206,7 +205,6 @@ class PyPSAResultsPlotly:
 
         return fig
 
-    # TODO: maybe find a way to merge it with previous function
     def show_storage(self, carriers, attribute):
 
         print(self.net.storage_units)

@@ -29,9 +29,6 @@ tech_colors = {"All": "rgba(138,43,226,0.5)",
 # TODO: Maybe I should put each 'figure' into objects where I can just update some parts of
 #  it so that the uploading is faster
 
-# TODO: cannot show networks if they do not contain storage... --> need to do sth more generic
-
-
 class App:
     
     def __init__(self, output_dir, test_number=None):
@@ -206,7 +203,7 @@ class App:
             lines_in = self.net.lines.where(self.net.lines.bus1 == self.current_bus_id, drop=True)
             outflow = np.sum(lines_out.s.values, axis=0)
             inflow = np.sum(lines_in.s.values, axis=0)
-            net_inflow = inflow - outflow  # TODO: change to include loss in lines
+            net_inflow = inflow - outflow
             pos_net_inflow = net_inflow.copy()
             pos_net_inflow[pos_net_inflow < 0] = 0
             neg_net_inflow = net_inflow.copy()
@@ -269,7 +266,7 @@ class App:
             for t in types:
                 total_generation = [0] * len(self.net.snapshots)
                 generations_by_type = generations['p'].where(generations.type == t, drop=True).values
-                if len(generations_by_type) != 0:  # TODO: try to remove that
+                if len(generations_by_type) != 0:
                     total_generation = np.sum(generations_by_type, axis=0)
                 fig.add_trace(go.Scatter(
                         x=[i for i in range(len(self.net.snapshots))],
@@ -403,7 +400,6 @@ class App:
                 store_invest_cost += new_store_cap * storage.capital_cost
 
             # Lost load
-            # TODO: this is shit
             """
             lost_load_cost = 0
             lost_load_cost_per_unit = costs["lost_load"]
@@ -694,7 +690,7 @@ class App:
         def update_demand_balancing(clickData):
             if clickData is not None and 'points' in clickData:
                 points = clickData['points'][0]
-                if 'text' in points and '-' not in points['text']:  # TODO: shitty way to check the type of point
+                if 'text' in points and '-' not in points['text']:
                     self.current_bus_id = points['text']
                     return get_capacities_for_node(), get_generation_for_node() #get_demand_balancing(), get_state_of_charge(), get_charge_discharge(), \
             raise PreventUpdate

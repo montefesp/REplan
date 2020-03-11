@@ -73,7 +73,6 @@ class PyPSAResults:
 
         return pd.DataFrame.from_dict(opex, orient="index", columns=["opex"]).opex
 
-    # TODO: need to check that the units are correct
     def get_generators_capex(self):
         """Returns the capital expenses for building the new capacity for each type of generator."""
 

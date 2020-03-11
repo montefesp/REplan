@@ -11,10 +11,10 @@ from src.data.topologies.ehighway import get_ehighway_clusters
 from src.data.generation.manager import get_gen_from_ppm, find_associated_buses_ehighway
 from src.tech_parameters.costs import get_cost
 
-# TODO: need to revise all these functions
+# TODO: need to revise all these functions, either deleting some of them or removing the dependencies with regard
+#  to e-highway, moving them in other files
 
 
-# TODO: this should not depend on e-highway
 def add_phs_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: bool = True,
                        extendable: bool = False, efficiency_store: float = 1.0, efficiency_dispatch: float = 1.0,
                        cyclic_sof: bool = True, max_hours: int = 6) -> pypsa.Network:
@@ -27,7 +27,7 @@ def add_phs_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_c
     costs: Dict[str, float]
         Contains capex and opex
     use_ex_cap: bool (default: True)
-        Whether to consider existing capacity or not # TODO: will probably remove that at some point
+        Whether to consider existing capacity or not
     extendable: bool (default: False)
         Whether generators are extendable
     efficiency_store: float (default: 1.0)
@@ -70,7 +70,6 @@ def add_phs_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_c
     return network
 
 
-# TODO: this should probably not be here
 def phs_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en_cap: pd.Series) \
         -> (pd.Series, pd.Series):
     """
@@ -139,7 +138,6 @@ def phs_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en
     return bus_pow_cap, bus_en_cap
 
 
-# TODO: this should not depend on e-highway
 def add_phs_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof: bool = True,
                    efficiency_store: float = 1.0, efficiency_dispatch: float = 1.0) -> pypsa.Network:
     """Adds pumped-hydro storage units to a PyPSA Network instance using other data
@@ -193,7 +191,6 @@ def add_phs_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
     return network
 
 
-# TODO: this should not depend on e-highway
 def add_ror_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: bool = True,
                        extendable: bool = False, efficiency: float = 1.0) -> pypsa.Network:
     """Adds run-of-river generators to a Network instance using powerplantmatching
@@ -244,7 +241,6 @@ def add_ror_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_c
     return network
 
 
-# TODO: this should probably not be here
 def ror_inputs_nuts_to_eh(bus_ids: List[str], nuts2_cap: pd.Series, nuts2_inflows: pd.DataFrame) \
         -> (pd.Series, pd.DataFrame):
     """
@@ -317,7 +313,6 @@ def ror_inputs_nuts_to_eh(bus_ids: List[str], nuts2_cap: pd.Series, nuts2_inflow
     return bus_cap, bus_inflows
 
 
-# TODO: this should not depend on e-highway
 def add_ror_plants(network: pypsa.Network, extendable: bool = False, efficiency: float = 1.0) -> pypsa.Network:
     """Adds run-of-river generators to a Network instance.
 
@@ -368,7 +363,6 @@ def add_ror_plants(network: pypsa.Network, extendable: bool = False, efficiency:
     return network
 
 
-# TODO: this should not depend on e-highway
 def add_reservoir_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: bool = True,
                              extendable: bool = False, efficiency_dispatch: float = 1.0, cyclic_sof: bool = True,
                              max_hours: int = 6) -> pypsa.Network:
@@ -427,7 +421,6 @@ def add_reservoir_plants_ppm(network: pypsa.Network, costs: Dict[str, float], us
     return network
 
 
-# TODO: this should not be here
 def sto_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en_cap: pd.Series,
                           nuts2_inflows: pd.DataFrame) -> (pd.Series, pd.Series, pd.DataFrame):
     """
@@ -514,7 +507,6 @@ def sto_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en
     return bus_pow_cap, bus_en_cap, bus_inflows
 
 
-# TODO: this should not depend on e-highway
 def add_sto_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof: bool = True,
                    efficiency_dispatch: float = 1.0) -> pypsa.Network:
     """Adds run-of-river generators to a Network instance.

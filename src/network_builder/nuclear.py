@@ -1,15 +1,17 @@
 from os.path import join, dirname, abspath
+from typing import List
 
 import pandas as pd
 
 import pypsa
 
-from src.data.geographics.manager import _get_country
+from src.data.geographics.manager import _get_country, match_points_to_region
 from src.data.generation.manager import get_gen_from_ppm, find_associated_buses_ehighway
 from src.tech_parameters.costs import get_cost
 
+
 # TODO: this should not depend on e-highway
-def add_generators(network: pypsa.Network, use_ex_cap: bool, extendable: bool,
+def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: bool, extendable: bool,
                    ramp_rate: float, ppm_file_name: str = None) -> pypsa.Network:
     """Adds nuclear generators to a PyPsa Network instance.
 
@@ -17,8 +19,10 @@ def add_generators(network: pypsa.Network, use_ex_cap: bool, extendable: bool,
     ----------
     network: pypsa.Network
         A Network instance with nodes associated to regions.
+    countries: List[str]
+        Codes of countries over which the network is built
     use_ex_cap: bool
-        Whether to consider existing capacity or not #  TODO: will probably remove that at some point
+        Whether to consider existing capacity or not
     extendable: bool
         Whether generators are extendable
     ramp_rate: float
@@ -32,8 +36,6 @@ def add_generators(network: pypsa.Network, use_ex_cap: bool, extendable: bool,
         Updated network
     """
 
-    # TODO: add the possibility to remove some plants and allow it to built where it doesn't exist
-
     # Load existing nuclear plants
     if ppm_file_name is not None:
         ppm_folder = join(dirname(abspath(__file__)), "../../data/ppm/")
@@ -42,7 +44,19 @@ def add_generators(network: pypsa.Network, use_ex_cap: bool, extendable: bool,
     else:
         gens = get_gen_from_ppm(fuel_type="Nuclear")
 
+    # Get only plants in countries over which the network is defined
+    gens = gens[gens["Country"].apply(lambda c: c in countries)]
+
+    # Round lon and lat
+    gens[["lon", "lat"]] = gens[["lon", "lat"]].round(2)
+
     gens = find_associated_buses_ehighway(gens, network)
+    # TODO: this could make the function more generic but for some weird reasons there is a fucking bug happening
+    #    in match_points_to_region
+    # print(gens)
+    # onshore_buses = network.buses[network.buses.onshore]
+    # match_points_to_region(gens[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values,
+    #                              onshore_buses.region)
 
     if not use_ex_cap:
         gens.Capacity = 0.

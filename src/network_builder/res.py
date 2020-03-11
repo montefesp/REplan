@@ -11,7 +11,6 @@ import pypsa
 
 from src.data.resource.manager import get_cap_factor_for_regions, get_cap_factor_at_points, \
     read_resource_database, compute_capacity_factors
-from src.data.land_data.manager import filter_points
 from src.data.geographics.manager import is_onshore, get_nuts_area, match_points_to_region, return_points_in_shape
 from src.data.res_potential.manager import get_capacity_potential, get_potential_ehighway, \
     get_capacity_potential_for_regions
@@ -60,8 +59,6 @@ logger = logging.getLogger()
 #     offshore_buses = network.buses[network.buses.onshore == False]
 #     offshore_bus_positions = [Point(x, y) for x, y in zip(offshore_buses.x, offshore_buses.y)]
 #
-#     # TODO: would probably be nice to invert the dictionary
-#     #  so that for each point we have the technology(ies) we need to install there
 #     for tech, points_dict in selected_points.items():
 #
 #         # Get the real tech
@@ -85,7 +82,6 @@ logger = logging.getLogger()
 #                        for point in points_dict]
 #
 #         # Get capacities for each bus
-#         # TODO: should add a parameter to differentiate between the two cases
 #         bus_ids_unique = list(set(bus_ids))
 #         bus_capacities_per_km = get_potential_ehighway(bus_ids_unique, tech).values*1000.0
 #         bus_capacity_per_km_dict = dict.fromkeys(bus_ids_unique)
@@ -151,7 +147,7 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
     resite.solve_model(params['solver'], params['solver_options'][params['solver']])
 
     logger.info('Retrieving results.')
-    tech_location_dict = resite.retrieve_solution()  # TODO: parametrize?
+    tech_location_dict = resite.retrieve_solution()
     existing_cap_ds, cap_potential_ds, cap_factor_df = resite.retrieve_sites_data()
 
     if not resite.timestamps.equals(network.snapshots):
@@ -197,9 +193,9 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
     return network
 
 
-def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Polygon, MultiPolygon], regions: List[str],
-                                 technologies: List[str], tech_config: Dict[str, Any], spatial_resolution: float,
-                                 filtering_layers: Dict[str, bool]) \
+def add_generators_at_resolution(network: pypsa.Network, regions: List[str], technologies: List[str],
+                                 tech_config: Dict[str, Any], spatial_resolution: float,
+                                 filtering_layers: Dict[str, bool], use_ex_cap: bool) \
         -> pypsa.Network:
     """
     Creates pv and wind generators for every coordinate at a resolution of 0.5 inside the region associate to each bus
@@ -218,24 +214,14 @@ def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Poly
         Updated network
     """
 
-    # Obtain the list of point in the geographical region
-    # TODO: Need to remove the first init_points by downloading new data
-    path_resource_data = join(dirname(abspath(__file__)), '../../../data/resource/' + str(spatial_resolution))
-    database = read_resource_database(path_resource_data)
-    init_points = list(zip(database.longitude.values, database.latitude.values))
-    init_points = return_points_in_shape(total_shape, spatial_resolution, init_points)
-
-    tech_points_dict = filter_points(technologies, tech_config, init_points, spatial_resolution, filtering_layers)
-
-    # Get capacity factors for all points
-    cap_factor_df = compute_capacity_factors(tech_points_dict, tech_config, spatial_resolution, network.snapshots)
-
-    # Get capacity per point
-    cap_potential_ds = get_capacity_potential(tech_points_dict, spatial_resolution, regions)
+    # Generate input data using resite
+    resite = Resite(regions, technologies, tech_config, [network.snapshots[0], network.snapshots[-1]],
+                    spatial_resolution, False)
+    resite.build_input_data(use_ex_cap, filtering_layers)
 
     for tech in technologies:
 
-        points = tech_points_dict[tech]
+        points = resite.tech_points_dict[tech]
 
         if tech in ['wind_offshore', 'wind_floating']:
             offshore_buses = network.buses[network.buses.onshore == False]
@@ -251,8 +237,8 @@ def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Poly
                      pd.Index([str(y) for _, y in points]),
                      bus=associated_buses.values,
                      p_nom_extendable=True,
-                     p_nom_max=cap_potential_ds[tech][points].values*1000,
-                     p_max_pu=cap_factor_df[tech][points].values,
+                     p_nom_max=resite.cap_potential_ds[tech][points].values*1000,
+                     p_max_pu=resite.cap_factor_df[tech][points].values,
                      type=tech,
                      carrier=tech,
                      x=[x for x, _ in points],

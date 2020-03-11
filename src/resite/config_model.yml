@@ -28,7 +28,7 @@ solver_options:
 write_lp: True
 
 # Type of problem to be solved. Check resite.py for a full list.
-formulation: 'meet_RES_targets_hourly' # 'meet_RES_targets_year_round' # 'meet_demand_with_capacity' #
+formulation: 'meet_RES_targets_hourly' # 'meet_RES_targets_agg' # 'meet_demand_with_capacity' #
 
 # List of deployments per region (ordered as the 'regions' list above)
 deployment_vector: [0.5] # [0.5, 0.5, 0.5, 0.5]

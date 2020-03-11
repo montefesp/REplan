@@ -100,11 +100,11 @@ if __name__ == "__main__":
         #                             params["res"]["resite_nb"], params["res"]["area_per_site"], params["res"]["cap_dens"])
         if params['res']["strategy"] == "bus":
             net = add_res_per_bus(net, params["res"]["technologies"], tech_config)
-        if params['res']["strategy"] == "full":
-            net = add_res_at_resolution(net, total_shape, [params["region"]], params["res"]["technologies"],
+        if params['res']["strategy"] == "no_siting":
+            net = add_res_at_resolution(net, [params["region"]], params["res"]["technologies"],
                                         tech_config, params["res"]["spatial_resolution"],
-                                        params['res']['filtering_layers'])
-        if params['res']['strategy'] == 'generate':
+                                        params['res']['filtering_layers'], params["res"]["use_ex_cap"])
+        if params['res']['strategy'] == 'siting':
             net = add_res(net, params['res'], tech_config, params["region"])
 
     # Remove offshore locations that have no generators associated to them
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     # Adding nuclear
     if params["nuclear"]["include"]:
         logger.info("Adding Nuclear")
-        net = add_nuclear(net, params["nuclear"]["use_ex_cap"],
+        net = add_nuclear(net, countries, params["nuclear"]["use_ex_cap"],
                           params["nuclear"]["extendable"], tech_config["nuclear"]["ramp_rate"], "pp_nuclear_WNA.csv")
 
     if params["sto"]["include"]:
@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
     if params["battery"]["include"]:
         logger.info("Adding Battery Storage")
-        net = add_batteries(net, params["battery"]["max_hours"])
+        net = add_batteries(net, params["battery"]["carrier"], params["battery"]["max_hours"])
 
     net.add("GlobalConstraint", "CO2Limit",
             carrier_attribute="co2_emissions", sense="<=",

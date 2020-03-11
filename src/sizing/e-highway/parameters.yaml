@@ -15,7 +15,7 @@ add_offshore: True
 # RES
 res:
   include: True
-  strategy: "full" # (max or comp) or bus or full or generate
+  strategy: "no_siting" # (max or comp) or bus or no_siting or siting
 
   # For strategy = max or comp
   resite_nb: 100 # can be multiples of 25
@@ -29,7 +29,7 @@ res:
   spatial_resolution: 0.5
   technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
   timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
-  use_ex_cap: False
+  use_ex_cap: True
   filtering_layers:
     resource_quality: True
     population_density: True
@@ -50,7 +50,7 @@ res:
     cbc: 0
   write_lp: True
   # Type of problem to be solved. Check resite.py for a full list.
-  formulation: 'meet_RES_targets_year_round' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
+  formulation: 'meet_RES_targets_agg' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
   # List of deployments per region (ordered as the 'regions' list above)
   deployment_vector: [0.1] # [0.5, 0.5, 0.5, 0.5]
   # Keeping files at the end of the run.
@@ -70,6 +70,7 @@ nuclear:
 # Battery
 battery:
   include: True
+  carrier: "Li-ion E"
   max_hours: 4
 
 # Hydro
