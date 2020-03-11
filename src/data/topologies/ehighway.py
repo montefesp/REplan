@@ -20,7 +20,8 @@ import networkx as nx
 import numpy as np
 import itertools
 
-from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes, return_points_in_shape
+from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes, return_points_in_shape, \
+    display_polygons
 from src.tech_parameters.costs import get_cost
 
 import pypsa
@@ -134,6 +135,8 @@ def preprocess(plotting: bool = False):
         # Get the shapes associated to each code and assemble them
         code_list = eh_clusters.loc[idx].codes
         codes = code_list.strip('[]').split(',')
+        print(codes)
+        print([i for i, p in enumerate(all_shapes.loc[codes].values.flatten()) if not p.is_valid])
         total_shape = cascaded_union(all_shapes.loc[codes].values.flatten())
 
         # Compute centroid of shape
@@ -164,7 +167,7 @@ def preprocess(plotting: bool = False):
                               ["OFFB", 1.5, 40.0, Point(1.5, 40.0), False],  # Spain east
                               ["OFFC", 9.0, 65.0, Point(9.0, 65.0), False],  # Norway South-West
                               ["OFFD", 14.5, 69.0, Point(14.0, 68.5), False],  # Norway North-West
-                              ["OFFE", 26.0, 72.0, Point(26.0, 72.0), False],  # Norway North-West Norther
+                              # ["OFFE", 26.0, 72.0, Point(26.0, 72.0), False],  # Norway North-West Norther
                               ["OFFF", 11.5, 57.0, Point(11.5, 57.0), False],  # East Denmark
                               ["OFFG", -1.0, 50.0, Point(-1.0, 50.0), False],  # France North
                               ["OFFI", -9.5, 41.0, Point(-9.5, 41.0), False]],  # Portugal West
@@ -210,7 +213,7 @@ def preprocess(plotting: bool = False):
                               ["OFFB-11ES", "OFFB", "11ES", "DC", 0],
                               ["OFFC-83NO", "OFFC", "83NO", "DC", 0],
                               ["OFFD-84NO", "OFFD", "84NO", "DC", 0],
-                              ["OFFE-85NO", "OFFE", "85NO", "DC", 0],
+                              # ["OFFE-85NO", "OFFE", "85NO", "DC", 0],
                               ["OFFF-38DK", "OFFF", "38DK", "DC", 0],
                               ["OFFF-72DK", "OFFF", "72DK", "DC", 0],
                               ["OFFF-89SE", "OFFF", "89SE", "DC", 0],
@@ -359,20 +362,31 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
         if len(offshore_zones_codes) != 0:
             onshore_buses = buses[buses.onshore]
             onshore_buses_regions_union = cascaded_union(onshore_buses.region.values)
-            offshore_zones_shape = cascaded_union(
-                get_offshore_shapes(offshore_zones_codes, onshore_shape=onshore_buses_regions_union,
-                                    filterremote=True).values.flatten())
+            offshore_shapes = get_offshore_shapes(offshore_zones_codes, onshore_shape=onshore_buses_regions_union,
+                                                  filterremote=True)
+            offshore_zones_shape = cascaded_union(offshore_shapes["geometry"].values)
             offshore_buses = buses[buses.onshore == False]
             # Use a home-made 'voronoi' partition to assign a region to each offshore bus
             buses.loc[buses.onshore == False, "region"] = voronoi_special(offshore_zones_shape,
                                                                           offshore_buses[["x", "y"]])
 
     # Setting line parameters
+    """ For DC-opf
     lines['s_nom'] *= 1000.0  # PyPSA uses MW
     lines['s_nom_min'] = lines['s_nom']
     # Define reactance   # TODO: do sth more clever
     lines['x'] = pd.Series(0.00001, index=lines.index)
-    lines['s_nom_extendable'] = pd.Series(True, index=lines.index) # TODO: paramterize
+    lines['s_nom_extendable'] = pd.Series(True, index=lines.index) # TODO: parametrize
+    lines['capital_cost'] = pd.Series(index=lines.index)
+    for idx in lines.index:
+        carrier = lines.loc[idx].carrier
+        cap_cost, _ = get_cost(carrier, len(network.snapshots))
+        lines.loc[idx, ('capital_cost', )] = cap_cost * lines.length.loc[idx]
+    """
+    lines['p_nom'] = lines["s_nom"] * 1000.0  # PyPSA uses MW
+    lines['p_nom_min'] = lines['p_nom']
+    lines = lines.drop('s_nom', axis=1)
+    lines['p_nom_extendable'] = pd.Series(True, index=lines.index)  # TODO: paramterize
     lines['capital_cost'] = pd.Series(index=lines.index)
     for idx in lines.index:
         carrier = lines.loc[idx].carrier
@@ -380,10 +394,11 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
         lines.loc[idx, ('capital_cost', )] = cap_cost * lines.length.loc[idx]
 
     network.import_components_from_dataframe(buses, "Bus")
-    network.import_components_from_dataframe(lines, "Line")
+    network.import_components_from_dataframe(lines, "Link")
+    # network.import_components_from_dataframe(lines, "Line") for dc-opf
 
     if plot:
-        plot_topology(network.buses, network.lines)
+        plot_topology(buses, lines)
         plt.show()
 
     return network

@@ -15,6 +15,8 @@ from shapely.geometry import Point, Polygon
 import atlite
 import windpowerlib
 
+import matplotlib.pyplot as plt
+
 
 # TODO:
 #  - need to more precise on description of function
@@ -113,6 +115,11 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 
         resource = tech.split('_')[0]
         converter = tech_config[tech]['converter']  # TODO: just pass the convrters as argument instead of tech_config?
+        # xs, ys = zip(*tech_points_dict[tech])
+        # dataset_xs, dataset_ys = zip(*dataset.locations.values)
+        # plt.scatter(dataset_xs, dataset_ys, color='b')
+        # plt.scatter(xs, ys, color='r')
+        # plt.show()
         sub_dataset = dataset.sel(locations=sorted(tech_points_dict[tech]))
 
         if resource == 'wind':

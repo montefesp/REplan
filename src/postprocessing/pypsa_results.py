@@ -93,16 +93,16 @@ class PyPSAResults:
 
         init_capacities, new_capacities, opt_capacities = self.get_lines_capacity()
         print(f"Lines capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
-        print(f"Lines power:\n{self.get_lines_power()}\n")
-        print(f"Lines use:\n{self.get_lines_usage()}\n")
-        print(f"Lines capex:\n{self.get_lines_capex()}\n")
+        #print(f"Lines power:\n{self.get_lines_power()}\n")
+        #print(f"Lines use:\n{self.get_lines_usage()}\n")
+        #print(f"Lines capex:\n{self.get_lines_capex()}\n")
 
     def get_lines_capacity(self):
         """Returns the original, new and optimal transmission capacities (in MW) for each type of line."""
 
-        lines = self.net.lines.groupby(["carrier"])
-        init_capacities = lines.s_nom.sum()
-        opt_capacities = lines.s_nom_opt.sum()
+        lines = self.net.links  # .groupby(["carrier"])
+        init_capacities = lines.p_nom.sum()
+        opt_capacities = lines.p_nom_opt.sum()
         new_capacities = opt_capacities - init_capacities
 
         return init_capacities, new_capacities, opt_capacities

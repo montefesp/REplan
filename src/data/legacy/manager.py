@@ -99,8 +99,8 @@ def read_legacy_capacity_data(tech: str, regions: List[str], points: List[Tuple[
     return point_capacity_dict
 
 
-def get_legacy_capacity(technologies: List[str], regions: List[str], points: List[Tuple[float, float]], spatial_resolution: float) \
-        -> Dict[str, Dict[Tuple[float, float], float]]:
+def get_legacy_capacity(technologies: List[str], regions: List[str], points: List[Tuple[float, float]],
+                        spatial_resolution: float) -> Dict[str, Dict[Tuple[float, float], float]]:
     """
     Returns, for each technology and for each point, the existing (legacy) capacity in GW.
 
@@ -136,3 +136,6 @@ def get_legacy_capacity(technologies: List[str], regions: List[str], points: Lis
         existing_capacity_dict[tech] = read_legacy_capacity_data(tech, regions, land_filtered_points)
 
     return existing_capacity_dict
+
+def get_legacy_capacity_in_regions():
+    pass

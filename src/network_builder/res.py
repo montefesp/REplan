@@ -313,8 +313,8 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], tech
                      p_nom_extendable=True,
                      p_nom_max=cap_pot_ds[tech].values*1000,  # Convert to MW
                      p_max_pu=cap_factor_df[tech].values,
-                     type="wind",
-                     carrier="wind",
+                     type=tech,
+                     carrier=tech,
                      x=buses.x,
                      y=buses.y,
                      marginal_cost=marginal_cost,

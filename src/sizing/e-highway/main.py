@@ -114,7 +114,7 @@ for bus_id in net.buses.index:
         # Remove the bus
         net.remove("Bus", bus_id)
         # Remove the lines associated to the bus
-        net.mremove("Line", net.lines[net.lines.bus0 == bus_id].index)
+        net.mremove("Link", net.lines[net.lines.bus0 == bus_id].index) # TODO: change back to line when using Dc-opf
 
 # Add conv gen
 if params["dispatch"]["include"]:
@@ -149,6 +149,8 @@ if params["battery"]["include"]:
 net.add("GlobalConstraint", "CO2Limit",
         carrier_attribute="co2_emissions", sense="<=",
         constant=params["co2_emissions"]["global_per_year"]*1000000000*len(net.snapshots)/8760.)
+
+print(net.links)
 
 makedirs(output_dir)
 net.lopf(solver_name='gurobi', solver_logfile=output_dir + "test.log", solver_options=params["solver"])

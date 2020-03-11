@@ -21,7 +21,7 @@ import geopy
 import pycountry as pyc
 # from copy import copy
 
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 # import cartopy.feature as cfeature
 
@@ -129,8 +129,9 @@ def save_polygon(df: gpd.GeoDataFrame, fn: str):
 
 def display_polygons(polygons_list):
 
-    assert isinstance(polygons_list, list) or isinstance(polygons_list, np.ndarray), \
-        'The argument must be a list of polygons or multipolygons'
+    assert isinstance(polygons_list, list) or isinstance(polygons_list, np.ndarray) \
+           or isinstance(polygons_list, gpd.array.GeometryArray), \
+           f'The argument must be a list of polygons or multipolygons, got {type(polygons_list)}'
 
     fig = plt.figure(figsize=(13, 13))
 
@@ -354,7 +355,7 @@ def filter_onshore_polys(polys: Union[Polygon, MultiPolygon], minarea=0.1, toler
                                   if not filterremote or (mainpoly.distance(p) < mainlength)])
         else:
             polys = mainpoly
-    return polys.simplify(tolerance=tolerance)
+    return polys  # .simplify(tolerance=tolerance)
 
 
 # TODO: might need to do sth more intelligent in terms of distance
@@ -397,7 +398,7 @@ def filter_offshore_polys(offshore_polys, onshore_polys_union, minarea=0.1, tole
         polys = MultiPolygon(polys)
     else:
         polys = mainpoly
-    return polys.simplify(tolerance=tolerance)
+    return polys  # .simplify(tolerance=tolerance)
 
 
 # -- Get specific shapes functions -- #
@@ -525,8 +526,7 @@ def generate_onshore_shapes_geojson():
     in a GeoJSON file
     """
 
-    onshore_shapes_fn = join(dirname(abspath(__file__)),
-                             '../../../data/geographics/generated/onshore_shapes.geojson')
+    onshore_shapes_fn = join(dirname(abspath(__file__)), '../../../data/geographics/generated/onshore_shapes.geojson')
 
     nuts0123_shapes = generate_nuts0123_shapes()
     countries_shapes = generate_countries_shapes()
@@ -582,7 +582,7 @@ def generate_countries_shapes():
 def generate_nuts0123_shapes():
     """Computes the coordinates-based (long, lat) shape of each NUTS region of europe"""
     nuts_shapes_fn = join(dirname(abspath(__file__)),
-                          '../../../data/geographics/source/eurostat/NUTS_RG_01M_2016_4326.geojson')
+                          '../../../data/geographics/source/eurostat/NUTS_RG_60M_2016_4326.geojson')
     df = gpd.read_file(nuts_shapes_fn)
     df = df.rename(columns={'NUTS_ID': 'name'})[['name', 'geometry']].set_index('name')['geometry']
 
@@ -621,10 +621,9 @@ def generate_offshore_shapes_geojson():
 if __name__ == "__main__":
 
     # Need to execute these lines only once
-    # generate_onshore_shapes_geojson()
-    generate_offshore_shapes_geojson()
+    generate_onshore_shapes_geojson()
+    # generate_offshore_shapes_geojson()
 
-    get_offshore_shapes(["GB"])
     # onshore_shapes_save_fn = 'on_test.geojson'
     # onshore_shapes_ = get_onshore_shapes(['BE'], minarea=10000, filterremote=True)
     # print(onshore_shapes_)
