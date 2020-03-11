@@ -10,12 +10,11 @@ from shapely.ops import cascaded_union
 
 from src.data.load.manager import get_load_from_nuts_codes
 from src.data.topologies.ehighway import get_topology
-# from src.network_builder.res import add_generators_from_file as add_res_from_file, \
+# from src.network_builder.res import add_generators_from_file as add_res_from_file
 from src.network_builder.res import \
     add_generators as add_res, \
     add_generators_at_resolution as add_res_at_resolution, \
     add_generators_per_bus as add_res_per_bus
-# from src.network_builder.res import add_generators_without_siting as add_res_without_siting
 from src.network_builder.nuclear import add_generators as add_nuclear
 from src.network_builder.hydro import \
     add_phs_plants as add_phs, \
@@ -95,10 +94,8 @@ net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)
 if params['res']['include']:
     logger.info("Adding RES")
     # if params['res']['strategy'] == "comp" or params['res']['strategy'] == "max":
-    #     net = add_res_from_file(net, total_shape, costs["generation"], params['res']['strategy'],
-    #                            params["res"]["resite_nb"], params["res"]["area_per_site"], params["res"]["cap_dens"])
-    # if params['res']["strategy"] == "asusual":
-    #     net = add_res_without_siting(net, params["res"]["technologies"], costs["generation"])
+    #     net = add_res_from_file(net, total_shape, params['res']['strategy'],
+    #                             params["res"]["resite_nb"], params["res"]["area_per_site"], params["res"]["cap_dens"])
     if params['res']["strategy"] == "bus":
         net = add_res_per_bus(net, params["res"]["technologies"], tech_config)
     if params['res']["strategy"] == "full":
@@ -149,8 +146,6 @@ if params["battery"]["include"]:
 net.add("GlobalConstraint", "CO2Limit",
         carrier_attribute="co2_emissions", sense="<=",
         constant=params["co2_emissions"]["global_per_year"]*1000000000*len(net.snapshots)/8760.)
-
-print(net.links)
 
 makedirs(output_dir)
 net.lopf(solver_name='gurobi', solver_logfile=output_dir + "test.log", solver_options=params["solver"])

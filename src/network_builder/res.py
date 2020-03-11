@@ -15,8 +15,6 @@ from src.data.land_data.manager import filter_points
 from src.data.geographics.manager import is_onshore, get_nuts_area, match_points_to_region, return_points_in_shape
 from src.data.res_potential.manager import get_capacity_potential, get_potential_ehighway, \
     get_capacity_potential_for_regions
-# TODO: this shoulnd't be here normally
-from src.data.topologies.ehighway import get_ehighway_clusters
 from src.resite.resite import Resite
 from src.tech_parameters.costs import get_cost
 
@@ -25,9 +23,9 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
-# TODO: this will not work anymore because now we have costs for different type of wind and pv
-# def add_generators_from_file(network: pypsa.Network, onshore_region_shape, gen_costs: Dict[str, Dict[str, float]],
-#                          strategy: str, site_nb: int, area_per_site: int, cap_dens_dict: Dict[str, float]) \
+# TODO: this function only allows to repeat previous results, will probably disappear
+# def add_generators_from_file(network: pypsa.Network, onshore_region_shape, strategy: str, site_nb: int,
+#                              area_per_site: int, cap_dens_dict: Dict[str, float]) \
 #         -> pypsa.Network:
 #     """Adds wind and pv generator that where selected via a certain siting method to a Network class.
 #
@@ -37,8 +35,6 @@ logger = logging.getLogger()
 #         A Network instance with regions
 #     onshore_region_shape: Polygon
 #         Sum of all the onshore regions associated to the buses in network
-#     gen_costs: Dict[str, Dict[str, float]]
-#         Dictionary containing opex and capex for solar and wind generators
 #     strategy: str
 #         "comp" or "max, strategy used to select the sites
 #     site_nb: int
@@ -66,13 +62,14 @@ logger = logging.getLogger()
 #
 #     # TODO: would probably be nice to invert the dictionary
 #     #  so that for each point we have the technology(ies) we need to install there
-#     for tech in selected_points:
+#     for tech, points_dict in selected_points.items():
 #
 #         # Get the real tech
-#         tech_1 = tech.split("_")[0]
-#         if tech_1 == "solar":
-#             tech_1 = "pv"
-#         points_dict = selected_points[tech]
+#         tech = tech.split("_")[0]
+#         if tech == "solar":
+#             tech = "pv_utility"
+#         elif tech == "wind":
+#             tech = "wind_onshore"
 #
 #         # Detect to which bus the node should be associated
 #         if len(offshore_bus_positions) != 0:
@@ -90,31 +87,33 @@ logger = logging.getLogger()
 #         # Get capacities for each bus
 #         # TODO: should add a parameter to differentiate between the two cases
 #         bus_ids_unique = list(set(bus_ids))
-#         bus_capacities_per_km = get_potential_ehighway(bus_ids_unique, tech_1).values*1000.0
+#         bus_capacities_per_km = get_potential_ehighway(bus_ids_unique, tech).values*1000.0
 #         bus_capacity_per_km_dict = dict.fromkeys(bus_ids_unique)
 #         for i, key in enumerate(bus_ids_unique):
 #             bus_capacity_per_km_dict[key] = bus_capacities_per_km[i]
+#
+#         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 #
 #         for i, point in enumerate(points_dict):
 #
 #             bus_id = bus_ids[i]
 #             # Define the capacities per km from tech_parameters if existing
-#             capacity_per_km = cap_dens_dict[tech_1]
+#             capacity_per_km = cap_dens_dict[tech]
 #             if capacity_per_km == "":
 #                 capacity_per_km = bus_capacity_per_km_dict[bus_id]
 #
 #             cap_factor_series = points_dict[point][0:len(network.snapshots)]
-#             network.add("Generator", "Gen " + tech_1 + " " + str(point[0]) + "-" + str(point[1]),
+#             network.add("Generator", "Gen " + tech + " " + str(point[0]) + "-" + str(point[1]),
 #                         bus=bus_id,
 #                         p_nom_extendable=True,
 #                         p_nom_max=capacity_per_km * area_per_site*1000,
 #                         p_max_pu=cap_factor_series,
-#                         type=tech_1,
-#                         carrier=tech_1,
+#                         type=tech,
+#                         carrier=tech,
 #                         x=point[0],
 #                         y=point[1],
-#                         marginal_cost=gen_costs[tech_1]["opex"]/1000.0,
-#                         capital_cost=gen_costs[tech_1]["capex"]*len(network.snapshots)/(8760*1000.0))
+#                         marginal_cost=marginal_cost,
+#                         capital_cost=capital_cost)
 #
 #     return network
 
@@ -219,8 +218,6 @@ def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Poly
         Updated network
     """
 
-    # TODO: add existing capacity
-
     # Obtain the list of point in the geographical region
     # TODO: Need to remove the first init_points by downloading new data
     path_resource_data = join(dirname(abspath(__file__)), '../../../data/resource/' + str(spatial_resolution))
@@ -255,7 +252,6 @@ def add_generators_at_resolution(network: pypsa.Network, total_shape: Union[Poly
                      bus=associated_buses.values,
                      p_nom_extendable=True,
                      p_nom_max=cap_potential_ds[tech][points].values*1000,
-                     # p_nom_min=existing_cap,
                      p_max_pu=cap_factor_df[tech][points].values,
                      type=tech,
                      carrier=tech,
@@ -321,92 +317,3 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], tech
                      capital_cost=capital_cost)
 
     return network
-
-# missing_wind_dict = {
-#     "AL": ["BG"],
-#     "BA": ["HR"],
-#     "ME": ["HR"],
-#     "RS": ["BG"]
-# }
-
-
-# TODO: this probably needs to disappear, not sure
-# TODO: the problem when including offshore in this function is what area to consider?
-# def add_generators_without_siting(network: pypsa.Network, technologies: List[str], gen_costs: Dict[str, Any]) \
-#         -> pypsa.Network:
-#     """Adds wind and pv generator at each node of a Network instance with limited capacities.
-#
-#     Parameters
-#     ----------
-#     network: pypsa.Network
-#         A PyPSA Network instance with buses associated to regions
-#     technologies: List[str]
-#         Technologies to add
-#     gen_costs: Dict[str, Any]
-#         Dictionary containing opex and capex for generation technologies
-#
-#     Returns
-#     -------
-#     network: pypsa.Network
-#         Updated network
-#     """
-#
-#     profiles_fn = join(dirname(abspath(__file__)),
-#                        "../../../data/res_potential/source/ninja_pv_wind_profiles_singleindex.csv")
-#     profiles = pd.read_csv(profiles_fn)
-#     profiles["time"] = profiles["time"].apply(lambda x: np.datetime64(datetime.strptime(x, "%Y-%m-%dT%H:%M:%SZ")))
-#     profiles = profiles.set_index("time")
-#     profiles = profiles.loc[network.snapshots]
-#
-#     eh_clusters = get_ehighway_clusters()
-#
-#     areas = get_nuts_area()
-#     areas.index.name = 'code'
-#
-#     # TODO: too slow
-#     capacity_per_km_pv = get_potential_ehighway(network.buses.index.values, "pv").values
-#     capacity_per_km_wind = get_potential_ehighway(network.buses.index.values, "wind").values
-#
-#     for tech in technologies:
-#         for i, bus_id in enumerate(network.buses.index):
-#
-#             # Get region area
-#             area = np.sum(areas.loc[eh_clusters.loc[bus_id]["codes"].split(",")]["2015"])
-#
-#             # PV
-#             country_pv_profile = profiles[eh_clusters.loc[bus_id].country + "_pv_national_current"]
-#
-#             # Add a pv generator
-#             capacity_per_km = capacity_per_km_pv[i]
-#             network.add("generator", "Gen " + bus_id + " pv",
-#                         bus=bus_id,
-#                         p_nom_extendable=True, # consider that the tech can be deployed on 50*50 km2
-#                         p_nom_max=capacity_per_km * area * 1000,
-#                         p_max_pu=country_pv_profile.values,
-#                         type="pv",
-#                         carrier="pv",
-#                         marginal_cost=gen_costs[tech]["opex"]/1000.0,
-#                         capital_cost=gen_costs[tech]["capex"]*len(network.snapshots)/(8760*1000.0))
-#
-#             # Wind
-#             replacing_country = eh_clusters.loc[bus_id].country
-#             if eh_clusters.loc[bus_id].country in missing_wind_dict:
-#                 replacing_country = missing_wind_dict[replacing_country][0]
-#             if replacing_country + "_wind_onshore_current" in profiles.keys():
-#                 country_wind_profile = profiles[replacing_country + "_wind_onshore_current"]
-#             else:
-#                 country_wind_profile = profiles[replacing_country + "_wind_national_current"]
-#
-#             # Add a wind generator
-#             capacity_per_km = capacity_per_km_wind[i]
-#             network.add("generator", "Gen " + bus_id + " wind",
-#                         bus=bus_id,
-#                         p_nom_extendable=True, # consider that the tech can be deployed on 50*50 km2
-#                         p_nom_max=capacity_per_km * area * 1000,
-#                         p_max_pu=country_wind_profile.values,
-#                         type="wind",
-#                         carrier="wind",
-#                         marginal_cost=gen_costs[tech]["opex"]/1000.0,
-#                         capital_cost=gen_costs[tech]["capex"]*len(network.snapshots)/(8760*1000.0))
-#
-#     return network

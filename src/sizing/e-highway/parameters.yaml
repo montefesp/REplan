@@ -15,7 +15,7 @@ add_offshore: True
 # RES
 res:
   include: True
-  strategy: "bus" # (max or comp) or asusual or bus or full or generate
+  strategy: "comp" # (max or comp) or asusual or bus or full or generate
 
   # For strategy = max or comp
   resite_nb: 100 # can be multiples of 25
