@@ -42,13 +42,10 @@ if __name__ == "__main__":
 
     # Tech infos
     tech_info = pd.read_excel(join(tech_params_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
+    fuel_info = pd.read_excel(join(tech_params_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
 
     tech_config_path = join(tech_params_dir, 'config_techs.yml')
     tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
-
-    # Emissions
-    emission_fn = join(tech_params_dir, 'tech_info/emissions.yaml')
-    emission = yaml.load(open(emission_fn, 'r'), Loader=yaml.FullLoader)
 
     eh_clusters_file_name = join(data_dir, "topologies/e-highways/source/clusters_2016.csv")
     eh_clusters = pd.read_csv(eh_clusters_file_name, delimiter=";", index_col=0)
@@ -70,9 +67,8 @@ if __name__ == "__main__":
     net.set_snapshots(timestamps)
 
     # Adding carriers
-    # TODO: need to change this and also generator creation
-    for tech in emission["co2"]:
-        net.add("Carrier", tech, co2_emissions=emission["co2"][tech]/1000.0)
+    for fuel in fuel_info.index[1:-1]:
+        net.add("Carrier", fuel, co2_emissions=fuel_info.loc[fuel, "CO2"])
 
     logger.info("Loading topology")
     countries = get_subregions(params["region"])
@@ -155,7 +151,6 @@ if __name__ == "__main__":
 
     # Compute and save results
     yaml.dump(params, open(output_dir + 'tech_parameters.yaml', 'w'))
-    yaml.dump(emission, open(output_dir + 'emissions.yaml', 'w'))
 
     net.export_to_csv_folder(output_dir)
 

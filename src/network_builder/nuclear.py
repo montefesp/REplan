@@ -7,7 +7,7 @@ import pypsa
 
 from src.data.geographics.manager import _get_country, match_points_to_region
 from src.data.generation.manager import get_gen_from_ppm, find_associated_buses_ehighway
-from src.tech_parameters.costs import get_cost
+from src.tech_parameters.costs import get_cost, get_plant_type
 
 
 # TODO: this should not depend on e-highway
@@ -60,13 +60,20 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
 
     capital_cost, marginal_cost = get_cost('nuclear', len(network.snapshots))
 
+    # Get fuel type
+    tech_info_fn = join(dirname(abspath(__file__)), "../tech_parameters/tech_info.xlsx")
+    tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
+    fuel = tech_info.loc[get_plant_type('nuclear')]["fuel"]
+
+    # TODO: add efficiencies
+
     network.madd("Generator", "Gen nuclear " + gens.Name + " " + gens.bus_id,
                  bus=gens.bus_id.values,
                  p_nom=gens.Capacity.values,
                  p_nom_min=gens.Capacity.values,
                  p_nom_extendable=extendable,
                  type='nuclear',
-                 carrier='nuclear',
+                 carrier=fuel,
                  marginal_cost=marginal_cost,
                  capital_cost=capital_cost,
                  ramp_limit_up=ramp_rate,

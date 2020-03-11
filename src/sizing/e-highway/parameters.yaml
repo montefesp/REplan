@@ -9,7 +9,7 @@ time:
   resolution: 1
 
 # Space
-region: "EU"
+region: "BENELUX"
 add_offshore: True
 
 # RES

@@ -11,6 +11,8 @@ from src.data.topologies.ehighway import get_ehighway_clusters
 from src.data.generation.manager import get_gen_from_ppm, find_associated_buses_ehighway
 from src.tech_parameters.costs import get_cost
 
+# TODO: add efficiencies
+
 # TODO: need to revise all these functions, either deleting some of them or removing the dependencies with regard
 #  to e-highway, moving them in other files
 
