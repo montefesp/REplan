@@ -5,17 +5,17 @@ solver:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-01-01T23:00']
+  slice: ['2015-01-01T00:00', '2015-7-01T23:00']
   resolution: 1
 
 # Space
-region: "BENELUX"
+region: "EU"
 add_offshore: True
 
 # RES
 res:
   include: True
-  strategy: "no_siting" # (max or comp) or bus or no_siting or siting
+  strategy: "bus" # (max or comp) or bus or no_siting or siting
 
   # For strategy = max or comp
   resite_nb: 100 # can be multiples of 25
