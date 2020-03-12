@@ -183,7 +183,6 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
                      p_nom_min=existing_cap,
                      p_max_pu=cap_factor_df[tech][points].values,
                      type=tech,
-                     carrier=tech,
                      x=[x for x, _ in points],
                      y=[y for _, y in points],
                      marginal_cost=marginal_cost,
@@ -237,7 +236,6 @@ def add_generators_at_resolution(network: pypsa.Network, regions: List[str], tec
                      p_nom_max=resite.cap_potential_ds[tech][points].values*1000,
                      p_max_pu=resite.cap_factor_df[tech][points].values,
                      type=tech,
-                     carrier=tech,
                      x=[x for x, _ in points],
                      y=[y for _, y in points],
                      marginal_cost=marginal_cost,
@@ -293,7 +291,6 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], tech
                      p_nom_max=cap_pot_ds[tech].values*1000,  # Convert to MW
                      p_max_pu=cap_factor_df[tech].values,
                      type=tech,
-                     carrier=tech,
                      x=buses.x,
                      y=buses.y,
                      marginal_cost=marginal_cost,

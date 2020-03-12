@@ -285,11 +285,11 @@ if __name__ == "__main__":
     pprp = PyPSAResultsPlotly(output_dir)
 
     if 1:
-        carriers = ["wind", "pv"]
+        types = ["wind_onshore", "wind_offshore"]
         attribute = "p_max_pu"
-        for carrier in carriers:
-            fig = pprp.show_generators([carrier], attribute)
-            fig.write_html(output_dir + attribute + "_for_" + "_".join([carrier]) + '.html', auto_open=True)
+        for type in types:
+            fig = pprp.show_generators([type], attribute)
+            fig.write_html(output_dir + attribute + "_for_" + "_".join([type]) + '.html', auto_open=True)
     if 0:
         carriers = ["sto", "phs"]
         attribute = "p_nom_opt"

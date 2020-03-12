@@ -70,7 +70,7 @@ nuclear:
 # Battery
 battery:
   include: True
-  carrier: "Li-ion E"
+  type: "Li-ion E"
   max_hours: 4
 
 # Hydro

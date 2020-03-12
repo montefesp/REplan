@@ -1,5 +1,9 @@
-from pypsa import Network
+import sys
+import os
+
 import pandas as pd
+
+from pypsa import Network
 
 
 class PyPSAResults:
@@ -28,7 +32,7 @@ class PyPSAResults:
     def get_generators_capacity(self):
         """Returns the original, new and optimal generation capacities (in MW) for each type of generator."""
 
-        gens = self.net.generators.groupby(["carrier"])
+        gens = self.net.generators.groupby(["type"])
         init_capacities = gens.p_nom.sum()
         opt_capacities = gens.p_nom_opt.sum()
         new_capacities = opt_capacities - init_capacities
@@ -39,14 +43,14 @@ class PyPSAResults:
         """Returns the total generation (in MWh) over the self.net.snapshots for each type of generator."""
 
         gens = self.net.generators
-        carriers = sorted(list(set(gens.carrier.values)))
+        types = sorted(list(set(gens.type.values)))
         gens_t = self.net.generators_t
 
-        generation = dict.fromkeys(carriers)
+        generation = dict.fromkeys(types)
 
-        for carrier in carriers:
-            gens_carrier = gens[gens.carrier == carrier]
-            generation[carrier] = gens_t.p[gens_carrier.index].to_numpy().sum()
+        for tech_type in types:
+            gens_type = gens[gens.type == tech_type]
+            generation[tech_type] = gens_t.p[gens_type.index].to_numpy().sum()
 
         return pd.DataFrame.from_dict(generation, orient="index", columns=["generation"]).generation
 
@@ -61,15 +65,15 @@ class PyPSAResults:
         """Returns the operational expenses of running each type of generator over the self.net.snapshots"""
 
         gens = self.net.generators
-        carriers = sorted(list(set(gens.carrier.values)))
+        types = sorted(list(set(gens.type.values)))
         gens_t = self.net.generators_t
 
-        opex = dict.fromkeys(carriers)
+        opex = dict.fromkeys(types)
 
-        for carrier in carriers:
-            gens_carrier = gens[gens.carrier == carrier]
-            generation_per_gen = gens_t.p[gens_carrier.index]*gens_carrier.marginal_cost
-            opex[carrier] = generation_per_gen.to_numpy().sum()
+        for tech_type in types:
+            gens_type = gens[gens.type == tech_type]
+            generation_per_gen = gens_t.p[gens_type.index]*gens_type.marginal_cost
+            opex[tech_type] = generation_per_gen.to_numpy().sum()
 
         return pd.DataFrame.from_dict(opex, orient="index", columns=["opex"]).opex
 
@@ -80,7 +84,7 @@ class PyPSAResults:
         gens["p_nom_new"] = gens.p_nom_opt - gens.p_nom
         gens["capex"] = gens.p_nom_new*gens.capital_cost
 
-        return gens.groupby(["carrier"]).capex.sum()
+        return gens.groupby(["type"]).capex.sum()
 
     def get_generators_cost(self):
         return self.get_generators_opex() + self.get_generators_capex()
@@ -90,18 +94,35 @@ class PyPSAResults:
     def display_transmission(self):
         """Display information about transmission"""
 
-        init_capacities, new_capacities, opt_capacities = self.get_lines_capacity()
-        print(f"Lines capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
-        #print(f"Lines power:\n{self.get_lines_power()}\n")
-        #print(f"Lines use:\n{self.get_lines_usage()}\n")
-        #print(f"Lines capex:\n{self.get_lines_capex()}\n")
+        if len(self.net.lines.index) != 0:
+            init_capacities, new_capacities, opt_capacities = self.get_lines_capacity()
+            print(f"Lines capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
+            print(f"Lines power:\n{self.get_lines_power()}\n")
+            print(f"Lines use:\n{self.get_lines_usage()}\n")
+            print(f"Lines capex:\n{self.get_lines_capex()}\n")
+        if len(self.net.links.index) != 0:
+            init_capacities, new_capacities, opt_capacities = self.get_links_capacity()
+            print(f"Links capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
+            print(f"Links power:\n{self.get_links_power()}\n")
+            print(f"Links use:\n{self.get_links_usage()}\n")
+            print(f"Links capex:\n{self.get_links_capex()}\n")
 
     def get_lines_capacity(self):
         """Returns the original, new and optimal transmission capacities (in MW) for each type of line."""
 
-        lines = self.net.links  # .groupby(["carrier"])
-        init_capacities = lines.p_nom.sum()
-        opt_capacities = lines.p_nom_opt.sum()
+        lines = self.net.lines.groupby(["carrier"])
+        init_capacities = lines.s_nom.sum()
+        opt_capacities = lines.s_nom_opt.sum()
+        new_capacities = opt_capacities - init_capacities
+
+        return init_capacities, new_capacities, opt_capacities
+
+    def get_links_capacity(self):
+        """Returns the original, new and optimal transmission capacities (in MW) for links."""
+
+        links = self.net.links
+        init_capacities = links.p_nom.sum()
+        opt_capacities = links.p_nom_opt.sum()
         new_capacities = opt_capacities - init_capacities
 
         return init_capacities, new_capacities, opt_capacities
@@ -124,11 +145,28 @@ class PyPSAResults:
 
         return pd.DataFrame.from_dict(power_carrier, orient="index", columns=["lines_power"]).lines_power
 
+    def get_links_power(self):
+        """Returns the total power (MW) (in either direction) that goes through all links over self.net.snapshots"""
+
+        links_t = self.net.links_t
+        links_t.p0[links_t.p0 < 0] = 0
+        links_t.p1[links_t.p1 < 0] = 0
+        power = links_t.p0 + links_t.p1
+
+        return power.to_numpy().sum()
+
     def get_lines_usage(self):
         """Returns the average transmission capacity usage of each type of line"""
 
         _, _, opt_cap = self.get_lines_capacity()
         tot_power = self.get_lines_power()
+        return tot_power/(opt_cap*len(self.net.snapshots))
+
+    def get_links_usage(self):
+        """Returns the average transmission capacity usage of all links"""
+
+        _, _, opt_cap = self.get_links_capacity()
+        tot_power = self.get_links_power()
         return tot_power/(opt_cap*len(self.net.snapshots))
 
     def get_lines_capex(self):
@@ -139,6 +177,15 @@ class PyPSAResults:
         lines["capex"] = lines.s_nom_new*lines.capital_cost
 
         return lines.groupby(["carrier"]).capex.sum()
+
+    def get_links_capex(self):
+        """Returns the capital expenses for building the new capacity for all links."""
+
+        links = self.net.links
+        links["p_nom_new"] = links.p_nom_opt - links.p_nom
+        links["capex"] = links.p_nom_new*links.capital_cost
+
+        return links.capex.sum()
 
     # --- Storage --- #
 
@@ -158,7 +205,7 @@ class PyPSAResults:
     def get_storage_power_capacity(self):
         """Returns the original, new and optimal power capacities (in MW) for each type of storage unit."""
 
-        storage_units = self.net.storage_units.groupby(["carrier"])
+        storage_units = self.net.storage_units.groupby(["type"])
         init_capacities = storage_units.p_nom.sum()
         opt_capacities = storage_units.p_nom_opt.sum()
         new_capacities = opt_capacities - init_capacities
@@ -172,7 +219,7 @@ class PyPSAResults:
         storage_units["p_nom_energy"] = storage_units.p_nom*storage_units.max_hours
         storage_units["p_nom_opt_energy"] = storage_units.p_nom_opt*storage_units.max_hours
 
-        storage_units = storage_units.groupby(["carrier"])
+        storage_units = storage_units.groupby(["type"])
         init_capacities = storage_units.p_nom_energy.sum()
         opt_capacities = storage_units.p_nom_opt_energy.sum()
         new_capacities = opt_capacities - init_capacities
@@ -183,20 +230,20 @@ class PyPSAResults:
         """Returns the total power (MW) that goes out or in of the battery"""
 
         storage_units = self.net.storage_units
-        carriers = sorted(list(set(storage_units.carrier.values)))
+        types = sorted(list(set(storage_units.type.values)))
         storage_units_t = self.net.storage_units_t
 
-        power = dict.fromkeys(carriers)
+        power = dict.fromkeys(types)
 
-        for carrier in carriers:
-            storage_units_carrier = storage_units[storage_units.carrier == carrier]
-            power_out = storage_units_t.p[storage_units_carrier.index].values
+        for tech_type in types:
+            storage_units_type = storage_units[storage_units.type == tech_type]
+            power_out = storage_units_t.p[storage_units_type.index].values
             power_out[power_out < 0] = 0
             power_out = power_out.sum()
-            power_in = -storage_units_t.p[storage_units_carrier.index].values
+            power_in = -storage_units_t.p[storage_units_type.index].values
             power_in[power_in < 0] = 0
             power_in = power_in.sum()
-            power[carrier] = power_out + power_in
+            power[tech_type] = power_out + power_in
 
         return pd.DataFrame.from_dict(power, orient="index", columns=["power"]).power
 
@@ -204,14 +251,14 @@ class PyPSAResults:
         """Returns the total energy (MWh) that is stored over self.net.snapshots"""
 
         storage_units = self.net.storage_units
-        carriers = sorted(list(set(storage_units.carrier.values)))
+        types = sorted(list(set(storage_units.type.values)))
         storage_units_t = self.net.storage_units_t
 
-        energy = dict.fromkeys(carriers)
+        energy = dict.fromkeys(types)
 
-        for carrier in carriers:
-            storage_units_carrier = storage_units[storage_units.carrier == carrier]
-            energy[carrier] = storage_units_t.state_of_charge[storage_units_carrier.index].to_numpy().sum()
+        for tech_type in types:
+            storage_units_type = storage_units[storage_units.type == tech_type]
+            energy[tech_type] = storage_units_t.state_of_charge[storage_units_type.index].to_numpy().sum()
 
         return pd.DataFrame.from_dict(energy, orient="index", columns=["energy"]).energy
 
@@ -236,4 +283,22 @@ class PyPSAResults:
         storage_units["p_nom_new"] = storage_units.p_nom_opt - storage_units.p_nom
         storage_units["capex"] = storage_units.p_nom_new * storage_units.capital_cost
 
-        return storage_units.groupby(["carrier"]).capex.sum()
+        return storage_units.groupby(["type"]).capex.sum()
+
+
+if __name__ == "__main__":
+
+    assert (len(sys.argv) == 2) or (len(sys.argv) == 3), \
+        "You need to provide one or two argument: output_dir (and test_number)"
+
+    main_output_dir = sys.argv[1]
+    test_number = sys.argv[2] if len(sys.argv) == 3 else None
+    if test_number is None:
+        test_number = sorted(os.listdir(main_output_dir))[-1]
+    output_dir = main_output_dir + test_number + "/"
+    print(output_dir)
+    net = Network()
+    net.import_from_csv_folder(output_dir)
+
+    pprp = PyPSAResults(net)
+    pprp.display_transmission()

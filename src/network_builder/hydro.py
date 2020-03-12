@@ -56,7 +56,7 @@ def add_phs_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_c
 
     network.madd("StorageUnit", "Storage PHS " + phs.Name + " " + phs.bus_id,
                  bus=phs.bus_id.values,
-                 carrier='phs',
+                 type='phs',
                  p_nom=phs.Capacity.values,
                  p_nom_min=phs.Capacity.values,
                  p_nom_extendable=extendable,
@@ -178,7 +178,7 @@ def add_phs_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
 
     network.madd("StorageUnit", "Storage PHS " + psp_pow_cap.index,
                  bus=psp_pow_cap.index,
-                 carrier='phs',
+                 type='phs',
                  p_nom=psp_pow_cap.values*1000,
                  p_nom_min=psp_pow_cap.values*1000,
                  p_nom_extendable=extendable,
@@ -232,7 +232,7 @@ def add_ror_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_c
 
     network.madd("Generator", "Generator ror " + rors.Name + " " + rors.index.astype(str) + " " + rors.bus_id,
                  bus=rors.bus_id.values,
-                 carrier='ror',
+                 type='ror',
                  p_nom=rors.Capacity.values,
                  p_nom_min=rors.Capacity.values,
                  p_nom_extendable=extendable,
@@ -356,7 +356,7 @@ def add_ror_plants(network: pypsa.Network, extendable: bool = False) -> pypsa.Ne
 
     network.madd("Generator", "Generator ror " + bus_cap.index,
                  bus=bus_cap.index.values,
-                 carrier='ror',
+                 type='ror',
                  p_nom=bus_cap.values*1000,
                  p_nom_min=bus_cap.values*1000,
                  p_nom_extendable=extendable,
@@ -412,7 +412,7 @@ def add_reservoir_plants_ppm(network: pypsa.Network, costs: Dict[str, float], us
 
     network.madd("StorageUnit", "Storage reservoir " + reservoirs.Name + " " + " " + reservoirs.bus_id,
                  bus=reservoirs.bus_id.values,
-                 carrier='sto',
+                 type='sto',
                  p_nom=reservoirs.Capacity.values,
                  p_nom_min=reservoirs.Capacity.values,
                  p_nom_extendable=extendable,
@@ -557,7 +557,7 @@ def add_sto_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
 
     network.madd("StorageUnit", "Storage reservoir " + bus_pow_cap.index,
                  bus=bus_pow_cap.index.values,
-                 carrier='sto',
+                 type='sto',
                  p_nom=bus_pow_cap.values*1000,
                  p_nom_min=bus_pow_cap.values*1000,
                  p_nom_extendable=extendable,

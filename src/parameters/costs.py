@@ -78,7 +78,7 @@ def get_cost(tech: str, nb_hours: float) -> Tuple[float, float]:
         fuel_cost = fuel_info.loc[tech_info['fuel']] / tech_info['efficiency_ds'] if not pd.isna(tech_info['fuel']) else 0
         marginal_cost = tech_info['VOM'] + fuel_cost
 
-    return round(capital_cost), round(marginal_cost, 4)
+    return round(capital_cost, 4), round(marginal_cost, 4)
 
 
 if __name__ == "__main__":

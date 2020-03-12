@@ -139,7 +139,7 @@ if __name__ == "__main__":
 
     if config["battery"]["include"]:
         logger.info("Adding Battery Storage")
-        net = add_batteries(net, config["battery"]["carrier"], config["battery"]["max_hours"])
+        net = add_batteries(net, config["battery"]["type"], config["battery"]["max_hours"])
 
     net.add("GlobalConstraint", "CO2Limit",
             carrier_attribute="co2_emissions", sense="<=",
