@@ -79,7 +79,8 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
     elif formulation == 'meet_RES_targets_hourly':
 
         # Generation must be greater than x percent of the load in each region for each time step
-        model.add_constraints((region_generation_y_dict[region][t] >= load[t, resite.regions.index(region)] * model.x[region, t],
+        model.add_constraints((region_generation_y_dict[region][t]
+                               >= load[t, resite.regions.index(region)] * model.x[region, t],
                                'generation_check_constraint_%s_%s' % (region, t))
                               for region in resite.regions for t in arange(len(resite.timestamps)))
 
@@ -103,7 +104,8 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
     elif formulation == 'meet_demand_with_capacity':
 
         # Generation must be greater than x percent of the load in each region for each time step
-        model.add_constraints((region_generation_y_dict[region][t] >= load[t, resite.regions.index(region)] * model.x[region, t],
+        model.add_constraints((region_generation_y_dict[region][t]
+                               >= load[t, resite.regions.index(region)] * model.x[region, t],
                                'generation_check_constraint_%s_%s' % (region, t))
                               for region in resite.regions for t in arange(len(resite.timestamps)))
 
@@ -152,7 +154,7 @@ def solve_model(resite, solver, solver_options):
     print(f"Objective value: {resite.instance.objective_value}")
 
 
-def retrieve_solution(resite) -> Dict[str, List[Tuple[float, float]]]:
+def retrieve_solution(resite) -> Tuple[float, Dict[str, List[Tuple[float, float]]], pd.Series]:
     """
     Get the solution of the optimization
 

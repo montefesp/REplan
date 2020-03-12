@@ -17,9 +17,7 @@ from src.network_builder.res import \
     add_generators_per_bus as add_res_per_bus
 from src.network_builder.nuclear import add_generators as add_nuclear
 from src.network_builder.hydro import \
-    add_phs_plants as add_phs, \
-    add_ror_plants as add_ror, \
-    add_sto_plants as add_sto
+    add_phs_plants, add_ror_plants, add_sto_plants
 from src.network_builder.conventional import add_generators as add_conventional
 from src.network_builder.battery import add_batteries
 from src.data.geographics.manager import get_subregions
@@ -31,28 +29,28 @@ logger = logging.getLogger()
 
 if __name__ == "__main__":
 
+    # Main directories
     data_dir = join(dirname(abspath(__file__)), "../../../data/")
-    tech_params_dir = join(dirname(abspath(__file__)), "../../tech_parameters/")
+    params_dir = join(dirname(abspath(__file__)), "../../parameters/")
     output_dir = join(dirname(abspath(__file__)),
                       '../../../output/sizing/e-highways/' + strftime("%Y%m%d") + "_" + strftime("%H%M%S") + "/")
 
-    # Run tech_parameters
-    param_fn = join(dirname(abspath(__file__)), 'parameters.yaml')
-    params = yaml.load(open(param_fn, 'r'), Loader=yaml.FullLoader)
+    # Run config
+    config_fn = join(dirname(abspath(__file__)), 'config.yaml')
+    config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
 
-    # Tech infos
-    tech_info = pd.read_excel(join(tech_params_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
-    fuel_info = pd.read_excel(join(tech_params_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
+    # Parameters
+    tech_info = pd.read_excel(join(params_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
+    fuel_info = pd.read_excel(join(params_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
+    pv_wind_tech_config = yaml.load(open(join(params_dir, 'pv_wind_tech_configs.yml')), Loader=yaml.FullLoader)
 
-    tech_config_path = join(tech_params_dir, 'config_techs.yml')
-    tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
-
+    # E-highway clusters information
     eh_clusters_file_name = join(data_dir, "topologies/e-highways/source/clusters_2016.csv")
     eh_clusters = pd.read_csv(eh_clusters_file_name, delimiter=";", index_col=0)
 
     # Time
-    timeslice = params['time']['slice']
-    time_resolution = params['time']['resolution']
+    timeslice = config['time']['slice']
+    time_resolution = config['time']['resolution']
     timestamps = pd.date_range(timeslice[0], timeslice[1], freq=str(time_resolution) + 'H')
 
     # Building network
@@ -70,9 +68,10 @@ if __name__ == "__main__":
     for fuel in fuel_info.index[1:-1]:
         net.add("Carrier", fuel, co2_emissions=fuel_info.loc[fuel, "CO2"])
 
+    # Loading topology
     logger.info("Loading topology")
-    countries = get_subregions(params["region"])
-    net = get_topology(net, countries, params["add_offshore"], plot=False)
+    countries = get_subregions(config["region"])
+    net = get_topology(net, countries, config["add_offshore"], plot=False)
 
     # Computing shapes
     total_onshore_shape = cascaded_union(net.buses[net.buses.onshore].region.values.flatten())
@@ -90,67 +89,71 @@ if __name__ == "__main__":
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
     net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)
 
-    if params['res']['include']:
+    # Adding pv and wind generators
+    if config['res']['include']:
         logger.info("Adding RES")
-        # if params['res']['strategy'] == "comp" or params['res']['strategy'] == "max":
-        #     net = add_res_from_file(net, total_shape, params['res']['strategy'],
-        #                             params["res"]["resite_nb"], params["res"]["area_per_site"], params["res"]["cap_dens"])
-        if params['res']["strategy"] == "bus":
-            net = add_res_per_bus(net, params["res"]["technologies"], tech_config)
-        if params['res']["strategy"] == "no_siting":
-            net = add_res_at_resolution(net, [params["region"]], params["res"]["technologies"],
-                                        tech_config, params["res"]["spatial_resolution"],
-                                        params['res']['filtering_layers'], params["res"]["use_ex_cap"])
-        if params['res']['strategy'] == 'siting':
-            net = add_res(net, params['res'], tech_config, params["region"])
+        # if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
+        #     net = add_res_from_file(net, total_shape, config['res']['strategy'],
+        #                      config["res"]["resite_nb"], config["res"]["area_per_site"], config["res"]["cap_dens"])
+        if config['res']["strategy"] == "bus":
+            net = add_res_per_bus(net, config["res"]["technologies"], pv_wind_tech_config)
+        if config['res']["strategy"] == "no_siting":
+            net = add_res_at_resolution(net, [config["region"]], config["res"]["technologies"],
+                                        pv_wind_tech_config, config["res"]["spatial_resolution"],
+                                        config['res']['filtering_layers'], config["res"]["use_ex_cap"])
+        if config['res']['strategy'] == 'siting':
+            net = add_res(net, config['res'], pv_wind_tech_config, config["region"])
 
-    # Remove offshore locations that have no generators associated to them
+    # Remove offshore locations that have no RES generators associated to them
     for bus_id in net.buses.index:
         if not net.buses.loc[bus_id].onshore and len(net.generators[net.generators.bus == bus_id]) == 0:
             # Remove the bus
             net.remove("Bus", bus_id)
             # Remove the lines associated to the bus
-            net.mremove("Link", net.links[net.links.bus0 == bus_id].index)  # TODO: change back to line when using Dc-opf
+            # !!!!! Change to links for transportation model -> turn back to line when needed
+            net.mremove("Link", net.links[net.links.bus0 == bus_id].index)
 
     # Add conv gen
-    if params["dispatch"]["include"]:
+    if config["dispatch"]["include"]:
         logger.info("Adding Dispatch")
-        tech = params["dispatch"]["tech"]
-        net = add_conventional(net, tech, tech_config[tech]["efficiency"])
+        tech = config["dispatch"]["tech"]
+        net = add_conventional(net, tech)
 
     # Adding nuclear
-    if params["nuclear"]["include"]:
+    if config["nuclear"]["include"]:
         logger.info("Adding Nuclear")
-        net = add_nuclear(net, countries, params["nuclear"]["use_ex_cap"],
-                          params["nuclear"]["extendable"], tech_config["nuclear"]["ramp_rate"], "pp_nuclear_WNA.csv")
+        net = add_nuclear(net, countries, config["nuclear"]["use_ex_cap"], config["nuclear"]["extendable"],
+                          "pp_nuclear_WNA.csv")
 
-    if params["sto"]["include"]:
+    if config["sto"]["include"]:
         logger.info("Adding STO")
-        net = add_sto(net, params["sto"]["extendable"], params["sto"]["cyclic_sof"],
-                      tech_config["sto"]["efficiency_dispatch"])
+        net = add_sto_plants(net, config["sto"]["extendable"], config["sto"]["cyclic_sof"])
 
-    if params["phs"]["include"]:
+    if config["phs"]["include"]:
         logger.info("Adding PHS")
-        net = add_phs(net, params["phs"]["extendable"], params["phs"]["cyclic_sof"],
-                      tech_config["phs"]["efficiency_store"], tech_config["phs"]["efficiency_dispatch"])
+        net = add_phs_plants(net, config["phs"]["extendable"], config["phs"]["cyclic_sof"])
 
-    if params["ror"]["include"]:
+    if config["ror"]["include"]:
         logger.info("Adding ROR")
-        net = add_ror(net, params["ror"]["extendable"], tech_config["ror"]["efficiency"])
+        net = add_ror_plants(net, config["ror"]["extendable"])
 
-    if params["battery"]["include"]:
+    if config["battery"]["include"]:
         logger.info("Adding Battery Storage")
-        net = add_batteries(net, params["battery"]["carrier"], params["battery"]["max_hours"])
+        net = add_batteries(net, config["battery"]["carrier"], config["battery"]["max_hours"])
 
     net.add("GlobalConstraint", "CO2Limit",
             carrier_attribute="co2_emissions", sense="<=",
-            constant=params["co2_emissions"]["global_per_year"]*1000000000*len(net.snapshots)/8760.)
-
-    makedirs(output_dir)
-    net.lopf(solver_name='gurobi', solver_logfile=output_dir + "test.log", solver_options=params["solver"])
+            constant=config["co2_emissions"]["global_per_year"]*1000000000*len(net.snapshots)/8760.)
 
     # Compute and save results
-    yaml.dump(params, open(output_dir + 'tech_parameters.yaml', 'w'))
+    makedirs(output_dir)
+    net.lopf(solver_name='gurobi', solver_logfile=output_dir + "test.log", solver_options=config["solver"])
+
+    # Save config and parameters files
+    yaml.dump(config, open(output_dir + 'config.yaml', 'w'))
+    yaml.dump(tech_info, open(output_dir + 'tech_info.yaml', 'w'))
+    yaml.dump(fuel_info, open(output_dir + 'fuel_info.yaml', 'w'))
+    yaml.dump(pv_wind_tech_config, open(output_dir + 'pv_wind_tech_config.yaml', 'w'))
 
     net.export_to_csv_folder(output_dir)
 

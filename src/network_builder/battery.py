@@ -4,7 +4,7 @@ import pandas as pd
 
 import pypsa
 
-from src.tech_parameters.costs import get_cost, get_plant_type
+from src.parameters.costs import get_cost, get_plant_type
 
 
 def add_batteries(network: pypsa.Network, carrier: str, max_hours: float):
@@ -33,8 +33,7 @@ def add_batteries(network: pypsa.Network, carrier: str, max_hours: float):
     capital_cost, marginal_cost = get_cost(carrier, len(network.snapshots))
 
     # Get efficiencies
-    # TODO: maybe move this to another function
-    tech_info_fn = join(dirname(abspath(__file__)), "../tech_parameters/tech_info.xlsx")
+    tech_info_fn = join(dirname(abspath(__file__)), "../parameters/tech_info.xlsx")
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
     efficiency_dispatch, efficiency_store, self_discharge = \
         tech_info.loc[get_plant_type(carrier)][["efficiency_ds", "efficiency_ch", "efficiency_sd"]]

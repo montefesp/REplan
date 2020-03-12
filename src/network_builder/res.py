@@ -14,7 +14,7 @@ from src.data.resource.manager import get_cap_factor_for_regions, get_cap_factor
 from src.data.geographics.manager import is_onshore, get_nuts_area, match_points_to_region, return_points_in_shape
 from src.data.res_potential.manager import get_capacity_potential_for_regions  # get_capacity_potential, get_potential_ehighway
 from src.resite.resite import Resite
-from src.tech_parameters.costs import get_cost
+from src.parameters.costs import get_cost
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -92,7 +92,7 @@ logger = logging.getLogger()
 #         for i, point in enumerate(points_dict):
 #
 #             bus_id = bus_ids[i]
-#             # Define the capacities per km from tech_parameters if existing
+#             # Define the capacities per km from parameters if existing
 #             capacity_per_km = cap_dens_dict[tech]
 #             if capacity_per_km == "":
 #                 capacity_per_km = bus_capacity_per_km_dict[bus_id]

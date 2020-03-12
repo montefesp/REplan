@@ -549,7 +549,7 @@ def read_inputs_plotting(output_path):
     ------------
 
     data : dict
-        Dictionary containing run tech_parameters.
+        Dictionary containing run parameters.
 
     """
 

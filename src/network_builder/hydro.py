@@ -9,9 +9,8 @@ import pypsa
 from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area
 from src.data.topologies.ehighway import get_ehighway_clusters
 from src.data.generation.manager import get_gen_from_ppm, find_associated_buses_ehighway
-from src.tech_parameters.costs import get_cost
+from src.parameters.costs import get_cost, get_plant_type
 
-# TODO: add efficiencies
 
 # TODO: need to revise all these functions, either deleting some of them or removing the dependencies with regard
 #  to e-highway, moving them in other files
@@ -140,8 +139,7 @@ def phs_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en
     return bus_pow_cap, bus_en_cap
 
 
-def add_phs_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof: bool = True,
-                   efficiency_store: float = 1.0, efficiency_dispatch: float = 1.0) -> pypsa.Network:
+def add_phs_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof: bool = True) -> pypsa.Network:
     """Adds pumped-hydro storage units to a PyPSA Network instance using other data
 
     Parameters
@@ -152,10 +150,6 @@ def add_phs_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
         Whether generators are extendable
     cyclic_sof: bool (default: True)
         Whether to set to True the cyclic_state_of_charge for the storage_unit component
-    efficiency_store: float (default: 1.0)
-        Efficiency at storing between [0., 1.]
-    efficiency_dispatch: float (default: 1.0)
-        Efficiency at dispatching between [0., 1.]
 
     Returns
     -------
@@ -175,6 +169,13 @@ def add_phs_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
 
     capital_cost, marginal_cost = get_cost('phs', len(network.snapshots))
 
+    # Get efficiencies
+    tech_info_fn = join(dirname(abspath(__file__)), "../parameters/tech_info.xlsx")
+    tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
+    efficiency_dispatch, efficiency_store, self_discharge = \
+        tech_info.loc[get_plant_type('phs')][["efficiency_ds", "efficiency_ch", "efficiency_sd"]]
+    self_discharge = round(1 - self_discharge, 4)
+
     network.madd("StorageUnit", "Storage PHS " + psp_pow_cap.index,
                  bus=psp_pow_cap.index,
                  carrier='phs',
@@ -186,6 +187,7 @@ def add_phs_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
                  marginal_cost=marginal_cost,
                  efficiency_store=efficiency_store,
                  efficiency_dispatch=efficiency_dispatch,
+                 self_discharge=self_discharge,
                  cyclic_state_of_charge=cyclic_sof,
                  x=buses_onshore.loc[psp_pow_cap.index].x.values,
                  y=buses_onshore.loc[psp_pow_cap.index].y.values)
@@ -315,7 +317,7 @@ def ror_inputs_nuts_to_eh(bus_ids: List[str], nuts2_cap: pd.Series, nuts2_inflow
     return bus_cap, bus_inflows
 
 
-def add_ror_plants(network: pypsa.Network, extendable: bool = False, efficiency: float = 1.0) -> pypsa.Network:
+def add_ror_plants(network: pypsa.Network, extendable: bool = False) -> pypsa.Network:
     """Adds run-of-river generators to a Network instance.
 
     Parameters
@@ -324,8 +326,6 @@ def add_ror_plants(network: pypsa.Network, extendable: bool = False, efficiency:
         A Network instance with nodes associated to regions.
     extendable: bool (default: False)
         Whether generators are extendable
-    efficiency: float (default: 1.0)
-        Efficiency at generating power from inflow
 
     Returns
     -------
@@ -348,6 +348,11 @@ def add_ror_plants(network: pypsa.Network, extendable: bool = False, efficiency:
                                                  ror_inflow)
 
     capital_cost, marginal_cost = get_cost('ror', len(network.snapshots))
+
+    # Get efficiencies
+    tech_info_fn = join(dirname(abspath(__file__)), "../parameters/tech_info.xlsx")
+    tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
+    efficiency = tech_info.loc[get_plant_type('ror')]["efficiency_ds"]
 
     network.madd("Generator", "Generator ror " + bus_cap.index,
                  bus=bus_cap.index.values,
@@ -509,8 +514,7 @@ def sto_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en
     return bus_pow_cap, bus_en_cap, bus_inflows
 
 
-def add_sto_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof: bool = True,
-                   efficiency_dispatch: float = 1.0) -> pypsa.Network:
+def add_sto_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof: bool = True) -> pypsa.Network:
     """Adds run-of-river generators to a Network instance.
 
     Parameters
@@ -521,8 +525,6 @@ def add_sto_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
         Whether generators are extendable
     cyclic_sof: bool (default: True)
         Whether to set to True the cyclic_state_of_charge for the storage_unit component
-    efficiency_dispatch: float (default: 1.0)
-        Efficiency of dispatch between [0., 1.]
 
     Returns
     -------
@@ -547,6 +549,11 @@ def add_sto_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
     max_hours = bus_en_cap/bus_pow_cap
 
     capital_cost, marginal_cost = get_cost('sto', len(network.snapshots))
+
+    # Get efficiencies
+    tech_info_fn = join(dirname(abspath(__file__)), "../parameters/tech_info.xlsx")
+    tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
+    efficiency_dispatch = tech_info.loc[get_plant_type('sto')]["efficiency_ds"]
 
     network.madd("StorageUnit", "Storage reservoir " + bus_pow_cap.index,
                  bus=bus_pow_cap.index.values,

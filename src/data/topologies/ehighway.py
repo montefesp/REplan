@@ -22,7 +22,7 @@ import itertools
 
 from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes, return_points_in_shape, \
     display_polygons
-from src.tech_parameters.costs import get_cost
+from src.parameters.costs import get_cost
 
 import pypsa
 

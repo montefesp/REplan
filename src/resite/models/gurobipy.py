@@ -133,7 +133,7 @@ def solve_model(resite, solver, solver_options):
     resite.instance.optimize()
 
 
-def retrieve_solution(resite) -> Dict[str, List[Tuple[float, float]]]:
+def retrieve_solution(resite) -> Tuple[float, Dict[str, List[Tuple[float, float]]], pd.Series]:
     """
     Get the solution of the optimization
 

@@ -100,7 +100,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
     spatial_resolution : float
         Spatial resolution of the points.
     tech_dict : Dict[str, Any]
-        Dict object containing technical tech_parameters and constraints of a given technology.
+        Dict object containing technical parameters and constraints of a given technology.
 
     Returns
     -------

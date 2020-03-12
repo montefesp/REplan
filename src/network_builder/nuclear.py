@@ -7,12 +7,12 @@ import pypsa
 
 from src.data.geographics.manager import _get_country, match_points_to_region
 from src.data.generation.manager import get_gen_from_ppm, find_associated_buses_ehighway
-from src.tech_parameters.costs import get_cost, get_plant_type
+from src.parameters.costs import get_cost, get_plant_type
 
 
 # TODO: this should not depend on e-highway
 def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: bool, extendable: bool,
-                   ramp_rate: float, ppm_file_name: str = None) -> pypsa.Network:
+                   ppm_file_name: str = None) -> pypsa.Network:
     """Adds nuclear generators to a PyPsa Network instance.
 
     Parameters
@@ -25,8 +25,6 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
         Whether to consider existing capacity or not
     extendable: bool
         Whether generators are extendable
-    ramp_rate: float
-        Percentage of the total capacity for which the generation can be increased or decreased between two time-steps
     ppm_file_name: str
         Name of the file from which to retrieve the data if value is not None
 
@@ -60,12 +58,10 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
 
     capital_cost, marginal_cost = get_cost('nuclear', len(network.snapshots))
 
-    # Get fuel type
-    tech_info_fn = join(dirname(abspath(__file__)), "../tech_parameters/tech_info.xlsx")
+    # Get fuel type, efficiency and ramp rates
+    tech_info_fn = join(dirname(abspath(__file__)), "../parameters/tech_info.xlsx")
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
-    fuel = tech_info.loc[get_plant_type('nuclear')]["fuel"]
-
-    # TODO: add efficiencies
+    fuel, efficiency, ramp_rate = tech_info.loc[get_plant_type('nuclear')][["fuel", "efficiency_ds", "ramp_rate"]]
 
     network.madd("Generator", "Gen nuclear " + gens.Name + " " + gens.bus_id,
                  bus=gens.bus_id.values,
@@ -74,6 +70,7 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
                  p_nom_extendable=extendable,
                  type='nuclear',
                  carrier=fuel,
+                 efficiency=efficiency,
                  marginal_cost=marginal_cost,
                  capital_cost=capital_cost,
                  ramp_limit_up=ramp_rate,

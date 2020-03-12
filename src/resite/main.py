@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 params = yaml.load(open('config_model.yml'), Loader=yaml.FullLoader)
-tech_config_path = join(dirname(abspath(__file__)), '../tech_parameters/config_techs.yml')
+tech_config_path = join(dirname(abspath(__file__)), '../parameters/pv_wind_tech_configs.yml')
 tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
 logger.info('Building class.')
 resite = Resite(params["regions"], params["technologies"], tech_config, params["timeslice"], params["spatial_resolution"],

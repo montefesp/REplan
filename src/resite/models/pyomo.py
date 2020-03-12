@@ -96,9 +96,8 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
         # Impose a certain percentage of the load to be covered for each time step
         covered_load_perc_per_region = dict(zip(resite.regions, deployment_vector))
 
-        # TODO: ask david, why are we multiplicating by len(timestamps)?
         def policy_target_rule(model, region, t):
-            return model.x[region, t] >= covered_load_perc_per_region[region]  # * len(resite.timestamps)
+            return model.x[region, t] >= covered_load_perc_per_region[region]
 
         model.policy_target = Constraint(resite.regions, arange(len(resite.timestamps)), rule=policy_target_rule)
 
@@ -166,7 +165,7 @@ def solve_model(resite, solver, solver_options):
               logfile=join(resite.output_folder, 'solver_log.log'))
 
 
-def retrieve_solution(resite) -> Dict[str, List[Tuple[float, float]]]:
+def retrieve_solution(resite) -> Tuple[float, Dict[str, List[Tuple[float, float]]], pd.Series]:
     """
     Get the solution of the optimization
 

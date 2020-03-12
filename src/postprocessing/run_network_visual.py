@@ -26,7 +26,7 @@ tech_colors = {"All": "rgba(138,43,226,0.5)",
                "imports": "rgba(255,215,0,0.5)",
                "storage": "rgba(34,139,34,0.5)"}
 
-# TODO: Maybe I should put each 'figure' into objects where I can just update some parts of
+# ODO: Maybe I should put each 'figure' into objects where I can just update some parts of
 #  it so that the uploading is faster
 
 class App:
@@ -453,7 +453,7 @@ class App:
             return [{'label': dir_name, 'value': dir_name} for dir_name in sorted(os.listdir(self.output_dir))]
     
         def get_parameters_list():
-            attrs = yaml.load(open(self.output_dir + self.current_test_number + "/tech_parameters.yaml", "rb"),
+            attrs = yaml.load(open(self.output_dir + self.current_test_number + "/config.yaml", "rb"),
                               Loader=yaml.FullLoader)
             return [{'name': key, 'value': str(attrs[key])} for key in attrs]
 
@@ -570,7 +570,7 @@ class App:
 
                     html.Div([
                         dash_table.DataTable(
-                            id='tech_parameters-table',
+                            id='parameters-table',
                             columns=[{"name": "name", "id": "name"}, {"name": "value", "id": "value"}],
                             data=get_parameters_list()),
 
@@ -709,7 +709,7 @@ class App:
         """
 
         @self.app.callback(
-            Output('tech_parameters-table', 'data'),
+            Output('parameters-table', 'data'),
             [Input('output-selector', 'value')])
         def update_param_table(value):
             self.current_test_number = value
