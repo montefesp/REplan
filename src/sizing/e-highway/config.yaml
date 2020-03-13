@@ -5,12 +5,12 @@ solver:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-7-01T23:00']
+  slice: ['2015-01-01T00:00', '2015-01-01T23:00']
   resolution: 1
 
 # Space
-region: "EU"
-add_offshore: True
+region: "BENELUX"
+add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
 res:
@@ -27,7 +27,7 @@ res:
   # For strategy = full or generate
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
-  technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+  technologies: ['wind_onshore', 'pv_utility', 'pv_residential', 'wind_offshore']
   timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
   use_ex_cap: True
   filtering_layers:

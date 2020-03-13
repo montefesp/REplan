@@ -8,6 +8,7 @@ import numpy as np
 import datetime
 from shapely.ops import cascaded_union
 
+from src.data.emission.manager import get_max_emission_from_emission_per_mwh
 from src.data.load.manager import get_load_from_nuts_codes
 from src.data.topologies.ehighway import get_topology
 # from src.network_builder.res import add_generators_from_file as add_res_from_file
@@ -141,9 +142,10 @@ if __name__ == "__main__":
         logger.info("Adding Battery Storage")
         net = add_batteries(net, config["battery"]["type"], config["battery"]["max_hours"])
 
-    net.add("GlobalConstraint", "CO2Limit",
-            carrier_attribute="co2_emissions", sense="<=",
-            constant=config["co2_emissions"]["global_per_year"]*1000000000*len(net.snapshots)/8760.)
+    max_emission_per_mwh = config["co2_emissions"]["level_1990"]*(1-config["co2_emissions"]["reduc_from_1990"])/1000.0
+    total_emissions = get_max_emission_from_emission_per_mwh(max_emission_per_mwh, net.loads_t["p_set"])
+    net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=total_emissions)
+    # config["co2_emissions"]["global_per_year"]*1000000000*len(net.snapshots)/8760.)
 
     # Compute and save results
     makedirs(output_dir)
