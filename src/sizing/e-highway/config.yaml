@@ -1,21 +1,29 @@
 # solver
-solver:
-  Crossover: 0
+solver: 'gurobi'
+solver_options:
+  gurobi:
+    Threads: 0
+    Method: 2
+    Crossover: 0
+    FeasibilityTol: 0.001
+    OptimalityTol: 0.001
+  cplex:
+    solutiontype: 1
 
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-02-01T23:00']
+  slice: ['2015-01-01T00:00', '2015-12-01T23:00']
   resolution: 1
 
 # Space
-region: "BENELUX"
+region: "EU"
 add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
 res:
   include: True
-  strategy: "max" # (max or comp) or bus or no_siting or siting
+  strategy: "siting" # (max or comp) or bus or no_siting or siting
 
   # For strategy = max or comp
   resite_nb: 100 # can be multiples of 25
@@ -40,19 +48,20 @@ res:
     water_mask: True
 
   # For strategy = generate
-  modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
+  modelling: 'gurobipy' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
   solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
   solver_options:
     gurobi:
       Threads: 0
-      Crossover: 0
-    cplex: 0
+      Method: -1
+    cplex:
+      solutiontype: 1
     cbc: 0
-  write_lp: True
+  write_lp: False
   # Type of problem to be solved. Check resite.py for a full list.
   formulation: 'meet_RES_targets_agg' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
   # List of deployments per region (ordered as the 'regions' list above)
-  deployment_vector: [0.1] # [0.5, 0.5, 0.5, 0.5]
+  deployment_vector: [0.8] # [0.5, 0.5, 0.5, 0.5]
   # Keeping files at the end of the run.
   keep_files: False
 

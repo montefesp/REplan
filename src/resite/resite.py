@@ -15,14 +15,6 @@ import yaml
 from time import strftime
 import pickle
 
-
-from src.resite.models.pyomo import build_model as build_pyomo_model, \
-    solve_model as solve_pyomo_model, retrieve_solution as retrieve_pyomo_solution
-from src.resite.models.docplex import build_model as build_docplex_model, \
-    solve_model as solve_docplex_model, retrieve_solution as retrieve_docplex_solution
-from src.resite.models.gurobipy import build_model as build_gurobipy_model, \
-    solve_model as solve_gurobipy_model, retrieve_solution as retrieve_gurobipy_solution
-
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
@@ -224,10 +216,13 @@ class Resite:
         self.formulation = formulation
         self.deployment_vector = deployment_vector
         if self.modelling == 'pyomo':
+            from src.resite.models.pyomo import build_model as build_pyomo_model
             build_pyomo_model(self, formulation, deployment_vector, write_lp)
         elif self.modelling == 'docplex':
+            from src.resite.models.docplex import build_model as build_docplex_model
             build_docplex_model(self, formulation, deployment_vector, write_lp)
         elif self.modelling == 'gurobipy':
+            from src.resite.models.gurobipy import build_model as build_gurobipy_model
             build_gurobipy_model(self, formulation, deployment_vector, write_lp)
 
     def solve_model(self, solver, solver_options):
@@ -245,10 +240,13 @@ class Resite:
         self.solver = solver
         self.solver_options = solver_options
         if self.modelling == 'pyomo':
+            from src.resite.models.pyomo import  solve_model as solve_pyomo_model
             solve_pyomo_model(self, solver, solver_options)
         elif self.modelling == 'docplex':
+            from src.resite.models.docplex import solve_model as solve_docplex_model
             solve_docplex_model(self, solver, solver_options)
         elif self.modelling == 'gurobipy':
+            from src.resite.models.gurobipy import solve_model as solve_gurobipy_model
             solve_gurobipy_model(self, solver, solver_options)
 
     def retrieve_solution(self) -> Dict[str, List[Tuple[float, float]]]:
@@ -262,10 +260,13 @@ class Resite:
 
         """
         if self.modelling == 'pyomo':
+            from src.resite.models.pyomo import retrieve_solution as retrieve_pyomo_solution
             self.objective, self.selected_tech_points_dict, self.optimal_capacity_ds = retrieve_pyomo_solution(self)
         elif self.modelling == 'docplex':
+            from src.resite.models.docplex import retrieve_solution as retrieve_docplex_solution
             self.objective, self.selected_tech_points_dict, self.optimal_capacity_ds = retrieve_docplex_solution(self)
         elif self.modelling == 'gurobipy':
+            from src.resite.models.gurobipy import retrieve_solution as retrieve_gurobipy_solution
             self.objective, self.selected_tech_points_dict, self.optimal_capacity_ds = retrieve_gurobipy_solution(self)
 
         return self.selected_tech_points_dict

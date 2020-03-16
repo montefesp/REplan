@@ -36,7 +36,6 @@ def get_max_emission(max_co2_global_per_year: float, countries: List[str], nb_ho
 
 def get_max_emission_from_emission_per_mwh(max_emission_per_mwh: float, loads_p: pd.DataFrame):
 
-    print(max_emission_per_mwh)
     return loads_p.values.sum()*max_emission_per_mwh
 
 

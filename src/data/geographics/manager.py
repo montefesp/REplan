@@ -101,13 +101,14 @@ def save_to_geojson(df, fn):
     Returns
     -------
     """
-    if exists(fn):
-        unlink(fn)
-    if not isinstance(df, gpd.GeoDataFrame):
-        df = gpd.GeoDataFrame(dict(geometry=df))
-    df = df.reset_index()
-    schema = {**gpd.io.file.infer_schema(df), 'geometry': 'Unknown'}
-    df.to_file(fn, driver='GeoJSON', schema=schema)
+    pass
+    # if exists(fn):
+    #     unlink(fn)
+    # if not isinstance(df, gpd.GeoDataFrame):
+    #     df = gpd.GeoDataFrame(dict(geometry=df))
+    # df = df.reset_index()
+    # schema = {**gpd.io.file.infer_schema(df), 'geometry': 'Unknown'}
+    # df.to_file(fn, driver='GeoJSON', schema=schema)
 
 
 def save_polygon(df: gpd.GeoDataFrame, fn: str):

@@ -334,7 +334,7 @@ def retrieve_load_data(regions: List[str], timestamps: pd.DatetimeIndex) -> pd.D
     """
 
     path_load_data = join(dirname(abspath(__file__)), '../../../data/load/generated/load_opsd_2015_2018.csv')
-    load_data = pd.read_csv(path_load_data, index_col=0, sep=';')
+    load_data = pd.read_csv(path_load_data, index_col=0, sep=';', low_memory=False)
     load_data.index = pd.to_datetime(load_data.index)
 
     assert timestamps[0] in load_data.index, "Error: Start datetime not in load data"

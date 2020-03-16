@@ -1,3 +1,6 @@
+import sys
+sys.path.append('../../../')
+
 import pypsa
 from os.path import join, dirname, abspath
 from os import makedirs
@@ -149,7 +152,8 @@ if __name__ == "__main__":
 
     # Compute and save results
     makedirs(output_dir)
-    net.lopf(solver_name='gurobi', solver_logfile=output_dir + "test.log", solver_options=config["solver"])
+    net.lopf(solver_name=config["solver"], solver_logfile=output_dir + "test.log",
+             solver_options=config["solver_options"][config["solver"]], pyomo=True)
 
     # Save config and parameters files
     yaml.dump(config, open(output_dir + 'config.yaml', 'w'))
