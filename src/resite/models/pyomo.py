@@ -1,5 +1,6 @@
 from numpy import arange
-from pyomo.environ import ConcreteModel, Var, Constraint, Objective, minimize, maximize, NonNegativeReals, value
+from pyomo.environ import ConcreteModel, Var, Constraint, Objective, minimize, maximize, NonNegativeReals, value, \
+    Binary
 from pyomo.opt import ProblemFormat, SolverFactory
 from typing import List, Dict, Tuple
 import pandas as pd
@@ -24,7 +25,8 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
         If True, the model is written to an .lp file.
     """
 
-    accepted_formulations = ['meet_RES_targets_agg', 'meet_RES_targets_hourly', 'meet_demand_with_capacity']
+    accepted_formulations = ['meet_RES_targets_agg', 'meet_RES_targets_hourly', 'meet_demand_with_capacity',
+                             'maximize_generation', 'maximize_aggr_cap_factor']
     assert formulation in accepted_formulations, f"Error: formulation {formulation} is not implemented." \
                                                  f"Accepted formulations are {accepted_formulations}."
 
@@ -33,21 +35,23 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
 
     model = ConcreteModel()
 
-    # Variables for the portion of demand that is met at each time-stamp for each region
-    model.x = Var(resite.regions, arange(len(resite.timestamps)), within=NonNegativeReals, bounds=(0, 1))
-    # Variables for the portion of capacity at each location for each technology
-    model.y = Var(tech_points_tuples, within=NonNegativeReals, bounds=(0, 1))
+    # TODO: this is shit, need to reorganize
+    if formulation in ['meet_RES_targets_agg', 'meet_RES_targets_hourly', 'meet_demand_with_capacity']:
+        # Variables for the portion of demand that is met at each time-stamp for each region
+        model.x = Var(resite.regions, arange(len(resite.timestamps)), within=NonNegativeReals, bounds=(0, 1))
+        # Variables for the portion of capacity at each location for each technology
+        model.y = Var(tech_points_tuples, within=NonNegativeReals, bounds=(0, 1))
 
-    # Create generation dictionary for building speed up
-    region_generation_y_dict = dict.fromkeys(resite.regions)
-    for region in resite.regions:
-        # Get generation potential for points in region for each techno
-        region_tech_points = resite.region_tech_points_dict[region]
-        tech_points_generation_potential = resite.generation_potential_df[region_tech_points]
-        region_ys = pd.Series([model.y[tech, loc] for tech, loc in region_tech_points],
-                              index=pd.MultiIndex.from_tuples(region_tech_points))
-        region_generation = tech_points_generation_potential * region_ys
-        region_generation_y_dict[region] = region_generation.sum(axis=1).values
+        # Create generation dictionary for building speed up
+        region_generation_y_dict = dict.fromkeys(resite.regions)
+        for region in resite.regions:
+            # Get generation potential for points in region for each techno
+            region_tech_points = resite.region_tech_points_dict[region]
+            tech_points_generation_potential = resite.generation_potential_df[region_tech_points]
+            region_ys = pd.Series([model.y[tech, loc] for tech, loc in region_tech_points],
+                                  index=pd.MultiIndex.from_tuples(region_tech_points))
+            region_generation = tech_points_generation_potential * region_ys
+            region_generation_y_dict[region] = region_generation.sum(axis=1).values
 
     if formulation == 'meet_RES_targets_agg':
 
@@ -136,6 +140,44 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
         def objective_rule(model):
             return sum(model.x[region, t] for region in resite.regions for t in arange(len(resite.timestamps)))
 
+        model.objective = Objective(rule=objective_rule, sense=maximize)
+
+    elif formulation == 'maximize_generation':
+
+        # Variables for the portion of capacity at each location for each technology
+        model.y = Var(tech_points_tuples, within=Binary)
+        nb_sites_per_region = dict(zip(resite.regions, deployment_vector))
+
+        # Put a constraint on the number of sites that need to be deployed per region
+        def policy_target_rule(model, region):
+            return sum(model.y[tech, lon, lat] for tech, (lon, lat) in resite.region_tech_points_dict[region]) \
+                   == nb_sites_per_region[region]
+
+        model.policy_target = Constraint(resite.regions, rule=policy_target_rule)
+
+        # Maximize generation
+        def objective_rule(model):
+            return sum(model.y[tech, lon, lat]*resite.generation_potential_df[tech, (lon, lat)].sum()
+                       for tech, lon, lat in tech_points_tuples)
+        model.objective = Objective(rule=objective_rule, sense=maximize)
+
+    elif formulation == 'maximize_aggr_cap_factor':
+
+        # Variables for the portion of capacity at each location for each technology
+        model.y = Var(tech_points_tuples, within=Binary)
+        nb_sites_per_region = dict(zip(resite.regions, deployment_vector))
+
+        # Put a constraint on the number of sites that need to be deployed per region
+        def policy_target_rule(model, region):
+            return sum(model.y[tech, lon, lat] for tech, (lon, lat) in resite.region_tech_points_dict[region]) \
+                   == nb_sites_per_region[region]
+
+        model.policy_target = Constraint(resite.regions, rule=policy_target_rule)
+
+        # Maximize sum of capacity factors over time slice
+        def objective_rule(model):
+            return sum(model.y[tech, lon, lat]*resite.cap_factor_df[tech, (lon, lat)].sum()
+                       for tech, lon, lat in tech_points_tuples)
         model.objective = Objective(rule=objective_rule, sense=maximize)
 
     if write_lp:

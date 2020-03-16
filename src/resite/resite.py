@@ -211,7 +211,8 @@ class Resite:
 
         if formulation == 'meet_demand_with_capacity' and len(self.regions) != 1:
             raise ValueError('The selected formulation works for one region only!')
-        elif 'meet_RES_targets' in formulation and len(deployment_vector) != len(self.regions):
+        elif formulation in ['meet_RES_targets_agg', 'meet_RES_targets_hourly', 'maximize_generation',
+                             'maximize_aggr_cap_factor'] and len(deployment_vector) != len(self.regions):
             raise ValueError('For the selected formulation, the "regions" and "deployment_vector" '
                              'lists must have the same cardinality!')
 

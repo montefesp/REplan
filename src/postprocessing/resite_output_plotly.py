@@ -163,5 +163,5 @@ if __name__ == "__main__":
 
     resite = pickle.load(open(output_dir + "resite_model.p", 'rb'))
     resite_output = ResiteOutput(resite)
-    resite_output.show_points("percentage_of_potential", auto_open=False)
-    resite_output.show_points("optimal_capacity", auto_open=False)
+    resite_output.show_points("percentage_of_potential", auto_open=True)
+    resite_output.show_points("optimal_capacity", auto_open=True)

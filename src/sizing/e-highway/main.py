@@ -105,7 +105,6 @@ if __name__ == "__main__":
         if config['res']['strategy'] == 'siting':
             net = add_res(net, config['res'], pv_wind_tech_config, config["region"])
 
-
     # Remove offshore locations that have no RES generators associated to them
     for bus_id in net.buses.index:
         if not net.buses.loc[bus_id].onshore and len(net.generators[net.generators.bus == bus_id]) == 0:
