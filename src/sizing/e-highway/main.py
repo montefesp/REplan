@@ -11,7 +11,7 @@ from shapely.ops import cascaded_union
 from src.data.emission.manager import get_max_emission_from_emission_per_mwh
 from src.data.load.manager import get_load_from_nuts_codes
 from src.data.topologies.ehighway import get_topology
-# from src.network_builder.res import add_generators_from_file as add_res_from_file
+from src.network_builder.res import add_generators_from_file as add_res_from_file
 from src.network_builder.res import \
     add_generators as add_res, \
     add_generators_at_resolution as add_res_at_resolution, \
@@ -93,9 +93,9 @@ if __name__ == "__main__":
     # Adding pv and wind generators
     if config['res']['include']:
         logger.info("Adding RES")
-        # if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
-        #     net = add_res_from_file(net, total_shape, config['res']['strategy'],
-        #                      config["res"]["resite_nb"], config["res"]["area_per_site"], config["res"]["cap_dens"])
+        if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
+             net = add_res_from_file(net, total_shape, config['res']['strategy'], config["res"]["resite_nb"],
+                                     config["res"]["area_per_site"], config["res"]["cap_dens"])
         if config['res']["strategy"] == "bus":
             net = add_res_per_bus(net, config["res"]["technologies"], pv_wind_tech_config)
         if config['res']["strategy"] == "no_siting":
@@ -104,6 +104,7 @@ if __name__ == "__main__":
                                         config['res']['filtering_layers'], config["res"]["use_ex_cap"])
         if config['res']['strategy'] == 'siting':
             net = add_res(net, config['res'], pv_wind_tech_config, config["region"])
+
 
     # Remove offshore locations that have no RES generators associated to them
     for bus_id in net.buses.index:
