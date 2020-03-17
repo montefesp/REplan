@@ -4,9 +4,10 @@ solver_options:
   gurobi:
     Threads: 0
     Method: 2
+    BarHomogeneous: 1
     Crossover: 0
-    FeasibilityTol: 0.001
-    OptimalityTol: 0.001
+    FeasibilityTol: 0.0001
+    OptimalityTol: 0.0001
   cplex:
     solutiontype: 1
 
@@ -53,7 +54,7 @@ res:
   solver_options:
     gurobi:
       Threads: 0
-      Method: -1
+      Method: 1
     cplex:
       solutiontype: 1
     cbc: 0

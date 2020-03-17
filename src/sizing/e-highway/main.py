@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import datetime
 from shapely.ops import cascaded_union
+from pyomo.opt import ProblemFormat
 
 from src.data.emission.manager import get_max_emission_from_emission_per_mwh
 from src.data.load.manager import get_load_from_nuts_codes
@@ -71,6 +72,7 @@ if __name__ == "__main__":
     # Adding carriers
     for fuel in fuel_info.index[1:-1]:
         net.add("Carrier", fuel, co2_emissions=fuel_info.loc[fuel, "CO2"])
+    net.add("Carrier", "load")
 
     # Loading topology
     logger.info("Loading topology")
@@ -91,7 +93,16 @@ if __name__ == "__main__":
         days_range_end=datetime.date(1, timestamps[-1].month, timestamps[-1].day))
     load_indexes = "Load " + onshore_bus_indexes
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
+    loads_max = loads.max(axis=0)
+    loads_pu = loads.apply(lambda x: x/x.max(), axis=0)
     net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)
+
+    net.madd("Generator", "Load shed " + onshore_bus_indexes,
+                 bus=onshore_bus_indexes,
+                 carrier="load",
+                 p_nom=loads_max.values,
+                 p_max_pu=loads_pu.values,
+                 marginal_cost=3000.)
 
     # Adding pv and wind generators
     if config['res']['include']:
@@ -153,7 +164,7 @@ if __name__ == "__main__":
     # Compute and save results
     makedirs(output_dir)
     net.lopf(solver_name=config["solver"], solver_logfile=output_dir + "test.log",
-             solver_options=config["solver_options"][config["solver"]], pyomo=True)
+             solver_options=config["solver_options"][config["solver"]], pyomo=True, keep_files=True)
 
     # Save config and parameters files
     yaml.dump(config, open(output_dir + 'config.yaml', 'w'))
