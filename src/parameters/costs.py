@@ -21,10 +21,8 @@ def get_plant_type(tech: str) -> Tuple[str, str]:
         return "Hydro", "Run-of-river"
     elif tech == "phs":
         return "Storage", "Pumped-hydro"
-    elif tech == "Li-ion P":
-        return "Storage", "Li-ion P"
-    elif tech == "Li-ion E":
-        return "Storage", "Li-ion E"
+    elif tech == "Li-ion":
+        return "Storage", "Li-ion"
     elif tech == "wind_onshore":
         return "Wind", "Onshore"
     elif tech == "wind_offshore":
@@ -67,14 +65,19 @@ def get_cost(tech: str, nb_hours: float) -> Tuple[float, float]:
     tech_info = tech_info.loc[plant, type]
 
     # Capital cost is the sum of investment and FOM
-    capital_cost = (tech_info["FOM"]*1000 + tech_info["CAPEX"]*1000/tech_info["lifetime"]) * nb_hours/NHoursPerYear
+    capital_cost = (tech_info["FOM"] + tech_info["CAPEX"]/tech_info["lifetime"]) * nb_hours/NHoursPerYear
 
+    fuel_cost_fn = join(dirname(abspath(__file__)), "fuel_info.xlsx")
+    fuel_info = pd.read_excel(fuel_cost_fn, sheet_name='values', index_col=0)["cost"]
+    co2_info = pd.read_excel(fuel_cost_fn, sheet_name='values', index_col=0)["CO2"]
     # Marginal cost is the sum of VOM and fuel cost
     if tech in ['AC', 'DC']:
         marginal_cost = 0
+    elif tech in ['ccgt']:
+        fuel_cost = fuel_info.loc[tech_info['fuel']] / tech_info['efficiency_ds'] if not pd.isna(tech_info['fuel']) else 0
+        co2_cost = fuel_info.loc['CO2']*co2_info.loc[tech_info['fuel']]
+        marginal_cost = tech_info['VOM'] + fuel_cost + co2_cost
     else:
-        fuel_cost_fn = join(dirname(abspath(__file__)), "fuel_info.xlsx")
-        fuel_info = pd.read_excel(fuel_cost_fn, sheet_name='values', index_col=0)["cost"]
         fuel_cost = fuel_info.loc[tech_info['fuel']] / tech_info['efficiency_ds'] if not pd.isna(tech_info['fuel']) else 0
         marginal_cost = tech_info['VOM'] + fuel_cost
 
@@ -83,7 +86,7 @@ def get_cost(tech: str, nb_hours: float) -> Tuple[float, float]:
 
 if __name__ == "__main__":
     techs = ["ccgt", "ocgt", "nuclear", "sto", "ror", "phs", "wind_onshore", "wind_offshore", "wind_floating",
-             "pv_utility", "pv_residential", "Li-ion E", "AC", "DC"]
+             "pv_utility", "pv_residential", "Li-ion", "AC", "DC"]
     for tech in techs:
         print(tech)
         print(get_cost(tech, 24))

@@ -72,7 +72,7 @@ if __name__ == "__main__":
     # Adding carriers
     for fuel in fuel_info.index[1:-1]:
         net.add("Carrier", fuel, co2_emissions=fuel_info.loc[fuel, "CO2"])
-    net.add("Carrier", "load")
+    net.add("Carrier", "load", co2_emissions=0.)
 
     # Loading topology
     logger.info("Loading topology")
@@ -91,6 +91,7 @@ if __name__ == "__main__":
         [eh_clusters.loc[bus_id].codes.split(',') for bus_id in onshore_bus_indexes],
         days_range_start=datetime.date(1, timestamps[0].month, timestamps[0].day),
         days_range_end=datetime.date(1, timestamps[-1].month, timestamps[-1].day))
+    load /= 1000.
     load_indexes = "Load " + onshore_bus_indexes
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
     loads_max = loads.max(axis=0)
@@ -102,7 +103,7 @@ if __name__ == "__main__":
                  carrier="load",
                  p_nom=loads_max.values,
                  p_max_pu=loads_pu.values,
-                 marginal_cost=3000.)
+                 marginal_cost=3.)
 
     # Adding pv and wind generators
     if config['res']['include']:
@@ -156,15 +157,14 @@ if __name__ == "__main__":
         logger.info("Adding Battery Storage")
         net = add_batteries(net, config["battery"]["type"], config["battery"]["max_hours"])
 
-    max_emission_per_mwh = config["co2_emissions"]["level_1990"]*(1-config["co2_emissions"]["reduc_from_1990"])/1000.0
-    total_emissions = get_max_emission_from_emission_per_mwh(max_emission_per_mwh, net.loads_t["p_set"])
-    net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=total_emissions)
-    # config["co2_emissions"]["global_per_year"]*1000000000*len(net.snapshots)/8760.)
+    co2_budget_kt = config["co2_emissions"]["global_per_year"]*(1-config["co2_emissions"]["reduc_from_1990"])*1e3
+    logger.info("Adding global CO2 constraint")
+    net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget_kt)
 
     # Compute and save results
     makedirs(output_dir)
     net.lopf(solver_name=config["solver"], solver_logfile=output_dir + "test.log",
-             solver_options=config["solver_options"][config["solver"]], pyomo=True, keep_files=True)
+             solver_options=config["solver_options"][config["solver"]], pyomo=True, keep_files=False)
 
     # Save config and parameters files
     yaml.dump(config, open(output_dir + 'config.yaml', 'w'))

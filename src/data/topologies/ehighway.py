@@ -393,6 +393,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     if not use_ex_line_cap:
         lines['p_nom'] = 0
     lines['p_nom_min'] = lines['p_nom']
+    lines['p_min_pu'] = -1.
     lines = lines.drop('s_nom', axis=1)
     lines['p_nom_extendable'] = pd.Series(extend_line_cap, index=lines.index)
     lines['capital_cost'] = pd.Series(index=lines.index)

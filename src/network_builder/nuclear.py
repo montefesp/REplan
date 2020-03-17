@@ -65,8 +65,8 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
 
     network.madd("Generator", "Gen nuclear " + gens.Name + " " + gens.bus_id,
                  bus=gens.bus_id.values,
-                 p_nom=gens.Capacity.values,
-                 p_nom_min=gens.Capacity.values,
+                 p_nom=gens.Capacity.values/1000.,
+                 p_nom_min=gens.Capacity.values/1000.,
                  p_nom_extendable=extendable,
                  type='nuclear',
                  carrier=fuel,

@@ -16,59 +16,59 @@ from src.parameters.costs import get_cost, get_plant_type
 #  to e-highway, moving them in other files
 
 
-def add_phs_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: bool = True,
-                       extendable: bool = False, efficiency_store: float = 1.0, efficiency_dispatch: float = 1.0,
-                       cyclic_sof: bool = True, max_hours: int = 6) -> pypsa.Network:
-    """Adds pumped-hydro storage units to a PyPSA Network instance using powerplantmatching
-
-    Parameters
-    ----------
-    network: pypsa.Network
-        A Network instance with nodes associated to regions.
-    costs: Dict[str, float]
-        Contains capex and opex
-    use_ex_cap: bool (default: True)
-        Whether to consider existing capacity or not
-    extendable: bool (default: False)
-        Whether generators are extendable
-    efficiency_store: float (default: 1.0)
-        Efficiency at storing between [0., 1.]
-    efficiency_dispatch: float (default: 1.0)
-        Efficiency at dispatching between [0., 1.]
-    cyclic_sof: bool (default: True)
-        Whether to set to True the cyclic_state_of_charge for the storage_unit component
-    max_hours: int (default: 6)
-        Maximum state of charge capacity in terms of hours at full output capacity
-
-    Returns
-    -------
-    network: pypsa.Network
-        Updated network
-    """
-
-    # Load existing PHS plants
-    phs = get_gen_from_ppm(technology="Pumped Storage")
-    phs = phs[["Name", "Capacity", "Country", "lon", "lat"]]
-    phs = find_associated_buses_ehighway(phs, network)
-
-    if not use_ex_cap:
-        phs.Capacity = 0.
-
-    network.madd("StorageUnit", "Storage PHS " + phs.Name + " " + phs.bus_id,
-                 bus=phs.bus_id.values,
-                 type='phs',
-                 p_nom=phs.Capacity.values,
-                 p_nom_min=phs.Capacity.values,
-                 p_nom_extendable=extendable,
-                 max_hours=max_hours,
-                 capital_cost=costs["capex"] * len(network.snapshots) / (8760 * 1000.0),
-                 efficiency_store=efficiency_store,
-                 efficiency_dispatch=efficiency_dispatch,
-                 cyclic_state_of_charge=cyclic_sof,
-                 x=phs.lon.values,
-                 y=phs.lat.values)
-
-    return network
+# def add_phs_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: bool = True,
+#                        extendable: bool = False, efficiency_store: float = 1.0, efficiency_dispatch: float = 1.0,
+#                        cyclic_sof: bool = True, max_hours: int = 6) -> pypsa.Network:
+#     """Adds pumped-hydro storage units to a PyPSA Network instance using powerplantmatching
+#
+#     Parameters
+#     ----------
+#     network: pypsa.Network
+#         A Network instance with nodes associated to regions.
+#     costs: Dict[str, float]
+#         Contains capex and opex
+#     use_ex_cap: bool (default: True)
+#         Whether to consider existing capacity or not
+#     extendable: bool (default: False)
+#         Whether generators are extendable
+#     efficiency_store: float (default: 1.0)
+#         Efficiency at storing between [0., 1.]
+#     efficiency_dispatch: float (default: 1.0)
+#         Efficiency at dispatching between [0., 1.]
+#     cyclic_sof: bool (default: True)
+#         Whether to set to True the cyclic_state_of_charge for the storage_unit component
+#     max_hours: int (default: 6)
+#         Maximum state of charge capacity in terms of hours at full output capacity
+#
+#     Returns
+#     -------
+#     network: pypsa.Network
+#         Updated network
+#     """
+#
+#     # Load existing PHS plants
+#     phs = get_gen_from_ppm(technology="Pumped Storage")
+#     phs = phs[["Name", "Capacity", "Country", "lon", "lat"]]
+#     phs = find_associated_buses_ehighway(phs, network)
+#
+#     if not use_ex_cap:
+#         phs.Capacity = 0.
+#
+#     network.madd("StorageUnit", "Storage PHS " + phs.Name + " " + phs.bus_id,
+#                  bus=phs.bus_id.values,
+#                  type='phs',
+#                  p_nom=phs.Capacity.values,
+#                  p_nom_min=phs.Capacity.values,
+#                  p_nom_extendable=extendable,
+#                  max_hours=max_hours,
+#                  capital_cost=costs["capex"] * len(network.snapshots) / (8760 * 1000.0),
+#                  efficiency_store=efficiency_store,
+#                  efficiency_dispatch=efficiency_dispatch,
+#                  cyclic_state_of_charge=cyclic_sof,
+#                  x=phs.lon.values,
+#                  y=phs.lat.values)
+#
+#     return network
 
 
 def phs_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en_cap: pd.Series) \
@@ -179,8 +179,8 @@ def add_phs_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
     network.madd("StorageUnit", "Storage PHS " + psp_pow_cap.index,
                  bus=psp_pow_cap.index,
                  type='phs',
-                 p_nom=psp_pow_cap.values*1000,
-                 p_nom_min=psp_pow_cap.values*1000,
+                 p_nom=psp_pow_cap.values,
+                 p_nom_min=psp_pow_cap.values,
                  p_nom_extendable=extendable,
                  max_hours=max_hours.values,
                  capital_cost=capital_cost,
@@ -195,54 +195,54 @@ def add_phs_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
     return network
 
 
-def add_ror_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: bool = True,
-                       extendable: bool = False, efficiency: float = 1.0) -> pypsa.Network:
-    """Adds run-of-river generators to a Network instance using powerplantmatching
-
-    Parameters
-    ----------
-    network: pypsa.Network
-        A Network instance with nodes associated to regions.
-    costs: Dict[str, float]
-        Contains capex and opex
-    use_ex_cap: bool (default: True)
-        Whether to consider existing capacity or not
-    extendable: bool (default: False)
-        Whether generators are extendable
-    efficiency: float (default: 1.0)
-        Efficiency at generating power from inflow
-
-    Returns
-    -------
-    network: pypsa.Network
-        Updated network
-    """
-
-    # Load existing ror plants
-    rors = get_gen_from_ppm(technology="Run-Of-River")
-    rors = rors[["Name", "Capacity", "Country", "lon", "lat"]]
-    rors = find_associated_buses_ehighway(rors, network)
-
-    if not use_ex_cap:
-        rors.Capacity = 0.
-
-    # TODO this is shit
-    def get_ror_inflow(net: pypsa.Network, gens):
-        return np.array([[1.0] * len(gens.index)] * len(net.snapshots))
-
-    network.madd("Generator", "Generator ror " + rors.Name + " " + rors.index.astype(str) + " " + rors.bus_id,
-                 bus=rors.bus_id.values,
-                 type='ror',
-                 p_nom=rors.Capacity.values,
-                 p_nom_min=rors.Capacity.values,
-                 p_nom_extendable=extendable,
-                 capital_cost=costs["capex"] * len(network.snapshots) / (8760 * 1000.0),
-                 efficiency=efficiency,
-                 p_max_pu=get_ror_inflow(network, rors),
-                 x=rors.lon.values,
-                 y=rors.lat.values)
-
-    return network
+# def add_ror_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: bool = True,
+#                        extendable: bool = False, efficiency: float = 1.0) -> pypsa.Network:
+#     """Adds run-of-river generators to a Network instance using powerplantmatching
+#
+#     Parameters
+#     ----------
+#     network: pypsa.Network
+#         A Network instance with nodes associated to regions.
+#     costs: Dict[str, float]
+#         Contains capex and opex
+#     use_ex_cap: bool (default: True)
+#         Whether to consider existing capacity or not
+#     extendable: bool (default: False)
+#         Whether generators are extendable
+#     efficiency: float (default: 1.0)
+#         Efficiency at generating power from inflow
+#
+#     Returns
+#     -------
+#     network: pypsa.Network
+#         Updated network
+#     """
+#
+#     # Load existing ror plants
+#     rors = get_gen_from_ppm(technology="Run-Of-River")
+#     rors = rors[["Name", "Capacity", "Country", "lon", "lat"]]
+#     rors = find_associated_buses_ehighway(rors, network)
+#
+#     if not use_ex_cap:
+#         rors.Capacity = 0.
+#
+#     # TODO this is shit
+#     def get_ror_inflow(net: pypsa.Network, gens):
+#         return np.array([[1.0] * len(gens.index)] * len(net.snapshots))
+#
+#     network.madd("Generator", "Generator ror " + rors.Name + " " + rors.index.astype(str) + " " + rors.bus_id,
+#                  bus=rors.bus_id.values,
+#                  type='ror',
+#                  p_nom=rors.Capacity.values,
+#                  p_nom_min=rors.Capacity.values,
+#                  p_nom_extendable=extendable,
+#                  capital_cost=costs["capex"] * len(network.snapshots) / (8760 * 1000.0),
+#                  efficiency=efficiency,
+#                  p_max_pu=get_ror_inflow(network, rors),
+#                  x=rors.lon.values,
+#                  y=rors.lat.values)
+#
+#     return network
 
 
 def ror_inputs_nuts_to_eh(bus_ids: List[str], nuts2_cap: pd.Series, nuts2_inflows: pd.DataFrame) \
@@ -357,8 +357,8 @@ def add_ror_plants(network: pypsa.Network, extendable: bool = False) -> pypsa.Ne
     network.madd("Generator", "Generator ror " + bus_cap.index,
                  bus=bus_cap.index.values,
                  type='ror',
-                 p_nom=bus_cap.values*1000,
-                 p_nom_min=bus_cap.values*1000,
+                 p_nom=bus_cap.values,
+                 p_nom_min=bus_cap.values,
                  p_nom_extendable=extendable,
                  capital_cost=capital_cost,
                  marginal_cost=marginal_cost,
@@ -370,62 +370,62 @@ def add_ror_plants(network: pypsa.Network, extendable: bool = False) -> pypsa.Ne
     return network
 
 
-def add_reservoir_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: bool = True,
-                             extendable: bool = False, efficiency_dispatch: float = 1.0, cyclic_sof: bool = True,
-                             max_hours: int = 6) -> pypsa.Network:
-    """Adds run-of-river generators to a Network instance using power plant matching tool
-
-    Parameters
-    ----------
-    network: pypsa.Network
-        A Network instance with nodes associated to regions.
-    costs: Dict[str, float]
-        Contains capex and opex
-    use_ex_cap: bool (default: True)
-        Whether to consider existing capacity or not
-    extendable: bool (default: False)
-        Whether generators are extendable
-    efficiency_dispatch: float (default: 1.0)
-        Efficiency of dispatch between [0., 1.]
-    cyclic_sof: bool (default: True)
-        Whether to set to True the cyclic_state_of_charge for the storage_unit component
-    max_hours: int (default: 6)
-        Maximum state of charge capacity in terms of hours at full output capacity
-
-    Returns
-    -------
-    network: pypsa.Network
-        Updated network
-    """
-
-    # Load existing reservoir plants
-    reservoirs = get_gen_from_ppm(technology="Reservoir")
-    reservoirs = reservoirs[["Name", "Capacity", "Country", "lon", "lat"]]
-    reservoirs = find_associated_buses_ehighway(reservoirs, network)
-
-    if not use_ex_cap:
-        reservoirs.Capacity = 0.
-
-    # TODO: this is shit
-    def get_reservoir_inflow(net: pypsa.Network, gens):
-        return np.array([[1.0] * len(gens.index)] * len(net.snapshots))
-
-    network.madd("StorageUnit", "Storage reservoir " + reservoirs.Name + " " + " " + reservoirs.bus_id,
-                 bus=reservoirs.bus_id.values,
-                 type='sto',
-                 p_nom=reservoirs.Capacity.values,
-                 p_nom_min=reservoirs.Capacity.values,
-                 p_nom_extendable=extendable,
-                 capital_cost=costs["capex"] * len(network.snapshots) / (8760 * 1000.0),
-                 efficiency_store=0.,
-                 efficiency_dispatch=efficiency_dispatch,
-                 cyclic_state_of_charge=cyclic_sof,
-                 max_hours=max_hours,
-                 inflow=get_reservoir_inflow(network, reservoirs),
-                 x=reservoirs.lon.values,
-                 y=reservoirs.lat.values)
-
-    return network
+# def add_reservoir_plants_ppm(network: pypsa.Network, costs: Dict[str, float], use_ex_cap: bool = True,
+#                              extendable: bool = False, efficiency_dispatch: float = 1.0, cyclic_sof: bool = True,
+#                              max_hours: int = 6) -> pypsa.Network:
+#     """Adds run-of-river generators to a Network instance using power plant matching tool
+#
+#     Parameters
+#     ----------
+#     network: pypsa.Network
+#         A Network instance with nodes associated to regions.
+#     costs: Dict[str, float]
+#         Contains capex and opex
+#     use_ex_cap: bool (default: True)
+#         Whether to consider existing capacity or not
+#     extendable: bool (default: False)
+#         Whether generators are extendable
+#     efficiency_dispatch: float (default: 1.0)
+#         Efficiency of dispatch between [0., 1.]
+#     cyclic_sof: bool (default: True)
+#         Whether to set to True the cyclic_state_of_charge for the storage_unit component
+#     max_hours: int (default: 6)
+#         Maximum state of charge capacity in terms of hours at full output capacity
+#
+#     Returns
+#     -------
+#     network: pypsa.Network
+#         Updated network
+#     """
+#
+#     # Load existing reservoir plants
+#     reservoirs = get_gen_from_ppm(technology="Reservoir")
+#     reservoirs = reservoirs[["Name", "Capacity", "Country", "lon", "lat"]]
+#     reservoirs = find_associated_buses_ehighway(reservoirs, network)
+#
+#     if not use_ex_cap:
+#         reservoirs.Capacity = 0.
+#
+#     # TODO: this is shit
+#     def get_reservoir_inflow(net: pypsa.Network, gens):
+#         return np.array([[1.0] * len(gens.index)] * len(net.snapshots))
+#
+#     network.madd("StorageUnit", "Storage reservoir " + reservoirs.Name + " " + " " + reservoirs.bus_id,
+#                  bus=reservoirs.bus_id.values,
+#                  type='sto',
+#                  p_nom=reservoirs.Capacity.values,
+#                  p_nom_min=reservoirs.Capacity.values,
+#                  p_nom_extendable=extendable,
+#                  capital_cost=costs["capex"] * len(network.snapshots) / (8760 * 1000.0),
+#                  efficiency_store=0.,
+#                  efficiency_dispatch=efficiency_dispatch,
+#                  cyclic_state_of_charge=cyclic_sof,
+#                  max_hours=max_hours,
+#                  inflow=get_reservoir_inflow(network, reservoirs),
+#                  x=reservoirs.lon.values,
+#                  y=reservoirs.lat.values)
+#
+#     return network
 
 
 def sto_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en_cap: pd.Series,
@@ -558,8 +558,8 @@ def add_sto_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
     network.madd("StorageUnit", "Storage reservoir " + bus_pow_cap.index,
                  bus=bus_pow_cap.index.values,
                  type='sto',
-                 p_nom=bus_pow_cap.values*1000,
-                 p_nom_min=bus_pow_cap.values*1000,
+                 p_nom=bus_pow_cap.values,
+                 p_nom_min=bus_pow_cap.values,
                  p_nom_extendable=extendable,
                  capital_cost=capital_cost,
                  marginal_cost=marginal_cost,
@@ -567,7 +567,7 @@ def add_sto_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
                  efficiency_dispatch=efficiency_dispatch,
                  cyclic_state_of_charge=cyclic_sof,
                  max_hours=max_hours.values,
-                 inflow=bus_inflows.values*1000,
+                 inflow=bus_inflows.values,
                  x=buses_onshore.loc[bus_pow_cap.index].x.values,
                  y=buses_onshore.loc[bus_pow_cap.index].y.values)
 

@@ -14,11 +14,11 @@ solver_options:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-12-01T23:00']
+  slice: ['2015-01-01T00:00', '2015-01-01T23:00']
   resolution: 1
 
 # Space
-region: "EU"
+region: "BENELUX"
 add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
@@ -37,7 +37,7 @@ res:
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
   technologies: ['wind_onshore', 'pv_utility', 'pv_residential', 'wind_offshore']
-  timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
+  timeslice: ['2015-01-01T00:00', '2015-01-31T23:00']
   use_ex_cap: True
   filtering_layers:
     resource_quality: True
@@ -80,8 +80,8 @@ nuclear:
 # Battery
 battery:
   include: True
-  type: "Li-ion E"
-  max_hours: 4
+  type: "Li-ion"
+  max_hours: 4 # THIS IS FIXED. IF IT CHANGES, CAPEX MUST CHANGE ACCORDINGLY.
 
 # Hydro
 phs:
@@ -103,6 +103,6 @@ sto:
 
 # Emissions
 co2_emissions:
-  global_per_year: 1 #Gt/year
+  global_per_year: 1360 #Mt/year
   level_1990: 523.6 # t/GWh
-  reduc_from_1990: 0.8 #%
+  reduc_from_1990: 0.4 #%
