@@ -228,15 +228,21 @@ def capacity_potential_from_enspresso(tech: str) -> pd.DataFrame:
     assert tech in accepted_techs, "Error: tech {} is not in {}".format(tech, accepted_techs)
 
     path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/source/ENSPRESO')
+    # For wind, summing over all wind conditions is similar to considering taking all available land and a capacity per
+    #  area of 5MW/km2
+    # TODO: Ask david: why are we using high-restrictions onshore and low offshore?
+    #  Why not use the reference scenario in both cases?
     if tech == 'wind_onshore':
 
         cap_potential_file = pd.read_excel(join(path_potential_data, 'ENSPRESO_WIND_ONSHORE_OFFSHORE.XLSX'),
                                            sheet_name='Wind Potential EU28 Full', index_col=1)
 
+        scenario = 'EU-Wide high restrictions'  # TODO: parametrize
+
         onshore_wind = cap_potential_file[
             (cap_potential_file['Unit'] == 'GWe') &
             (cap_potential_file['Onshore Offshore'] == 'Onshore') &
-            (cap_potential_file['Scenario'] == 'EU-Wide high restrictions')]
+            (cap_potential_file['Scenario'] == scenario)]
 
         nuts2_capacity_potentials_ds = onshore_wind.groupby(onshore_wind.index)['Value'].sum()
 
@@ -249,10 +255,12 @@ def capacity_potential_from_enspresso(tech: str) -> pd.DataFrame:
         cap_potential_file = pd.read_excel(join(path_potential_data, 'ENSPRESO_WIND_ONSHORE_OFFSHORE.XLSX'),
                                            sheet_name='Wind Potential EU28 Full', index_col=1)
 
+        scenario = 'EU-Wide low restrictions'  # TODO: Parametrize?
+
         offshore_wind = cap_potential_file[
             (cap_potential_file['Unit'] == 'GWe') &
             (cap_potential_file['Onshore Offshore'] == 'Offshore') &
-            (cap_potential_file['Scenario'] == 'EU-Wide low restrictions') &
+            (cap_potential_file['Scenario'] == scenario) &
             (cap_potential_file['Offshore categories'].isin(offshore_categories))]
         nuts2_capacity_potentials_ds = offshore_wind.groupby(offshore_wind.index)['Value'].sum()
 
@@ -380,14 +388,17 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
             # TODO: change variable names
             coords_regions_df['pop_dens'] = \
                  np.clip(array_pop_density.sel(locations=coords).values, a_min=1., a_max=None)
+
             if tech in ['wind_onshore', 'pv_utility']:
                 coords_regions_df['pop_dens'] = 1./coords_regions_df['pop_dens']
+
+            # Keep only the potential of regions in which points fall
             coords_to_regions_df_sum = coords_regions_df.groupby(['region']).sum()
             coords_to_regions_df_sum["cap_pot"] = potential_per_region_df[coords_to_regions_df_sum.index]
             coords_to_regions_df_sum.columns = ['sum_per_region', 'cap_pot']
             coords_to_regions_df_merge = \
                 coords_regions_df.merge(coords_to_regions_df_sum,
-                                              left_on='region', right_on='region', right_index=True)
+                                        left_on='region', right_on='region', right_index=True)
 
             capacity_potential_per_coord = coords_to_regions_df_merge['pop_dens'] * \
                 coords_to_regions_df_merge['cap_pot']/coords_to_regions_df_merge['sum_per_region']
@@ -454,7 +465,7 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
                     continue
                 if intersection.is_empty or intersection.area == 0.:
                     continue
-                cap_pot += potential_per_subregion_df[index]*intersection.area/region.area
+                cap_pot += potential_per_subregion_df[index]*intersection.area/shape["geometry"].area
                 try:
                     region = region.difference(intersection)
                 except TopologicalError:

@@ -389,7 +389,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
         lines.loc[idx, ('capital_cost', )] = cap_cost * lines.length.loc[idx]
     """
 
-    lines['p_nom'] = lines["s_nom"] * 1000.0  # PyPSA uses MW
+    lines['p_nom'] = lines["s_nom"]
     if not use_ex_line_cap:
         lines['p_nom'] = 0
     lines['p_nom_min'] = lines['p_nom']

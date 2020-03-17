@@ -23,7 +23,7 @@ add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES
 
 # RES
 res:
-  include: True
+  include: False
   strategy: "siting" # (max or comp) or bus or no_siting or siting
 
   # For strategy = max or comp
@@ -37,7 +37,7 @@ res:
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
   technologies: ['wind_onshore', 'pv_utility', 'pv_residential', 'wind_offshore']
-  timeslice: ['2015-01-01T00:00', '2015-01-31T23:00']
+  timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
   use_ex_cap: True
   filtering_layers:
     resource_quality: True
@@ -49,7 +49,7 @@ res:
     water_mask: True
 
   # For strategy = generate
-  modelling: 'gurobipy' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
+  modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
   solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
   solver_options:
     gurobi:
@@ -68,12 +68,12 @@ res:
 
 # Conventional generation
 dispatch:
-  include: True
+  include: False
   tech: "ccgt"
 
 # Nuclear
 nuclear:
-  include: True
+  include: False
   use_ex_cap: True # Whether to include existing cap
   extendable: False
 
@@ -85,18 +85,18 @@ battery:
 
 # Hydro
 phs:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
   cyclic_sof: True
 
 ror:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
 
 sto:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
   cyclic_sof: True

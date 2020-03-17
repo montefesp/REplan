@@ -247,7 +247,8 @@ def add_generators_at_resolution(network: pypsa.Network, regions: List[str], tec
     return network
 
 
-def add_generators_per_bus(network: pypsa.Network, technologies: List[str], tech_config: Dict[str, Any]) -> pypsa.Network:
+def add_generators_per_bus(network: pypsa.Network, technologies: List[str], tech_config: Dict[str, Any]) \
+        -> pypsa.Network:
     """
     Adds pv and wind generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
 

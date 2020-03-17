@@ -203,8 +203,10 @@ def solve_model(resite, solver, solver_options):
     opt = SolverFactory(solver)
     for key, value in solver_options.items():
         opt.options[key] = value
-    opt.solve(resite.instance, tee=True, keepfiles=False, report_timing=True,
-              logfile=join(resite.output_folder, 'solver_log.log'))
+    results = opt.solve(resite.instance, tee=True, keepfiles=False, report_timing=True,
+                        logfile=join(resite.output_folder, 'solver_log.log'))
+    resite.results = results
+    return results
 
 
 def retrieve_solution(resite) -> Tuple[float, Dict[str, List[Tuple[float, float]]], pd.Series]:
@@ -221,10 +223,16 @@ def retrieve_solution(resite) -> Tuple[float, Dict[str, List[Tuple[float, float]
         Gives for each pair of technology-location the optimal capacity obtained via the optimization
 
     """
+
+    print(resite.instance.objective)
+    if not resite.instance.objective:
+        print("Model ")
+
     optimal_capacity_ds = pd.Series(index=pd.MultiIndex.from_tuples(resite.tech_points_tuples))
     selected_tech_points_dict = {tech: [] for tech in resite.technologies}
 
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in resite.tech_points_tuples]
+
     for tech, lon, lat in tech_points_tuples:
         y_value = resite.instance.y[tech, (lon, lat)].value
         optimal_capacity_ds[tech, (lon, lat)] = y_value*resite.cap_potential_ds[tech, (lon, lat)]

@@ -12,7 +12,7 @@ filtering_layers:
   water_mask: True
 
 timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
-regions: ['BENELUX']
+regions: ['CWE']
 technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
 
 use_ex_cap: False
@@ -28,10 +28,10 @@ solver_options:
 write_lp: True
 
 # Type of problem to be solved. Check resite.py for a full list.
-formulation: 'maximize_aggr_cap_factor' # 'meet_RES_targets_hourly' # 'meet_RES_targets_agg' # 'meet_demand_with_capacity' #
+formulation: 'meet_RES_targets_agg' # 'meet_RES_targets_hourly' # 'meet_RES_targets_agg' # 'meet_demand_with_capacity' #
 
 # List of deployments per region (ordered as the 'regions' list above)
-deployment_vector: [10] # [0.5, 0.5, 0.5, 0.5]
+deployment_vector: [0.9] # [0.5, 0.5, 0.5, 0.5]
 
 # Keeping files at the end of the run.
 keep_files: True

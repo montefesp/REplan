@@ -240,7 +240,8 @@ class Resite:
         self.solver = solver
         self.solver_options = solver_options
         if self.modelling == 'pyomo':
-            from src.resite.models.pyomo import  solve_model as solve_pyomo_model
+            # TODO: David, you sure you want to import this here?
+            from src.resite.models.pyomo import solve_model as solve_pyomo_model
             solve_pyomo_model(self, solver, solver_options)
         elif self.modelling == 'docplex':
             from src.resite.models.docplex import solve_model as solve_docplex_model

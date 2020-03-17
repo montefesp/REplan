@@ -21,10 +21,13 @@ logger.info('Model being built.')
 resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
 
 logger.info('Sending model to solver.')
-resite.solve_model(params['solver'], params['solver_options'][params['solver']])
+results = resite.solve_model(params['solver'], params['solver_options'][params['solver']])
+
 
 logger.info('Retrieving results.')
-resite.retrieve_solution()
-resite.retrieve_sites_data()
+if params["modelling"] != "pyomo" or \
+        (params["modelling"] == "pyomo" and str(results.solver.termination_condition) != "infeasible"):
+    resite.retrieve_solution()
+    resite.retrieve_sites_data()
 
 resite.save()

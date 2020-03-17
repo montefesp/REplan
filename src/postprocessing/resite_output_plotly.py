@@ -148,6 +148,30 @@ class ResiteOutput:
 
             fig.write_html(join(self.output_dir, f'{color_variable}_{tech}.html'), auto_open=auto_open)
 
+    def analyse_feasibility(self, auto_open=True):
+
+        if self.resite.formulation != "meet_RES_targets_hourly":
+            print(f"Error: This function is only implemented for formulation "
+                  f"meet_RES_targets_hourly not for {self.resite.formulation}")
+
+        # Compute number of time-steps for which the constraint was not feasible
+        print(sum(self.resite.generation_potential_df.sum(axis=1) >
+                  self.resite.deployment_vector[0]*self.resite.load_df.sum(axis=1)))
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=self.resite.timestamps,
+                                 y=self.resite.generation_potential_df.sum(axis=1),
+                                 name="Total Generation Potential (GWh)"))
+        fig.add_trace(go.Scatter(x=self.resite.timestamps,
+                                 y=self.resite.load_df.sum(axis=1)*0.3, # *self.resite.deployment_vector[0],
+                                 name="Portion of the load to be served (GWh)"))
+
+        fig.write_html(join(self.output_dir, 'infeasibility_study.html'), auto_open=auto_open)
+
+    def get_total_capacity(self):
+
+        print(f"Total capacity:\n{self.resite.cap_potential_ds.groupby(level=0).sum()}")
+
 
 if __name__ == "__main__":
 
@@ -162,6 +186,17 @@ if __name__ == "__main__":
     print(output_dir)
 
     resite = pickle.load(open(output_dir + "resite_model.p", 'rb'))
-    resite_output = ResiteOutput(resite)
-    resite_output.show_points("percentage_of_potential", auto_open=True)
-    resite_output.show_points("optimal_capacity", auto_open=True)
+    print(f"Region: {resite.regions}")
+    ro = ResiteOutput(resite)
+
+    ro.get_total_capacity()
+    exit()
+
+    if resite.modelling != "pyomo" or \
+            (resite.modelling == "pyomo" and str(resite.results.solver.termination_condition) != "infeasible"):
+        ro.show_points("percentage_of_potential", auto_open=True)
+        ro.show_points("optimal_capacity", auto_open=True)
+
+    # Works even if infeasible
+    ro.analyse_feasibility(auto_open=True)
+

@@ -1,6 +1,3 @@
-import sys
-sys.path.append('../../../')
-
 import pypsa
 from os.path import join, dirname, abspath
 from os import makedirs
@@ -72,6 +69,7 @@ if __name__ == "__main__":
     # Adding carriers
     for fuel in fuel_info.index[1:-1]:
         net.add("Carrier", fuel, co2_emissions=fuel_info.loc[fuel, "CO2"])
+    # TODO: I don't think we need that
     net.add("Carrier", "load", co2_emissions=0.)
 
     # Loading topology
@@ -94,16 +92,18 @@ if __name__ == "__main__":
     load /= 1000.
     load_indexes = "Load " + onshore_bus_indexes
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
-    loads_max = loads.max(axis=0)
-    loads_pu = loads.apply(lambda x: x/x.max(), axis=0)
     net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)
 
+    # Get peak load and normalized load profile
+    loads_max = loads.max(axis=0)
+    loads_pu = loads.apply(lambda x: x/x.max(), axis=0)
+    # Add generators for load shedding (prevents the model from being infeasible
     net.madd("Generator", "Load shed " + onshore_bus_indexes,
                  bus=onshore_bus_indexes,
-                 carrier="load",
+                 carrier="load",  # TODO: not sure we need this
                  p_nom=loads_max.values,
                  p_max_pu=loads_pu.values,
-                 marginal_cost=3.)
+                 marginal_cost=3.)  # TODO: parametrize
 
     # Adding pv and wind generators
     if config['res']['include']:
@@ -164,7 +164,12 @@ if __name__ == "__main__":
     # Compute and save results
     makedirs(output_dir)
     net.lopf(solver_name=config["solver"], solver_logfile=output_dir + "test.log",
-             solver_options=config["solver_options"][config["solver"]], pyomo=True, keep_files=False)
+             solver_options=config["solver_options"][config["solver"]], pyomo=True)
+
+    if True:
+        net.model.write(filename=join(output_dir, 'model.lp'),
+                        format=ProblemFormat.cpxlp,
+                        io_options={'symbolic_solver_labels': True})
 
     # Save config and parameters files
     yaml.dump(config, open(output_dir + 'config.yaml', 'w'))
