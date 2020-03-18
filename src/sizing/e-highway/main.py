@@ -103,6 +103,7 @@ if __name__ == "__main__":
     net.madd("Generator", "Load shed " + onshore_bus_indexes,
              bus=onshore_bus_indexes,
              carrier="load",  # TODO: not sure we need this
+             type="load",
              p_nom=loads_max.values,
              p_max_pu=loads_pu.values,
              marginal_cost=3.)  # TODO: parametrize
