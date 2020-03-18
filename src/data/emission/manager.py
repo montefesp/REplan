@@ -57,7 +57,7 @@ def get_reference_emission_levels(region: str, ref_year: int) -> float:
         Total Co2 emissions in kT
 
     """
-    #TODO: Shift from readily created file to EEA and IEA source files to have flexibility wrt reference year.
+    # TODO: Shift from readily created file to EEA and IEA source files to have flexibility wrt reference year.
 
     if ref_year != 1990:
         raise ValueError('Reference year {} not available yet. Try 1990.'.format(ref_year))
