@@ -37,7 +37,7 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "", countries: List[
     fuel_type_plants: pandas.DataFrame
         Dataframe giving for each generator having the right fuel_type and technology
         ['Volume_Mm3', 'YearCommissioned', 'Duration', 'Set', 'Name', 'projectID', 'Country', 'DamHeight_m', 'Retrofit',
-         'Technology', 'Efficiency', 'Capacity', 'lat', 'lon', 'Fueltype']
+         'Technology', 'Efficiency', 'Capacity' (in MW), 'lat', 'lon', 'Fueltype']
          Note that the Country field is converted to the associated country code
     """
 

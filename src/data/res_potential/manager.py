@@ -212,7 +212,7 @@ def update_potential_files(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
 
 def capacity_potential_from_enspresso(tech: str) -> pd.DataFrame:
     """
-    Returning capacity potential per NUTS2 region for a given tech, based on the ENSPRESSO dataset.
+    Returning capacity potential (in GW) per NUTS2 region for a given tech, based on the ENSPRESSO dataset.
 
     Parameters
     ----------
@@ -295,7 +295,7 @@ def capacity_potential_from_enspresso(tech: str) -> pd.DataFrame:
 def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]], spatial_resolution: float,
                            regions: List[str], existing_capacity_ds: pd.Series = None) -> pd.Series:
     """
-    Computes the capacity that can potentially be deployed at
+    Computes the capacity that can potentially be deployed at a series of points for different technologies
 
     Parameters
     ----------
@@ -414,7 +414,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
 
 def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[Polygon, MultiPolygon]]]) -> pd.Series:
     """
-    Get capacity potential for a series of technology for associated geographical regions
+    Get capacity potential (in GW) for a series of technology for associated geographical regions
 
     Parameters
     ----------

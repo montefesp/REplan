@@ -71,7 +71,7 @@ if __name__ == "__main__":
     # Adding carriers
     for fuel in fuel_info.index[1:-1]:
         net.add("Carrier", fuel, co2_emissions=fuel_info.loc[fuel, "CO2"])
-    # TODO: I don't think we need that
+    # TODO: I don't think we need that or then we add wind and solar too
     net.add("Carrier", "load", co2_emissions=0.)
 
     # Loading topology
@@ -91,7 +91,7 @@ if __name__ == "__main__":
         [eh_clusters.loc[bus_id].codes.split(',') for bus_id in onshore_bus_indexes],
         days_range_start=datetime.date(1, timestamps[0].month, timestamps[0].day),
         days_range_end=datetime.date(1, timestamps[-1].month, timestamps[-1].day))
-    load /= 1000.
+    load /= 1000.  # From MWh to GWh
     load_indexes = "Load " + onshore_bus_indexes
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
     net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)

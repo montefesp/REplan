@@ -13,8 +13,8 @@ def get_countries_load(country_codes: List[str], nb_years: int = 1,
                        days_range_end: datetime.date = datetime.date(1, 12, 31),
                        years: List[int] = None):
     """
-    Returns a pd.Dataframe where the columns corresponds the load time-series (in GWh) for a series of countries.
-    The time periodfor which the load is returned can be specified in various ways. The default behavior is to
+    Returns a pd.Dataframe where the columns corresponds the load time-series (in MWh) for a series of countries.
+    The time period for which the load is returned can be specified in various ways. The default behavior is to
     return the most recent year of data available for each countries. The load for a specific set of years can
     also be asked for. Note that data for a given year can be absent for some countries and will therefore lead
     to an error when asked for. Finally, a specific set of days in a year can be asked for (e.g. 100 first days
@@ -126,7 +126,7 @@ def get_countries_load_interpolated(target_countries: List[str], source_countrie
                                     days_range_end: datetime.date = datetime.date(1, 12, 31),
                                     years: List[int] = None):
     """
-    Returns a pd.Dataframe where the columns corresponds the load time-series (in GWh) for a series of target countries.
+    Returns a pd.Dataframe where the columns corresponds the load time-series (in MWh) for a series of target countries.
     The load is computed based on the load data of another series of source countries.
     Simply stated for each target country, the load is obtained by summing the load of all the source countries,
     dividing it by the sum of the yearly load of these countries and the multiplying it by the yearly load of the
@@ -182,7 +182,7 @@ def get_load_from_nuts_codes(nuts_codes_lists: List[List[str]], nb_years: int = 
                              days_range_start: datetime.date = datetime.date(1, 1, 1),
                              days_range_end: datetime.date = datetime.date(1, 12, 31),
                              years: List[int] = None) -> pd.DataFrame:
-    """Returns a pandas.DataFrame containing the load values in GWh for a list of group of regions
+    """Returns a pandas.DataFrame containing the load values in MWh for a list of group of regions
     for a given number of hours.
 
     Parameters

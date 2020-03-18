@@ -82,16 +82,16 @@ def phs_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en
     ----------
     bus_ids: List[str]
     nuts2_pow_cap: pd.Series (index: nuts2 regions)
-        STO power capacity for each NUTS2 region (if no capacity for a region, value=NaN)
+        STO power capacity (GW) for each NUTS2 region (if no capacity for a region, value=NaN)
     nuts2_en_cap: pd.Series (index: nuts2 regions)
-        STO energy capacity for each NUTS2 region (if no capacity for a region, value=NaN)
+        STO energy capacity (GWh) for each NUTS2 region (if no capacity for a region, value=NaN)
 
     Returns
     -------
     bus_pow_cap: pd.Series (index: ids of bus for which capacity exists)
-        STO power capacity for each bus for which there is installed capacity
+        STO power capacity (GW) for each bus for which there is installed capacity
     bus_en_cap: pd.Series (index: ids of bus for which capacity exists)
-        STO energy capacity for each bus for which there is installed capacity
+        STO energy capacity (GWh) for each bus for which there is installed capacity
     """
 
     nuts2_pow_cap = nuts2_pow_cap.fillna(0)
@@ -119,17 +119,17 @@ def phs_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en
             nuts3_area = np.array([area_df.loc[code]["2016"] for code in nuts3_codes])
             nuts_area_prop = nuts3_area/nuts2_area
 
-            # Power cap
+            # Power cap (GW)
             bus_pow_cap.loc[bus_id] = nuts2_pow_cap.loc[nuts2_codes].mul(nuts_area_prop, axis=0).sum()
-            # Energy cap
+            # Energy cap (GWh)
             bus_en_cap.loc[bus_id] = nuts2_en_cap.loc[nuts2_codes].mul(nuts_area_prop, axis=0).sum()
 
         else:
             # If the code corresponds to a country, get the correspond list of NUTS2
             nuts2_codes = [code for code in nuts2_pow_cap.index if code[0:2] == codes[0]]
-            # Pow cap
+            # Pow cap (GW)
             bus_pow_cap.loc[bus_id] = np.sum(nuts2_pow_cap.loc[nuts2_codes])
-            # En cap
+            # En cap (GWh)
             bus_en_cap.loc[bus_id] = np.sum(nuts2_en_cap.loc[nuts2_codes])
 
     # Remove buses with no capacity
@@ -258,16 +258,16 @@ def ror_inputs_nuts_to_eh(bus_ids: List[str], nuts2_cap: pd.Series, nuts2_inflow
     ----------
     bus_ids: List[str]
     nuts2_cap: pd.Series (index: nuts2 regions)
-        ROR power capacity for each NUTS2 region (if no capacity for a region, value=NaN)
+        ROR power capacity (GW) for each NUTS2 region (if no capacity for a region, value=NaN)
     nuts2_inflows: pd.DataFrame (index: time, columns: nuts2 regions for which data exists)
-        ROR energy inflow (as capacity factors) for each NUTS2 region for which there is installed capacity
+        ROR energy inflow (per unit) for each NUTS2 region for which there is installed capacity
 
     Returns
     -------
     bus_cap: pd.Series (index: ids of bus for which capacity exists)
-        ROR power capacity for each bus for which there is installed capacity
+        ROR power capacity (GW) for each bus for which there is installed capacity
     nuts2_inflows: pd.DataFrame (index: time, columns: ids of bus for which capacity exists)
-        ROR energy inflow for each bus for which there is installed capacity
+        ROR energy inflow (per unit) for each bus for which there is installed capacity
     """
     nuts2_cap = nuts2_cap.fillna(0)
 
@@ -298,7 +298,7 @@ def ror_inputs_nuts_to_eh(bus_ids: List[str], nuts2_cap: pd.Series, nuts2_inflow
 
             nuts3_cap = nuts2_cap.loc[nuts2_codes].mul(nuts_area_prop, axis=0)
 
-            # Power cap
+            # Power cap (GW)
             bus_cap.loc[bus_id] = nuts3_cap.sum()
             # Inflow, compute an average with weights proportional to capacity
             bus_inflows[bus_id] = nuts2_inflows[nuts2_codes].mul(nuts3_cap/nuts3_cap.sum()).sum(axis=1)
@@ -439,20 +439,20 @@ def sto_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en
     ----------
     bus_ids: List[str]
     nuts2_pow_cap: pd.Series (index: nuts2 regions)
-        STO power capacity for each NUTS2 region (if no capacity for a region, value=NaN)
+        STO power capacity (GW) for each NUTS2 region (if no capacity for a region, value=NaN)
     nuts2_en_cap: pd.Series (index: nuts2 regions)
-        STO energy capacity for each NUTS2 region (if no capacity for a region, value=NaN)
+        STO energy capacity (GWh) for each NUTS2 region (if no capacity for a region, value=NaN)
     nuts2_inflows: pd.DataFrame (index: time, columns: nuts2 regions for which data exists)
-        STO energy inflow for each NUTS2 region for which there is installed capacity
+        STO energy inflow (GWh) for each NUTS2 region for which there is installed capacity
 
     Returns
     -------
     bus_pow_cap: pd.Series (index: ids of bus for which capacity exists)
-        STO power capacity for each bus for which there is installed capacity
+        STO power capacity (GW) for each bus for which there is installed capacity
     bus_en_cap: pd.Series (index: ids of bus for which capacity exists)
-        STO energy capacity for each bus for which there is installed capacity
+        STO energy capacity (GWh) for each bus for which there is installed capacity
     nuts2_inflows: pd.DataFrame (index: time, columns: ids of bus for which capacity exists)
-        STO energy inflow for each bus for which there is installed capacity
+        STO energy inflow (GWh) for each bus for which there is installed capacity
     """
 
     nuts2_pow_cap = nuts2_pow_cap.fillna(0)
@@ -487,11 +487,11 @@ def sto_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en
             nuts3_area = np.array([area_df.loc[code]["2016"] for code in nuts3_codes])
             nuts_area_prop = nuts3_area/nuts2_area
 
-            # Power cap
+            # Power cap (GW)
             bus_pow_cap.loc[bus_id] = nuts2_pow_cap.loc[nuts2_codes].mul(nuts_area_prop, axis=0).sum()
-            # Energy cap
+            # Energy cap (GWh)
             bus_en_cap.loc[bus_id] = nuts2_en_cap.loc[nuts2_codes].mul(nuts_area_prop, axis=0).sum()
-            # Inflow
+            # Inflow (GWh)
             bus_inflows[bus_id] = nuts2_inflows[nuts2_codes].mul(nuts_area_prop).sum(axis=1)
 
         else:
@@ -504,11 +504,11 @@ def sto_inputs_nuts_to_eh(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en
                 bus_inflows = bus_inflows.drop(bus_id, axis=1)
                 continue
 
-            # Pow cap
+            # Pow cap (GW)
             bus_pow_cap.loc[bus_id] = np.sum(nuts2_pow_cap.loc[nuts2_codes])
-            # En cap
+            # En cap (GWh)
             bus_en_cap.loc[bus_id] = np.sum(nuts2_en_cap.loc[nuts2_codes])
-            # Inflow
+            # Inflow (GWh)
             bus_inflows[bus_id] = nuts2_inflows[nuts2_codes].sum(axis=1)
 
     return bus_pow_cap, bus_en_cap, bus_inflows

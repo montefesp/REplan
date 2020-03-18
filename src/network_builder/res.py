@@ -84,7 +84,7 @@ def add_generators_from_file(network: pypsa.Network, onshore_region_shape, strat
         #                for point in points_dict]
 
         # Get capacities for each bus
-        bus_capacities_per_km = get_potential_ehighway(onshore_buses.index, tech).values*1000.0
+        bus_capacities_per_km = get_potential_ehighway(onshore_buses.index, tech).values
         bus_capacity_per_km_dict = dict.fromkeys(onshore_buses.index)
         for i, key in enumerate(onshore_buses.index):
             bus_capacity_per_km_dict[key] = bus_capacities_per_km[i]

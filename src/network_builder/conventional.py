@@ -1,5 +1,4 @@
 from os.path import join, dirname, abspath
-from typing import Dict
 
 import pandas as pd
 
@@ -17,10 +16,6 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
         A PyPSA Network instance with nodes associated to regions.
     tech: str
         Type of conventional generator (ccgt or ocgt)
-    efficiency: float
-     Efficiency of the technology
-    costs: Dict[str, float]
-        Contains capex and opex
 
     Returns
     -------
@@ -37,8 +32,6 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
     tech_info_fn = join(dirname(abspath(__file__)), "../parameters/tech_info.xlsx")
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
     fuel, efficiency = tech_info.loc[get_plant_type(tech)][["fuel", "efficiency_ds"]]
-
-    # TODO: add efficiencies
 
     network.madd("Generator", "Gen " + tech + " " + buses.index,
                  bus=buses.index,
