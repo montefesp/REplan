@@ -51,12 +51,10 @@ def get_reference_emission_levels(region: str, ref_year: int):
 
     subregions = get_subregions(region)
 
-    emission_subregion = emission_df.loc[subregions]
+    emission_subregion = emission_df.reindex(subregions)
     emission_subregion['kT'] = emission_subregion['Intensity']*emission_subregion['Production']
 
     emission_ref = emission_subregion['kT'].sum()
-
-    print(emission_ref)
 
     return emission_ref
 
