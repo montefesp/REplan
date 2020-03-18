@@ -54,7 +54,7 @@ def get_cost(tech: str, nb_hours: float) -> Tuple[float, float]:
 
     Returns
     -------
-    Capital cost (€/MWel or €/MWel/km) and marginal cost (€/MWhel)
+    Capital cost (M€/GWel or M€/GWel/km) and marginal cost (M€/GWhel)
 
     """
     tech_info_fn = join(dirname(abspath(__file__)), "tech_info.xlsx")
@@ -67,19 +67,21 @@ def get_cost(tech: str, nb_hours: float) -> Tuple[float, float]:
     # Capital cost is the sum of investment and FOM
     capital_cost = (tech_info["FOM"] + tech_info["CAPEX"]/tech_info["lifetime"]) * nb_hours/NHoursPerYear
 
-    fuel_cost_fn = join(dirname(abspath(__file__)), "fuel_info.xlsx")
-    fuel_info = pd.read_excel(fuel_cost_fn, sheet_name='values', index_col=0)["cost"]
-    co2_info = pd.read_excel(fuel_cost_fn, sheet_name='values', index_col=0)["CO2"]
-    # Marginal cost is the sum of VOM and fuel cost
+    fuel_info_fn = join(dirname(abspath(__file__)), "fuel_info.xlsx")
+    fuel_info = pd.read_excel(fuel_info_fn, sheet_name='values', index_col=0)
+
+    # Marginal cost is the sum of VOM, fuel cost and CO2 cost
     if tech in ['AC', 'DC']:
         marginal_cost = 0
-    elif tech in ['ccgt']:
-        fuel_cost = fuel_info.loc[tech_info['fuel']] / tech_info['efficiency_ds'] if not pd.isna(tech_info['fuel']) else 0
-        co2_cost = fuel_info.loc['CO2']*co2_info.loc[tech_info['fuel']]
-        marginal_cost = tech_info['VOM'] + fuel_cost + co2_cost
     else:
-        fuel_cost = fuel_info.loc[tech_info['fuel']] / tech_info['efficiency_ds'] if not pd.isna(tech_info['fuel']) else 0
-        marginal_cost = tech_info['VOM'] + fuel_cost
+        marginal_cost = tech_info['VOM']
+        fuel = tech_info['fuel']
+        if not pd.isna(fuel):
+            # Add fuel cost
+            marginal_cost += fuel_info.loc[fuel, 'cost'] / tech_info['efficiency_ds']
+            # Add CO2 cost
+            # TODO: correct to divide by efficiency?
+            marginal_cost += fuel_info.loc['CO2', 'cost'] * fuel_info.loc[fuel, 'CO2'] / tech_info["efficiency_ds"]
 
     return round(capital_cost, 4), round(marginal_cost, 4)
 

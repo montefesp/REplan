@@ -68,7 +68,7 @@ res:
 
 # Conventional generation
 dispatch:
-  include: False
+  include: True
   tech: "ccgt"
 
 # Nuclear

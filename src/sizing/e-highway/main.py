@@ -29,6 +29,8 @@ import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
 
+NHoursPerYear = 8760.
+
 if __name__ == "__main__":
 
     # Main directories
@@ -99,11 +101,11 @@ if __name__ == "__main__":
     loads_pu = loads.apply(lambda x: x/x.max(), axis=0)
     # Add generators for load shedding (prevents the model from being infeasible
     net.madd("Generator", "Load shed " + onshore_bus_indexes,
-                 bus=onshore_bus_indexes,
-                 carrier="load",  # TODO: not sure we need this
-                 p_nom=loads_max.values,
-                 p_max_pu=loads_pu.values,
-                 marginal_cost=3.)  # TODO: parametrize
+             bus=onshore_bus_indexes,
+             carrier="load",  # TODO: not sure we need this
+             p_nom=loads_max.values,
+             p_max_pu=loads_pu.values,
+             marginal_cost=3.)  # TODO: parametrize
 
     # Adding pv and wind generators
     if config['res']['include']:
@@ -157,8 +159,9 @@ if __name__ == "__main__":
         logger.info("Adding Battery Storage")
         net = add_batteries(net, config["battery"]["type"], config["battery"]["max_hours"])
 
-    co2_budget_kt = config["co2_emissions"]["global_per_year"]*(1-config["co2_emissions"]["reduc_from_1990"])*1e3
     logger.info("Adding global CO2 constraint")
+    co2_budget_kt = config["co2_emissions"]["global_per_year"]*(1-config["co2_emissions"]["reduc_from_1990"])*1e3 \
+        * len(net.snapshots)/NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget_kt)
 
     # Compute and save results
