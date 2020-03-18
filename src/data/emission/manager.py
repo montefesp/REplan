@@ -40,7 +40,23 @@ from src.data.geographics.manager import get_subregions
 #     return loads_p.values.sum()*max_emission_per_mwh
 
 
-def get_reference_emission_levels(region: str, ref_year: int):
+def get_reference_emission_levels(region: str, ref_year: int) -> float:
+    """
+    Returns the total CO2 emissions (in kT) emitted by a series of countries in a given region for a given year
+
+    Parameters
+    ----------
+    region: str
+        Region consisting of one or several countries.
+    ref_year: int
+        Year
+
+    Returns
+    -------
+    emission_ref: float
+        Total Co2 emissions in kT
+
+    """
     #TODO: Shift from readily created file to EEA and IEA source files to have flexibility wrt reference year.
 
     if ref_year != 1990:
