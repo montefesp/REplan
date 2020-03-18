@@ -346,6 +346,7 @@ def add_ror_plants(network: pypsa.Network, extendable: bool = False) -> pypsa.Ne
     bus_cap, bus_inflows = ror_inputs_nuts_to_eh(buses_onshore.index,
                                                  hydro_capacities["ROR_CAP [GW]"],
                                                  ror_inflow)
+    bus_inflows = bus_inflows.round(2)
 
     capital_cost, marginal_cost = get_cost('ror', len(network.snapshots))
 
@@ -546,6 +547,8 @@ def add_sto_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
                                                                  hydro_capacities["STO_CAP [GW]"],
                                                                  hydro_capacities["STO_EN_CAP [GWh]"],
                                                                  reservoir_inflow)
+    bus_inflows = bus_inflows.round(3)
+
     max_hours = bus_en_cap/bus_pow_cap
 
     capital_cost, marginal_cost = get_cost('sto', len(network.snapshots))

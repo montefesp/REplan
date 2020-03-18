@@ -18,12 +18,12 @@ time:
   resolution: 1
 
 # Space
-region: "BENELUX"
+region: "CWE"
 add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
 res:
-  include: True
+  include: False
   strategy: "siting" # (max or comp) or bus or no_siting or siting
 
   # For strategy = max or comp
@@ -85,18 +85,18 @@ battery:
 
 # Hydro
 phs:
-  include: False
+  include: True
   use_ex_cap: True
   extendable: False
   cyclic_sof: True
 
 ror:
-  include: False
+  include: True
   use_ex_cap: True
   extendable: False
 
 sto:
-  include: False
+  include: True
   use_ex_cap: True
   extendable: False
   cyclic_sof: True
