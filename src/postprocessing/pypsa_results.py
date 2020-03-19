@@ -5,6 +5,8 @@ import pandas as pd
 
 from pypsa import Network
 
+from src.parameters.costs import get_cost
+
 
 class PyPSAResults:
 
@@ -21,6 +23,9 @@ class PyPSAResults:
     def display_generation(self):
         """Display information about generation"""
 
+        cap_cost, marg_cost = self.get_gen_capital_and_marginal_cost()
+        print(f"Capital cost:\n{cap_cost}\n")
+        print(f"Marginal cost:\n{marg_cost}\n")
         init_capacities, new_capacities, opt_capacities = self.get_generators_capacity()
         print(f"Generators capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
         print(f"Generators generation:\n{self.get_generators_generation()}\n")
@@ -28,6 +33,11 @@ class PyPSAResults:
         print(f"Generators Opex:\n{self.get_generators_opex()}\n")
         print(f"Generators Capex:\n{self.get_generators_capex()}\n")
         print(f"Generators Cost:\n{self.get_generators_cost()}\n")
+
+    def get_gen_capital_and_marginal_cost(self):
+
+        gens = self.net.generators.groupby(["type"])
+        return gens.capital_cost.mean(), gens.marginal_cost.mean()
 
     def get_generators_capacity(self):
         """Returns the original, new and optimal generation capacities (in MW) for each type of generator."""
@@ -94,6 +104,9 @@ class PyPSAResults:
     def display_transmission(self):
         """Display information about transmission"""
 
+        print(f"AC cost (M€/GW/km):  {get_cost('AC', len(self.net.snapshots))}")
+        print(f"DC cost (M€/GW/km): {get_cost('DC', len(self.net.snapshots))}\n")
+
         if len(self.net.lines.index) != 0:
             init_capacities, new_capacities, opt_capacities = self.get_lines_capacity()
             print(f"Lines capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
@@ -106,6 +119,8 @@ class PyPSAResults:
             print(f"Links power:\n{self.get_links_power()}\n")
             print(f"Links use:\n{self.get_links_usage()}\n")
             print(f"Links capex:\n{self.get_links_capex()}\n")
+            # print(f"Links length:\n{self.get_links_length()}\n")
+            print(f"Links new cap*length:\n{self.get_links_new_cap_length()}\n")
 
     def get_lines_capacity(self):
         """Returns the original, new and optimal transmission capacities (in MW) for each type of line."""
@@ -120,12 +135,9 @@ class PyPSAResults:
     def get_links_capacity(self):
         """Returns the original, new and optimal transmission capacities (in MW) for links."""
 
-        links = self.net.links
-        init_capacities = links.p_nom.sum()
-        opt_capacities = links.p_nom_opt.sum()
-        new_capacities = opt_capacities - init_capacities
-
-        return init_capacities, new_capacities, opt_capacities
+        links = self.net.links[["carrier", "p_nom", "p_nom_opt"]].groupby("carrier").sum()
+        links["p_nom_new"] = links["p_nom_opt"] - links["p_nom"]
+        return links["p_nom"], links["p_nom_new"], links["p_nom_opt"]
 
     def get_lines_power(self):
         """Returns the total power (MW) (in either direction) that goes through each type of
@@ -185,13 +197,26 @@ class PyPSAResults:
         links["p_nom_new"] = links.p_nom_opt - links.p_nom
         links["capex"] = links.p_nom_new*links.capital_cost
 
-        return links.capex.sum()
+        return links.groupby(["carrier"]).capex.sum()
+
+    def get_lines_length(self):
+        return self.net.lines[["carrier", "length"]].groupby(["carrier"]).sum().length
+
+    def get_links_length(self):
+        return self.net.links[["carrier", "length"]].groupby(["carrier"]).sum().length
+
+    def get_links_new_cap_length(self):
+        self.net.links["new_cap_length"] = self.net.links.length*(self.net.links.p_nom_opt-self.net.links.p_nom)
+        return self.net.links[["new_cap_length", "carrier"]].groupby("carrier").sum()
 
     # --- Storage --- #
 
     def display_storage(self):
         """Display information about storage"""
 
+        cap_cost, marg_cost = self.get_storage_capital_and_marginal_cost()
+        print(f"Capital cost:\n{cap_cost}\n")
+        print(f"Marginal cost:\n{marg_cost}\n")
         init_capacities, new_capacities, opt_capacities = self.get_storage_power_capacity()
         print(f"Storage power capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
         init_capacities, new_capacities, opt_capacities = self.get_storage_energy_capacity()
@@ -201,6 +226,11 @@ class PyPSAResults:
         print(f"Storage power use:\n{self.get_storage_power_usage()}\n")
         print(f"Storage energy use:\n{self.get_storage_energy_usage()}\n")
         print(f"Storage capex:\n{self.get_storage_capex()}\n")
+
+    def get_storage_capital_and_marginal_cost(self):
+
+        su = self.net.storage_units.groupby(["type"])
+        return su.capital_cost.mean(), su.marginal_cost.mean()
 
     def get_storage_power_capacity(self):
         """Returns the original, new and optimal power capacities (in MW) for each type of storage unit."""
@@ -301,4 +331,4 @@ if __name__ == "__main__":
     net.import_from_csv_folder(output_dir)
 
     pprp = PyPSAResults(net)
-    pprp.display_transmission()
+    pprp.display_storage()

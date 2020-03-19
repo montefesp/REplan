@@ -1,8 +1,37 @@
+from typing import List
 import plotly.graph_objs as go
 from pypsa import Network
 import numpy as np
 import sys
 import os
+
+
+def get_map_layout(title: str, map_coords: List[float]):
+
+    assert len(map_coords) == 4, "Error: map_coords must be of length 4"
+
+    return go.Figure(
+        layout=go.Layout(
+            showlegend=False,
+            title=title,
+            geo=dict(
+                showcountries=True,
+                scope='world',
+                lonaxis=dict(
+                    showgrid=True,
+                    gridwidth=1,
+                    range=[map_coords[0], map_coords[1]],
+                    dtick=5
+                ),
+                lataxis=dict(
+                    showgrid=True,
+                    gridwidth=1,
+                    range=[map_coords[2], map_coords[3]],
+                    dtick=5
+                )
+            )
+        )
+    )
 
 
 class PyPSAResultsPlotly:
@@ -33,7 +62,7 @@ class PyPSAResultsPlotly:
                             "Li-ion E": "rgba(102,255,178,0.5)",  # light green
                             "phs": "rgba(0,153,76,0.5)",  # dark green
                             "sto": "rgba(51,51,255,0.5)",  # dark blue
-                            "imports": "rgba(255,215,0,0.5)",  # yellow
+                            "load": "rgba(20,20,20,0.5)",  # dark grey
                             }
         self.selected_types = sorted(list(set(self.net.generators.type.values)))
 
@@ -46,38 +75,15 @@ class PyPSAResultsPlotly:
         #for i in range(len(all_generation_per_time)):
         #    print(all_generation_per_time[i] - all_load_per_time[i], all_generation_per_time[i], all_load_per_time[i])
         """
+
     def show_topology(self):
 
         all_xs = np.concatenate((self.net.buses["x"].values, self.net.generators["x"].values,
                                  self.net.storage_units["x"].values))
         all_ys = np.concatenate((self.net.buses["y"].values, self.net.generators["y"].values,
                                  self.net.storage_units["y"].values))
-        map_coords = [min(all_xs) - 5,
-                      max(all_xs) + 5,
-                      min(all_ys) - 2,
-                      max(all_ys) + 2]
 
-        fig = go.Figure(
-            layout=go.Layout(
-                showlegend=False,
-                geo=dict(
-                    showcountries=True,
-                    scope='world',
-                    lonaxis=dict(
-                        showgrid=True,
-                        gridwidth=1,
-                        range=[map_coords[0], map_coords[1]],
-                        dtick=5
-                    ),
-                    lataxis=dict(
-                        showgrid=True,
-                        gridwidth=1,
-                        range=[map_coords[2], map_coords[3]],
-                        dtick=5
-                    )
-                )
-            )
-        )
+        fig = get_map_layout("Topology", [min(all_xs) - 5, max(all_xs) + 5, min(all_ys) - 2, max(all_ys) + 2])
 
         # Adding lines to map
         # Get minimum s_nom_opt
@@ -182,60 +188,46 @@ class PyPSAResultsPlotly:
 
     def show_generators(self, types, attribute):
 
+        # Get generators of given type
         generators_idx = self.net.generators[self.net.generators.type.isin(types)].index
+        if len(generators_idx) == 0:
+            print(f"Warning: There is no generator of type {types} in the model.")
+            raise ValueError
+        generators = self.net.generators.loc[generators_idx]
 
-        print(self.net.generators.keys())
-
-        all_xs = self.net.generators.loc[generators_idx, "x"].values
-        all_ys = self.net.generators.loc[generators_idx, "y"].values
-
+        # Get boundaries and general layout
+        all_xs = generators.x.values
+        all_ys = generators.y.values
         map_coords = [min(all_xs) - 5, max(all_xs) + 5, min(all_ys) - 2, max(all_ys) + 2]
+        title = attribute + " for " + ",".join(types)
+        fig = get_map_layout(title, map_coords)
 
-        fig = go.Figure(layout=go.Layout(
-            showlegend=False,
-            title=attribute + " for " + ",".join(types),
-            geo=dict(
-                showcountries=True,
-                scope='world',
-                lonaxis=dict(
-                    showgrid=True,
-                    gridwidth=1,
-                    range=[map_coords[0], map_coords[1]],
-                    dtick=5
-                ),
-                lataxis=dict(
-                    showgrid=True,
-                    gridwidth=1,
-                    range=[map_coords[2], map_coords[3]],
-                    dtick=5
-                )
-            )
-        ))
-
+        #
         if attribute in self.net.generators_t.keys():
             filter_generators_idx = [idx for idx in generators_idx.values if idx in self.net.generators_t[attribute].keys()]
             values = self.net.generators_t[attribute][filter_generators_idx].mean()
-            print(values)
         else:
-            values = self.net.generators.loc[generators_idx, attribute].values
+            values = generators[attribute].values
 
-        colors = np.array([self.tech_colors[tech_type]
-                           for tech_type in self.net.generators.loc[generators_idx].type.values])
+        # Get colors of points and size
+        colors = np.array([self.tech_colors[tech_type] for tech_type in generators.type.values])
         colors[[i for i in range(len(colors)) if values[i] == 0]] = 'black'
-
         max_value = np.max(values)
         if max_value == 0:
             max_value = 1  # Prevents cases where there is no installed capacity at all
+        sizes = 10 + 40 * np.log(1 + values / max_value)
 
         fig.add_trace(go.Scattergeo(
             mode="markers",
             lat=all_ys,
             lon=all_xs,
-            text=[generators_idx[i] + " " + str(values[i]) for i in range(len(values))],
+            text=[f"Name: {idx}<br>"
+                  f"Init cap: {generators.loc[idx].p_nom}<br>"
+                  f"Opt cap: {generators.loc[idx].p_nom_opt}" for idx in generators_idx],
             hoverinfo='text',
             #name='generator',
             marker=dict(
-                size=10 + 40 * np.log(1 + values / max_value),
+                size=sizes,
                 color=colors
             ),
         ))
@@ -244,42 +236,19 @@ class PyPSAResultsPlotly:
 
     def show_storage(self, types, attribute):
 
-        print(self.net.storage_units)
         storage_idx = self.net.storage_units[self.net.storage_units.type.isin(types)].index
-        print(storage_idx)
-
-        print(self.net.storage_units.keys())
+        if len(storage_idx) == 0:
+            print(f"Warning: There is no generator of type {types} in the model.")
+            raise ValueError
 
         all_xs = self.net.storage_units.loc[storage_idx, "x"].values
         all_ys = self.net.storage_units.loc[storage_idx, "y"].values
-
         map_coords = [min(all_xs) - 5, max(all_xs) + 5, min(all_ys) - 2, max(all_ys) + 2]
-
-        fig = go.Figure(layout=go.Layout(
-            showlegend=False,
-            title=attribute + " for " + ",".join(types),
-            geo=dict(
-                showcountries=True,
-                scope='world',
-                lonaxis=dict(
-                    showgrid=True,
-                    gridwidth=1,
-                    range=[map_coords[0], map_coords[1]],
-                    dtick=5
-                ),
-                lataxis=dict(
-                    showgrid=True,
-                    gridwidth=1,
-                    range=[map_coords[2], map_coords[3]],
-                    dtick=5
-                )
-            )
-        ))
+        title = attribute + " for " + ",".join(types)
+        fig = get_map_layout(title, map_coords)
 
         if attribute in self.net.storage_units_t.keys():
-            print(self.net.storage_units_t[attribute])
             values = self.net.storage_units_t[attribute][storage_idx].mean()
-            print(values)
         else:
             values = self.net.storage_units.loc[storage_idx, attribute].values
 
@@ -325,10 +294,13 @@ if __name__ == "__main__":
         fig = pprp.show_topology()
         fig.write_html(output_dir + "topology.html", auto_open=True)
     if 1:
-        types = ["wind_onshore", "wind_offshore", "pv_utility", "pv_residential", "ccgt"]
+        types = ["wind_onshore", "wind_offshore", "pv_utility", "pv_residential", "ccgt", "ror", "load"]
         attribute = "p_nom_opt"
         for tech_type in types:
-            fig = pprp.show_generators([tech_type], attribute)
+            try:
+                fig = pprp.show_generators([tech_type], attribute)
+            except ValueError:
+                continue
             fig.write_html(output_dir + attribute + "_for_" + "_".join([tech_type]) + '.html', auto_open=True)
     if 0:
         types = ["sto", "phs"]

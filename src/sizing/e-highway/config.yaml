@@ -14,11 +14,11 @@ solver_options:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-01-31T23:00']
+  slice: ['2015-01-01T00:00', '2015-12-31T23:00']
   resolution: 1
 
 # Space
-region: "CWE"
+region: "BENELUX"
 add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES

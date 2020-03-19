@@ -106,6 +106,8 @@ if __name__ == "__main__":
              type="load",
              p_nom=loads_max.values,
              p_max_pu=loads_pu.values,
+             x=net.buses.loc[onshore_bus_indexes].x.values,
+             y=net.buses.loc[onshore_bus_indexes].y.values,
              marginal_cost=3.)  # TODO: parametrize
 
     # Adding pv and wind generators
