@@ -295,8 +295,8 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], tech
                      p_nom_max=cap_pot_ds[tech].values,
                      p_max_pu=cap_factor_df[tech].values,
                      type=tech,
-                     x=buses.x,
-                     y=buses.y,
+                     x=buses.x.values,
+                     y=buses.y.values,
                      marginal_cost=marginal_cost,
                      capital_cost=capital_cost)
 
