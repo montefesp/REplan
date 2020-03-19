@@ -172,10 +172,10 @@ if __name__ == "__main__":
     net.lopf(solver_name=config["solver"], solver_logfile=output_dir + "test.log",
              solver_options=config["solver_options"][config["solver"]], pyomo=True)
 
-    if True:
-        net.model.write(filename=join(output_dir, 'model.lp'),
-                        format=ProblemFormat.cpxlp,
-                        io_options={'symbolic_solver_labels': True})
+    # if True:
+    #     net.model.write(filename=join(output_dir, 'model.lp'),
+    #                     format=ProblemFormat.cpxlp,
+    #                     io_options={'symbolic_solver_labels': True})
 
     # Save config and parameters files
     yaml.dump(config, open(output_dir + 'config.yaml', 'w'))
