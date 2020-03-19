@@ -242,7 +242,8 @@ def capacity_potential_from_enspresso(tech: str) -> pd.DataFrame:
         onshore_wind = cap_potential_file[
             (cap_potential_file['Unit'] == 'GWe') &
             (cap_potential_file['Onshore Offshore'] == 'Onshore') &
-            (cap_potential_file['Scenario'] == scenario)]
+            (cap_potential_file['Scenario'] == scenario) &
+            (cap_potential_file['Wind condition'] == 'CF > 25%')]
 
         nuts2_capacity_potentials_ds = onshore_wind.groupby(onshore_wind.index)['Value'].sum()
 
@@ -261,6 +262,7 @@ def capacity_potential_from_enspresso(tech: str) -> pd.DataFrame:
             (cap_potential_file['Unit'] == 'GWe') &
             (cap_potential_file['Onshore Offshore'] == 'Offshore') &
             (cap_potential_file['Scenario'] == scenario) &
+            (cap_potential_file['Wind condition'] == 'CF > 25%') &
             (cap_potential_file['Offshore categories'].isin(offshore_categories))]
         nuts2_capacity_potentials_ds = offshore_wind.groupby(offshore_wind.index)['Value'].sum()
 

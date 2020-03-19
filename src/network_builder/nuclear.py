@@ -62,7 +62,7 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
     # Get fuel type, efficiency and ramp rates
     tech_info_fn = join(dirname(abspath(__file__)), "../parameters/tech_info.xlsx")
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
-    fuel, efficiency, ramp_rate = tech_info.loc[get_plant_type('nuclear')][["fuel", "efficiency_ds", "ramp_rate"]]
+    fuel, efficiency, ramp_rate, base_level = tech_info.loc[get_plant_type('nuclear')][["fuel", "efficiency_ds", "ramp_rate", "base_level"]]
 
     network.madd("Generator", "Gen nuclear " + gens.Name + " " + gens.bus_id,
                  bus=gens.bus_id.values,
@@ -76,6 +76,7 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
                  capital_cost=capital_cost,
                  ramp_limit_up=ramp_rate,
                  ramp_limit_down=ramp_rate,
+                 p_min_pu=base_level,
                  x=gens.lon.values,
                  y=gens.lat.values)
 
