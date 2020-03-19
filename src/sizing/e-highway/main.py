@@ -31,6 +31,8 @@ logger = logging.getLogger()
 
 NHoursPerYear = 8760.
 
+from src.data.geographics.manager import _get_country
+
 if __name__ == "__main__":
 
     # Main directories

@@ -44,6 +44,7 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
         gens = get_gen_from_ppm(fuel_type="Nuclear", countries=countries)
 
     gens = find_associated_buses_ehighway(gens, network)
+
     # TODO: this could make the function more generic but for some weird reasons there is a fucking bug happening
     #    in match_points_to_region
     # Round lon and lat

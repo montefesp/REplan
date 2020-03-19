@@ -49,10 +49,18 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "", countries: List[
         plants = plants[plants.Technology == technology]
 
     # Convert country to code
+    def correct_countries(c: str):
+        if c == "Macedonia, Republic of":
+            return "North Macedonia"
+        if c == "Czech Republic":
+            return "Czechia"
+        return c
+    plants["Country"] = plants["Country"].apply(lambda c: correct_countries(c))
     plants["Country"] = plants["Country"].apply(lambda c: _get_country('alpha_2', name=c))
 
     # Get only plants in countries over which the network is defined
-    plants = plants[plants["Country"].isin(countries)]
+    if countries is not None:
+        plants = plants[plants["Country"].isin(countries)]
 
     return plants
 
@@ -107,11 +115,8 @@ def find_associated_buses_ehighway(plants: pd.DataFrame, net: pypsa.Network):
 
 
 if __name__ == "__main__":
-    all_plants = pm.collection.matched_data()
-    all_plants = all_plants[all_plants.Fueltype == 'Hydro']
-    print(all_plants.keys())
-    #print(all_plants[all_plants.Technology == 'Reservoir'].Capacity.sum())
-    print(all_plants[all_plants.Technology == 'Run-Of-River'])
-    print(all_plants[all_plants.Name == "Uppenborn"])
-    #print(all_plants[all_plants.Technology == 'Pumped Storage'].Efficiency)
-    print(set(all_plants.Technology))
+    all_plants = get_gen_from_ppm(fuel_type="Hydro")
+    print(all_plants)
+    print(all_plants[all_plants.Technology == 'Reservoir']["Country"])
+    print(all_plants[all_plants.Technology == 'Run-Of-River']["Country"])
+    print(all_plants[all_plants.Technology == 'Pumped Storage']["Country"])

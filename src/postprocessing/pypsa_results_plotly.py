@@ -136,7 +136,7 @@ class PyPSAResultsPlotly:
                     lon=[bus0_x, (bus0_x + bus1_x) / 2, bus1_x],
                     lat=[bus0_y, (bus0_y + bus1_y) / 2, bus1_y],
                     line=dict(
-                        width=np.log(1 + p_nom_mul),
+                        width=np.log(1 + p_nom_mul)/2,
                         color=color),
                     text=[f"Name: {idx}<br>"
                           f"Init Capacity: {self.net.links.loc[idx, 'p_nom']}<br>"
@@ -183,6 +183,76 @@ class PyPSAResultsPlotly:
             ),
             name='bus'
         ))
+
+        return fig
+
+    def show_topology_heatmap(self):
+
+        all_xs = np.concatenate((self.net.buses["x"].values, self.net.generators["x"].values,
+                                 self.net.storage_units["x"].values))
+        all_ys = np.concatenate((self.net.buses["y"].values, self.net.generators["y"].values,
+                                 self.net.storage_units["y"].values))
+        fig = get_map_layout("Topology", [min(all_xs) - 5, max(all_xs) + 5, min(all_ys) - 2, max(all_ys) + 2])
+
+        if 0:
+            avg_uses = self.net.links_t.p0.abs().mean(axis=0)/self.net.links.p_nom_opt
+            cmax = 1
+            colorbar_title = "Mean (Power/Capacity) over time"
+        if 0:
+            limit_perc = 0.8
+            avg_uses = (self.net.links_t.p0.abs() > 0.8*self.net.links.p_nom_opt).mean(axis=0)
+            cmax = 1
+            colorbar_title = f"Percentage of time where power<br>is above {limit_perc} of capacity"
+        if 1:
+            limit_perc = 0.8
+            avg_uses = (self.net.links_t.p0.abs() > 0.8*self.net.links.p_nom_opt).sum(axis=0)
+            cmax = 8760.
+            colorbar_title = f"Number of hours where power<br>is above {limit_perc} of capacity"
+        if 0:
+            avg_uses = self.net.links.p_nom_opt - self.net.links.p_nom
+            cmax = max(avg_uses.values)
+            colorbar_title = "Increase in Capacity"
+
+        # Adding links to map
+        if len(self.net.links) != 0:
+            # Get max p_nom_opt
+            for i, idx in enumerate(self.net.links.index):
+                bus0_id = self.net.links.loc[idx, "bus0"]
+                bus1_id = self.net.links.loc[idx, "bus1"]
+                bus0_x = self.net.buses.loc[bus0_id, "x"]
+                bus0_y = self.net.buses.loc[bus0_id, "y"]
+                bus1_x = self.net.buses.loc[bus1_id, "x"]
+                bus1_y = self.net.buses.loc[bus1_id, "y"]
+
+                avg_use = avg_uses[idx]
+                color = f'rgba(0,0,255,{round(avg_use/cmax, 2)})'
+
+                fig.add_trace(go.Scattergeo(
+                    mode='lines+markers',
+                    lon=[bus0_x, (bus0_x + bus1_x) / 2, bus1_x],
+                    lat=[bus0_y, (bus0_y + bus1_y) / 2, bus1_y],
+                    line=dict(
+                        width=5,  # np.log(1 + p_nom_mul)/2,
+                        color=color),
+                    marker=dict(
+                        size=[0, 10, 0],
+                        opacity=0.8,
+                        reversescale=False,
+                        autocolorscale=False,
+                        symbol='.',
+                        line=dict(
+                            width=1,
+                            color='rgba(102, 102, 102)'
+                        ),
+                        colorscale='Blues',
+                        cmin=0,
+                        color=[avg_use]*3,
+                        cmax=cmax,
+                        colorbar_title=colorbar_title
+                    ),
+                    text=["", f"{avg_use:.2f}", ""],
+                    hoverinfo="text"
+                ))
 
         return fig
 
@@ -294,6 +364,9 @@ if __name__ == "__main__":
         fig = pprp.show_topology()
         fig.write_html(output_dir + "topology.html", auto_open=True)
     if 1:
+        fig = pprp.show_topology_heatmap()
+        fig.write_html(output_dir + "topology.html", auto_open=True)
+    if 0:
         types = ["wind_onshore", "wind_offshore", "pv_utility", "pv_residential", "ccgt", "ror", "load"]
         attribute = "p_nom_opt"
         for tech_type in types:
