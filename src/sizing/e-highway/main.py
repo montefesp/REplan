@@ -51,6 +51,7 @@ if __name__ == "__main__":
     # E-highway clusters information
     eh_clusters_file_name = join(data_dir, "topologies/e-highways/source/clusters_2016.csv")
     eh_clusters = pd.read_csv(eh_clusters_file_name, delimiter=";", index_col=0)
+    logging.info("Input data read.")
 
     # Time
     timeslice = config['time']['slice']

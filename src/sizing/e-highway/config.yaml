@@ -35,7 +35,7 @@ res:
   # For strategy = full or generate
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
-  technologies: ['wind_onshore', 'pv_utility', 'pv_residential', 'wind_offshore']
+  technologies: ['wind_onshore', 'pv_utility', 'wind_offshore']
   timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
   use_ex_cap: True
   filtering_layers:

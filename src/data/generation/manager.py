@@ -83,6 +83,8 @@ def find_associated_buses_ehighway(plants: pd.DataFrame, net: pypsa.Network):
     def correct_countries(c: str):
         if c == "GB":
             return "UK"
+        else:
+            return c
     plants["Country"] = plants["Country"].apply(lambda c: correct_countries(c))
 
     # For each plant, we compute the distances to each bus contained in the same country
