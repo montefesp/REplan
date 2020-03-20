@@ -96,10 +96,8 @@ class Resite:
         self.use_ex_cap = use_ex_cap
         self.filtering_layers = filtering_layers
 
-        self.logger.info("Loading load")
         self.load_df = retrieve_load_data(self.regions, self.timestamps)
 
-        self.logger.info("Getting region shapes")
         region_shapes = pd.DataFrame(index=self.regions, columns=['full'])
         all_subregions = []
         for region in self.regions:
@@ -115,12 +113,10 @@ class Resite:
         init_points = list(zip(database.longitude.values, database.latitude.values))
         init_points = return_points_in_shape(regions_shapes_union, self.spatial_res, init_points)
 
-        self.logger.info("Filtering coordinates")
         self.tech_points_dict = filter_points(self.technologies, self.tech_config, init_points, self.spatial_res,
                                               filtering_layers)
 
         if use_ex_cap:
-            self.logger.info("Get existing legacy capacity")
             tech_with_legacy_data = \
                 list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility']))
             existing_capacity_dict = get_legacy_capacity(tech_with_legacy_data, self.tech_config, all_subregions,
@@ -145,11 +141,9 @@ class Resite:
                         and coord in existing_capacity_dict[tech]:
                     self.existing_capacity_ds[tech, coord] = existing_capacity_dict[tech][coord]
 
-        self.logger.info("Compute cap factor")
         self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.tech_config,
                                                       self.spatial_res, self.timestamps)
 
-        self.logger.info("Compute capacity potential per node")
         self.cap_potential_ds = get_capacity_potential(self.tech_points_dict, self.spatial_res, all_subregions,
                                                        self.existing_capacity_ds)
 
@@ -157,7 +151,6 @@ class Resite:
         existing_cap_percentage_ds = self.existing_capacity_ds.divide(self.cap_potential_ds)
 
         # Remove points which have zero potential capacity
-        self.logger.info("Removing points with zero potential capacity")
         self.existing_cap_percentage_ds = existing_cap_percentage_ds.dropna()
         self.cap_potential_ds = self.cap_potential_ds[self.existing_cap_percentage_ds.index]
         self.cap_factor_df = self.cap_factor_df[self.existing_cap_percentage_ds.index]

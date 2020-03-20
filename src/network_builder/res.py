@@ -135,20 +135,19 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
         Updated network
     """
 
-    logger.info('Building class.')
+    logger.info('Setting up resite.')
     resite = Resite([region], params["technologies"], tech_config, params["timeslice"], params["spatial_resolution"],
                     params["keep_files"])
 
-    logger.info('Reading input.')
     resite.build_input_data(params['use_ex_cap'], params['filtering_layers'])
 
-    logger.info('Model being built.')
+    logger.info('resite model being built.')
     resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
 
-    logger.info('Sending model to solver.')
+    logger.info('Sending resite to solver.')
     resite.solve_model(params['solver'], params['solver_options'][params['solver']])
 
-    logger.info('Retrieving results.')
+    logger.info('Retrieving resite results.')
     tech_location_dict = resite.retrieve_solution()
     existing_cap_ds, cap_potential_ds, cap_factor_df = resite.retrieve_sites_data()
 

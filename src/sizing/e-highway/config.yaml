@@ -23,7 +23,7 @@ add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES
 # RES
 res:
   include: True
-  strategy: "bus" # (max or comp) or bus or no_siting or siting
+  strategy: "siting" # (max or comp) or bus or no_siting or siting
 
   # For strategy = max or comp
   resite_nb: 100 # can be multiples of 25
@@ -36,7 +36,7 @@ res:
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
   technologies: ['wind_onshore', 'pv_utility', 'wind_offshore']
-  timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
+  timeslice: ['2015-01-01T00:00', '2015-01-31T23:00']
   use_ex_cap: True
   filtering_layers:
     resource_quality: True
@@ -63,7 +63,7 @@ res:
   # List of deployments per region (ordered as the 'regions' list above)
   deployment_vector: [0.5] # [0.5, 0.5, 0.5, 0.5]
   # Keeping files at the end of the run.
-  keep_files: False
+  keep_files: True
 
 # Conventional generation
 dispatch:
