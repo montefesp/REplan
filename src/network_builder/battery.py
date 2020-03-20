@@ -6,6 +6,11 @@ import pypsa
 
 from src.parameters.costs import get_cost, get_plant_type
 
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
+logger = logging.getLogger()
+
 
 def add_batteries(network: pypsa.Network, type: str, max_hours: float):
     """
@@ -26,6 +31,7 @@ def add_batteries(network: pypsa.Network, type: str, max_hours: float):
         Updated network
 
     """
+    logger.info("Adding {} storage.".format(type))
 
     onshore_bus_indexes = pd.Index([bus_id for bus_id in network.buses.index if network.buses.loc[bus_id].onshore])
 

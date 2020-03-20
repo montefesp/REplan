@@ -78,7 +78,7 @@ if __name__ == "__main__":
     net.add("Carrier", "load", co2_emissions=0.)
 
     # Loading topology
-    logger.info("Loading topology")
+    logger.info("Loading topology.")
     countries = get_subregions(config["region"])
     net = get_topology(net, countries, config["add_offshore"], plot=False)
 
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     total_shape = cascaded_union([total_onshore_shape, total_offshore_shape])
 
     # Adding load
-    logger.info("Adding Load")
+    logger.info("Adding load.")
     onshore_bus_indexes = net.buses[net.buses.onshore].index
     load = get_load_from_nuts_codes(
         [eh_clusters.loc[bus_id].codes.split(',') for bus_id in onshore_bus_indexes],
@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
     # Adding pv and wind generators
     if config['res']['include']:
-        logger.info("Adding RES")
+        logger.info("Adding RES ({}) generation.".format(config['res']['technologies']))
         if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
              net = add_res_from_file(net, total_shape, config['res']['strategy'], config["res"]["resite_nb"],
                                      config["res"]["area_per_site"], config["res"]["cap_dens"])
@@ -139,33 +139,26 @@ if __name__ == "__main__":
 
     # Add conv gen
     if config["dispatch"]["include"]:
-        logger.info("Adding Dispatch")
         tech = config["dispatch"]["tech"]
         net = add_conventional(net, tech)
 
     # Adding nuclear
     if config["nuclear"]["include"]:
-        logger.info("Adding Nuclear")
         net = add_nuclear(net, countries, config["nuclear"]["use_ex_cap"], config["nuclear"]["extendable"],
                           "pp_nuclear_WNA.csv")
 
     if config["sto"]["include"]:
-        logger.info("Adding STO")
         net = add_sto_plants(net, config["sto"]["extendable"], config["sto"]["cyclic_sof"])
 
     if config["phs"]["include"]:
-        logger.info("Adding PHS")
         net = add_phs_plants(net, config["phs"]["extendable"], config["phs"]["cyclic_sof"])
 
     if config["ror"]["include"]:
-        logger.info("Adding ROR")
         net = add_ror_plants(net, config["ror"]["extendable"])
 
     if config["battery"]["include"]:
-        logger.info("Adding Battery Storage")
         net = add_batteries(net, config["battery"]["type"], config["battery"]["max_hours"])
 
-    logger.info("Adding global CO2 constraint")
     co2_reference_kt = get_reference_emission_levels(config["region"], config["co2_emissions"]["reference_year"])
     co2_budget = co2_reference_kt*(1-config["co2_emissions"]["mitigation_factor"])*len(net.snapshots)/NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)

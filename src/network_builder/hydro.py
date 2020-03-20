@@ -8,8 +8,12 @@ import pypsa
 
 from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area
 from src.data.topologies.ehighway import get_ehighway_clusters
-from src.data.generation.manager import get_gen_from_ppm, find_associated_buses_ehighway
 from src.parameters.costs import get_cost, get_plant_type
+
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
+logger = logging.getLogger()
 
 
 # TODO: need to revise all these functions, either deleting some of them or removing the dependencies with regard
@@ -165,6 +169,9 @@ def add_phs_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
     psp_pow_cap, psp_en_cap = phs_inputs_nuts_to_eh(buses_onshore.index,
                                                     hydro_capacities["PSP_CAP [GW]"],
                                                     hydro_capacities["PSP_EN_CAP [GWh]"])
+    logger.info("Adding {} GW of PHS hydro with {} GWh of storage in {}.".format(round(psp_pow_cap.sum(),2),
+                                                                                 round(psp_en_cap.sum(), 2),
+                                                                        list(set([i[2:] for i in psp_pow_cap.index]))))
     max_hours = psp_en_cap/psp_pow_cap
 
     capital_cost, marginal_cost = get_cost('phs', len(network.snapshots))
@@ -346,6 +353,8 @@ def add_ror_plants(network: pypsa.Network, extendable: bool = False) -> pypsa.Ne
     bus_cap, bus_inflows = ror_inputs_nuts_to_eh(buses_onshore.index,
                                                  hydro_capacities["ROR_CAP [GW]"],
                                                  ror_inflow)
+    logger.info("Adding {} GW of ROR hydro in {}.".format(round(bus_cap.sum(),2), list(set([i[2:] for i in bus_cap.index]))))
+
     bus_inflows = bus_inflows.round(2)
 
     capital_cost, marginal_cost = get_cost('ror', len(network.snapshots))
@@ -547,6 +556,9 @@ def add_sto_plants(network: pypsa.Network, extendable: bool = False, cyclic_sof:
                                                                  hydro_capacities["STO_CAP [GW]"],
                                                                  hydro_capacities["STO_EN_CAP [GWh]"],
                                                                  reservoir_inflow)
+    logger.info("Adding {} GW of STO hydro with {} TWh of storage in {}.".format(round(bus_pow_cap.sum(),2),
+                                                                                 round(bus_en_cap.sum()*(1e-3), 2),
+                                                                        list(set([i[2:] for i in bus_pow_cap.index]))))
     bus_inflows = bus_inflows.round(3)
 
     max_hours = bus_en_cap/bus_pow_cap

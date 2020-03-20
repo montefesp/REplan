@@ -6,6 +6,11 @@ import pypsa
 
 from src.parameters.costs import get_cost, get_plant_type
 
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
+logger = logging.getLogger()
+
 
 def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
     """Adds conventional generators to a Network instance.
@@ -22,6 +27,7 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
     network: pypsa.Network
         Updated network
     """
+    logger.info("Adding {} generation.".format(tech))
 
     # Filter to keep only onshore buses
     buses = network.buses[network.buses.onshore]

@@ -9,6 +9,10 @@ from src.data.geographics.manager import _get_country, match_points_to_region
 from src.data.generation.manager import get_gen_from_ppm, find_associated_buses_ehighway
 from src.parameters.costs import get_cost, get_plant_type
 
+import logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
+logger = logging.getLogger()
+
 
 # TODO: this should not depend on e-highway
 def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: bool, extendable: bool,
@@ -44,7 +48,8 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
         gens = get_gen_from_ppm(fuel_type="Nuclear", countries=countries)
 
     gens = find_associated_buses_ehighway(gens, network)
-
+    logger.info("Adding {} GW of nuclear capacity in {}.".format(round(gens["Capacity"].sum()*(1e-3),2),
+                                                                gens["Country"].unique()))
     # TODO: this could make the function more generic but for some weird reasons there is a fucking bug happening
     #    in match_points_to_region
     # Round lon and lat
