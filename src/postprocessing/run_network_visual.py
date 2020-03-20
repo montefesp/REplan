@@ -17,17 +17,27 @@ import sys
 sys.path.append("../py_grid_exp/")
 
 
-tech_colors = {"All": "rgba(138,43,226,0.5)",
-               "nuclear": "rgba(255,140,0,0.5)",
-               "wind_aerodyn": "rgba(30,144,255,0.5)",
-               "solar_tallmaxm": "rgba(220,20,60,0.5)",
-               "ccgt": "rgba(47,79,79,0.5)",
-               "ocgt": "rgba(105,105,105,0.5)",
-               "imports": "rgba(255,215,0,0.5)",
-               "storage": "rgba(34,139,34,0.5)"}
+tech_colors = {"All": "rgba(138,43,226,0.5)",  # purple
+                    "nuclear": "rgba(255,140,0,0.5)",  # orange
+                    "wind_onshore": "rgba(51,100,255,0.5)",  # middle-dark blue
+                    "wind_offshore": "rgba(51,51,255,0.5)",  # dark blue
+                    "wind_floating": "rgba(51,164,255,0.5)",  # middle blue
+                    "pv_utility": "rgba(220,20,60,0.5)",  # red
+                    "pv_residential": "rgba(220,20,20,0.5)",  # dark red
+                    "ror": "rgba(255,153,255,0.5)",  # pink
+                    "ccgt": "rgba(47,79,79,0.5)",  # grey
+                    "ocgt": "rgba(105,105,105,0.5)",  # other grey
+                    "Li-ion P": "rgba(102,255,178,0.5)",  # light green
+                    "Li-ion E": "rgba(102,255,178,0.5)",  # light green
+                    "phs": "rgba(0,153,76,0.5)",  # dark green
+                    "sto": "rgba(51,51,255,0.5)",  # dark blue
+                    "load": "rgba(20,20,20,0.5)",  # dark grey
+                    "imports": "rgba(255,215,0,0.5)",
+                    "storage": "rgba(34,139,34,0.5)"}
 
 # ODO: Maybe I should put each 'figure' into objects where I can just update some parts of
 #  it so that the uploading is faster
+
 
 class App:
     
@@ -45,7 +55,10 @@ class App:
         self.output_dir = output_dir
         self.net = Network()
         self.net.import_from_csv_folder(self.output_dir + self.current_test_number + "/")
-        self.current_line_id = self.net.lines.index[0]
+        if len(self.net.lines) != 0:
+            self.current_line_id = self.net.lines.index[0]
+        if len(self.net.links) != 0:
+            self.current_link_id = self.net.links.index[0]
         self.current_bus_id = self.net.buses.index[0]
 
         self.selected_types = sorted(list(set(self.net.generators.type.values)))
@@ -78,36 +91,68 @@ class App:
                                     )
                                 )
                             ))
-    
-            # Adding lines to map
-            # Get minimum s_nom_opt
-            s_nom_opt_min = min(self.net.lines.s_nom_opt[self.net.lines.s_nom_opt > 0].values)
-            for i, idx in enumerate(self.net.lines.index):
-                bus0_id = self.net.lines.loc[idx, ("bus0", )]
-                bus1_id = self.net.lines.loc[idx, ("bus1", )]
-                bus0_x = self.net.buses.loc[bus0_id, ("x", )]
-                bus0_y = self.net.buses.loc[bus0_id, ("y", )]
-                bus1_x = self.net.buses.loc[bus1_id, ("x", )]
-                bus1_y = self.net.buses.loc[bus1_id, ("y", )]
-                color = 'rgba(0,0,255,0.8)'
-                name = 'AC'
-                s_nom_mul = self.net.lines.loc[idx, ('s_nom_opt', )]/s_nom_opt_min
-                if self.net.lines.loc[idx, ("carrier", )] == "DC":
-                    color = 'rgba(255,0,0,0.8)'
-                    name = 'DC'
 
-                fig.add_trace(go.Scattergeo(
+            # Adding lines to map
+            if len(self.net.lines) != 0:
+                # Get minimum s_nom_opt
+                s_nom_opt_min = min(self.net.lines.s_nom_opt[self.net.lines.s_nom_opt > 0].values)
+                for i, idx in enumerate(self.net.lines.index):
+                    bus0_id = self.net.lines.loc[idx, ("bus0",)]
+                    bus1_id = self.net.lines.loc[idx, ("bus1",)]
+                    bus0_x = self.net.buses.loc[bus0_id, ("x",)]
+                    bus0_y = self.net.buses.loc[bus0_id, ("y",)]
+                    bus1_x = self.net.buses.loc[bus1_id, ("x",)]
+                    bus1_y = self.net.buses.loc[bus1_id, ("y",)]
+                    color = 'rgba(0,0,255,0.8)'
+                    name = 'AC'
+                    s_nom_mul = self.net.lines.loc[idx, ('s_nom_opt',)] / s_nom_opt_min
+                    if self.net.lines.loc[idx, ("carrier",)] == "DC":
+                        color = 'rgba(255,0,0,0.8)'
+                        name = 'DC'
+
+                    fig.add_trace(go.Scattergeo(
                         mode='lines',
-                        lon=[bus0_x, (bus0_x+bus1_x)/2, bus1_x],
-                        lat=[bus0_y, (bus0_y+bus1_y)/2, bus1_y],
+                        lon=[bus0_x, (bus0_x + bus1_x) / 2, bus1_x],
+                        lat=[bus0_y, (bus0_y + bus1_y) / 2, bus1_y],
                         line=dict(
-                            width=np.log(1+s_nom_mul),
+                            width=np.log(1 + s_nom_mul),
                             color=color),
                         text=[idx, idx, idx],
                         hoverinfo='text',
                         name=name
                     ))
-    
+
+            # Adding links to map
+            if len(self.net.links) != 0:
+                # Get minimum p_nom_opt
+                p_nom_opt_min = min(self.net.links.p_nom_opt[self.net.links.p_nom_opt > 0].values)
+                for i, idx in enumerate(self.net.links.index):
+                    bus0_id = self.net.links.loc[idx, ("bus0", )]
+                    bus1_id = self.net.links.loc[idx, ("bus1", )]
+                    bus0_x = self.net.buses.loc[bus0_id, ("x", )]
+                    bus0_y = self.net.buses.loc[bus0_id, ("y", )]
+                    bus1_x = self.net.buses.loc[bus1_id, ("x", )]
+                    bus1_y = self.net.buses.loc[bus1_id, ("y", )]
+                    color = 'rgba(0,0,255,0.8)'
+                    name = 'AC'
+                    p_nom_mul = self.net.links.loc[idx, 'p_nom_opt']/p_nom_opt_min
+                    if self.net.links.loc[idx, ("carrier", )] == "DC":
+                        color = 'rgba(255,0,0,0.8)'
+                        name = 'DC'
+
+                    fig.add_trace(go.Scattergeo(
+                            mode='lines',
+                            lon=[bus0_x, (bus0_x+bus1_x)/2, bus1_x],
+                            lat=[bus0_y, (bus0_y+bus1_y)/2, bus1_y],
+                            line=dict(
+                                width=np.log(1+p_nom_mul)/4,
+                                color=color),
+                            text=["", f"Init Capacity: {self.net.links.loc[idx, 'p_nom']}<br>"
+                                      f"Opt Capacity: {self.net.links.loc[idx, 'p_nom_opt']}", ""],
+                            hoverinfo='text',
+                            name=name
+                        ))
+
             # Add points to map
             p_noms = np.zeros((len(self.net.buses.index, )))
             color = tech_colors['All']
@@ -150,19 +195,20 @@ class App:
             return fig
     
         def get_line_info():
-    
+
             fig = go.Figure(data=go.Scatter(
                                 x=[i for i in range(len(self.net.snapshots))],
-                                y=self.net.lines['s'].sel(id=self.current_line_id).values,
+                                y=self.net.links_t.p0[self.current_link_id],
                                 marker=dict(color='blue'),
                                 name='Power flow'),
                             layout=go.Layout(
-                                title='Power flow for ' + self.current_line_id,
+                                # title='Power flow for ' + self.current_line_id,
+                                title='Power flow for ' + self.current_link_id,
                                 xaxis={'title': 'Time stamps'},
                                 yaxis={'title': 'GWh (or GW)'}))
     
             # Original capacity
-            capacity = self.net.lines['s_nom'].sel(id=self.current_line_id).values.item()
+            capacity = self.net.links.loc[self.current_link_id, 'p_nom']
             fig.add_trace(go.Scatter(
                 x=[i for i in range(len(self.net.snapshots))],
                 y=[capacity]*len(self.net.snapshots),
@@ -178,7 +224,7 @@ class App:
             ))
     
             # New capacity
-            capacity = self.net.lines['s_nom_opt'].sel(id=self.current_line_id).values.item()
+            capacity = self.net.links.loc[self.current_link_id, 'p_nom_opt']
             fig.add_trace(go.Scatter(
                 x=[i for i in range(len(self.net.snapshots))],
                 y=[capacity] * len(self.net.snapshots),
@@ -196,78 +242,85 @@ class App:
             return fig
     
         # Application layout
-        def get_demand_balancing():
-    
-            # Get net import
-            lines_out = self.net.lines.where(self.net.lines.bus0 == self.current_bus_id, drop=True)
-            lines_in = self.net.lines.where(self.net.lines.bus1 == self.current_bus_id, drop=True)
-            outflow = np.sum(lines_out.s.values, axis=0)
-            inflow = np.sum(lines_in.s.values, axis=0)
-            net_inflow = inflow - outflow
-            pos_net_inflow = net_inflow.copy()
-            pos_net_inflow[pos_net_inflow < 0] = 0
-            neg_net_inflow = net_inflow.copy()
-            neg_net_inflow[neg_net_inflow > 0] = 0
+        def get_generation():
 
-            # Get net output from battery
-            storages = self.net.storages.where(self.net.storages.bus == self.current_bus_id, drop=True)
-            storage_pos_discharge = -np.sum(storages.charge.values, axis=0)
-            storage_pos_discharge[storage_pos_discharge < 0] = 0
+            gens = self.net.generators
 
-            installed_cap = np.sum(self.net.generators['p_nom_opt']
-                                   .where(self.net.generators.bus == self.current_bus_id, drop=True).values)
-            available_power_per_gen = \
-                np.array(self.net.generators['p_nom_opt']
-                         .where(self.net.generators.bus == self.current_bus_id, drop=True).values) * \
-                np.array(self.net.generators['p_max_pu']
-                         .where(self.net.generators.bus == self.current_bus_id, drop=True).values).T
-            available_power_per_bus = np.sum(available_power_per_gen.T, axis=0)
-    
-            # Compute total load, first line is useful in case there is no load at the selected bus
-            load = np.zeros(len(self.net.snapshots))
-            load += np.sum(self.net.loads['p_set']
-                           .where(self.net.loads.bus == self.current_bus_id, drop=True).values, axis=0)
             fig = go.Figure(
-                data=go.Scatter(
-                    x=[i for i in range(len(self.net.snapshots))],
-                    y=load,
-                    name='Load'),
                 layout=go.Layout(
-                    title='Demand balancing in ' + self.current_bus_id,
+                    title='Generation in ' + self.current_bus_id,
                     xaxis={'title': 'Time stamps'},
-                    yaxis={'title': 'GWh (or GW)',
-                           'range': [0, 1.1 * np.max(
-                               [np.max(load),
-                                np.max(
-                                    np.sum(self.net.generators['p']
-                                           .where(self.net.generators.bus == self.current_bus_id, drop=True).values,
-                                           axis=0)
-                                    + pos_net_inflow),
-                                installed_cap])]},
+                    yaxis={'title': 'GWh (or GW)'}
                 ))
-    
-            fig.add_trace(go.Scatter(
-                x=[i for i in range(len(self.net.snapshots))],
-                y=[installed_cap]*len(self.net.snapshots),
-                name='Gen Capacity'))
-    
-            fig.add_trace(go.Scatter(
-                x=[i for i in range(len(self.net.snapshots))],
-                y=available_power_per_bus,
-                name='Available Cap'))
-    
-            generations = self.net.generators[['p', 'type']]\
-                .where(self.net.generators.bus == self.current_bus_id, drop=True)
-            types = list(set(generations.type.values))
+
+            types = list(set(gens.type.values))
             # Put nuclear first if present
             if 'nuclear' in types:
                 types.remove("nuclear")
                 types.insert(0, "nuclear")
             for t in types:
                 total_generation = [0] * len(self.net.snapshots)
-                generations_by_type = generations['p'].where(generations.type == t, drop=True).values
+                types_gens = gens[gens.type == t]
+                generations_by_type = self.net.generators_t.p[types_gens.index].values
                 if len(generations_by_type) != 0:
-                    total_generation = np.sum(generations_by_type, axis=0)
+                    total_generation = np.sum(generations_by_type, axis=1)
+                fig.add_trace(go.Scatter(
+                    x=[i for i in range(len(self.net.snapshots))],
+                    y=total_generation,
+                    opacity=0.5,
+                    stackgroup='one',
+                    mode='none',
+                    fillcolor=tech_colors[t],
+                    marker=dict(color=tech_colors[t],
+                                opacity=0.5),
+                    name=t))
+
+            return fig
+
+        def get_generation_per_node():
+
+
+            gens = self.net.generators[self.net.generators.bus == self.current_bus_id]
+
+            """installed_cap = gens['p_nom_opt'].sum()
+            available_power_per_gen = gens['p_nom_opt'].values
+            gens_p_max_pu = np.zeros((len(gens.index), len(self.net.snapshots)))
+            for i, idx in enumerate(gens.index):
+                if idx in self.net.generators_t.p_max_pu.keys():
+                    gens_p_max_pu[i] = self.net.generators_t.p_max_pu[idx].values
+            available_power_per_bus = available_power_per_gen @ gens_p_max_pu
+            """
+
+            fig = go.Figure(
+                layout=go.Layout(
+                    title='Generation in ' + self.current_bus_id,
+                    xaxis={'title': 'Time stamps'},
+                    yaxis={'title': 'GWh (or GW)'}
+                ))
+
+            """
+                fig.add_trace(go.Scatter(
+                    x=[i for i in range(len(self.net.snapshots))],
+                    y=[installed_cap]*len(self.net.snapshots),
+                    name='Gen Capacity'))
+
+                fig.add_trace(go.Scatter(
+                    x=[i for i in range(len(self.net.snapshots))],
+                    y=available_power_per_bus,
+                    name='Available Cap'))
+            """
+
+            types = list(set(gens.type.values))
+            # Put nuclear first if present
+            if 'nuclear' in types:
+                types.remove("nuclear")
+                types.insert(0, "nuclear")
+            for t in types:
+                total_generation = [0] * len(self.net.snapshots)
+                types_gens = gens[gens.type == t]
+                generations_by_type = self.net.generators_t.p[types_gens.index].values
+                if len(generations_by_type) != 0:
+                    total_generation = np.sum(generations_by_type, axis=1)
                 fig.add_trace(go.Scatter(
                         x=[i for i in range(len(self.net.snapshots))],
                         y=total_generation,
@@ -278,26 +331,57 @@ class App:
                         marker=dict(color=tech_colors[t],
                                     opacity=0.5),
                         name=t))
-    
-            fig.add_trace(go.Scatter(
+
+            return fig
+
+        def get_demand_balancing():
+
+            # Compute total load, first line is useful in case there is no load at the selected bus
+            load = np.zeros(len(self.net.snapshots))
+            loads = self.net.loads[self.net.loads.bus == self.current_bus_id]
+            if len(loads) != 0:
+                load += self.net.loads_t.p_set[loads.index].sum(axis=1)
+
+            demand_balancing = np.zeros((len(self.net.snapshots)))
+
+            # Generation
+            gens = self.net.generators[self.net.generators.bus == self.current_bus_id]
+            demand_balancing += self.net.generators_t.p[gens.index].sum(axis=1)
+
+            # Add imports and remove exports
+            links_out = self.net.links[self.net.links.bus0 == self.current_bus_id]
+            links_in = self.net.links[self.net.links.bus1 == self.current_bus_id]
+            inflow = self.net.links_t.p1[links_out.index].sum(axis=1) + self.net.links_t.p0[links_in.index].sum(axis=1)
+            demand_balancing += inflow
+
+            # Add discharge of battery and remove store
+            storages = self.net.storage_units[self.net.storage_units.bus == self.current_bus_id]
+            demand_balancing += self.net.storage_units_t.p[storages.index].sum(axis=1)
+
+            fig = go.Figure(
+                data=go.Scatter(
                     x=[i for i in range(len(self.net.snapshots))],
-                    y=pos_net_inflow,
-                    stackgroup='one',
-                    mode='none',
-                    marker=dict(opacity=0.5),
-                    opacity=0.5,
-                    fillcolor=tech_colors['imports'],
-                    name='Pos Net Import'))
+                    y=load,
+                    name='Load',
+                    marker=dict(color='red',
+                                opacity=0.5)
+                ),
+                layout=go.Layout(
+                    title='Demand balancing in ' + self.current_bus_id,
+                    xaxis={'title': 'Time stamps'},
+                    yaxis={'title': 'GWh (or GW)'}
+                ))
 
             fig.add_trace(go.Scatter(
-                    x=[i for i in range(len(self.net.snapshots))],
-                    y=storage_pos_discharge,
-                    stackgroup='one',
-                    mode='none',
-                    marker=dict(opacity=0.5),
-                    opacity=0.5,
-                    fillcolor=tech_colors['storage'],
-                    name='Storage Net Discharge'))
+                x=[i for i in range(len(self.net.snapshots))],
+                y=demand_balancing,
+                opacity=0.5,
+                stackgroup='one',
+                mode='none',
+                name='Demand balancing',
+                fillcolor='blue',
+                marker=dict(color='blue',
+                            opacity=0.5)))
 
             return fig
 
@@ -490,7 +574,7 @@ class App:
 
             return fig
 
-        def get_generation():
+        def get_total_generation():
 
             all_cap = dict.fromkeys(sorted(set(self.net.generators.type)))
             for key in all_cap:
@@ -505,7 +589,7 @@ class App:
                     marker=dict(colors=[tech_colors[key] for key in all_cap.keys()])))
             return fig
 
-        def get_generation_for_node():
+        def get_total_generation_for_node():
 
             gens_at_bus = self.net.generators[self.net.generators.bus == self.current_bus_id]
             all_types = sorted(set(gens_at_bus.type.values))
@@ -619,7 +703,7 @@ class App:
 
                             dcc.Graph(
                                 id='tot-gen',
-                                figure=get_generation(),
+                                figure=get_total_generation(),
                             )
                         ]),
 
@@ -631,7 +715,6 @@ class App:
 
                     # Per-node info
                     html.Div([
-                        """
                         html.Div([
 
                             # Line power flow
@@ -639,29 +722,37 @@ class App:
                                 id='line-power-flow',
                                 figure=get_line_info(),
                             ),
-                
+
                             # Demand balancing graph
                             dcc.Graph(
                                 id='demand-balancing',
                                 figure=get_demand_balancing(),
+                            ),
+
+                            dcc.Graph(
+                                id='gen-per-bus',
+                                figure=get_generation_per_node(),
+                            ),
+
+                            dcc.Graph(
+                                id='gen',
+                                figure=get_generation(),
                             )
 
                         ]),
 
+                        """
                         html.Div([
-                            # Demand balancing graph
                             dcc.Graph(
                                 id='state-of-charge',
                                 figure=get_state_of_charge()
                             ),
 
-                            # Demand balancing graph
                             dcc.Graph(
                                 id='charge-discharge',
                                 figure=get_charge_discharge()
                             )
-                        ]),
-                        """,
+                        ])""",
 
                         html.Div([
                             dcc.Graph(
@@ -670,8 +761,8 @@ class App:
                             ),
 
                             dcc.Graph(
-                                id='gen-per-bus',
-                                figure=get_generation_for_node(),
+                                id='tot-gen-per-bus',
+                                figure=get_total_generation_for_node(),
                             )
                         ])
 
@@ -681,18 +772,21 @@ class App:
         ])
 
         @self.app.callback(
-            [# Output('demand-balancing', 'figure'),
+            [Output('demand-balancing', 'figure'),
              # Output('state-of-charge', 'figure'),
              # Output('charge-discharge', 'figure'),
              Output('cap-per-bus', 'figure'),
-             Output('gen-per-bus', 'figure')],
+             Output('tot-gen-per-bus', 'figure'),
+             Output('gen-per-bus', 'figure'),
+             Output('gen', 'figure')],
             [Input('map', 'clickData')])
         def update_demand_balancing(clickData):
             if clickData is not None and 'points' in clickData:
                 points = clickData['points'][0]
                 if 'text' in points and '-' not in points['text']:
                     self.current_bus_id = points['text']
-                    return get_capacities_for_node(), get_generation_for_node() #get_demand_balancing(), get_state_of_charge(), get_charge_discharge(), \
+                    return get_demand_balancing(), get_capacities_for_node(), get_total_generation_for_node(), \
+                           get_generation_per_node(), get_generation() # , get_state_of_charge(), get_charge_discharge(), \
             raise PreventUpdate
 
         """
@@ -728,10 +822,10 @@ class App:
             print(value2)
             self.net = Network()
             self.net.import_from_csv_folder(self.output_dir + value1 + "/")
-            self.current_line_id = self.net.lines.index[0]
+            self.current_link_id = self.net.links.index[0]
             self.current_bus_id = self.net.buses.index[0]
             self.selected_types = value2
-            return get_map(), get_costs_table(), get_capacities(), get_generation(), get_load_gen()
+            return get_map(), get_costs_table(), get_capacities(), get_total_generation(), get_load_gen()
 
         return self.app
 

@@ -26,9 +26,12 @@ class PyPSAResults:
         cap_cost, marg_cost = self.get_gen_capital_and_marginal_cost()
         print(f"Capital cost:\n{cap_cost}\n")
         print(f"Marginal cost:\n{marg_cost}\n")
-        init_capacities, new_capacities, opt_capacities = self.get_generators_capacity()
-        print(f"Generators capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
+        init_capacities, new_capacities, opt_capacities, max_capacities = self.get_generators_capacity()
+        print(f"Generators capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n"
+              f"Max:\n{max_capacities}\n")
         print(f"Generators generation:\n{self.get_generators_generation()}\n")
+        print(f"Total generation:\n{self.get_generators_generation().sum()}\n")
+        print(f"Number of generators:\n{self.get_generators_numbers()}\n")
         print(f"Generators Average Use:\n{self.get_generators_average_usage()}\n")
         print(f"Generators Opex:\n{self.get_generators_opex()}\n")
         print(f"Generators Capex:\n{self.get_generators_capex()}\n")
@@ -45,9 +48,14 @@ class PyPSAResults:
         gens = self.net.generators.groupby(["type"])
         init_capacities = gens.p_nom.sum()
         opt_capacities = gens.p_nom_opt.sum()
+        max_capacities = gens.p_nom_max.sum()
         new_capacities = opt_capacities - init_capacities
 
-        return init_capacities, new_capacities, opt_capacities
+        return init_capacities, new_capacities, opt_capacities, max_capacities
+
+    def get_generators_numbers(self):
+
+        return self.net.generators.groupby("type").count().bus
 
     def get_generators_generation(self):
         """Returns the total generation (in MWh) over the self.net.snapshots for each type of generator."""
@@ -67,7 +75,7 @@ class PyPSAResults:
     def get_generators_average_usage(self):
         """Returns the average generation capacity usage (i.e. mean(generation_t/capacity)) of each type of generator"""
 
-        _, _, opt_cap = self.get_generators_capacity()
+        _, _, opt_cap, _ = self.get_generators_capacity()
         tot_gen = self.get_generators_generation()
         return tot_gen/(opt_cap*len(self.net.snapshots))
 
@@ -330,5 +338,13 @@ if __name__ == "__main__":
     net = Network()
     net.import_from_csv_folder(output_dir)
 
+    print(f"CO2 limit (kT):\n{net.global_constraints.constant}\n")
+    print(f"Total load (GWh):\n{net.loads_t.p.values.sum()}\n")
+    print(f"Total ccgt capacity\n{net.generators[net.generators.type == 'ccgt'].p_nom_opt.sum()}")
+    print(f"Number of res sites\n"
+          f"{len(net.generators[net.generators.type.isin(['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential'])])}")
+
     pprp = PyPSAResults(net)
+    pprp.display_generation()
+    pprp.display_transmission()
     pprp.display_storage()
