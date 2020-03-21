@@ -23,6 +23,12 @@ from random import random
 from typing import *
 
 
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
+logger = logging.getLogger()
+
+
 def is_onshore(point: Point, onshore_shape: Polygon, dist_threshold: float = 20.0) -> bool:
     """
     Determines if a point is onshore (considering that onshore means belonging to the onshore_shape or less than
@@ -190,7 +196,7 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Seri
         if points.is_empty:
             return points_region_ds
 
-    print("Warning: Some points are not contained in any shape")
+    logger.info("Warning: Some points ({}) are not contained in any shape. Will be assigned to closest one.".format(points))
     if isinstance(points, Point):
         points = [points]
 
@@ -465,7 +471,11 @@ def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, fi
     # Keep only the required regions for which we have the data
     filtered_ids = [idx for idx in ids if idx in offshore_shapes.index]
     if len(filtered_ids) != len(ids):
-        print("WARNING: Some regions that you asked for are not present: {}".format(sorted(list(set(ids)-set(filtered_ids)))))
+        landlocked = ['AT', 'HU', 'CZ', 'SK', 'MK', 'CH', 'LU', 'RS']
+        difference = sorted(list(set(ids)-set(filtered_ids)))
+        diff = set(difference) - set(landlocked)
+        if len(diff) != 0:
+            logger.info("WARNING: Some regions that you asked for are not present: {}".format(list(diff)))
     region_names = [idx.split('-')[0] for idx in filtered_ids]  # Allows to consider states and provinces
     offshore_shapes = offshore_shapes.loc[region_names]
 
