@@ -130,8 +130,13 @@ class PyPSAResultsPlotly:
             # Get minimum p_nom_opt
             p_nom_opt_min = min(self.net.links.p_nom_opt[self.net.links.p_nom_opt > 0].values)
             for i, idx in enumerate(self.net.links.index):
+
                 bus0_id = self.net.links.loc[idx, ("bus0",)]
                 bus1_id = self.net.links.loc[idx, ("bus1",)]
+
+                if self.net.buses.loc[bus0_id, 'onshore'] and self.net.buses.loc[bus1_id, 'onshore']:
+                    continue
+
                 bus0_x = self.net.buses.loc[bus0_id, ("x",)]
                 bus0_y = self.net.buses.loc[bus0_id, ("y",)]
                 bus1_x = self.net.buses.loc[bus1_id, ("x",)]
@@ -144,7 +149,8 @@ class PyPSAResultsPlotly:
                     lon=[bus0_x, (bus0_x + bus1_x) / 2, bus1_x],
                     lat=[bus0_y, (bus0_y + bus1_y) / 2, bus1_y],
                     line=dict(
-                        width=np.log(1 + p_nom_mul)/2,
+                        width=2,
+                        # width=np.log(1 + p_nom_mul)/2,
                         color=color),
                     text=[f"Name: {idx}<br>"
                           f"Init Capacity: {self.net.links.loc[idx, 'p_nom']}<br>"
@@ -186,7 +192,8 @@ class PyPSAResultsPlotly:
                   f"Total installed generation capacity: {p_noms[i]}" for i in range(len(self.net.buses))],
             hoverinfo='text',
             marker=dict(
-                size=10 + 40 * np.log(1 + p_noms / p_nom_max),
+                size=10,
+                # size=10 + 40 * np.log(1 + p_noms / p_nom_max),
                 color=colors
             ),
             name='bus'
@@ -613,10 +620,9 @@ if __name__ == "__main__":
     import yaml
     config = yaml.load(open(output_dir + "config.yaml", 'r'), yaml.SafeLoader)
 
-
     pprp = PyPSAResultsPlotly(output_dir)
 
-    fig_choice = 6
+    fig_choice = 1
     auto_open = True
 
     if fig_choice == 1:

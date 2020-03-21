@@ -128,6 +128,7 @@ class PyPSAResults:
             print(f"Links use:\n{self.get_links_usage()}\n")
             print(f"Links capex:\n{self.get_links_capex()}\n")
             # print(f"Links length:\n{self.get_links_length()}\n")
+            print(f"Links init cap*length:\n{self.get_links_init_cap_length()}\n")
             print(f"Links new cap*length:\n{self.get_links_new_cap_length()}\n")
 
     def get_lines_capacity(self):
@@ -213,6 +214,12 @@ class PyPSAResults:
     def get_links_length(self):
         return self.net.links[["carrier", "length"]].groupby(["carrier"]).sum().length
 
+    def get_links_init_cap_length(self):
+        print(len(self.net.links))
+        print(len(self.net.buses))
+        self.net.links["init_cap_length"] = self.net.links.length*self.net.links.p_nom
+        return self.net.links[["init_cap_length", "carrier"]].groupby("carrier").sum()
+
     def get_links_new_cap_length(self):
         self.net.links["new_cap_length"] = self.net.links.length*(self.net.links.p_nom_opt-self.net.links.p_nom)
         return self.net.links[["new_cap_length", "carrier"]].groupby("carrier").sum()
@@ -233,6 +240,7 @@ class PyPSAResults:
         print(f"Storage energy:\n{self.get_storage_energy()}\n")
         print(f"Storage power use:\n{self.get_storage_power_usage()}\n")
         print(f"Storage energy use:\n{self.get_storage_energy_usage()}\n")
+        print(f"Storage opex:\n{self.get_storage_opex()}\n")
         print(f"Storage capex:\n{self.get_storage_capex()}\n")
 
     def get_storage_capital_and_marginal_cost(self):
@@ -314,6 +322,15 @@ class PyPSAResults:
         tot_power = self.get_storage_energy()
         return tot_power/(opt_cap*len(self.net.snapshots))
 
+    def get_storage_opex(self):
+        """Returns the capital expenses for building the new capacity for each type of storage unit."""
+
+        storage_units = self.net.storage_units
+        total_power = self.net.storage_units_t.p.abs().sum(axis=0)
+        storage_units["capex"] = total_power * storage_units.marginal_cost
+
+        return storage_units.groupby(["type"]).capex.sum()
+
     def get_storage_capex(self):
         """Returns the capital expenses for building the new capacity for each type of storage unit."""
 
@@ -345,6 +362,6 @@ if __name__ == "__main__":
           f"{len(net.generators[net.generators.type.isin(['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential'])])}")
 
     pprp = PyPSAResults(net)
-    pprp.display_generation()
+    # pprp.display_generation()
     pprp.display_transmission()
     pprp.display_storage()
