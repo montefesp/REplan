@@ -362,6 +362,6 @@ if __name__ == "__main__":
           f"{len(net.generators[net.generators.type.isin(['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential'])])}")
 
     pprp = PyPSAResults(net)
-    # pprp.display_generation()
-    pprp.display_transmission()
-    pprp.display_storage()
+    pprp.display_generation()
+    # pprp.display_transmission()
+    # pprp.display_storage()

@@ -13,27 +13,36 @@ import shapely.wkt
 from src.data.geographics.manager import get_offshore_shapes
 from src.data.res_potential.manager import get_capacity_potential_for_regions
 
-def get_map_layout(title: str, map_coords: List[float], showcountries=True):
 
-    assert len(map_coords) == 4, "Error: map_coords must be of length 4"
+def get_map_layout(title: str, map_coords: List[float] = None, showcountries=True):
+
+    assert map_coords is None or len(map_coords) == 4, "Error: map_coords must be of length 4"
+
+    fitbounds = 'locations'
+    lonrange = None
+    latrange = None
+    if map_coords is not None:
+        fitbounds = False
+        lonrange = [map_coords[0], map_coords[1]]
+        latrange = [map_coords[2], map_coords[3]]
 
     return go.Figure(
         layout=go.Layout(
             showlegend=False,
             title=dict(text=title, xanchor="center", xref='paper', x=0.5, font=dict(size=30)),
+            legend=dict(itemsizing="trace"),
             geo=dict(
+                fitbounds=fitbounds,
                 showcountries=showcountries,
                 scope='world',
                 lonaxis=dict(
                     showgrid=True,
-                    gridwidth=1,
-                    range=[map_coords[0], map_coords[1]],
+                    range=lonrange,
                     dtick=5
                 ),
                 lataxis=dict(
                     showgrid=True,
-                    gridwidth=1,
-                    range=[map_coords[2], map_coords[3]],
+                    range=latrange,
                     dtick=5
                 )
             )
@@ -74,140 +83,90 @@ class PyPSAResultsPlotly:
                             }
         self.selected_types = sorted(list(set(self.net.generators.type.values)))
 
-        """
-        all_load_per_time = self.net.loads_t.p_set.to_numpy().sum(axis=1)
-        all_generation = self.net.generators.p_nom_max.to_numpy()*self.net.generators_t.p_max_pu.to_numpy()
-        all_generation_per_time = all_generation.sum(axis=1)
-        print(sum([all_generation_per_time[i] >= all_load_per_time[i] for i in range(len(all_generation_per_time))])
-              /len(all_generation_per_time))
-        #for i in range(len(all_generation_per_time)):
-        #    print(all_generation_per_time[i] - all_load_per_time[i], all_generation_per_time[i], all_load_per_time[i])
-        """
+    def get_bounded_map(self):
 
-    def show_topology(self):
+        all_xs = np.concatenate((self.net.buses.x.values, self.net.generators.x.values,
+                                 self.net.storage_units.x.values))
+        all_ys = np.concatenate((self.net.buses.y.values, self.net.generators.y.values,
+                                 self.net.storage_units.y.values))
 
-        all_xs = np.concatenate((self.net.buses["x"].values, self.net.generators["x"].values,
-                                 self.net.storage_units["x"].values))
-        all_ys = np.concatenate((self.net.buses["y"].values, self.net.generators["y"].values,
-                                 self.net.storage_units["y"].values))
+        return get_map_layout("Topology", [min(all_xs) - 5, max(all_xs) + 5, min(all_ys) - 2, max(all_ys) + 2])
 
-        fig = get_map_layout("Topology", [min(all_xs) - 5, max(all_xs) + 5, min(all_ys) - 2, max(all_ys) + 2])
+    def add_connections_to_map(self, fig=None, size: int = 3, opacity: float = 0.8):
 
-        # Adding lines to map
-        # Get minimum s_nom_opt
-        if len(self.net.lines) != 0:
-            s_nom_opt_min = min(self.net.lines.s_nom_opt[self.net.lines.s_nom_opt > 0].values)
-            for i, idx in enumerate(self.net.lines.index):
-                bus0_id = self.net.lines.loc[idx, ("bus0",)]
-                bus1_id = self.net.lines.loc[idx, ("bus1",)]
-                bus0_x = self.net.buses.loc[bus0_id, ("x",)]
-                bus0_y = self.net.buses.loc[bus0_id, ("y",)]
-                bus1_x = self.net.buses.loc[bus1_id, ("x",)]
-                bus1_y = self.net.buses.loc[bus1_id, ("y",)]
-                color = 'rgba(0,0,255,0.8)'
-                name = 'AC'
-                s_nom_mul = self.net.lines.loc[idx, 's_nom_opt'] / s_nom_opt_min
-                if self.net.lines.loc[idx, ("carrier",)] == "DC":
-                    color = 'rgba(255,0,0,0.8)'
-                    name = 'DC'
+        fig = self.get_bounded_map() if fig is None else fig
 
-                fig.add_trace(go.Scattergeo(
-                    mode='lines',
-                    lon=[bus0_x, (bus0_x + bus1_x) / 2, bus1_x],
-                    lat=[bus0_y, (bus0_y + bus1_y) / 2, bus1_y],
-                    line=dict(
-                        width=np.log(1 + s_nom_mul),
-                        color=color),
-                    text=[f"Name: {idx}<br>"
-                          f"Init Capacity: {self.net.lines.loc[idx, 's_nom']}"
-                          f"Opt Capacity: {self.net.lines.loc[idx, 's_nom_opt']}"]*3,
-                    hoverinfo='text',
-                    name=name
-                ))
+        # Adding lines and links to map
+        for connections in [self.net.lines, self.net.links]:
+            for i, idx in enumerate(connections.index):
+                connection = connections.loc[idx]
 
-        # Adding links to map
-        if len(self.net.links) != 0:
-            # Get minimum p_nom_opt
-            p_nom_opt_min = min(self.net.links.p_nom_opt[self.net.links.p_nom_opt > 0].values)
-            for i, idx in enumerate(self.net.links.index):
+                # if self.net.buses.loc[l["bus0"], 'onshore'] and self.net.buses.loc[l["bus1"], 'onshore']:
+                #    continue
 
-                bus0_id = self.net.links.loc[idx, ("bus0",)]
-                bus1_id = self.net.links.loc[idx, ("bus1",)]
+                bus0_x = self.net.buses.loc[connection["bus0"], ("x",)]
+                bus0_y = self.net.buses.loc[connection["bus0"], ("y",)]
+                bus1_x = self.net.buses.loc[connection["bus1"], ("x",)]
+                bus1_y = self.net.buses.loc[connection["bus1"], ("y",)]
 
-                if self.net.buses.loc[bus0_id, 'onshore'] and self.net.buses.loc[bus1_id, 'onshore']:
-                    continue
+                color = f"rgba(100,100,100,{opacity})"
+                if connection["carrier"] == "DC":
+                    color = f"rgba(0,0,0,{opacity})"
 
-                bus0_x = self.net.buses.loc[bus0_id, ("x",)]
-                bus0_y = self.net.buses.loc[bus0_id, ("y",)]
-                bus1_x = self.net.buses.loc[bus1_id, ("x",)]
-                bus1_y = self.net.buses.loc[bus1_id, ("y",)]
-                color = 'rgba(0,0,255,0.8)'
-                p_nom_mul = self.net.links.loc[idx, 'p_nom_opt'] / p_nom_opt_min
+                # Links
+                if 'p_nom' in connection.keys():
+                    init_cap = connection['p_nom']
+                    opt_cap = connection['p_nom_opt']
+                # Lines
+                else:
+                    init_cap = connection['s_nom']
+                    opt_cap = connection['s_nom_opt']
 
                 fig.add_trace(go.Scattergeo(
                     mode='lines',
                     lon=[bus0_x, (bus0_x + bus1_x) / 2, bus1_x],
                     lat=[bus0_y, (bus0_y + bus1_y) / 2, bus1_y],
                     line=dict(
-                        width=2,
-                        # width=np.log(1 + p_nom_mul)/2,
+                        width=size,
                         color=color),
-                    text=[f"Name: {idx}<br>"
-                          f"Init Capacity: {self.net.links.loc[idx, 'p_nom']}<br>"
-                          f"Opt Capacity: {self.net.links.loc[idx, 'p_nom_opt']}"]*3,
+                    text=["", f"Name: {idx}<br>"
+                          f"Init Capacity: {init_cap}<br>"
+                          f"Opt Capacity: {opt_cap}", ""],
                     hoverinfo='text',
                 ))
 
-        # Add points to map
-        p_noms = np.zeros((len(self.net.buses.index, )))
-        color = self.tech_colors['All']
-        if len(self.selected_types) == 1:
-            color = self.tech_colors[self.selected_types[0]]
-        colors = [color] * len(self.net.buses.index)
-        for i, bus_id in enumerate(self.net.buses.index):
-            total_gens = 0
-            generators = self.net.generators[self.net.generators.bus == bus_id]
+        return fig
 
-            # Keep only the reactors of the type we want to display
-            for t in self.selected_types:
-                generators_filter = generators[generators.type == t]
-                p_noms[i] += np.sum(generators_filter["p_nom_opt"].values)
-                total_gens += len(generators_filter["p_nom"].values)
+    def add_buses_to_map(self, fig=None, size: int = 10, opacity: float = 0.8):
 
-            if total_gens == 0:
-                # No allowed generation building
-                colors[i] = 'grey'
-            elif p_noms[i] == 0:
-                colors[i] = 'black'
-
-        p_nom_max = np.max(p_noms)
-        if p_nom_max == 0:
-            p_nom_max = 1  # Prevents cases where there is no installed capacity at all
+        fig = self.get_bounded_map() if fig is None else fig
 
         fig.add_trace(go.Scattergeo(
             mode="markers",
-            lat=self.net.buses['y'].values,
-            lon=self.net.buses['x'].values,
-            text=[f"Bus: {self.net.buses.index[i]}<br>"
-                  f"Total installed generation capacity: {p_noms[i]}" for i in range(len(self.net.buses))],
+            lat=self.net.buses.y.values,
+            lon=self.net.buses.x.values,
+            text=[f"Bus: {idx}<br>" for idx in self.net.buses.index],
             hoverinfo='text',
             marker=dict(
-                size=10,
-                # size=10 + 40 * np.log(1 + p_noms / p_nom_max),
-                color=colors
+                size=size,
+                color=f"rgba(100,50,20, {opacity})"
             ),
             name='bus'
         ))
 
         return fig
 
+    def plot_topology(self):
+
+        fig = self.get_bounded_map()
+        fig = self.add_connections_to_map(fig)
+        fig = self.add_buses_to_map(fig)
+
+        return fig
+
     def show_topology_heatmap(self):
 
-        all_xs = np.concatenate((self.net.buses["x"].values, self.net.generators["x"].values,
-                                 self.net.storage_units["x"].values))
-        all_ys = np.concatenate((self.net.buses["y"].values, self.net.generators["y"].values,
-                                 self.net.storage_units["y"].values))
-        fig = get_map_layout("Topology", [min(all_xs) - 5, max(all_xs) + 5, min(all_ys) - 2, max(all_ys) + 2])
+        fig = self.get_bounded_map()
 
         if 0:
             avg_uses = self.net.links_t.p0.abs().mean(axis=0)/self.net.links.p_nom_opt
@@ -215,18 +174,32 @@ class PyPSAResultsPlotly:
             colorbar_title = "Mean (Power/Capacity) over time"
         if 0:
             limit_perc = 0.8
-            avg_uses = (self.net.links_t.p0.abs() > 0.8*self.net.links.p_nom_opt).mean(axis=0)
+            avg_uses = (self.net.links_t.p0.abs() > limit_perc*self.net.links.p_nom_opt).mean(axis=0)
             cmax = 1
             colorbar_title = f"Percentage of time where power<br>is above {limit_perc} of capacity"
-        if 0:
-            limit_perc = 0.8
-            avg_uses = (self.net.links_t.p0.abs() > 0.8*self.net.links.p_nom_opt).sum(axis=0)
+        if 1:
+            limit_perc = 0.9
+            avg_uses = (self.net.links_t.p0.abs() > limit_perc*self.net.links.p_nom_opt).sum(axis=0)
             cmax = 8760.
             colorbar_title = f"Number of hours where power<br>is above {limit_perc} of capacity"
-        if 1:
+        if 0:
             avg_uses = self.net.links.p_nom_opt - self.net.links.p_nom
+            avg_uses = avg_uses.round(2)
             cmax = max(avg_uses.values)
             colorbar_title = "Increase in Capacity"
+
+        avg_uses_big_enough = avg_uses[avg_uses > 0]
+        nb_ranges = 51
+        avg_uses_hist = np.histogram(avg_uses, bins=51)
+
+        op = 0.5
+        colors = []
+        for i in range(nb_ranges+1):
+            colors += [f"rgba({255-i*(255/nb_ranges)}, 0, {i*(255/nb_ranges)}, {op})"]
+        colors.reverse()
+        colorscale = []
+        for i, color in enumerate(colors):
+            colorscale += [[1.0/(len(colors))*i, color], [1.0/(len(colors))*(i+1), color]]
 
         # Adding links to map
         if len(self.net.links) != 0:
@@ -240,38 +213,51 @@ class PyPSAResultsPlotly:
                 bus1_y = self.net.buses.loc[bus1_id, "y"]
 
                 avg_use = avg_uses[idx]
-                color = f'rgba(0,0,255,{round(avg_use/cmax, 2)})'
+                # color = f'rgba(0,0,255,{round(avg_use/cmax, 2)})'
+                print(avg_use)
+                print(sum(avg_use > avg_uses_hist[1]))
+                color = colors[sum(avg_use > avg_uses_hist[1])]
+                print(color)
+
+
+                text = ["", f"{avg_use}", ""]
+                width = 5
+                #if avg_use < 0.01:
+                #    width = 5
+                #    text=""
 
                 fig.add_trace(go.Scattergeo(
                     mode='lines+markers',
                     lon=[bus0_x, (bus0_x + bus1_x) / 2, bus1_x],
                     lat=[bus0_y, (bus0_y + bus1_y) / 2, bus1_y],
                     line=dict(
-                        width=1,  # np.log(1 + p_nom_mul)/2,
-                        color='black'),
+                        width=width,  # avg_use,  # np.log(1 + p_nom_mul)/2,
+                        color=color),
                     marker=dict(
-                        size=[0, 10, 0],
-                        opacity=0.8,
+                        size=[0, 0, 0],
                         reversescale=False,
                         autocolorscale=False,
                         symbol='circle',
                         line=dict(
-                            width=1,
-                            color='rgba(102, 102, 102)'
+                             width=0,
+                             color='rgba(102, 102, 102)'
                         ),
-                        colorscale='bluered',
-                        cmin=0,
-                        color=[avg_use]*3,
-                        cmax=cmax,
-                        colorbar_title=colorbar_title
+                        colorscale=colorscale,
+                        cmin=avg_uses_big_enough.min(),
+                        color=f"rgba(138,43,226,0.5)", #[avg_use]*3,
+                        cmax=avg_uses_big_enough.max(),
+                        colorbar_title=colorbar_title,
+                        colorbar_ticksuffix=' GW',
                     ),
-                    text=["", f"{avg_use:.2f}", ""],
-                    hoverinfo="text"
+                    text=text,
+                    textfont=dict(size=15, color='black'),
+                    hoverinfo="text",
+                    name=f"{avg_use} h"
                 ))
 
         return fig
 
-    def show_generators(self, types, attribute):
+    def add_generators_to_map(self, types, attribute, fig=None):
 
         # Get generators of given type
         generators_idx = self.net.generators[self.net.generators.type.isin(types)].index
@@ -284,8 +270,9 @@ class PyPSAResultsPlotly:
         all_xs = generators.x.values
         all_ys = generators.y.values
         map_coords = [min(all_xs) - 5, max(all_xs) + 5, min(all_ys) - 2, max(all_ys) + 2]
-        title = attribute + " for " + ",".join(types)
-        fig = get_map_layout(title, map_coords)
+        if fig is None:
+            title = attribute + " for " + ",".join(types)
+            fig = get_map_layout(title, map_coords)
 
         #
         if attribute in self.net.generators_t.keys():
@@ -310,7 +297,6 @@ class PyPSAResultsPlotly:
                   f"Init cap: {generators.loc[idx].p_nom}<br>"
                   f"Opt cap: {generators.loc[idx].p_nom_opt}" for idx in generators_idx],
             hoverinfo='text',
-            #name='generator',
             marker=dict(
                 size=sizes,
                 color=colors
@@ -319,7 +305,7 @@ class PyPSAResultsPlotly:
 
         return fig
 
-    def show_storage(self, types, attribute):
+    def add_storage_to_map(self, types, attribute):
 
         storage_idx = self.net.storage_units[self.net.storage_units.type.isin(types)].index
         if len(storage_idx) == 0:
@@ -351,7 +337,6 @@ class PyPSAResultsPlotly:
             lon=all_xs,
             text=[storage_idx[i] + " " + str(values[i]) for i in range(len(values))],
             hoverinfo='text',
-            #name='generator',
             marker=dict(
                 size=10 + 40 * np.log(1 + values / max_value),
                 color=colors
@@ -456,8 +441,12 @@ class PyPSAResultsPlotly:
             offshore_bus_region_shapes = self.net.buses.loc[offshore_buses_index].region
 
         feature_collection = []
+        all_caps_pd = pd.DataFrame(0., index=list(regions_dict.keys()),
+                                   columns=["ccgt", "load", "nuclear", "pv_utility", "ror", "sto" "wind_onshore",
+                                            "wind_offshore"])
         for idx, regions in regions_dict.items():
 
+            print(idx)
             print(regions)
 
             # Get buses in region
@@ -509,6 +498,8 @@ class PyPSAResultsPlotly:
                     all_cap['wind_offshore'] += (prop_cap_received_by_bus/total_max_capacity_per_bus[off_idx])*total_generation_per_bus[off_idx]
                 print(all_cap['wind_offshore'])
 
+            print(all_cap)
+
             x = (centroid.x - minx) / (maxx - minx)
             y = (centroid.y - miny) / (maxy - miny)
 
@@ -519,6 +510,10 @@ class PyPSAResultsPlotly:
             # Sort values
             sorted_keys = sorted(list(all_cap.keys()))
             sorted_values = [all_cap[key] for key in sorted_keys]
+
+            for i, key in enumerate(sorted_keys):
+                all_caps_pd.loc[idx, key] = sorted_values[i]
+            all_caps_pd.to_csv("generation_siting.csv")
 
             fig.add_trace(go.Pie(
                 values=sorted_values,
@@ -626,7 +621,7 @@ if __name__ == "__main__":
     auto_open = True
 
     if fig_choice == 1:
-        fig = pprp.show_topology()
+        fig = pprp.plot_topology()
         title = "topology.html"
     if fig_choice == 2:
         fig = pprp.show_topology_heatmap()
@@ -638,26 +633,25 @@ if __name__ == "__main__":
         title = f"marginal_price_{case}.html"
     if fig_choice == 4:
         # Individual generator position
-        types = ["wind_offshore"]  # ["wind_onshore", "wind_offshore", "pv_utility", "pv_residential"]
+        types = ["wind_offshore", "wind_onshore"]  # ["wind_onshore", "wind_offshore", "pv_utility", "pv_residential"]
         attribute = "p_nom_opt"
-        fig = pprp.show_generators(types, attribute)
+        fig = pprp.add_generators_to_map(types, attribute)
         title = attribute + "_for_" + "_".join(types) + '.html'
     if fig_choice == 5:
         # Individual storage position
         types = ["sto", "phs"]
         attribute = "p_nom_opt"
-        fig = pprp.show_storage(types, attribute)
+        fig = pprp.add_storage_to_map(types, attribute)
         title = attribute + "_for_" + "_".join(types) + '.html'
     if fig_choice == 6:
         # Map with pie charts
         regions_dict = {'Iberia': ['ES', 'PT'],
                         'Central West': ['NL', 'BE', 'LU', 'FR', 'DE'],
                         'Nordics': ['DK', 'NO', 'SE', 'FI'],
-                        'Baltics': ['LV', 'LT', 'EE'],
                         'British Isles': ['UK', 'IE'],
                         'Central South': ['CH', 'IT', 'AT', 'SI'],
-                        'East': ['RO', 'PL', 'HU', 'CZ', 'SK'],
-                        'South': ['HR', 'GR', 'AL', 'ME', 'BA', 'RS', 'BG']}
+                        'East': ['PL', 'HU', 'CZ', 'SK', 'LV', 'LT', 'EE'],
+                        'South': ['HR', 'GR', 'AL', 'ME', 'BA', 'RS', 'BG', 'RO']}
         fig = pprp.get_map_divided_by_region(regions_dict, config["res"]["strategy"])
         title = 'divide_map.html'
 
