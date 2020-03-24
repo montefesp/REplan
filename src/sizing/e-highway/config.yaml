@@ -17,13 +17,13 @@ time:
   resolution: 1
 
 # Space
-region: "EU"
+region: "BENELUX"
 add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
 res:
   include: True
-  strategy: "siting" # (max or comp) or bus or no_siting or siting
+  strategy: "bus" # (max or comp) or bus or no_siting or siting
 
   # For strategy = max or comp
   resite_nb: 100 # can be multiples of 25

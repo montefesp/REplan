@@ -120,7 +120,8 @@ if __name__ == "__main__":
              net = add_res_from_file(net, total_shape, config['res']['strategy'], config["res"]["resite_nb"],
                                      config["res"]["area_per_site"], config["res"]["cap_dens"])
         if config['res']["strategy"] == "bus":
-            net = add_res_per_bus(net, config["res"]["technologies"], pv_wind_tech_config)
+            net = add_res_per_bus(net, config["res"]["technologies"], countries, pv_wind_tech_config,
+                                  config["res"]["use_ex_cap"])
         if config['res']["strategy"] == "no_siting":
             net = add_res_at_resolution(net, [config["region"]], config["res"]["technologies"],
                                         pv_wind_tech_config, config["res"]["spatial_resolution"],

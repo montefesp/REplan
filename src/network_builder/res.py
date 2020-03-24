@@ -9,11 +9,10 @@ from shapely.geometry import Point, Polygon, MultiPolygon
 
 import pypsa
 
-from src.data.resource.manager import get_cap_factor_for_regions, get_cap_factor_at_points, \
-    read_resource_database, compute_capacity_factors
-from src.data.geographics.manager import is_onshore, get_nuts_area, match_points_to_region, return_points_in_shape
+from src.data.resource.manager import compute_capacity_factors
+from src.data.geographics.manager import is_onshore, match_points_to_region
 from src.data.res_potential.manager import get_capacity_potential_for_regions, get_potential_ehighway
-# get_capacity_potential
+from src.data.legacy.manager import get_legacy_capacity_in_regions
 from src.resite.resite import Resite
 from src.parameters.costs import get_cost
 
@@ -182,6 +181,7 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
                      bus=associated_buses.values,
                      p_nom_extendable=True,
                      p_nom_max=cap_potential_ds[tech][points].values,
+                     p_nom=existing_cap,
                      p_nom_min=existing_cap,
                      p_max_pu=cap_factor_df[tech][points].values,
                      type=tech,
@@ -193,6 +193,7 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
     return network
 
 
+# TODO: add existing capacity
 def add_generators_at_resolution(network: pypsa.Network, regions: List[str], technologies: List[str],
                                  tech_config: Dict[str, Any], spatial_resolution: float,
                                  filtering_layers: Dict[str, bool], use_ex_cap: bool) \
@@ -246,8 +247,8 @@ def add_generators_at_resolution(network: pypsa.Network, regions: List[str], tec
     return network
 
 
-def add_generators_per_bus(network: pypsa.Network, technologies: List[str], tech_config: Dict[str, Any]) \
-        -> pypsa.Network:
+def add_generators_per_bus(network: pypsa.Network, technologies: List[str], countries: List[str],
+                           tech_config: Dict[str, Any], use_ex_cap: bool = True) -> pypsa.Network:
     """
     Adds pv and wind generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
 
@@ -257,6 +258,10 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], tech
         A PyPSA Network instance with buses associated to regions
     technologies: List[str]
         Technologies to each bus
+    tech_config:
+        # TODO: comment
+    use_ex_cap: bool (default: True)
+        Whether to take into account existing capacity
 
     Returns
     -------
@@ -264,7 +269,7 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], tech
         Updated network
     """
 
-    # Compute capacity potential for each bus region
+    # Compute capacity potential and capacity factors
     spatial_res = 0.5
     tech_regions_dict = dict.fromkeys(technologies)
     tech_points_dict = dict.fromkeys(technologies)
@@ -275,9 +280,8 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], tech
         tech_points_dict[tech] = [(round(x/spatial_res)*spatial_res, round(y/spatial_res)*spatial_res)
                       for x, y in buses[["x", "y"]].values]
         tech_regions_dict[tech] = buses.region.values
-    cap_pot_ds = get_capacity_potential_for_regions(tech_regions_dict)
 
-    # Compute capacity factors
+    cap_pot_ds = get_capacity_potential_for_regions(tech_regions_dict)
     cap_factor_df = compute_capacity_factors(tech_points_dict, tech_config, spatial_res, network.snapshots)
 
     for tech in technologies:
@@ -285,12 +289,19 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], tech
         is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
         buses = network.buses[network.buses.onshore == is_onshore]
 
+        # Get legacy capacity
+        legacy_capacities = 0
+        if use_ex_cap and tech in ['wind_onshore', 'wind_offshore', 'pv_utility']:
+            legacy_capacities = get_legacy_capacity_in_regions(tech, buses.region, countries)
+
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 
         # Adding to the network
         network.madd("Generator", f"Gen {tech} " + buses.index,
                      bus=buses.index,
                      p_nom_extendable=True,
+                     p_nom=legacy_capacities.values,
+                     p_nom_min=legacy_capacities,
                      p_nom_max=cap_pot_ds[tech].values,
                      p_max_pu=cap_factor_df[tech].values,
                      type=tech,

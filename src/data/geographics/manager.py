@@ -154,7 +154,7 @@ def display_polygons(polygons_list):
     plt.show()
 
 
-def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Series) -> pd.Series:
+def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Series, keep_outside: bool = True) -> pd.Series:
     """
     TODO: improve description
 
@@ -164,6 +164,8 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Seri
         List of points to assign to regions
     shapes_ds : pd.Series
         Dataframe storing geometries of NUTS regions.
+    keep_outside: bool (default: True)
+        Whether to keep points that fall outside of shapes
 
     Returns
     -------
@@ -171,7 +173,7 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Seri
         Series giving for each point the associated region
     """
 
-    points_region_ds = pd.Series(index=points)
+    points_region_ds = pd.Series(index=pd.MultiIndex.from_tuples(points))
     points = MultiPoint(points)
 
     for index, subregion in shapes_ds.items():
@@ -196,13 +198,20 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Seri
         if points.is_empty:
             return points_region_ds
 
-    logger.info("Warning: Some points ({}) are not contained in any shape. Will be assigned to closest one.".format(points))
+    logger.info(f"Warning: Some points ({points}) are not contained in any shape.")
+
+    if not keep_outside:
+        return points_region_ds
+
+    logger.info("These points will be assigned to closest one.")
     if isinstance(points, Point):
         points = [points]
 
     for point in points:
-        closest_index = np.argmin([point.distance(shapes_ds.loc[subregion]) for subregion in shapes_ds.index])
-        points_region_ds.loc[(point.x, point.y)] = shapes_ds.index.values[closest_index]
+        distances = [point.distance(shapes_ds.loc[subregion]) for subregion in shapes_ds.index]
+        if min(distances) < 1.:
+            closest_index = np.argmin(distances)
+            points_region_ds.loc[(point.x, point.y)] = shapes_ds.index.values[closest_index]
 
     return points_region_ds
 

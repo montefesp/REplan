@@ -292,6 +292,7 @@ def get_yearly_country_load(country: str, year: int = 2016) -> int:
     return pd.read_csv(key_ind_fn, index_col=0).loc[year, "Electricity consumption (TWh)"]
 
 
+# TODO: comment
 def available_load():
 
     load_data_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
@@ -307,7 +308,6 @@ def available_load():
         load_end_indexes = load_data_end_of_years[key].dropna().index
         available_data.loc[key, 'start'] = min(load_start_indexes).year
         available_data.loc[key, 'end'] = max(load_end_indexes).year
-        print(available_data.loc[key])
 
     available_data.to_csv("available_load_years.csv")
 
@@ -352,15 +352,16 @@ def retrieve_load_data(regions: List[str], timestamps: pd.DatetimeIndex) -> pd.D
     return load_per_region
 
 
-"""
-available_loads = available_load()
-available_loads_countries = available_loads[[len(idx) == 2 for idx in available_loads.index]]
-# Load from 2015 to 2018
-load_2015_2018_countries = available_loads_countries[(available_loads_countries.start <= 2015) & (available_loads_countries.end >= 2018)].index
-load_2015_2018 = get_countries_load(load_2015_2018_countries, years=[2015, 2016, 2017, 2018])
-load_2015_2018.to_csv("load_opsd_2015_2018.csv")
+if __name__ == "__main__":
+    available_loads = available_load()
+    available_loads_countries = available_loads[[len(idx) == 2 for idx in available_loads.index]]
+    load_2015_2018_countries = available_loads_countries[(available_loads_countries.start <= 2015) &
+                                                         (available_loads_countries.end >= 2018)].index
+    load_2015_2018 = get_countries_load(load_2015_2018_countries, years=[2015, 2016, 2017, 2018])
+    # load_2015_2018.to_csv("load_opsd_2015_2018.csv")
 
-load_2016_2018_countries = available_loads_countries[(available_loads_countries.start <= 2016) & (available_loads_countries.end >= 2018)].index
-load_2016_2018 = get_countries_load(load_2016_2018_countries, years=[2016, 2017, 2018])
-load_2016_2018.to_csv("load_opsd_2016_2018.csv")
-"""
+    load_2016_2018_countries = available_loads_countries[(available_loads_countries.start <= 2016) &
+                                                         (available_loads_countries.end >= 2018)].index
+
+    load_2016_2018 = get_countries_load(load_2016_2018_countries, years=[2016, 2017, 2018])
+    # load_2016_2018.to_csv("load_opsd_2016_2018.csv")

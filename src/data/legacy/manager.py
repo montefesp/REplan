@@ -1,14 +1,16 @@
-from src.data.land_data.manager import filter_onshore_offshore_points
 from os.path import join, dirname, abspath
+from typing import List, Tuple, Dict, Union, Any
+
+import numpy as np
 import pandas as pd
 import scipy.spatial
 
-import numpy as np
-from typing import *
-
-from src.data.geographics.manager import _get_country
+from src.data.geographics.manager import _get_country, match_points_to_region
+from src.data.land_data.manager import filter_onshore_offshore_points
 
 
+# TODO: could there be points outside of mainland europe??? -> Yes expl: NL -69.8908, 12.474 in curaçao
+# TODO: need to merge the end of the if and else
 def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: List[str],
                               points: List[Tuple[float, float]]) -> Dict[List[Tuple[float, float]], float]:
     """
@@ -69,8 +71,8 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
         data = pd.read_excel(join(path_legacy_data, 'Solarfarms_Europe_20200208.xlsx'), sheet_name='ProjReg_rpt',
                              header=0, usecols=[0, 3, 4, 5, 8])
         data = data[pd.notnull(data['Coords'])]
-        data['Longitude'] = data['Coords'].str.split(',', 1).str[1]
-        data['Latitude'] = data['Coords'].str.split(',', 1).str[0]
+
+        data["Location"] = data["Coords"].apply(lambda x: (float(x.split(',')[1]), float(x.split(',')[0])))
         data['Country'] = data['Country'].apply(lambda c: _get_country('alpha_2', name=c))
         data = data[data['Country'].isin(countries)]
         # Converting from MW to GW
@@ -78,8 +80,8 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
 
         # Associate each location with legacy capacity to a point in points
         # TODO: make a function of this? use kneighbors?
-        legacy_capacity_locs = np.array(list(zip(data['Longitude'], data['Latitude'])))
         points = np.array(points)
+        legacy_capacity_locs = np.array(list(data['Location'].values))
         associated_points = \
             [(x[0], x[1]) for x in
              points[np.argmin(scipy.spatial.distance.cdist(points, legacy_capacity_locs, 'euclidean'), axis=0)]]
@@ -133,5 +135,69 @@ def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
     return existing_capacity_dict
 
 
-def get_legacy_capacity_in_regions():
-    pass
+def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: List[str]):
+    """
+    Returns the total existing capacity (in GW) for the given tech for a set of regions
+
+    Parameters
+    ----------
+    tech: str
+        One of 'wind_onshore', 'wind_offshore' or 'pv_utility'
+    regions: pd.Series [Union[Polygon, MultiPolygon]]
+        Geographical regions
+    countries: List[str]
+        List of ISO codes of countries for which we want data
+
+    Returns
+    -------
+    capacities: pd.Series
+        Legacy capacities (in GW) of technology 'tech' for each region
+
+    """
+
+    print(tech)
+
+    accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility']
+    assert tech in accepted_techs, "Error: tech {} is not in {}".format(tech, accepted_techs)
+
+    path_legacy_data = join(dirname(abspath(__file__)), '../../../data/legacy')
+
+    if tech in ["wind_onshore", "wind_offshore"]:
+
+        data = pd.read_excel(join(path_legacy_data, 'Windfarms_Europe_20200127.xls'), sheet_name='Windfarms',
+                             header=0, usecols=[2, 5, 9, 10, 18, 23], skiprows=[1], na_values='#ND')
+        data = data.dropna(subset=['Latitude', 'Longitude', 'Total power'])
+        data = data[data['Status'] != 'Dismantled']
+        if countries is not None:
+            data = data[data['ISO code'].isin(countries)]
+        # Converting from kW to GW
+        data['Total power'] *= 1e-6
+        data["Location"] = data[["Longitude", "Latitude"]].apply(lambda x: (x.Longitude, x.Latitude), axis=1)
+
+        # Keep only onshore or offshore point depending on technology
+        if tech == 'wind_onshore':
+            data = data[data['Area'] != 'Offshore']
+        else:  # wind_offhsore
+            data = data[data['Area'] == 'Offshore']
+
+    else:  # pv_utility
+
+        data = pd.read_excel(join(path_legacy_data, 'Solarfarms_Europe_20200208.xlsx'), sheet_name='ProjReg_rpt',
+                             header=0, usecols=[0, 4, 8])
+        data = data[pd.notnull(data['Coords'])]
+        data["Location"] = data["Coords"].apply(lambda x: (float(x.split(',')[1]), float(x.split(',')[0])))
+        if countries is not None:
+            data['Country'] = data['Country'].apply(lambda c: _get_country('alpha_2', name=c))
+            data = data[data['Country'].isin(countries)]
+        # Converting from MW to GW
+        data['Total power'] = data['MWac']*1e-3
+
+    data = data[["Location", "Total power"]]
+
+    points_region = match_points_to_region(data["Location"].values, regions).dropna()
+    capacities = pd.Series(index=regions.index)
+    for region in regions.index:
+        points_in_region = points_region[points_region == region].index.values
+        capacities[region] = data[data["Location"].isin(points_in_region)]["Total power"].sum()
+
+    return capacities
