@@ -292,17 +292,22 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
         # Get legacy capacity
         legacy_capacities = 0
         if use_ex_cap and tech in ['wind_onshore', 'wind_offshore', 'pv_utility']:
-            legacy_capacities = get_legacy_capacity_in_regions(tech, buses.region, countries)
+            legacy_capacities = get_legacy_capacity_in_regions(tech, buses.region, countries).values
 
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
+
+        cap_potential = cap_pot_ds[tech].values
+        for i in range(len(cap_potential)):
+            if cap_potential[i] < legacy_capacities[i]:
+                cap_potential[i] = legacy_capacities[i]
 
         # Adding to the network
         network.madd("Generator", f"Gen {tech} " + buses.index,
                      bus=buses.index,
                      p_nom_extendable=True,
-                     p_nom=legacy_capacities.values,
+                     p_nom=legacy_capacities,
                      p_nom_min=legacy_capacities,
-                     p_nom_max=cap_pot_ds[tech].values,
+                     p_nom_max=cap_potential,
                      p_max_pu=cap_factor_df[tech].values,
                      type=tech,
                      x=buses.x.values,
