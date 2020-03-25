@@ -50,7 +50,7 @@ def get_map_layout(title: str, map_coords: List[float] = None, showcountries=Tru
     )
 
 
-class PyPSAResultsPlotly:
+class SizingPlotly:
 
     """
     This class allows to display results from a optimized PyPSA network.
@@ -615,7 +615,7 @@ if __name__ == "__main__":
     import yaml
     config = yaml.load(open(output_dir + "config.yaml", 'r'), yaml.SafeLoader)
 
-    pprp = PyPSAResultsPlotly(output_dir)
+    pprp = SizingPlotly(output_dir)
 
     fig_choice = 1
     auto_open = True

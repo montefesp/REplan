@@ -37,8 +37,7 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
 
     # TODO: this is shit, need to reorganize
     if formulation in ['meet_RES_targets_agg', 'meet_RES_targets_hourly', 'meet_demand_with_capacity']:
-        # Variables for the portion of demand that is met at each time-stamp for each region
-        model.x = Var(resite.regions, arange(len(resite.timestamps)), within=NonNegativeReals, bounds=(0, 1))
+
         # Variables for the portion of capacity at each location for each technology
         model.y = Var(tech_points_tuples, within=NonNegativeReals, bounds=(0, 1))
 
@@ -55,11 +54,24 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
 
     if formulation == 'meet_RES_targets_agg':
 
-        # Generation must be greater than x percent of the load in each region for each time step
-        def generation_check_rule(model, region, t):
-            return region_generation_y_dict[region][t] >= load[t, resite.regions.index(region)] * model.x[region, t]
+        # # Variables for the portion of demand that is met at each time-stamp for each region
+        # model.x = Var(resite.regions, arange(len(resite.timestamps)), within=NonNegativeReals, bounds=(0, 1))
+        #
+        # # Generation must be greater than x percent of the load in each region for each time step
+        # def generation_check_rule(model, region, t):
+        #     return region_generation_y_dict[region][t] >= load[t, resite.regions.index(region)] * model.x[region, t]
+        #
+        # model.generation_check = Constraint(resite.regions, arange(len(resite.timestamps)), rule=generation_check_rule)
 
-        model.generation_check = Constraint(resite.regions, arange(len(resite.timestamps)), rule=generation_check_rule)
+        # Impose a certain percentage of the load to be covered over the whole time slice
+        covered_load_perc_per_region = dict(zip(resite.regions, deployment_vector))
+
+        def generation_check_rule(model, region):
+            return sum(region_generation_y_dict[region][t] for t in arange(len(resite.timestamps)))\
+                   >= sum(load[t, resite.regions.index(region)] for t in arange(len(resite.timestamps))) * \
+                   covered_load_perc_per_region[region]
+
+        model.generation_check = Constraint(resite.regions, rule=generation_check_rule)
 
         # Percentage of capacity installed must be bigger than existing percentage
         def potential_constraint_rule(model, tech, lon, lat):
@@ -67,14 +79,14 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
 
         model.potential_constraint = Constraint(tech_points_tuples, rule=potential_constraint_rule)
 
-        # Impose a certain percentage of the load to be covered over the whole time slice
-        covered_load_perc_per_region = dict(zip(resite.regions, deployment_vector))
-
-        def policy_target_rule(model, region):
-            return sum(model.x[region, t] for t in arange(len(resite.timestamps))) \
-                   >= covered_load_perc_per_region[region] * len(resite.timestamps)
-
-        model.policy_target = Constraint(resite.regions, rule=policy_target_rule)
+        # # Impose a certain percentage of the load to be covered over the whole time slice
+        # covered_load_perc_per_region = dict(zip(resite.regions, deployment_vector))
+        #
+        # def policy_target_rule(model, region):
+        #     return sum(model.x[region, t] for t in arange(len(resite.timestamps))) \
+        #            >= covered_load_perc_per_region[region] * len(resite.timestamps)
+        #
+        # model.policy_target = Constraint(resite.regions, rule=policy_target_rule)
 
         # Minimize the capacity that is deployed
         def objective_rule(model):
@@ -84,6 +96,9 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
         model.objective = Objective(rule=objective_rule, sense=minimize)
 
     elif formulation == 'meet_RES_targets_hourly':
+
+        # Variables for the portion of demand that is met at each time-stamp for each region
+        model.x = Var(resite.regions, arange(len(resite.timestamps)), within=NonNegativeReals, bounds=(0, 1))
 
         # Generation must be greater than x percent of the load in each region for each time step
         def generation_check_rule(model, region, t):
@@ -113,6 +128,9 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
         model.objective = Objective(rule=objective_rule, sense=minimize)
 
     elif formulation == 'meet_demand_with_capacity':
+
+        # Variables for the portion of demand that is met at each time-stamp for each region
+        model.x = Var(resite.regions, arange(len(resite.timestamps)), within=NonNegativeReals, bounds=(0, 1))
 
         # Generation must be greater than x percent of the load in each region for each time step
         def generation_check_rule(model, region, t):
@@ -188,7 +206,7 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
     resite.instance = model
 
 
-def solve_model(resite, solver, solver_options):
+def solve_model(resite, solver, solver_options, write_log: bool = False):
     """
     Solve a model
 
@@ -198,13 +216,20 @@ def solve_model(resite, solver, solver_options):
         Name of the solver to use
     solver_options: Dict[str, float]
         Dictionary of solver options name and value
+    write_log: bool (default = False)
+            Whether to save solver log
 
     """
     opt = SolverFactory(solver)
     for key, value in solver_options.items():
         opt.options[key] = value
-    results = opt.solve(resite.instance, tee=True, keepfiles=False, report_timing=True,
-                        logfile=join(resite.output_folder, 'solver_log.log'))
+
+    if write_log:
+        results = opt.solve(resite.instance, tee=True, keepfiles=False, report_timing=True,
+                            logfile=join(resite.output_folder, 'solver_log.log'))
+    else:
+        results = opt.solve(resite.instance, tee=True, keepfiles=False, report_timing=True)
+
     resite.results = results
     return results
 
@@ -224,15 +249,10 @@ def retrieve_solution(resite) -> Tuple[float, Dict[str, List[Tuple[float, float]
 
     """
 
-    print(resite.instance.objective)
-    if not resite.instance.objective:
-        print("Model ")
-
     optimal_capacity_ds = pd.Series(index=pd.MultiIndex.from_tuples(resite.tech_points_tuples))
     selected_tech_points_dict = {tech: [] for tech in resite.technologies}
 
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in resite.tech_points_tuples]
-
     for tech, lon, lat in tech_points_tuples:
         y_value = resite.instance.y[tech, (lon, lat)].value
         optimal_capacity_ds[tech, (lon, lat)] = y_value*resite.cap_potential_ds[tech, (lon, lat)]
@@ -245,4 +265,11 @@ def retrieve_solution(resite) -> Tuple[float, Dict[str, List[Tuple[float, float]
     # Save objective value
     objective = value(resite.instance.objective)
 
-    return objective, selected_tech_points_dict, optimal_capacity_ds
+    # # TODO: make more generic
+    # # Save xs
+    # satisfied_load = pd.Series(index=resite.timestamps)
+    # region = resite.regions[0]
+    # for i, t in enumerate(resite.timestamps):
+    #     satisfied_load[t] = resite.instance.x[region, i].value
+
+    return objective, selected_tech_points_dict, optimal_capacity_ds # , satisfied_load

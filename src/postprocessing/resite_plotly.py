@@ -1,14 +1,14 @@
-import plotly.graph_objs as go
-from plotly.subplots import make_subplots
-from typing import Dict, List, Tuple
-from src.resite.resite import Resite
 import sys
 import os
 from os.path import join
 import pickle
 
+import plotly.graph_objs as go
 
-class ResiteOutput:
+from src.resite.resite import Resite
+
+
+class ResitePlotly:
 
     def __init__(self, resite: Resite):
         self.tech_colors = {"wind_onshore": "rgba(51,100,255,0.5)",  # middle-dark blue
@@ -168,10 +168,6 @@ class ResiteOutput:
 
         fig.write_html(join(self.output_dir, 'infeasibility_study.html'), auto_open=auto_open)
 
-    def get_total_capacity(self):
-
-        print(f"Total capacity:\n{self.resite.cap_potential_ds.groupby(level=0).sum()}")
-
 
 if __name__ == "__main__":
 
@@ -187,7 +183,7 @@ if __name__ == "__main__":
 
     resite = pickle.load(open(output_dir + "resite_model.p", 'rb'))
     print(f"Region: {resite.regions}")
-    ro = ResiteOutput(resite)
+    ro = ResitePlotly(resite)
 
     ro.get_total_capacity()
     exit()

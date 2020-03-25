@@ -39,7 +39,7 @@ tech_colors = {"All": "rgba(138,43,226,0.5)",  # purple
 #  it so that the uploading is faster
 
 
-class App:
+class SizingDash:
     
     def __init__(self, output_dir, test_number=None):
 
@@ -657,16 +657,12 @@ class App:
                             id='parameters-table',
                             columns=[{"name": "name", "id": "name"}, {"name": "value", "id": "value"}],
                             data=get_parameters_list()),
-
                         dcc.Checklist(
                             id="tech-types",
                             options=get_tech_type_list(),
                             value=self.selected_types
                         ),
-
-
                         html.Button(id='submit-button', n_clicks=0, children='Submit')
-
                     ]),
 
                     html.Div([
@@ -677,7 +673,6 @@ class App:
                                      {"name": "Operation (G€)", "id": "Operation"},
                                      {"name": "Total (G€)", "id": "Total"}],
                             data=get_costs_table()),
-
                     ])
                 ], style={"width": 1000}),
                 
@@ -685,7 +680,6 @@ class App:
                 html.Div([
                     # Map and general info
                     html.Div([
-
                         # Map
                         html.Div([
                             dcc.Graph(
@@ -700,7 +694,6 @@ class App:
                                 id='tot-cap',
                                 figure=get_capacities(),
                             ),
-
                             dcc.Graph(
                                 id='tot-gen',
                                 figure=get_total_generation(),
@@ -716,7 +709,6 @@ class App:
                     # Per-node info
                     html.Div([
                         html.Div([
-
                             # Line power flow
                             dcc.Graph(
                                 id='line-power-flow',
@@ -738,7 +730,6 @@ class App:
                                 id='gen',
                                 figure=get_generation(),
                             )
-
                         ]),
 
                         """
@@ -835,8 +826,8 @@ if __name__ == "__main__":
     assert (len(sys.argv) == 2) or (len(sys.argv) == 3), \
         "You need to provide one or two argument: output_dir (and test_number)"
     if len(sys.argv) == 2:
-        app_object = App(sys.argv[1])
+        app_object = SizingDash(sys.argv[1])
     else:
-        app_object = App(sys.argv[1], sys.argv[2])
+        app_object = SizingDash(sys.argv[1], sys.argv[2])
     app = app_object.built_app()
     app.run_server(debug=True)

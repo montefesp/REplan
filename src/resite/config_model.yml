@@ -12,8 +12,8 @@ filtering_layers:
   water_mask: True
 
 timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
-regions: ['BENELUX']
-technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+regions: ['CWE']
+technologies: ['wind_onshore', 'wind_offshore', 'pv_utility']
 
 use_ex_cap: True
 
@@ -25,7 +25,8 @@ solver_options:
     Crossover: 0
   cplex: 0
   cbc: 0
-write_lp: True
+write_lp: False
+write_log: False
 
 # Type of problem to be solved. Check resite.py for a full list.
 formulation: 'meet_RES_targets_agg' # 'meet_RES_targets_hourly' # 'meet_RES_targets_agg' # 'meet_demand_with_capacity' #

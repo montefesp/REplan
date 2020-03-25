@@ -11,23 +11,27 @@ params = yaml.load(open('config_model.yml'), Loader=yaml.FullLoader)
 tech_config_path = join(dirname(abspath(__file__)), '../parameters/pv_wind_tech_configs.yml')
 tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
 logger.info('Building class.')
-resite = Resite(params["regions"], params["technologies"], tech_config, params["timeslice"], params["spatial_resolution"],
-                params["keep_files"])
+resite = Resite(params["regions"], params["technologies"], tech_config, params["timeslice"],
+                params["spatial_resolution"], params["keep_files"])
 
 logger.info('Reading input.')
 resite.build_input_data(params["use_ex_cap"], params['filtering_layers'])
 
-logger.info('Model being built.')
-resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
+values = [0.8, 0.9]
+for v in values:
+    params['deployment_vector'] = [v]
+    if hasattr(resite, 'output_folder'):
+        del resite.output_folder
+    logger.info('Model being built.')
+    resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
 
-logger.info('Sending model to solver.')
-results = resite.solve_model(params['solver'], params['solver_options'][params['solver']])
+    logger.info('Sending model to solver.')
+    results = resite.solve_model(params['solver'], params['solver_options'][params['solver']], params['write_log'])
 
+    logger.info('Retrieving results.')
+    if params["modelling"] != "pyomo" or \
+            (params["modelling"] == "pyomo" and str(results.solver.termination_condition) != "infeasible"):
+        resite.retrieve_solution()
+        resite.retrieve_sites_data()
 
-logger.info('Retrieving results.')
-if params["modelling"] != "pyomo" or \
-        (params["modelling"] == "pyomo" and str(results.solver.termination_condition) != "infeasible"):
-    resite.retrieve_solution()
-    resite.retrieve_sites_data()
-
-resite.save()
+    resite.save(params)

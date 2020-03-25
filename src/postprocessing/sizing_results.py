@@ -8,7 +8,7 @@ from pypsa import Network
 from src.parameters.costs import get_cost
 
 
-class PyPSAResults:
+class SizingResults:
 
     """
     This class allows to extract results from a optimized PyPSA network.
@@ -361,7 +361,7 @@ if __name__ == "__main__":
     print(f"Number of res sites\n"
           f"{len(net.generators[net.generators.type.isin(['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential'])])}")
 
-    pprp = PyPSAResults(net)
+    pprp = SizingResults(net)
     pprp.display_generation()
     # pprp.display_transmission()
     # pprp.display_storage()

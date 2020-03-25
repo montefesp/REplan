@@ -48,6 +48,7 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
         region_generation = tech_points_generation_potential.values*region_ys.values
         region_generation_y_dict[region] = np.sum(region_generation, axis=1)
 
+    # TODO: need to correct formulation (see pyomo version)
     if formulation == 'meet_RES_targets_agg':
 
         # Generation must be greater than x percent of the load in each region for each time step
@@ -118,17 +119,9 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
     resite.obj = obj
 
 
-def solve_model(resite, solver, solver_options):
+def solve_model(resite):
     """
     Solve a model
-
-    Parameters
-    ----------
-    solver: str
-        Name of the solver to use
-    solver_options: Dict[str, float]
-        Dictionary of solver options name and value
-
     """
     resite.instance.optimize()
 

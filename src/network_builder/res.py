@@ -115,7 +115,8 @@ def add_generators_from_file(network: pypsa.Network, onshore_region_shape, strat
     return network
 
 
-def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any], region: str) \
+def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any], region: str,
+                   output_dir = None) \
         -> pypsa.Network:
     """
     This function will add generators for different technologies at a series of location selected via an optimization
@@ -127,6 +128,8 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
         A network with region associated to each buses.
     region: str
         Region over which the network is defined
+    output_dir: str
+        Absolute path to directory where resite output should be stored
 
     Returns
     -------
@@ -144,11 +147,13 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
     resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
 
     logger.info('Sending resite to solver.')
-    resite.solve_model(params['solver'], params['solver_options'][params['solver']])
+    resite.solve_model(params['solver'], params['solver_options'][params['solver']], params['write_log'])
 
     logger.info('Retrieving resite results.')
     tech_location_dict = resite.retrieve_solution()
     existing_cap_ds, cap_potential_ds, cap_factor_df = resite.retrieve_sites_data()
+
+    resite.save(params, output_dir)
 
     if not resite.timestamps.equals(network.snapshots):
         # If network snapshots is a subset of resite snapshots just crop the data

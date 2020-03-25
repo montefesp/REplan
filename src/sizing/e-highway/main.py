@@ -1,5 +1,5 @@
 import pypsa
-from os.path import join, dirname, abspath
+from os.path import join, dirname, abspath, isdir
 from os import makedirs
 import yaml
 from time import strftime
@@ -23,7 +23,7 @@ from src.network_builder.hydro import \
 from src.network_builder.conventional import add_generators as add_conventional
 from src.network_builder.battery import add_batteries
 from src.data.geographics.manager import get_subregions
-from src.postprocessing.pypsa_results import PyPSAResults
+from src.postprocessing.sizing_results import SizingResults
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -127,7 +127,7 @@ if __name__ == "__main__":
                                         pv_wind_tech_config, config["res"]["spatial_resolution"],
                                         config['res']['filtering_layers'], config["res"]["use_ex_cap"])
         if config['res']['strategy'] == 'siting':
-            net = add_res(net, config['res'], pv_wind_tech_config, config["region"])
+            net = add_res(net, config['res'], pv_wind_tech_config, config["region"], output_dir)
 
     # Remove offshore locations that have no RES generators associated to them
     for bus_id in net.buses.index:
@@ -165,7 +165,8 @@ if __name__ == "__main__":
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
 
     # Compute and save results
-    makedirs(output_dir)
+    if not isdir(output_dir):
+        makedirs(output_dir)
     net.lopf(solver_name=config["solver"], solver_logfile=output_dir + "test.log",
              solver_options=config["solver_options"][config["solver"]], pyomo=True)
 
@@ -183,7 +184,7 @@ if __name__ == "__main__":
     net.export_to_csv_folder(output_dir)
 
     # Display some results
-    ppresults = PyPSAResults(net)
-    ppresults.display_generation()
-    ppresults.display_transmission()
-    ppresults.display_storage()
+    results = SizingResults(net)
+    results.display_generation()
+    results.display_transmission()
+    results.display_storage()

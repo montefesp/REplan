@@ -1,4 +1,4 @@
-from os.path import join, dirname, abspath, isdir
+from os.path import join, dirname, abspath
 from os import makedirs
 from shapely.ops import cascaded_union
 from shapely.geometry import MultiPoint
@@ -45,11 +45,6 @@ class Resite:
         # self.params = params
         self.logger = logger
         self.keep_files = keep_files
-        self.init_output_folder()
-
-        # TODO: change this -> maybe we would need to have a function copying the parameters back to a file
-        copy(join(dirname(abspath(__file__)), 'config_model.yml'), self.output_folder)
-        copy(join(dirname(abspath(__file__)), '../parameters/pv_wind_tech_configs.yml'), self.output_folder)
 
         self.technologies = technologies
         self.regions = regions
@@ -59,15 +54,15 @@ class Resite:
 
         self.instance = None
 
-    def init_output_folder(self):
+    def init_output_folder(self, dir_name: str = None):
         """Initialize an output folder."""
 
         # TODO: change this to give dirname as argument?
-        dir_name = join(dirname(abspath(__file__)), "../../output/resite/")
-        if not isdir(dir_name):
-            makedirs(abspath(dir_name))
-
-        self.output_folder = abspath(dir_name + str(strftime("%Y%m%d_%H%M%S")))
+        if dir_name is None:
+            dir_name = join(dirname(abspath(__file__)), "../../output/resite/")
+            self.output_folder = abspath(dir_name + str(strftime("%Y%m%d_%H%M%S"))) + "/"
+        else:
+            self.output_folder = dir_name + "resite/"
         makedirs(self.output_folder)
 
         self.logger.info('Folder path is: {}'.format(str(self.output_folder)))
@@ -188,11 +183,12 @@ class Resite:
             Formulation of the optimization problem to solve
         deployment_vector: List[float]
             # TODO: this is dependent on the formulation so maybe we should create a different function for each formulation
-        output_folder: str
-            Path towards output folder
         write_lp : bool (default: False)
             If True, the model is written to an .lp file.
         """
+
+        if write_lp:
+            self.init_output_folder()
 
         if formulation == 'meet_demand_with_capacity' and len(self.regions) != 1:
             raise ValueError('The selected formulation works for one region only!')
@@ -218,7 +214,7 @@ class Resite:
             from src.resite.models.gurobipy import build_model as build_gurobipy_model
             build_gurobipy_model(self, formulation, deployment_vector, write_lp)
 
-    def solve_model(self, solver, solver_options):
+    def solve_model(self, solver, solver_options, write_log = False):
         """
         Solve a model
 
@@ -228,20 +224,26 @@ class Resite:
             Name of the solver to use
         solver_options: Dict[str, float]
             Dictionary of solver options name and value
+        write_log: bool (default = False)
+            Whether to save solver log
 
         """
+
+        if write_log and not hasattr(self, 'output_folder'):
+            self.init_output_folder()
+
         self.solver = solver
         self.solver_options = solver_options
         if self.modelling == 'pyomo':
             # TODO: David, you sure you want to import this here?
             from src.resite.models.pyomo import solve_model as solve_pyomo_model
-            return solve_pyomo_model(self, solver, solver_options)
+            return solve_pyomo_model(self, solver, solver_options, write_log)
         elif self.modelling == 'docplex':
             from src.resite.models.docplex import solve_model as solve_docplex_model
-            solve_docplex_model(self, solver, solver_options)
+            solve_docplex_model(self)
         elif self.modelling == 'gurobipy':
             from src.resite.models.gurobipy import solve_model as solve_gurobipy_model
-            solve_gurobipy_model(self, solver, solver_options)
+            solve_gurobipy_model(self)
 
     def retrieve_solution(self) -> Dict[str, List[Tuple[float, float]]]:
         """
@@ -292,7 +294,16 @@ class Resite:
 
         return self.selected_existing_capacity_ds, self.selected_capacity_potential_ds, self.selected_cap_factor_df
 
-    def save(self):
+    def save(self, params, dir_name: str = None):
+
+        # TODO: shitty because model.lp or solver.log will be saved in a different file
+        if not hasattr(self, 'output_folder'):
+            self.init_output_folder(dir_name)
+
+        # TODO: change this -> maybe we would need to have a function copying the parameters back to a file
+        yaml.dump(params, open(self.output_folder + 'config.yaml', 'w'))
+
+        yaml.dump(self.tech_config, open(self.output_folder + 'pv_wind_tech_configs.yaml', 'w'))
 
         # Remove instance because it can't be pickled
         self.instance = None
