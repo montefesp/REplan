@@ -19,15 +19,31 @@ class ResiteResults:
         print(f"Formulation: {self.resite.formulation}")
         print(f"Deployement vector: {self.resite.deployment_vector}\n")
 
-    def print_number_of_points(self):
-        count = pd.DataFrame(0., index=sorted(list(self.resite.tech_points_dict.keys())),
-                             columns=["Initial", "Selected", "With existing cap"], dtype=int)
+    def get_initial_points_number(self):
+        count = pd.Series(0, index=sorted(list(self.resite.tech_points_dict.keys())), dtype=int)
         for tech, points in self.resite.tech_points_dict.items():
-            count.loc[tech, "Initial"] = int(len(points))
+            count[tech] = int(len(points))
+        return count
+
+    def get_selected_points_number(self):
+        count = pd.Series(0, index=sorted(list(self.resite.selected_tech_points_dict.keys())), dtype=int)
         for tech, points in self.resite.selected_tech_points_dict.items():
-            count.loc[tech, "Selected"] = int(len(points))
-        for tech, point in self.resite.existing_capacity_ds.index:
-            count.loc[tech, "With existing cap"] += 1 if self.resite.existing_capacity_ds.loc[tech, point] > 0 else 0
+            count[tech] = int(len(points))
+        return count
+
+    def get_existing_points_number(self):
+        count = pd.Series(0, index=sorted(list(set(self.existing_nodes.droplevel(1)))), dtype=int)
+        for tech, point in self.existing_nodes:
+            count.loc[tech] += 1
+        return count
+
+    def get_new_points_number(self):
+        return self.get_selected_points_number() - self.get_existing_points_number()
+
+    def print_number_of_points(self):
+        count = pd.concat([self.get_initial_points_number(), self.get_selected_points_number(),
+                           self.get_existing_points_number()], axis=1, sort=True)
+        count.columns = ["Initial", "Selected", "With existing cap"]
         print(f"Number of points:\n{count}\n")
 
     def get_initial_capacity_potential(self):
@@ -49,6 +65,10 @@ class ResiteResults:
     def get_optimal_capacity(self):
         return self.resite.optimal_capacity_ds.groupby(level=0).sum()
 
+    def get_new_capacity(self):
+        return self.resite.optimal_capacity_ds.groupby(level=0).sum() - \
+               self.resite.existing_capacity_ds.groupby(level=0).sum()
+
     def get_optimal_capacity_at_existing_nodes(self):
         return self.resite.optimal_capacity_ds[self.existing_nodes].groupby(level=0).sum()
 
@@ -59,6 +79,10 @@ class ResiteResults:
         capacities = pd.concat([existing_cap, optimal_cap, optimal_cap_at_ex_nodes], axis=1, sort=True)
         capacities.columns = ["Existing", "Optimal", "Optimal at existing nodes"]
         print(f"Capacity (GW):\n{capacities}\n")
+
+    def get_generation(self):
+        generation = self.resite.optimal_capacity_ds * self.resite.cap_factor_df
+        return generation.sum().groupby(level=0).sum()
 
     def print_generation(self):
         generation = self.resite.optimal_capacity_ds*self.resite.cap_factor_df

@@ -15,7 +15,7 @@ timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
 regions: ['CWE']
 technologies: ['wind_onshore', 'wind_offshore', 'pv_utility']
 
-use_ex_cap: True
+use_ex_cap: False
 
 modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
 solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'

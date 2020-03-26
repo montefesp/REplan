@@ -153,7 +153,7 @@ def display_polygons(polygons_list):
 
     plt.show()
 
-
+# TODO: need to check if it is not removing to much points
 def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Series, keep_outside: bool = True) -> pd.Series:
     """
     TODO: improve description
@@ -170,7 +170,7 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Seri
     Returns
     -------
     points_region_ds : pd.Series
-        Series giving for each point the associated region
+        Series giving for each point the associated region or NA
     """
 
     points_region_ds = pd.Series(index=pd.MultiIndex.from_tuples(points))

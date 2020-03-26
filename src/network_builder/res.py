@@ -68,7 +68,8 @@ def add_generators_from_file(network: pypsa.Network, onshore_region_shape, strat
             tech = "wind_onshore"
 
         # Detect to which bus the node should be associated
-        points_bus_ds = match_points_to_region(list(points_dict.keys()), onshore_buses.region)
+        points_bus_ds = match_points_to_region(list(points_dict.keys()), onshore_buses.region).dropna()
+        points = list(points_bus_ds.index)
 
         # if len(offshore_bus_positions) != 0:
         #     bus_ids = [(onshore_buses.index[
@@ -90,8 +91,9 @@ def add_generators_from_file(network: pypsa.Network, onshore_region_shape, strat
 
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 
-        for i, point in enumerate(points_dict):
+        for i, point in enumerate(points):
 
+            # TODO: could index directl with point no?
             bus_id = points_bus_ds.iloc[i]
             # Define the capacities per km from parameters if existing
             capacity_per_km = cap_dens_dict[tech]
@@ -153,6 +155,7 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
     tech_location_dict = resite.retrieve_solution()
     existing_cap_ds, cap_potential_ds, cap_factor_df = resite.retrieve_sites_data()
 
+    logger.info("Saving resite results")
     resite.save(params, output_dir)
 
     if not resite.timestamps.equals(network.snapshots):
@@ -169,10 +172,11 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
 
         if tech in ['wind_offshore', 'wind_floating']:
             offshore_buses = network.buses[network.buses.onshore == False]
-            associated_buses = match_points_to_region(points, offshore_buses.region)
+            associated_buses = match_points_to_region(points, offshore_buses.region).dropna()
         else:
             onshore_buses = network.buses[network.buses.onshore]
-            associated_buses = match_points_to_region(points, onshore_buses.region)
+            associated_buses = match_points_to_region(points, onshore_buses.region).dropna()
+        points = list(associated_buses.index)
 
         existing_cap = 0
         if params['use_ex_cap']:
@@ -229,10 +233,11 @@ def add_generators_at_resolution(network: pypsa.Network, regions: List[str], tec
 
         if tech in ['wind_offshore', 'wind_floating']:
             offshore_buses = network.buses[network.buses.onshore == False]
-            associated_buses = match_points_to_region(points, offshore_buses.region)
+            associated_buses = match_points_to_region(points, offshore_buses.region).dropna()
         else:
             onshore_buses = network.buses[network.buses.onshore]
-            associated_buses = match_points_to_region(points, onshore_buses.region)
+            associated_buses = match_points_to_region(points, onshore_buses.region).dropna()
+        points = list(associated_buses.index)
 
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 

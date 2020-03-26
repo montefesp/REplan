@@ -17,7 +17,7 @@ resite = Resite(params["regions"], params["technologies"], tech_config, params["
 logger.info('Reading input.')
 resite.build_input_data(params["use_ex_cap"], params['filtering_layers'])
 
-values = [0.8, 0.9]
+values = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 for v in values:
     params['deployment_vector'] = [v]
     if hasattr(resite, 'output_folder'):
