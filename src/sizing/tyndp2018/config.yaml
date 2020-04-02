@@ -69,24 +69,24 @@ res:
 
 # Conventional generation
 dispatch:
-  include: False
+  include: True
   tech: "ccgt"
 
 # Nuclear
 nuclear:
-  include: False
+  include: True
   use_ex_cap: True # Whether to include existing cap
   extendable: False
 
 # Battery
 battery:
-  include: False
+  include: True
   type: "Li-ion"
   max_hours: 4 # THIS IS FIXED. IF IT CHANGES, CAPEX MUST CHANGE ACCORDINGLY.
 
 # Hydro
 phs:
-  include: False
+  include: True
   use_ex_cap: True
   extendable: False
   cyclic_sof: True
@@ -97,7 +97,7 @@ ror:
   extendable: False
 
 sto:
-  include: False
+  include: True
   use_ex_cap: True
   extendable: False
   cyclic_sof: True
@@ -105,4 +105,4 @@ sto:
 # Emissions
 co2_emissions:
   reference_year: 1990 # The only available point now.
-  mitigation_factor: 0.8
+  mitigation_factor: 0.0

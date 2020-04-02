@@ -1,4 +1,5 @@
-from os.path import join, dirname, abspath
+from os.path import join, dirname, abspath, isdir
+from os import makedirs
 import yaml
 from time import strftime
 
@@ -8,6 +9,7 @@ from shapely.ops import cascaded_union
 
 import pypsa
 
+from src.data.emission.manager import get_reference_emission_levels
 from src.data.topologies.tyndp2018 import get_topology
 from src.data.geographics.manager import get_subregions
 from src.data.load.manager import retrieve_load_data_per_country
@@ -20,6 +22,7 @@ from src.network_builder.nuclear import add_generators as add_nuclear
 from src.network_builder.hydro import add_phs_plants, add_ror_plants, add_sto_plants
 from src.network_builder.conventional import add_generators as add_conventional
 from src.network_builder.battery import add_batteries
+from src.postprocessing.sizing_results import SizingResults
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -135,3 +138,34 @@ if __name__ == '__main__':
 
     if config["battery"]["include"]:
         net = add_batteries(net, config["battery"]["type"], config["battery"]["max_hours"])
+
+    co2_reference_kt = get_reference_emission_levels(config["region"], config["co2_emissions"]["reference_year"])
+    co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(
+        net.snapshots) / NHoursPerYear
+    net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
+
+    # Compute and save results
+    if not isdir(output_dir):
+        makedirs(output_dir)
+    net.lopf(solver_name=config["solver"], solver_logfile=output_dir + "test.log",
+             solver_options=config["solver_options"][config["solver"]], pyomo=True)
+
+    # if True:
+    #     net.model.write(filename=join(output_dir, 'model.lp'),
+    #                     format=ProblemFormat.cpxlp,
+    #                     io_options={'symbolic_solver_labels': True})
+
+    # Save config and parameters files
+    yaml.dump(config, open(output_dir + 'config.yaml', 'w'))
+    yaml.dump(tech_info, open(output_dir + 'tech_info.yaml', 'w'))
+    yaml.dump(fuel_info, open(output_dir + 'fuel_info.yaml', 'w'))
+    yaml.dump(pv_wind_tech_config, open(output_dir + 'pv_wind_tech_config.yaml', 'w'))
+
+    net.export_to_csv_folder(output_dir)
+
+    # Display some results
+    results = SizingResults(net)
+    results.display_generation()
+    results.display_transmission()
+    results.display_storage()
+
