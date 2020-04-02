@@ -513,23 +513,23 @@ class SizingDash:
             #lost_load_cost /= diviser
 
             for t in gen_types:
-                table.append({"Tech": t, "Investment": "{0:.4f}".format(gen_invest_cost[t]),
-                              "Operation": "{0:.4f}".format(gen_op_cost[t]),
-                              "Total": "{0:.4f}".format(gen_invest_cost[t] + gen_op_cost[t])})
-            table.append({"Tech": "Gen Total", "Investment": "{0:.4f}".format(total_gen_invest_cost),
-                          "Operation": "{0:.4f}".format(total_gen_op_cost),
-                          "Total": "{0:.4f}".format(total_gen_cost)})
-            table.append({"Tech": "Trans Total", "Investment": "{0:.4f}".format(trans_invest_cost),
+                table.append({"Tech": t, "Investment": f"{gen_invest_cost[t]:.4f}",
+                              "Operation": f"{gen_op_cost[t]:.4f}",
+                              "Total": f"{gen_invest_cost[t] + gen_op_cost[t]:.4f}"})
+            table.append({"Tech": "Gen Total", "Investment": f"{total_gen_invest_cost:.4f}",
+                          "Operation": f"{total_gen_op_cost:.4f}",
+                          "Total": f"{total_gen_cost:.4f}"})
+            table.append({"Tech": "Trans Total", "Investment": f"{trans_invest_cost:.4f}",
                           "Operation": 0,
-                          "Total": "{0:.4f}".format(trans_invest_cost)})
-            table.append({"Tech": "Store Total", "Investment": "{0:.4f}".format(store_invest_cost),
+                          "Total": f"{trans_invest_cost:.4f}"})
+            table.append({"Tech": "Store Total", "Investment": f"{store_invest_cost:.4f}",
                           "Operation": 0,
-                          "Total": "{0:.4f}".format(store_invest_cost)})
+                          "Total": f"{store_invest_cost:.4f}"})
             #table.append({"Tech": "Lost load", "Investment": "N/A", "Operation": "N/A",
-            #              "Total": "{0:.4f}".format(lost_load_cost)})
-            table.append({"Tech": "Total", "Investment": "{0:.4f}".format(trans_invest_cost+total_gen_invest_cost),
-                          "Operation": "{0:.4f}".format(total_gen_op_cost),
-                          "Total": "{0:.4f}".format(trans_invest_cost+total_gen_cost+store_invest_cost)})
+            #              "Total": f"{lost_load_cost:.4f}"})
+            table.append({"Tech": "Total", "Investment": f"{trans_invest_cost+total_gen_invest_cost:.4f}",
+                          "Operation": f"{total_gen_op_cost:.4f}",
+                          "Total": f"{trans_invest_cost+total_gen_cost+store_invest_cost:.4f}"})
 
             return table
 

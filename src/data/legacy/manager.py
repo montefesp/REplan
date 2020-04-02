@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import scipy.spatial
 
-from src.data.geographics.manager import _get_country, match_points_to_region
+from src.data.geographics.manager import convert_country_codes, match_points_to_region
 from src.data.land_data.manager import filter_onshore_offshore_points
 
 
@@ -34,7 +34,7 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
     """
 
     accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility']
-    assert tech in accepted_techs, "Error: tech {} is not in {}".format(tech, accepted_techs)
+    assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     path_legacy_data = join(dirname(abspath(__file__)), '../../../data/legacy')
 
@@ -73,7 +73,7 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
         data = data[pd.notnull(data['Coords'])]
 
         data["Location"] = data["Coords"].apply(lambda x: (float(x.split(',')[1]), float(x.split(',')[0])))
-        data['Country'] = data['Country'].apply(lambda c: _get_country('alpha_2', name=c))
+        data['Country'] = data['Country'].apply(lambda c: convert_country_codes('alpha_2', name=c))
         data = data[data['Country'].isin(countries)]
         # Converting from MW to GW
         data['MWac'] *= 1e-3
@@ -121,7 +121,7 @@ def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
 
     accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility']
     for tech in technologies:
-        assert tech in accepted_techs, "Error: tech {} is not in {}".format(tech, accepted_techs)
+        assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     existing_capacity_dict = dict.fromkeys(technologies)
     for tech in technologies:
@@ -156,7 +156,7 @@ def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: Lis
     """
 
     accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility']
-    assert tech in accepted_techs, "Error: tech {} is not in {}".format(tech, accepted_techs)
+    assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     path_legacy_data = join(dirname(abspath(__file__)), '../../../data/legacy')
 
@@ -185,7 +185,7 @@ def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: Lis
         data = data[pd.notnull(data['Coords'])]
         data["Location"] = data["Coords"].apply(lambda x: (float(x.split(',')[1]), float(x.split(',')[0])))
         if countries is not None:
-            data['Country'] = data['Country'].apply(lambda c: _get_country('alpha_2', name=c))
+            data['Country'] = data['Country'].apply(lambda c: convert_country_codes('alpha_2', name=c))
             data = data[data['Country'].isin(countries)]
         # Converting from MW to GW
         data['Total power'] = data['MWac']*1e-3

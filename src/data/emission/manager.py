@@ -60,7 +60,7 @@ def get_reference_emission_levels(region: str, ref_year: int) -> float:
     # TODO: Shift from readily created file to EEA and IEA source files to have flexibility wrt reference year.
 
     if ref_year != 1990:
-        raise ValueError('Reference year {} not available yet. Try 1990.'.format(ref_year))
+        raise ValueError(f"Reference year {ref_year} not available yet. Try 1990.")
 
     emission_fn = join(dirname(abspath(__file__)), "../../../data/emission/generated/EU_28_1990_emission_levels.xlsx")
     emission_df = pd.read_excel(emission_fn, index_col=0)

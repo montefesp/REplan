@@ -5,7 +5,7 @@ import pandas as pd
 
 import pypsa
 
-from src.data.geographics.manager import _get_country, match_points_to_region
+from src.data.geographics.manager import convert_country_codes, match_points_to_region
 from src.data.generation.manager import get_gen_from_ppm
 from src.parameters.costs import get_cost, get_plant_type
 
@@ -41,7 +41,7 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
     if ppm_file_name is not None:
         ppm_folder = join(dirname(abspath(__file__)), "../../data/ppm/")
         gens = pd.read_csv(ppm_folder + "/" + ppm_file_name, index_col=0, delimiter=";")
-        gens["Country"] = gens["Country"].apply(lambda c: _get_country('alpha_2', name=c))
+        gens["Country"] = gens["Country"].apply(lambda c: convert_country_codes('alpha_2', name=c))
         gens = gens[gens["Country"].isin(countries)]
     else:
         gens = get_gen_from_ppm(fuel_type="Nuclear", countries=countries)
@@ -58,8 +58,7 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
         return bus if isinstance(bus, str) else bus.iloc[0]
     gens["bus_id"] = gens[["lon", "lat"]].apply(lambda x: add_region(x[0], x[1]), axis=1)
 
-    logger.info("Adding {} GW of nuclear capacity in {}.".format(round(gens["Capacity"].sum()*1e-3, 2),
-                                                                 gens["Country"].unique()))
+    logger.info(f"Adding {gens['Capacity'].sum()*1e-3:.2f} GW of nuclear capacity in {gens['Country'].unique()}.")
 
     if not use_ex_cap:
         gens.Capacity = 0.

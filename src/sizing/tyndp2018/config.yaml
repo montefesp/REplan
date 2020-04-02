@@ -86,7 +86,7 @@ battery:
 
 # Hydro
 phs:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
   cyclic_sof: True
@@ -97,7 +97,7 @@ ror:
   extendable: False
 
 sto:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
   cyclic_sof: True

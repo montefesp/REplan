@@ -1,5 +1,4 @@
-from os.path import join, dirname, abspath, isfile, exists
-from os import unlink
+from os.path import join, dirname, abspath, isfile
 import numpy as np
 from operator import attrgetter
 from six.moves import reduce
@@ -78,7 +77,8 @@ def get_nuts_area():
 
 # -- Auxiliary functions -- #
 
-def _get_country(target, **keys):
+# TODO: document or maybe delete and just used directly pyc?
+def convert_country_codes(target, **keys):
     """This function can be used to convert countries codes.
 
     Parameters
@@ -155,7 +155,8 @@ def display_polygons(polygons_list):
 
 
 # TODO: need to check if it is not removing to much points
-def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Series, keep_outside: bool = True) -> pd.Series:
+def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Series,
+                           keep_outside: bool = True) -> pd.Series:
     """
     TODO: improve description
 
@@ -431,7 +432,7 @@ def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, sav
     # Keep only the required regions for which we have the data
     filtered_ids = [idx for idx in ids if idx in onshore_shapes.index]
     if len(filtered_ids) != len(ids):
-        print("WARNING: Some regions that you asked for are not present: {}".format(sorted(list(set(ids)-set(filtered_ids)))))
+        print(f"WARNING: Some regions that you asked for are not present: {sorted(list(set(ids)-set(filtered_ids)))}")
 
     # Keep only needed countries
     onshore_shapes = onshore_shapes.loc[filtered_ids]
@@ -491,7 +492,7 @@ def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, fi
         difference = sorted(list(set(ids)-set(filtered_ids)))
         diff = set(difference) - set(landlocked)
         if len(diff) != 0:
-            logger.info("WARNING: Some regions that you asked for are not present: {}".format(list(diff)))
+            logger.info(f"WARNING: Some regions that you asked for are not present: {list(diff)}")
     region_names = [idx.split('-')[0] for idx in filtered_ids]  # Allows to consider states and provinces
     offshore_shapes = offshore_shapes.loc[region_names]
 
@@ -562,7 +563,7 @@ def generate_countries_shapes():
     fieldnames = [df[x].where(lambda s: s != '-99') for x in ('ADM0_A3', 'WB_A2', 'ISO_A2')]
 
     # Convert 3 letter codes to 2
-    fieldnames[0] = fieldnames[0].apply(lambda c: _get_country('alpha_2', alpha_3=c))
+    fieldnames[0] = fieldnames[0].apply(lambda c: convert_country_codes('alpha_2', alpha_3=c))
 
     # Fill in NA values by using the other cods
     df['name'] = reduce(lambda x, y: x.fillna(y), [fieldnames[0], fieldnames[1], fieldnames[2]])
@@ -594,8 +595,8 @@ def generate_offshore_shapes_geojson():
     # eez_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/World_EEZ_v11_20191118/eez_v11.shp")
 
     df = gpd.read_file(eez_fn)
-    df['name'] = df['ISO_3digit'].map(lambda code: _get_country('alpha_2', alpha_3=code))
-    # df['name'] = df['ISO_SOV1'].map(lambda code: _get_country('alpha_2', alpha_3=code))
+    df['name'] = df['ISO_3digit'].map(lambda code: convert_country_codes('alpha_2', alpha_3=code))
+    # df['name'] = df['ISO_SOV1'].map(lambda code: convert_country_codes('alpha_2', alpha_3=code))
     # if still nans remove them TODO: might need to check other codes
     df = df[pd.notnull(df['name'])]
     df = df[['name', 'geometry']].set_index('name')

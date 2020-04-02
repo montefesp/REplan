@@ -225,7 +225,7 @@ def capacity_potential_from_enspresso(tech: str) -> pd.DataFrame:
         Dict storing technical potential per NUTS2 region.
     """
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
-    assert tech in accepted_techs, "Error: tech {} is not in {}".format(tech, accepted_techs)
+    assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/source/ENSPRESO')
     # For wind, summing over all wind conditions is similar to considering taking all available land and a capacity per
@@ -318,7 +318,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
 
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
     for tech in tech_points_dict.keys():
-        assert tech in accepted_techs, "Error: tech {} is not in {}".format(tech, accepted_techs)
+        assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     # Create a modified copy of regions to deal with UK and EL
     nuts0_problems = {"GB": "UK", "GR": "EL"}
@@ -432,7 +432,7 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
     """
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
     for tech in tech_regions_dict.keys():
-        assert tech in accepted_techs, "Error: tech {} is not in {}".format(tech, accepted_techs)
+        assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     tech_regions_tuples = [(tech, i) for tech, points in tech_regions_dict.items() for i in range(len(points))]
     capacity_potential_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(tech_regions_tuples))

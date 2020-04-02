@@ -46,11 +46,23 @@ class ResiteResults:
         count.columns = ["Initial", "Selected", "With existing cap"]
         print(f"Number of points:\n{count}\n")
 
-    def get_initial_capacity_potential(self):
+    def get_initial_capacity_potential_sum(self):
         return self.resite.cap_potential_ds.groupby(level=0).sum()
 
-    def get_selected_capacity_potential(self):
+    def get_selected_capacity_potential_sum(self):
         return self.resite.selected_capacity_potential_ds.groupby(level=0).sum()
+
+    def get_initial_capacity_potential_mean(self):
+        return self.resite.cap_potential_ds.groupby(level=0).mean()
+
+    def get_selected_capacity_potential_mean(self):
+        return self.resite.selected_capacity_potential_ds.groupby(level=0).mean()
+
+    def get_initial_capacity_potential_std(self):
+        return self.resite.cap_potential_ds.groupby(level=0).std()
+
+    def get_selected_capacity_potential_std(self):
+        return self.resite.selected_capacity_potential_ds.groupby(level=0).std()
 
     def print_capacity_potential(self):
         initial_cap_potential = self.get_initial_capacity_potential()

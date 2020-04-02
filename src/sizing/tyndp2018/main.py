@@ -17,8 +17,7 @@ from src.network_builder.res import \
     add_generators_at_resolution as add_res_at_resolution, \
     add_generators_per_bus as add_res_per_bus
 from src.network_builder.nuclear import add_generators as add_nuclear
-from src.network_builder.hydro import \
-    add_phs_plants, add_ror_plants, add_sto_plants
+from src.network_builder.hydro import add_phs_plants, add_ror_plants, add_sto_plants
 from src.network_builder.conventional import add_generators as add_conventional
 from src.network_builder.battery import add_batteries
 
@@ -96,7 +95,7 @@ if __name__ == '__main__':
 
     # Adding pv and wind generators
     if config['res']['include']:
-        logger.info("Adding RES ({}) generation.".format(config['res']['technologies']))
+        logger.info(f"Adding RES ({config['res']['technologies']}) generation.")
         if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
             # TODO: case not working because using get_ehighway_potential in add_res_from_file
             # Computing shapes
@@ -126,7 +125,13 @@ if __name__ == '__main__':
                           "pp_nuclear_WNA.csv")
 
     if config["sto"]["include"]:
-        net = add_sto_plants(net, config["sto"]["extendable"], config["sto"]["cyclic_sof"])
+        net = add_sto_plants(net, 'countries', config["sto"]["extendable"], config["sto"]["cyclic_sof"])
+
+    if config["phs"]["include"]:
+        net = add_phs_plants(net, 'countries', config["phs"]["extendable"], config["phs"]["cyclic_sof"])
+
+    if config["ror"]["include"]:
+        net = add_ror_plants(net, 'countries', config["ror"]["extendable"])
 
     if config["battery"]["include"]:
         net = add_batteries(net, config["battery"]["type"], config["battery"]["max_hours"])

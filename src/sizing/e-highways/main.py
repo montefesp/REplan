@@ -18,8 +18,7 @@ from src.network_builder.res import \
     add_generators_at_resolution as add_res_at_resolution, \
     add_generators_per_bus as add_res_per_bus, add_generators_at_bus_test
 from src.network_builder.nuclear import add_generators as add_nuclear
-from src.network_builder.hydro import \
-    add_phs_plants, add_ror_plants, add_sto_plants
+from src.network_builder.hydro import add_phs_plants, add_ror_plants, add_sto_plants
 from src.network_builder.conventional import add_generators as add_conventional
 from src.network_builder.battery import add_batteries
 from src.data.geographics.manager import get_subregions
@@ -31,7 +30,7 @@ logger = logging.getLogger()
 
 NHoursPerYear = 8760.
 
-from src.data.geographics.manager import _get_country
+from src.data.geographics.manager import convert_country_codes
 
 if __name__ == "__main__":
 
@@ -110,7 +109,7 @@ if __name__ == "__main__":
 
     # Adding pv and wind generators
     if config['res']['include']:
-        logger.info("Adding RES ({}) generation.".format(config['res']['technologies']))
+        logger.info(f"Adding RES ({config['res']['technologies']}) generation.")
         if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
             # Computing shapes
             total_onshore_shape = cascaded_union(net.buses[net.buses.onshore].region.values.flatten())
@@ -151,13 +150,13 @@ if __name__ == "__main__":
                           "pp_nuclear_WNA.csv")
 
     if config["sto"]["include"]:
-        net = add_sto_plants(net, config["sto"]["extendable"], config["sto"]["cyclic_sof"])
+        net = add_sto_plants(net, 'ehighway', config["sto"]["extendable"], config["sto"]["cyclic_sof"])
 
     if config["phs"]["include"]:
-        net = add_phs_plants(net, config["phs"]["extendable"], config["phs"]["cyclic_sof"])
+        net = add_phs_plants(net, 'ehighway', config["phs"]["extendable"], config["phs"]["cyclic_sof"])
 
     if config["ror"]["include"]:
-        net = add_ror_plants(net, config["ror"]["extendable"])
+        net = add_ror_plants(net, 'ehighway', config["ror"]["extendable"])
 
     if config["battery"]["include"]:
         net = add_batteries(net, config["battery"]["type"], config["battery"]["max_hours"])

@@ -31,7 +31,7 @@ def add_batteries(network: pypsa.Network, type: str, max_hours: float):
         Updated network
 
     """
-    logger.info("Adding {} storage.".format(type))
+    logger.info(f"Adding {type} storage.")
 
     onshore_bus_indexes = pd.Index([bus_id for bus_id in network.buses.index if network.buses.loc[bus_id].onshore])
 

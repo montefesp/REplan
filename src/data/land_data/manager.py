@@ -253,7 +253,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
 
     else:
 
-        raise ValueError(' Layer {} is not available.'.format(str(filter_name)))
+        raise ValueError(f"Layer {filter_name} is not available.")
 
     return points
 

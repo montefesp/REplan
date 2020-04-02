@@ -27,7 +27,7 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
     network: pypsa.Network
         Updated network
     """
-    logger.info("Adding {} generation.".format(tech))
+    logger.info(f"Adding {tech} generation.")
 
     # Filter to keep only onshore buses
     buses = network.buses[network.buses.onshore]

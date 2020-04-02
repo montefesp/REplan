@@ -55,7 +55,7 @@ def get_countries_load(country_codes: List[str], nb_years: int = 1,
 
     # Check data is available for those countries
     missing_code_in_data = sorted(list(set(country_codes) - set(load_data.keys())))
-    assert len(missing_code_in_data) == 0, "No data present for the following codes: {}".format(missing_code_in_data)
+    assert len(missing_code_in_data) == 0, f"No data present for the following codes: {missing_code_in_data}"
 
     load_data = load_data[country_codes]
 
@@ -79,8 +79,7 @@ def get_countries_load(country_codes: List[str], nb_years: int = 1,
             start_year = end_year-nb_years+1
             start_date = datetime.datetime(year=start_year, month=days_range_start.month, day=days_range_start.day)
 
-            assert start_date in load_data_for_code.index, \
-                "There is no sufficient data for region of code {}".format(code)
+            assert start_date in load_data_for_code.index, f"There is no sufficient data for region of code {code}"
             load_data_time_sliced[code] = load_data_for_code.loc[start_date:end_date].values
 
         return load_data_time_sliced
@@ -105,10 +104,10 @@ def get_countries_load(country_codes: List[str], nb_years: int = 1,
             # Check if we have data for the first required year and last required year
             first_date = datetime.datetime(year=sorted_years[0], month=days_range_start.month, day=days_range_start.day)
             assert first_date in load_data_for_code.index, \
-                "There is no sufficient data for the date {} for region of code {}".format(first_date, code)
+                f"There is no sufficient data for the date {first_date} for region of code {code}"
             last_date = datetime.datetime(year=sorted_years[-1], month=days_range_end.month, day=days_range_end.day)
             assert last_date in load_data_for_code.index, \
-                "There is no sufficient data for the date {} for region of code {}".format(last_date, code)
+                f"There is no sufficient data for the date {last_date} for region of code {code}"
 
             # Add the time-series for each year
             load = np.array([])

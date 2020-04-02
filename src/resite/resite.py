@@ -65,7 +65,7 @@ class Resite:
             self.output_folder = dir_name + "resite/"
         makedirs(self.output_folder)
 
-        self.logger.info('Folder path is: {}'.format(str(self.output_folder)))
+        self.logger.info(f"Folder path is: {self.output_folder}")
 
         if not self.keep_files:
             self.logger.info('WARNING! Files will be deleted at the end of the run.')
