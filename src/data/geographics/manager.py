@@ -153,6 +153,7 @@ def display_polygons(polygons_list):
 
     plt.show()
 
+
 # TODO: need to check if it is not removing to much points
 def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Series, keep_outside: bool = True) -> pd.Series:
     """
@@ -173,7 +174,7 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Seri
         Series giving for each point the associated region or NA
     """
 
-    points_region_ds = pd.Series(index=pd.MultiIndex.from_tuples(points))
+    points_region_ds = pd.Series(index=pd.MultiIndex.from_tuples(points)).sort_index()
     points = MultiPoint(points)
 
     for index, subregion in shapes_ds.items():
@@ -203,15 +204,21 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Seri
     if not keep_outside:
         return points_region_ds
 
-    logger.info("These points will be assigned to closest one.")
+    min_distance = 1.
+    logger.info(f"These points will be assigned to closest one if distance is less than {min_distance}.")
     if isinstance(points, Point):
         points = [points]
 
+    not_added_points = []
     for point in points:
         distances = [point.distance(shapes_ds.loc[subregion]) for subregion in shapes_ds.index]
-        if min(distances) < 1.:
+        if min(distances) < min_distance:
             closest_index = np.argmin(distances)
             points_region_ds.loc[(point.x, point.y)] = shapes_ds.index.values[closest_index]
+        else:
+            not_added_points += [point]
+    if len(not_added_points) != 0:
+        logger.info(f"Warning: These points were not assigned to any shape: {not_added_points}.")
 
     return points_region_ds
 

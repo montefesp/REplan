@@ -11,7 +11,7 @@ from shapely.errors import TopologicalError
 
 from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area, get_onshore_shapes, get_offshore_shapes, \
     match_points_to_region, display_polygons
-from src.data.topologies.ehighway import get_ehighway_clusters
+from src.data.topologies.ehighways import get_ehighway_clusters
 
 
 missing_region_dict = {

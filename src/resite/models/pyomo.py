@@ -97,12 +97,21 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
 
     elif formulation == 'meet_RES_targets_hourly':
 
-        # Variables for the portion of demand that is met at each time-stamp for each region
-        model.x = Var(resite.regions, arange(len(resite.timestamps)), within=NonNegativeReals, bounds=(0, 1))
+        # # Variables for the portion of demand that is met at each time-stamp for each region
+        # model.x = Var(resite.regions, arange(len(resite.timestamps)), within=NonNegativeReals, bounds=(0, 1))
+        #
+        # # Generation must be greater than x percent of the load in each region for each time step
+        # def generation_check_rule(model, region, t):
+        #     return region_generation_y_dict[region][t] >= load[t, resite.regions.index(region)] * model.x[region, t]
+        #
+        # model.generation_check = Constraint(resite.regions, arange(len(resite.timestamps)), rule=generation_check_rule)
+
+        covered_load_perc_per_region = dict(zip(resite.regions, deployment_vector))
 
         # Generation must be greater than x percent of the load in each region for each time step
         def generation_check_rule(model, region, t):
-            return region_generation_y_dict[region][t] >= load[t, resite.regions.index(region)] * model.x[region, t]
+            return region_generation_y_dict[region][t] >= \
+                   load[t, resite.regions.index(region)] * covered_load_perc_per_region[region]
 
         model.generation_check = Constraint(resite.regions, arange(len(resite.timestamps)), rule=generation_check_rule)
 
@@ -112,13 +121,13 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
 
         model.potential_constraint = Constraint(tech_points_tuples, rule=potential_constraint_rule)
 
-        # Impose a certain percentage of the load to be covered for each time step
-        covered_load_perc_per_region = dict(zip(resite.regions, deployment_vector))
-
-        def policy_target_rule(model, region, t):
-            return model.x[region, t] >= covered_load_perc_per_region[region]
-
-        model.policy_target = Constraint(resite.regions, arange(len(resite.timestamps)), rule=policy_target_rule)
+        # # Impose a certain percentage of the load to be covered for each time step
+        # covered_load_perc_per_region = dict(zip(resite.regions, deployment_vector))
+        #
+        # def policy_target_rule(model, region, t):
+        #     return model.x[region, t] >= covered_load_perc_per_region[region]
+        #
+        # model.policy_target = Constraint(resite.regions, arange(len(resite.timestamps)), rule=policy_target_rule)
 
         # Minimize the capacity that is deployed
         def objective_rule(model):

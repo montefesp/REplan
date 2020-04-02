@@ -2,6 +2,7 @@ from os.path import join, dirname, abspath
 import yaml
 
 from src.resite.resite import Resite
+import numpy as np
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -17,7 +18,7 @@ resite = Resite(params["regions"], params["technologies"], tech_config, params["
 logger.info('Reading input.')
 resite.build_input_data(params["use_ex_cap"], params['filtering_layers'])
 
-values = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+values = [0.0] # np.array([0.01*i for i in range(1, 100) if i%10 != 0]).round(2)  # [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 for v in values:
     params['deployment_vector'] = [v]
     if hasattr(resite, 'output_folder'):
@@ -34,4 +35,4 @@ for v in values:
         resite.retrieve_solution()
         resite.retrieve_sites_data()
 
-    resite.save(params)
+    resite.save(params, f"/home/utilisateur/Global_Grid/code/py_ggrid/output/resite/{v}/")

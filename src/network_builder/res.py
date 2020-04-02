@@ -118,7 +118,7 @@ def add_generators_from_file(network: pypsa.Network, onshore_region_shape, strat
 
 
 def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any], region: str,
-                   output_dir = None) \
+                   output_dir=None) \
         -> pypsa.Network:
     """
     This function will add generators for different technologies at a series of location selected via an optimization
@@ -182,6 +182,10 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
         if params['use_ex_cap']:
             existing_cap = existing_cap_ds[tech][points].values
 
+        p_nom_max = 'inf'
+        if params['limit_max_cap']:
+            p_nom_max = cap_potential_ds[tech][points].values
+
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 
         network.madd("Generator",
@@ -189,7 +193,7 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
                      pd.Index([str(y) for _, y in points]),
                      bus=associated_buses.values,
                      p_nom_extendable=True,
-                     p_nom_max=cap_potential_ds[tech][points].values,
+                     p_nom_max=p_nom_max,
                      p_nom=existing_cap,
                      p_nom_min=existing_cap,
                      p_max_pu=cap_factor_df[tech][points].values,
@@ -202,7 +206,103 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
     return network
 
 
-# TODO: add existing capacity
+# TODO: to be removed
+def add_generators_at_bus_test(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any], region: str,
+                   output_dir=None) \
+        -> pypsa.Network:
+    """
+    This function will add generators for different technologies at a series of location selected via an optimization
+    mechanism.
+
+    Parameters
+    ----------
+    network: pypsa.Network
+        A network with region associated to each buses.
+    region: str
+        Region over which the network is defined
+    output_dir: str
+        Absolute path to directory where resite output should be stored
+
+    Returns
+    -------
+    network: pypsa.Network
+        Updated network
+    """
+
+    logger.info('Setting up resite.')
+    resite = Resite([region], params["technologies"], tech_config, params["timeslice"], params["spatial_resolution"],
+                    params["keep_files"])
+
+    resite.build_input_data(params['use_ex_cap'], params['filtering_layers'])
+
+    logger.info('resite model being built.')
+    resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
+
+    logger.info('Sending resite to solver.')
+    resite.solve_model(params['solver'], params['solver_options'][params['solver']], params['write_log'])
+
+    logger.info('Retrieving resite results.')
+    tech_location_dict = resite.retrieve_solution()
+    existing_cap_ds, cap_potential_ds, cap_factor_df = resite.retrieve_sites_data()
+
+    logger.info("Saving resite results")
+    resite.save(params, output_dir)
+
+    if not resite.timestamps.equals(network.snapshots):
+        # If network snapshots is a subset of resite snapshots just crop the data
+        # TODO: probably need a better condition
+        if network.snapshots[0] in resite.timestamps and network.snapshots[-1] in resite.timestamps:
+            cap_factor_df = cap_factor_df.loc[network.snapshots]
+        else:
+            # In other case, need to recompute capacity factors
+            # TODO: to be implemented
+            pass
+
+    for tech, points in tech_location_dict.items():
+
+        if tech in ['wind_offshore', 'wind_floating']:
+            offshore_buses = network.buses[network.buses.onshore == False]
+            associated_buses = match_points_to_region(points, offshore_buses.region).dropna()
+        else:
+            onshore_buses = network.buses[network.buses.onshore]
+            associated_buses = match_points_to_region(points, onshore_buses.region).dropna()
+
+        # Get only one point per bus
+        buses_points_df = pd.DataFrame(list(associated_buses.index), index=associated_buses.values)
+        buses_points_df["Locations"] = buses_points_df[[0, 1]].apply(lambda x: [(x[0], (x[1]))], axis=1)
+        buses_points_df = buses_points_df.drop([0, 1], axis=1)
+        one_point_per_bus = buses_points_df.groupby(buses_points_df.index).sum().apply(lambda x: x[0][0], axis=1)
+        points = one_point_per_bus.values
+
+        existing_cap = 0
+        if params['use_ex_cap']:
+            existing_cap = existing_cap_ds[tech][points].values
+
+        p_nom_max = 'inf'
+        if params['limit_max_cap']:
+            p_nom_max = cap_potential_ds[tech][points].values
+
+        capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
+
+        network.madd("Generator",
+                     "Gen " + tech + " " + pd.Index([str(x) for x, _ in points]) + "-" +
+                     pd.Index([str(y) for _, y in points]),
+                     bus=one_point_per_bus.index,
+                     p_nom_extendable=True,
+                     p_nom_max=p_nom_max,
+                     p_nom=existing_cap,
+                     p_nom_min=existing_cap,
+                     p_max_pu=cap_factor_df[tech][points].values,
+                     type=tech,
+                     x=[x for x, _ in points],
+                     y=[y for _, y in points],
+                     marginal_cost=marginal_cost,
+                     capital_cost=capital_cost)
+
+    return network
+
+
+# TODO: add existing capacity,
 def add_generators_at_resolution(network: pypsa.Network, regions: List[str], technologies: List[str],
                                  tech_config: Dict[str, Any], spatial_resolution: float,
                                  filtering_layers: Dict[str, bool], use_ex_cap: bool) \
@@ -268,6 +368,8 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
         A PyPSA Network instance with buses associated to regions
     technologies: List[str]
         Technologies to each bus
+    countries: List[str]
+      List of ISO codes of countries over which the network is defined
     tech_config:
         # TODO: comment
     use_ex_cap: bool (default: True)
@@ -279,8 +381,9 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
         Updated network
     """
 
-    # Compute capacity potential and capacity factors
     spatial_res = 0.5
+    # Get for each tech the list of points (used for fetching capacity factor) and
+    # regions (used for fetching capacity potential)
     tech_regions_dict = dict.fromkeys(technologies)
     tech_points_dict = dict.fromkeys(technologies)
     for tech in technologies:
@@ -291,6 +394,7 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
                       for x, y in buses[["x", "y"]].values]
         tech_regions_dict[tech] = buses.region.values
 
+    # Compute capacity potential and capacity factors
     cap_pot_ds = get_capacity_potential_for_regions(tech_regions_dict)
     cap_factor_df = compute_capacity_factors(tech_points_dict, tech_config, spatial_res, network.snapshots)
 

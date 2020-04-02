@@ -72,7 +72,7 @@ class Resite:
 
     def __del__(self):
         """If self.keep_files is false, remove all outputs created during the run."""
-        if not self.keep_files:
+        if not self.keep_files and hasattr(self, "output_folder"):
             rmtree(self.output_folder)
 
     # TODO: this is pretty messy - find a way to clean it up

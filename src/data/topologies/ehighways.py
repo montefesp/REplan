@@ -1,94 +1,25 @@
-import os
-from typing import Dict, List, Tuple, Union
+from os.path import dirname, join, abspath
+from typing import List
 
-import random
 import pandas as pd
 import geopy.distance
 import shapely
 from shapely import wkt
 from shapely.ops import cascaded_union
-from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon
-
+from shapely.geometry import Point
 
 import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 
-from sklearn.neighbors import NearestNeighbors
-from vresutils.graph import voronoi_partition_pts
-import networkx as nx
-import numpy as np
-import itertools
-
-from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes, return_points_in_shape, \
-    display_polygons
+from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes
 from src.parameters.costs import get_cost
+from src.data.topologies.manager import plot_topology, voronoi_special
 
 import pypsa
 
 
 def get_ehighway_clusters():
-    eh_clusters_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                  "../../../data/topologies/e-highways/source/clusters_2016.csv")
+    eh_clusters_fn = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/source/clusters_2016.csv")
     return pd.read_csv(eh_clusters_fn, delimiter=";", index_col="name")
-
-
-def plot_topology(buses: pd.DataFrame, lines: pd.DataFrame = None):
-    """
-    Plots a map with buses and lines.
-
-    Parameters
-    ----------
-    buses: pd.DataFrame
-        DataFrame with columns 'x', 'y' and 'region'
-    lines: pd.DataFrame (default: None)
-        DataFrame with columns 'bus0', 'bus1' whose values must be index of 'buses'.
-        If None, do not display the lines.
-    """
-
-    # Fill the countries with one color
-    def get_xy(shape):
-        # Get a vector of latitude and longitude
-        xs = [i for i, _ in shape.exterior.coords]
-        ys = [j for _, j in shape.exterior.coords]
-        return xs, ys
-
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-    ax.add_feature(cfeature.COASTLINE)
-    ax.add_feature(cfeature.BORDERS, linestyle=':')
-
-    # Plotting the buses
-    for idx in buses.index:
-
-        color = (random.random(), random.random(), random.random())
-
-        # If buses are associated to regions, display the region
-        if 'region' in buses.columns:
-            region = buses.loc[idx].region
-            if isinstance(region, shapely.geometry.MultiPolygon):
-                for polygon in region:
-                    x, y = get_xy(polygon)
-                    ax.fill(x, y, c=color, alpha=0.1)
-            elif isinstance(region, shapely.geometry.Polygon):
-                x, y = get_xy(region)
-                ax.fill(x, y, c=color, alpha=0.1)
-
-        # Plot the bus position
-        ax.scatter(buses.loc[idx].x, buses.loc[idx].y, c=[color], marker="s")
-
-    # Plotting the lines
-    if lines is not None:
-        for idx in lines.index:
-
-            bus0 = lines.loc[idx].bus0
-            bus1 = lines.loc[idx].bus1
-            if bus0 not in buses.index or bus1 not in buses.index:
-                print(f"Warning: not showing line {idx} because missing bus {bus0} or {bus1}")
-                continue
-
-            color = 'r' if lines.loc[idx].carrier == "DC" else 'b'
-            plt.plot([buses.loc[bus0].x, buses.loc[bus1].x], [buses.loc[bus0].y, buses.loc[bus1].y], c=color)
 
 
 def preprocess(plotting: bool = False):
@@ -102,27 +33,25 @@ def preprocess(plotting: bool = False):
 
     eh_clusters = get_ehighway_clusters()
 
-    line_data_fn = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "../../../data/topologies/e-highways/source/Results_GTC_estimation_updated.xlsx")
-    line_data = pd.read_excel(line_data_fn, usecols="A:D", skiprows=[0],
-                                       names=["name", "nb_lines", "MVA", "GTC"])
-    line_data["bus0"] = line_data["name"].apply(lambda k: k.split('-')[0])
-    line_data["bus1"] = line_data["name"].apply(lambda k: k.split('-')[1].split("_")[0])
-    line_data["carrier"] = line_data["name"].apply(lambda k: k.split('(')[1].split(')')[0])
-    line_data["s_nom"] = line_data["GTC"]/1000.0
-    line_data = line_data.set_index("name")
-    line_data.index.names = ["id"]
-    line_data = line_data.drop(["nb_lines", "MVA", "GTC"], axis=1)
+    line_data_fn = join(dirname(abspath(__file__)),
+                        "../../../data/topologies/e-highways/source/Results_GTC_estimation_updated.xlsx")
+    lines = pd.read_excel(line_data_fn, usecols="A:D", skiprows=[0], names=["name", "nb_lines", "MVA", "GTC"])
+    lines["bus0"] = lines["name"].apply(lambda k: k.split('-')[0])
+    lines["bus1"] = lines["name"].apply(lambda k: k.split('-')[1].split("_")[0])
+    lines["carrier"] = lines["name"].apply(lambda k: k.split('(')[1].split(')')[0])
+    lines["s_nom"] = lines["GTC"]/1000.0
+    lines = lines.set_index("name")
+    lines.index.names = ["id"]
+    lines = lines.drop(["nb_lines", "MVA", "GTC"], axis=1)
 
     # Drop lines that are associated to buses that are not defined
-    for idx in line_data.index:
-        if line_data.loc[idx].bus0 not in eh_clusters.index.values or \
-                line_data.loc[idx].bus1 not in eh_clusters.index.values:
-            line_data = line_data.drop([idx])
+    for idx in lines.index:
+        if lines.loc[idx].bus0 not in eh_clusters.index.values or \
+                lines.loc[idx].bus1 not in eh_clusters.index.values:
+            lines = lines.drop([idx])
 
-    bus_data = pd.DataFrame(columns=["x", "y", "region", "onshore"], index=eh_clusters.index)
-    bus_data.index.names = ["id"]
+    buses = pd.DataFrame(columns=["x", "y", "region", "onshore"], index=eh_clusters.index)
+    buses.index.names = ["id"]
 
     # Assemble the clusters define in e-highways in order to compute for each bus its region, x and y
     all_codes = []
@@ -146,10 +75,10 @@ def preprocess(plotting: bool = False):
             x = float(centroid.strip("(").strip(")").split(",")[0])
             y = float(centroid.strip("(").strip(")").split(",")[1])
             centroid = shapely.geometry.Point(x, y)
-        bus_data.loc[idx].region = total_shape
-        bus_data.loc[idx].x = centroid.x
-        bus_data.loc[idx].y = centroid.y
-        bus_data.loc[idx].onshore = True
+        buses.loc[idx].region = total_shape
+        buses.loc[idx].x = centroid.x
+        buses.loc[idx].y = centroid.y
+        buses.loc[idx].onshore = True
 
     # Offshore nodes
     add_buses = pd.DataFrame([["OFF1", -6.5, 49.5, Point(-6.5, 49.5), False],  # England south-west
@@ -172,11 +101,10 @@ def preprocess(plotting: bool = False):
                              columns=["id", "x", "y", "region", "onshore"])
     add_buses = add_buses.set_index("id")
 
-    bus_data = bus_data.append(add_buses)
+    buses = buses.append(add_buses)
 
-    bus_save_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               "../../../data/topologies/e-highways/generated/buses.csv")
-    bus_data.to_csv(bus_save_fn)
+    bus_save_fn = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/generated/buses.csv")
+    buses.to_csv(bus_save_fn)
 
     # Offshore lines
     add_lines = pd.DataFrame([["OFF1-96IE", "OFF1", "96IE", "DC", 0],
@@ -221,81 +149,25 @@ def preprocess(plotting: bool = False):
                               ["OFFI-12PT", "OFFI", "12PT", "DC", 0]],
                              columns=["id", "bus0", "bus1", "carrier", "s_nom"])
     add_lines = add_lines.set_index("id")
-    line_data = line_data.append(add_lines)
+    lines = lines.append(add_lines)
 
     # Adding length to the lines
-    line_data["length"] = pd.Series([0]*len(line_data.index), index=line_data.index)
-    for idx in line_data.index:
-        bus0_id = line_data.loc[idx]["bus0"]
-        bus1_id = line_data.loc[idx]["bus1"]
-        bus0_x = bus_data.loc[bus0_id]["x"]
-        bus0_y = bus_data.loc[bus0_id]["y"]
-        bus1_x = bus_data.loc[bus1_id]["x"]
-        bus1_y = bus_data.loc[bus1_id]["y"]
-        line_data.loc[idx, "length"] = geopy.distance.geodesic((bus0_y, bus0_x), (bus1_y, bus1_x)).km
+    lines["length"] = pd.Series([0]*len(lines.index), index=lines.index)
+    for idx in lines.index:
+        bus0_id = lines.loc[idx]["bus0"]
+        bus1_id = lines.loc[idx]["bus1"]
+        bus0_x = buses.loc[bus0_id]["x"]
+        bus0_y = buses.loc[bus0_id]["y"]
+        bus1_x = buses.loc[bus1_id]["x"]
+        bus1_y = buses.loc[bus1_id]["y"]
+        lines.loc[idx, "length"] = geopy.distance.geodesic((bus0_y, bus0_x), (bus1_y, bus1_x)).km
 
-    line_save_fn = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "../../../data/topologies/e-highways/generated/lines.csv")
-    line_data.to_csv(line_save_fn)
+    line_save_fn = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/generated/lines.csv")
+    lines.to_csv(line_save_fn)
 
     if plotting:
-        plot_topology(bus_data, line_data)
+        plot_topology(buses, lines)
         plt.show()
-
-
-def voronoi_special(shape: Union[Polygon, MultiPolygon], centroids: List[List[float]], resolution: float = 0.5):
-    """This function applies a special Voronoi partition of a non-convex polygon based on
-    an approximation of the geodesic distance to a set of points which define the centroids
-    of each partition.
-
-    Parameters
-    ----------
-    shape: Union[Polygon, MultiPolygon]
-        Non-convex shape
-    centroids: List[List[float]], shape: Nx2
-        List of coordinates
-    resolution: float (default: 0.5)
-        The smaller this value the more precise the geodesic approximation
-    Returns
-    -------
-    List of N Polygons
-    """
-
-    # Get all the points in the shape at a certain resolution
-    points = return_points_in_shape(shape, resolution)
-
-    # Build a network from these points where each points correspond to a node
-    #   and each points is connected to its adjacent points
-    adjacency_matrix = np.zeros((len(points), len(points)))
-    for i, c_point in enumerate(points):
-        adjacency_matrix[i, :] = \
-            [1 if np.abs(c_point[0]-point[0]) <= resolution and np.abs(c_point[1]-point[1]) <= resolution else 0
-             for point in points]
-        adjacency_matrix[i, i] = 0.0
-    G = nx.from_numpy_matrix(adjacency_matrix)
-
-    # Find the closest node in the graph corresponding to each centroid
-    nbrs = NearestNeighbors(n_neighbors=1).fit(points)
-    _, idxs = nbrs.kneighbors(centroids)
-    centroids_nodes_indexes = [idx[0] for idx in idxs]
-
-    # For each point, find the closest centroid using shortest path in the graph
-    # (i.e approximation of the geodesic distance)
-    points_closest_centroid_index = np.zeros((len(points), ))
-    points_closest_centroid_length = np.ones((len(points), ))*1000
-    for index in centroids_nodes_indexes:
-        shortest_paths_length = nx.shortest_path_length(G, source=index)
-        for i in range(len(points)):
-            if i in shortest_paths_length and shortest_paths_length[i] < points_closest_centroid_length[i]:
-                points_closest_centroid_index[i] = index
-                points_closest_centroid_length[i] = shortest_paths_length[i]
-
-    # Compute the classic voronoi partitions of the shape using all points and then join the region
-    # corresponding to the same centroid
-    voronoi_partitions = voronoi_partition_pts(points, shape)
-
-    return [cascaded_union(voronoi_partitions[points_closest_centroid_index == index])
-            for index in centroids_nodes_indexes]
 
 
 def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool, extend_line_cap: bool = True,
@@ -323,8 +195,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
         Updated network
     """
 
-    topology_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "../../../data/topologies/e-highways/generated/")
+    topology_dir = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/generated/")
     buses = pd.read_csv(topology_dir + "buses.csv", index_col='id')
 
     # Remove offshore buses if not considered

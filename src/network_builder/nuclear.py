@@ -6,7 +6,7 @@ import pandas as pd
 import pypsa
 
 from src.data.geographics.manager import _get_country, match_points_to_region
-from src.data.generation.manager import get_gen_from_ppm, find_associated_buses_ehighway
+from src.data.generation.manager import get_gen_from_ppm
 from src.parameters.costs import get_cost, get_plant_type
 
 import logging
@@ -14,7 +14,6 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
-# TODO: this should not depend on e-highway
 def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: bool, extendable: bool,
                    ppm_file_name: str = None) -> pypsa.Network:
     """Adds nuclear generators to a PyPsa Network instance.
@@ -47,17 +46,20 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
     else:
         gens = get_gen_from_ppm(fuel_type="Nuclear", countries=countries)
 
-    gens = find_associated_buses_ehighway(gens, network)
-    logger.info("Adding {} GW of nuclear capacity in {}.".format(round(gens["Capacity"].sum()*(1e-3),2),
-                                                                gens["Country"].unique()))
-    # TODO: this could make the function more generic but for some weird reasons there is a fucking bug happening
-    #    in match_points_to_region
-    # Round lon and lat
-    # gens[["lon", "lat"]] = gens[["lon", "lat"]].round(2)
-    # print(gens)
-    # onshore_buses = network.buses[network.buses.onshore]
-    # match_points_to_region(gens[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values,
-    #                              onshore_buses.region)
+    onshore_buses = network.buses[network.buses.onshore]
+    gens_bus_ds = match_points_to_region(gens[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values,
+                                            onshore_buses.region)
+    points = list(gens_bus_ds.index)
+    gens = gens[gens[["lon", "lat"]].apply(lambda x: (x[0], x[1]) in points, axis=1)]
+
+    def add_region(lon, lat):
+        bus = gens_bus_ds[lon, lat]
+        # Need the if because some points are exactly at the same position
+        return bus if isinstance(bus, str) else bus.iloc[0]
+    gens["bus_id"] = gens[["lon", "lat"]].apply(lambda x: add_region(x[0], x[1]), axis=1)
+
+    logger.info("Adding {} GW of nuclear capacity in {}.".format(round(gens["Capacity"].sum()*1e-3, 2),
+                                                                 gens["Country"].unique()))
 
     if not use_ex_cap:
         gens.Capacity = 0.
@@ -68,7 +70,8 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
     # Get fuel type, efficiency and ramp rates
     tech_info_fn = join(dirname(abspath(__file__)), "../parameters/tech_info.xlsx")
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
-    fuel, efficiency, ramp_rate, base_level = tech_info.loc[get_plant_type('nuclear')][["fuel", "efficiency_ds", "ramp_rate", "base_level"]]
+    fuel, efficiency, ramp_rate, base_level = \
+        tech_info.loc[get_plant_type('nuclear')][["fuel", "efficiency_ds", "ramp_rate", "base_level"]]
 
     network.madd("Generator", "Gen nuclear " + gens.Name + " " + gens.bus_id,
                  bus=gens.bus_id.values,

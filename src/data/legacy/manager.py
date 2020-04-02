@@ -155,8 +155,6 @@ def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: Lis
 
     """
 
-    print(tech)
-
     accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility']
     assert tech in accepted_techs, "Error: tech {} is not in {}".format(tech, accepted_techs)
 

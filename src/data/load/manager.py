@@ -314,7 +314,7 @@ def available_load():
     return available_data
 
 
-# TODO: Need to merge this function
+# TODO: Merge with following function?
 def retrieve_load_data(regions: List[str], timestamps: pd.DatetimeIndex) -> pd.DataFrame:
     """
     Returns load time series for given regions and time horizon.
@@ -329,7 +329,7 @@ def retrieve_load_data(regions: List[str], timestamps: pd.DatetimeIndex) -> pd.D
     Returns
     -------
     load_per_region: pd.DataFrame (index = timestamps, columns = regions)
-        DataFrame associating to each region code the corresponding load data
+        DataFrame associating to each region code the corresponding load data (in GW)
 
     """
 
@@ -343,6 +343,7 @@ def retrieve_load_data(regions: List[str], timestamps: pd.DatetimeIndex) -> pd.D
     # Slice data on time
     load_data = load_data.loc[timestamps]
 
+    # TODO: need to check for missing countries
     # Slice data on region
     load_per_region = pd.DataFrame(columns=regions, index=timestamps)
     for region in regions:
@@ -350,6 +351,39 @@ def retrieve_load_data(regions: List[str], timestamps: pd.DatetimeIndex) -> pd.D
         load_per_region[region] = load_data[get_subregions(region)].sum(axis=1).values * 1e-3
 
     return load_per_region
+
+
+def retrieve_load_data_per_country(countries: List[str], timestamps: pd.DatetimeIndex) -> pd.DataFrame:
+    """
+    Returns load time series for given regions and time horizon.
+
+    Parameters
+    ----------
+    countries: List[str]
+        Iso codes of countries
+    timestamps: pd.DatetimeIndex
+        Datetime index
+
+    Returns
+    -------
+    load_per_region: pd.DataFrame (index = timestamps, columns = regions)
+        DataFrame associating to each region code the corresponding load data (in GW)
+
+    """
+
+    path_load_data = join(dirname(abspath(__file__)), '../../../data/load/generated/load_opsd_2015_2018.csv')
+    load_data = pd.read_csv(path_load_data, index_col=0, sep=';', low_memory=False)
+    load_data.index = pd.to_datetime(load_data.index)
+
+    assert timestamps[0] in load_data.index, "Error: Start datetime not in load data"
+    assert timestamps[-1] in load_data.index, "Error: End datetime not in load data"
+    missing_countries = set(countries) - set(load_data.columns)
+    assert not missing_countries, f"Error: Load is not available for {sorted(list(missing_countries))}"
+
+    # Slice data on time
+    load_data = load_data.loc[timestamps, countries]
+
+    return load_data
 
 
 if __name__ == "__main__":

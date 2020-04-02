@@ -7,7 +7,7 @@ import numpy as np
 import pypsa
 
 from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area
-from src.data.topologies.ehighway import get_ehighway_clusters
+from src.data.topologies.ehighways import get_ehighway_clusters
 from src.parameters.costs import get_cost, get_plant_type
 
 import logging

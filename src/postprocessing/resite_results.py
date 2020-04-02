@@ -59,6 +59,11 @@ class ResiteResults:
         cap_potential.columns = ["Initial", "Selected", "%"]
         print(f"Capacity potential (GW):\n{cap_potential}\n")
 
+    def get_selected_capacity_potential_use(self):
+        potential_capacity_use = self.resite.optimal_capacity_ds/self.resite.selected_capacity_potential_ds
+        potential_capacity_use = potential_capacity_use.dropna()
+        return potential_capacity_use.groupby(level=0).mean()
+
     def get_existing_capacity(self):
         return self.resite.existing_capacity_ds.groupby(level=0).sum()
 
@@ -97,6 +102,10 @@ class ResiteResults:
     def get_selected_cap_factor_mean(self):
         return self.resite.selected_cap_factor_df.mean().groupby(level=0).mean()
 
+    def get_unselected_cap_factor_mean(self):
+        cap_factor_df = self.resite.cap_factor_df.drop(self.resite.selected_cap_factor_df.columns, axis=1)
+        return cap_factor_df.mean().groupby(level=0).mean()
+
     def print_cap_factor_mean(self):
         initial_cap_factor_mean = self.get_initial_cap_factor_mean()
         selected_cap_fator_mean = self.get_selected_cap_factor_mean()
@@ -104,11 +113,32 @@ class ResiteResults:
         cap_factor_mean.columns = ["Initial", "Selected"]
         print(f"Mean of mean of capacity factors:\n{cap_factor_mean}\n")
 
+    def get_initial_cap_factor_median(self):
+        return self.resite.cap_factor_df.median().groupby(level=0).mean()
+
+    def get_selected_cap_factor_median(self):
+        return self.resite.selected_cap_factor_df.median().groupby(level=0).mean()
+
+    def get_unselected_cap_factor_median(self):
+        cap_factor_df = self.resite.cap_factor_df.drop(self.resite.selected_cap_factor_df.columns, axis=1)
+        return cap_factor_df.median().groupby(level=0).mean()
+
+    def print_cap_factor_median(self):
+        initial_cap_factor_median = self.get_initial_cap_factor_median()
+        selected_cap_fator_median = self.get_selected_cap_factor_median()
+        cap_factor_median = pd.concat([initial_cap_factor_median, selected_cap_fator_median], axis=1, sort=True)
+        cap_factor_median.columns = ["Initial", "Selected"]
+        print(f"Mean of mean of capacity factors:\n{cap_factor_median}\n")
+
     def get_initial_cap_factor_std(self):
         return self.resite.cap_factor_df.std().groupby(level=0).mean()
 
     def get_selected_cap_factor_std(self):
         return self.resite.selected_cap_factor_df.std().groupby(level=0).mean()
+
+    def get_unselected_cap_factor_std(self):
+        cap_factor_df = self.resite.cap_factor_df.drop(self.resite.selected_cap_factor_df.columns, axis=1)
+        return cap_factor_df.std().groupby(level=0).mean()
 
     def print_cap_factor_std(self):
         initial_cap_factor_std = self.get_initial_cap_factor_std()

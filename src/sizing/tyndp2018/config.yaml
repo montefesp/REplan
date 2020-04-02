@@ -18,11 +18,11 @@ time:
 
 # Space
 region: "EU"
-add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES technologies
+add_offshore: False # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
 res:
-  include: True
+  include: False
   strategy: "siting" # (max or comp) or bus or no_siting or siting
 
   # For strategy = max or comp
@@ -35,9 +35,10 @@ res:
   # For strategy = full or generate
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
-  technologies: ['wind_onshore', 'pv_utility', 'wind_offshore']
-  timeslice: ['2015-01-01T00:00', '2015-01-01T23:00']
+  technologies: ['wind_onshore', 'pv_utility'] #, 'wind_offshore']
+  timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
   use_ex_cap: True
+  limit_max_cap: False
   filtering_layers:
     resource_quality: True
     population_density: True
@@ -62,24 +63,24 @@ res:
   # Type of problem to be solved. Check resite.py for a full list.
   formulation: 'meet_RES_targets_agg' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
   # List of deployments per region (ordered as the 'regions' list above)
-  deployment_vector: [0.5] # [0.5, 0.5, 0.5, 0.5]
+  deployment_vector: [0.1] # [0.5, 0.5, 0.5, 0.5]
   # Keeping files at the end of the run.
   keep_files: True
 
 # Conventional generation
 dispatch:
-  include: True
+  include: False
   tech: "ccgt"
 
 # Nuclear
 nuclear:
-  include: True
+  include: False
   use_ex_cap: True # Whether to include existing cap
   extendable: False
 
 # Battery
 battery:
-  include: True
+  include: False
   type: "Li-ion"
   max_hours: 4 # THIS IS FIXED. IF IT CHANGES, CAPEX MUST CHANGE ACCORDINGLY.
 
