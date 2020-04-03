@@ -111,12 +111,8 @@ if __name__ == "__main__":
     if config['res']['include']:
         logger.info(f"Adding RES ({config['res']['technologies']}) generation.")
         if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
-            # Computing shapes
-            total_onshore_shape = cascaded_union(net.buses[net.buses.onshore].region.values.flatten())
-            total_offshore_shape = cascaded_union(net.buses[net.buses.onshore == False].region.values.flatten())
-            total_shape = cascaded_union([total_onshore_shape, total_offshore_shape])
-            net = add_res_from_file(net, total_shape, config['res']['strategy'], config["res"]["resite_nb"],
-                                     config["res"]["area_per_site"], config["res"]["cap_dens"])
+            net = add_res_from_file(net, config['res']['strategy'], config["res"]["resite_nb"],
+                                    config["res"]["area_per_site"], "ehighway", config["res"]["cap_dens"])
         if config['res']["strategy"] == "bus":
             net = add_res_per_bus(net, config["res"]["technologies"], countries, pv_wind_tech_config,
                                   config["res"]["use_ex_cap"])

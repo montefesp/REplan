@@ -9,20 +9,10 @@ from shapely.ops import cascaded_union
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.errors import TopologicalError
 
-from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area, get_onshore_shapes, get_offshore_shapes, \
-    match_points_to_region, display_polygons
-from src.data.topologies.ehighways import get_ehighway_clusters
-
-
-missing_region_dict = {
-     "NO": ["SE"],
-     "CH": ["AT"],
-     "BA": ["HR"],
-     "ME": ["HR"],
-     "RS": ["BG"],
-     "AL": ["BG"],
-     "MK": ["BG"]
-}
+from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes, \
+    match_points_to_region
+# from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area,
+# from src.data.topologies.ehighways import get_ehighway_clusters
 
 
 # TODO: need to revise the functions in this file
@@ -479,106 +469,115 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
 
     return capacity_potential_ds
 
-
+# missing_region_dict = {
+#      "NO": ["SE"],
+#      "CH": ["AT"],
+#      "BA": ["HR"],
+#      "ME": ["HR"],
+#      "RS": ["BG"],
+#      "AL": ["BG"],
+#      "MK": ["BG"]
+# }
+#
 # shitty because only working for e-highway -> should modify it or remove it from here
 # need to add offshore potential computation
 # improve based on similar function in generation.manager
-def get_potential_ehighway(bus_ids: List[str], tech: str) -> pd.DataFrame:
-    """
-    Returns the RES potential in GW/km2 for e-highway clusters
-
-    Parameters
-    ----------
-    bus_ids: List[str]
-        E-highway clusters identifier (used as bus_ids in the network)
-    tech: str
-        wind or pv
-
-    Returns
-    -------
-    total_capacities: pd.DataFrame indexed by bus_ids
-        Capacity per bus in GWe/km
-
-    """
-    # Get capacities
-    data_dir = join(dirname(abspath(__file__)), "../../../data/res_potential/source/ENSPRESO/")
-    capacities = []
-    if tech == "pv_utility":
-        unit = "GWe"
-        capacities = pd.read_excel(join(data_dir, "ENSPRESO_SOLAR_PV_CSP.XLSX"),
-                                   sheet_name="NUTS2 170 W per m2 and 3%",
-                                   usecols="C,H", header=2)
-        capacities.columns = ["code", "capacity"]
-        capacities["unit"] = pd.Series([unit]*len(capacities.index))
-
-    elif tech == "wind_onshore":
-        unit = "GWe"
-        # ODO: Need to pay attention to this scenario thing
-        scenario = "Reference - Large turbines"
-        # cap_factor = "20%  < CF < 25%"  # TDO: not to sure what to do with this
-        capacities = pd.read_excel(join(data_dir, "ENSPRESO_WIND_ONSHORE_OFFSHORE.XLSX"),
-                                   sheet_name="Wind Potential EU28 Full",
-                                   usecols="B,F,G,I,J")
-        capacities.columns = ["code", "scenario", "cap_factor", "unit", "capacity"]
-        capacities = capacities[capacities.scenario == scenario]
-        capacities = capacities[capacities.unit == unit]
-        # capacity = capacity[capacity.cap_factor == cap_factor]
-        capacities = capacities.groupby(["code", "unit"], as_index=False).agg('sum')
-    else:
-        print("This carrier is not supported")
-
-    # Transforming capacities to capacities per km2
-    area = get_nuts_area()
-    area.index.name = 'code'
-
-    nuts2_conversion_fn = join(dirname(abspath(__file__)),
-                               "../../../data/geographics/source/eurostat/NUTS2-conversion.csv")
-    nuts2_conversion = pd.read_csv(nuts2_conversion_fn, index_col=0)
-
-    # Convert index to new nuts2
-    for old_code in nuts2_conversion.index:
-        old_capacity = capacities[capacities.code == old_code]
-        old_area = area.loc[old_code]["2013"]
-        for new_code in nuts2_conversion.loc[old_code]["Code 2016"].split(";"):
-            new_area = area.loc[new_code]["2016"]
-            new_capacity = old_capacity.copy()
-            new_capacity.code = new_code
-            new_capacity.capacity = old_capacity.capacity*new_area/old_area
-            capacities = capacities.append(new_capacity, ignore_index=True)
-        capacities = capacities.drop(capacities[capacities.code == old_code].index)
-
-    # The areas are in square kilometre so we obtain GW/km2
-    def to_cap_per_area(x):
-        return x["capacity"]/area.loc[x["code"]]["2016"] if x["code"] in area.index else None
-    capacities["capacity"] = capacities[["code", "capacity"]].apply(lambda x: to_cap_per_area(x), axis=1)
-    capacities = capacities.set_index("code")
-
-    # Get codes of NUTS3 regions and countries composing the cluster
-    eh_clusters = get_ehighway_clusters()
-
-    total_capacities = np.zeros(len(bus_ids))
-    for i, bus_id in enumerate(bus_ids):
-
-        # ODO: would probably need to do sth more clever
-        #  --> just setting capacitities at seas as 10MW/km2
-        # if bus_id not in eh_clusters.index:
-        #     total_capacities[i] = 0.01 if tech == 'wind' else 0
-        #     continue
-
-        codes = eh_clusters.loc[bus_id].codes.split(",")
-
-        # ODO: this is a shitty hack
-        if codes[0][0:2] in missing_region_dict:
-            codes = missing_region_dict[codes[0][0:2]]
-
-        if len(codes[0]) != 2:
-            nuts2_codes = nuts3_to_nuts2(codes)
-            total_capacities[i] = np.average([capacities.loc[code]["capacity"] for code in nuts2_codes],
-                                             weights=[area.loc[code]["2016"] for code in codes])
-        else:
-            # If the code corresponds to a countries, get the correspond list of NUTS2
-            nuts2_codes = [code for code in capacities.index.values if code[0:2] == codes[0]]
-            total_capacities[i] = np.average([capacities.loc[code]["capacity"] for code in nuts2_codes],
-                                             weights=[area.loc[code]["2016"] for code in nuts2_codes])
-
-    return pd.DataFrame(total_capacities, index=bus_ids, columns=["capacity"]).capacity
+# def get_potential_ehighway(bus_ids: List[str], tech: str) -> pd.DataFrame:
+#     """
+#     Returns the RES potential in GW/km2 for e-highway clusters
+#
+#     Parameters
+#     ----------
+#     bus_ids: List[str]
+#         E-highway clusters identifier (used as bus_ids in the network)
+#     tech: str
+#         wind or pv
+#
+#     Returns
+#     -------
+#     total_capacities: pd.DataFrame indexed by bus_ids
+#         Capacity per bus in GWe/km
+#
+#     """
+#     # Get capacities
+#     data_dir = join(dirname(abspath(__file__)), "../../../data/res_potential/source/ENSPRESO/")
+#     capacities = []
+#     if tech == "pv_utility":
+#         unit = "GWe"
+#         capacities = pd.read_excel(join(data_dir, "ENSPRESO_SOLAR_PV_CSP.XLSX"),
+#                                    sheet_name="NUTS2 170 W per m2 and 3%",
+#                                    usecols="C,H", header=2)
+#         capacities.columns = ["code", "capacity"]
+#         capacities["unit"] = pd.Series([unit]*len(capacities.index))
+#
+#     elif tech == "wind_onshore":
+#         unit = "GWe"
+#         # ODO: Need to pay attention to this scenario thing
+#         scenario = "Reference - Large turbines"
+#         # cap_factor = "20%  < CF < 25%"  # TDO: not to sure what to do with this
+#         capacities = pd.read_excel(join(data_dir, "ENSPRESO_WIND_ONSHORE_OFFSHORE.XLSX"),
+#                                    sheet_name="Wind Potential EU28 Full",
+#                                    usecols="B,F,G,I,J")
+#         capacities.columns = ["code", "scenario", "cap_factor", "unit", "capacity"]
+#         capacities = capacities[capacities.scenario == scenario]
+#         capacities = capacities[capacities.unit == unit]
+#         # capacity = capacity[capacity.cap_factor == cap_factor]
+#         capacities = capacities.groupby(["code", "unit"], as_index=False).agg('sum')
+#     else:
+#         print("This carrier is not supported")
+#
+#     # Transforming capacities to capacities per km2
+#     area = get_nuts_area()
+#     area.index.name = 'code'
+#
+#     nuts2_conversion_fn = join(dirname(abspath(__file__)),
+#                                "../../../data/geographics/source/eurostat/NUTS2-conversion.csv")
+#     nuts2_conversion = pd.read_csv(nuts2_conversion_fn, index_col=0)
+#
+#     # Convert index to new nuts2
+#     for old_code in nuts2_conversion.index:
+#         old_capacity = capacities[capacities.code == old_code]
+#         old_area = area.loc[old_code]["2013"]
+#         for new_code in nuts2_conversion.loc[old_code]["Code 2016"].split(";"):
+#             new_area = area.loc[new_code]["2016"]
+#             new_capacity = old_capacity.copy()
+#             new_capacity.code = new_code
+#             new_capacity.capacity = old_capacity.capacity*new_area/old_area
+#             capacities = capacities.append(new_capacity, ignore_index=True)
+#         capacities = capacities.drop(capacities[capacities.code == old_code].index)
+#
+#     # The areas are in square kilometre so we obtain GW/km2
+#     def to_cap_per_area(x):
+#         return x["capacity"]/area.loc[x["code"]]["2016"] if x["code"] in area.index else None
+#     capacities["capacity"] = capacities[["code", "capacity"]].apply(lambda x: to_cap_per_area(x), axis=1)
+#     capacities = capacities.set_index("code")
+#
+#     # Get codes of NUTS3 regions and countries composing the cluster
+#     eh_clusters = get_ehighway_clusters()
+#
+#     total_capacities = np.zeros(len(bus_ids))
+#     for i, bus_id in enumerate(bus_ids):
+#
+#         # ODO: would probably need to do sth more clever
+#         #  --> just setting capacitities at seas as 10MW/km2
+#         # if bus_id not in eh_clusters.index:
+#         #     total_capacities[i] = 0.01 if tech == 'wind' else 0
+#         #     continue
+#
+#         codes = eh_clusters.loc[bus_id].codes.split(",")
+#
+#         # ODO: this is a shitty hack
+#         if codes[0][0:2] in missing_region_dict:
+#             codes = missing_region_dict[codes[0][0:2]]
+#
+#         if len(codes[0]) != 2:
+#             nuts2_codes = nuts3_to_nuts2(codes)
+#             total_capacities[i] = np.average([capacities.loc[code]["capacity"] for code in nuts2_codes],
+#                                              weights=[area.loc[code]["2016"] for code in codes])
+#         else:
+#             # If the code corresponds to a countries, get the correspond list of NUTS2
+#             nuts2_codes = [code for code in capacities.index.values if code[0:2] == codes[0]]
+#             total_capacities[i] = np.average([capacities.loc[code]["capacity"] for code in nuts2_codes],
+#                                              weights=[area.loc[code]["2016"] for code in nuts2_codes])
+#
+#     return pd.DataFrame(total_capacities, index=bus_ids, columns=["capacity"]).capacity

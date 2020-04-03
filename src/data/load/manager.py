@@ -388,13 +388,16 @@ def retrieve_load_data_per_country(countries: List[str], timestamps: pd.Datetime
 if __name__ == "__main__":
     available_loads = available_load()
     available_loads_countries = available_loads[[len(idx) == 2 for idx in available_loads.index]]
+    print(len(available_loads_countries))
     load_2015_2018_countries = available_loads_countries[(available_loads_countries.start <= 2015) &
                                                          (available_loads_countries.end >= 2018)].index
+    print(len(load_2015_2018_countries))
     load_2015_2018 = get_countries_load(load_2015_2018_countries, years=[2015, 2016, 2017, 2018])
     # load_2015_2018.to_csv("load_opsd_2015_2018.csv")
 
     load_2016_2018_countries = available_loads_countries[(available_loads_countries.start <= 2016) &
                                                          (available_loads_countries.end >= 2018)].index
+    print(len(load_2016_2018_countries))
 
     load_2016_2018 = get_countries_load(load_2016_2018_countries, years=[2016, 2017, 2018])
     # load_2016_2018.to_csv("load_opsd_2016_2018.csv")

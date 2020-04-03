@@ -101,12 +101,8 @@ if __name__ == '__main__':
         logger.info(f"Adding RES ({config['res']['technologies']}) generation.")
         if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
             # TODO: case not working because using get_ehighway_potential in add_res_from_file
-            # Computing shapes
-            total_onshore_shape = cascaded_union(net.buses[net.buses.onshore].region.values.flatten())
-            total_offshore_shape = cascaded_union(net.buses[net.buses.onshore == False].region.values.flatten())
-            total_shape = cascaded_union([total_onshore_shape, total_offshore_shape])
-            net = add_res_from_file(net, total_shape, config['res']['strategy'], config["res"]["resite_nb"],
-                                     config["res"]["area_per_site"], config["res"]["cap_dens"])
+            net = add_res_from_file(net, config['res']['strategy'], config["res"]["resite_nb"],
+                                    config["res"]["area_per_site"], "countries", config["res"]["cap_dens"])
         if config['res']["strategy"] == "bus":
             net = add_res_per_bus(net, config["res"]["technologies"], countries, pv_wind_tech_config,
                                   config["res"]["use_ex_cap"])
@@ -116,6 +112,8 @@ if __name__ == '__main__':
                                         config['res']['filtering_layers'], config["res"]["use_ex_cap"])
         if config['res']['strategy'] == 'siting':
             net = add_res(net, config['res'], pv_wind_tech_config, config["region"], output_dir)
+
+    exit()
 
     # Add conv gen
     if config["dispatch"]["include"]:

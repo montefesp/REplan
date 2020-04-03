@@ -22,15 +22,16 @@ add_offshore: False # ! if False, remove wind_offshore and wind_floating from RE
 
 # RES
 res:
-  include: False
-  strategy: "siting" # (max or comp) or bus or no_siting or siting
+  include: True
+  strategy: "comp" # (max or comp) or bus or no_siting or siting
 
   # For strategy = max or comp
-  resite_nb: 100 # can be multiples of 25
+  resite_nb: 0 # can be multiples of 25
   area_per_site: 2500 #km2
   cap_dens:
-    wind_onshore: ""  # GW/km2
-    pv_utility: ""  # GW/km2
+    # wind_onshore: ""  # GW/km2
+    # pv_utility: ""  # GW/km2
+    wind_offshore: 10
 
   # For strategy = full or generate
   # Various data layers to be taken into account in potential site selection.
