@@ -8,7 +8,71 @@ from typing import *
 from src.data.geographics.manager import get_subregions, get_nuts_area
 
 
-def get_countries_load(country_codes: List[str], nb_years: int = 1,
+def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
+             countries: List[str] = None, regions: List[str] = None):
+    """
+    Returns hourly load time series (in GWh) for given countries or regions.
+    The desired time slice can be either given as as series of time stamps or
+    as a range of years for which we want full data.
+
+    Parameters
+    ----------
+    timestamps: pd.DatetimeIndex (default: None)
+        Datetime index
+    years_range: List[int]
+        Range of years (if you desire to obtain data for only one year just pass a list with twice the year)
+    countries: List[str] (default: None)
+        ISO codes of countries
+    regions: List[str] (default: None)
+        List of codes referring to regions made of several countries defined in data/region_definition.csv
+
+    Returns
+    -------
+    pd.DataFrame (index = timestamps, columns = regions or countries)
+        DataFrame associating to each country or region the corresponding load data (in GWh)
+
+    """
+
+    assert (countries is None) != (regions is None), "Error: You must either specify a list of countries or " \
+                                                     "a list of regions made of countries, but not both."
+    assert bool(timestamps) != bool(years_range), "Error: You must either specify a range of years or " \
+                                                  "a series of time stamps, but not both."
+    assert years_range is None or len(years_range) == 2, \
+        f"The desired years range must be specified as a list of two ints, received {years_range}"
+
+    if years_range is not None:
+        timestamps = pd.date_range(f"{years_range[0]}-01-01 00:00:00", f"{years_range[1]}-12-31 00:00:00", freq='1H')
+
+    opsd_load_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
+    load = pd.read_csv(opsd_load_fn, index_col=0)
+    load.index = pd.DatetimeIndex(load.index)
+
+    # Slice on time and remove columns in which we don't have available data for the full time period
+    load = load.loc[timestamps].dropna(axis=1)
+    # Convert to GWh
+    load = load * 1e-3
+    # Round to kWh
+    load = load.round(6)
+
+    if countries is not None:
+        missing_countries = set(countries) - set(load.columns)
+        assert not missing_countries, f"Error: Load is not available for countries {sorted(list(missing_countries))}"
+        return load[countries]
+    else:  # regions is not None
+
+        load_per_region = pd.DataFrame(columns=regions, index=timestamps)
+        for region in regions:
+            # Get load date for all subregions and sum it
+            countries = get_subregions(region)
+            missing_countries = set(countries) - set(load.columns)
+            assert not missing_countries, f"Error: Load is not available for countries " \
+                                          f"{sorted(list(missing_countries))} in region {region}"
+            load_per_region[region] = load[countries].sum(axis=1).values
+
+        return load_per_region
+
+
+def get_countries_load(countries: List[str], nb_years: int = 1,
                        days_range_start: datetime.date = datetime.date(1, 1, 1),
                        days_range_end: datetime.date = datetime.date(1, 12, 31),
                        years: List[int] = None):
@@ -23,7 +87,7 @@ def get_countries_load(country_codes: List[str], nb_years: int = 1,
 
     Parameters
     ----------
-    country_codes: List[str]
+    countries: List[str]
         List of country ISO codes
     nb_years: int (default: 1)
         Number of years for which we want load
@@ -51,13 +115,14 @@ def get_countries_load(country_codes: List[str], nb_years: int = 1,
 
     load_data_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
     load_data = pd.read_csv(load_data_fn, index_col=0)
-    load_data.index = pd.DatetimeIndex(load_data.index)  # TODO: is there an automatic way to do this
+    load_data.index = pd.DatetimeIndex(load_data.index)
+    print(load_data)
 
     # Check data is available for those countries
-    missing_code_in_data = sorted(list(set(country_codes) - set(load_data.keys())))
-    assert len(missing_code_in_data) == 0, f"No data present for the following codes: {missing_code_in_data}"
+    missing_countries = set(countries) - set(load_data.keys())
+    assert not missing_countries, f"No data present for the following codes: {missing_countries}"
 
-    load_data = load_data[country_codes]
+    load_data = load_data[countries]
 
     # Select time period
     if years is None:
@@ -157,6 +222,7 @@ def get_countries_load_interpolated(target_countries: List[str], source_countrie
 
     # Source countries
     # Get the load for the source countries
+    # TODO: logically just replace this with get_load (and change arguments accordingly)
     source_countries_load = get_countries_load(source_countries, nb_years, days_range_start, days_range_end, years)
 
     # Load the yearly load of the source regions
@@ -177,6 +243,7 @@ def get_countries_load_interpolated(target_countries: List[str], source_countrie
     return target_countries_load
 
 
+# TODO: probably does not need to cange much, except for arguments and maybe clean a bit the code
 def get_load_from_nuts_codes(nuts_codes_lists: List[List[str]], nb_years: int = 1,
                              days_range_start: datetime.date = datetime.date(1, 1, 1),
                              days_range_end: datetime.date = datetime.date(1, 12, 31),
@@ -291,113 +358,62 @@ def get_yearly_country_load(country: str, year: int = 2016) -> int:
     return pd.read_csv(key_ind_fn, index_col=0).loc[year, "Electricity consumption (TWh)"]
 
 
-# TODO: comment
-def available_load():
-
-    load_data_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
-    load_data = pd.read_csv(load_data_fn, index_col=0)
-    load_data.index = pd.DatetimeIndex(load_data.index)
-
-    load_data_start_of_years = load_data[(load_data.index.month == 1) & (load_data.index.day == 1) & (load_data.index.hour == 0)]
-    load_data_end_of_years = load_data[(load_data.index.month == 12) & (load_data.index.day == 31) & (load_data.index.hour == 23)]
-
-    available_data = pd.DataFrame(index=load_data.keys(), columns=["start", "end"])
-    for key in load_data.keys():
-        load_start_indexes = load_data_start_of_years[key].dropna().index
-        load_end_indexes = load_data_end_of_years[key].dropna().index
-        available_data.loc[key, 'start'] = min(load_start_indexes).year
-        available_data.loc[key, 'end'] = max(load_end_indexes).year
-
-    available_data.to_csv("available_load_years.csv")
-
-    return available_data
-
-
-# TODO: Merge with following function?
-def retrieve_load_data(regions: List[str], timestamps: pd.DatetimeIndex) -> pd.DataFrame:
+def get_prepared_load(timestamps: pd.DatetimeIndex = None, countries: List[str] = None,
+                      regions: List[str] = None) -> pd.DataFrame:
     """
-    Returns load time series for given regions and time horizon.
+    Returns hourly load time series (in GWh) for given regions and time horizon.
 
     Parameters
     ----------
-    regions: List[str]
-        Code of regions
-    timestamps: pd.DatetimeIndex
+    timestamps: pd.DatetimeIndex (default: None)
         Datetime index
+    countries: List[str] (default: None)
+        ISO codes of countries
+    regions: List[str] (default: None)
+        List of codes referring to regions made of several countries defined in data/region_definition.csv
 
     Returns
     -------
     load_per_region: pd.DataFrame (index = timestamps, columns = regions)
-        DataFrame associating to each region code the corresponding load data (in GW)
+        DataFrame associating to each region code the corresponding load data (in GWh)
 
     """
 
-    path_load_data = join(dirname(abspath(__file__)), '../../../data/load/generated/load_opsd_2015_2018.csv')
-    load_data = pd.read_csv(path_load_data, index_col=0, sep=';', low_memory=False)
-    load_data.index = pd.to_datetime(load_data.index)
+    assert bool(countries) != bool(regions), "Error: You must either specify a list of countries or " \
+                                             "a list of regions made of countries, but not both."
 
-    assert timestamps[0] in load_data.index, "Error: Start datetime not in load data"
-    assert timestamps[-1] in load_data.index, "Error: End datetime not in load data"
+    assert timestamps is None or timestamps[0].year >= 2015 and timestamps[-1].year <= 2018, \
+        "Error: Data is only available from 2015 to 2018"
 
-    # Slice data on time
-    load_data = load_data.loc[timestamps]
+    years_range = "2015_2018" if timestamps is None or timestamps[0].year == 2015 else "2016_2018"
 
-    # TODO: need to check for missing countries
-    # Slice data on region
-    load_per_region = pd.DataFrame(columns=regions, index=timestamps)
-    for region in regions:
-        # Get load date for all subregions, sum it and transform to GW
-        load_per_region[region] = load_data[get_subregions(region)].sum(axis=1).values * 1e-3
+    opsd_load_fn = join(dirname(abspath(__file__)), f'../../../data/load/generated/load_opsd_{years_range}.csv')
+    load = pd.read_csv(opsd_load_fn, index_col=0, low_memory=False, date_parser=pd.to_datetime)
 
-    return load_per_region
+    # Slice data on time if needed
+    if timestamps is not None:
+        missing_load = set(timestamps) - set(load.index)
+        assert not missing_load, f"Error: Load is not available for time-stamps {missing_load}"
+        load = load.loc[timestamps]
 
+    if countries is not None:
+        missing_countries = set(countries) - set(load.columns)
+        assert not missing_countries, f"Error: Load is not available for countries {sorted(list(missing_countries))}"
+        return load[countries]*1e-3
+    else:  # regions is not None
 
-def retrieve_load_data_per_country(countries: List[str], timestamps: pd.DatetimeIndex) -> pd.DataFrame:
-    """
-    Returns load time series for given regions and time horizon.
+        load_per_region = pd.DataFrame(columns=regions, index=timestamps)
+        for region in regions:
+            # Get load date for all subregions, sum it and transform to GWh
+            countries = get_subregions(region)
+            missing_countries = set(countries) - set(load.columns)
+            assert not missing_countries, f"Error: Load is not available for countries " \
+                                          f"{sorted(list(missing_countries))} in region {region}"
+            load_per_region[region] = load[countries].sum(axis=1).values * 1e-3
 
-    Parameters
-    ----------
-    countries: List[str]
-        Iso codes of countries
-    timestamps: pd.DatetimeIndex
-        Datetime index
-
-    Returns
-    -------
-    load_per_region: pd.DataFrame (index = timestamps, columns = regions)
-        DataFrame associating to each region code the corresponding load data (in GW)
-
-    """
-
-    path_load_data = join(dirname(abspath(__file__)), '../../../data/load/generated/load_opsd_2015_2018.csv')
-    load_data = pd.read_csv(path_load_data, index_col=0, sep=';', low_memory=False)
-    load_data.index = pd.to_datetime(load_data.index)
-
-    assert timestamps[0] in load_data.index, "Error: Start datetime not in load data"
-    assert timestamps[-1] in load_data.index, "Error: End datetime not in load data"
-    missing_countries = set(countries) - set(load_data.columns)
-    assert not missing_countries, f"Error: Load is not available for {sorted(list(missing_countries))}"
-
-    # Slice data on time
-    load_data = load_data.loc[timestamps, countries]
-
-    return load_data
+        return load_per_region
 
 
-if __name__ == "__main__":
-    available_loads = available_load()
-    available_loads_countries = available_loads[[len(idx) == 2 for idx in available_loads.index]]
-    print(len(available_loads_countries))
-    load_2015_2018_countries = available_loads_countries[(available_loads_countries.start <= 2015) &
-                                                         (available_loads_countries.end >= 2018)].index
-    print(len(load_2015_2018_countries))
-    load_2015_2018 = get_countries_load(load_2015_2018_countries, years=[2015, 2016, 2017, 2018])
-    # load_2015_2018.to_csv("load_opsd_2015_2018.csv")
-
-    load_2016_2018_countries = available_loads_countries[(available_loads_countries.start <= 2016) &
-                                                         (available_loads_countries.end >= 2018)].index
-    print(len(load_2016_2018_countries))
-
-    load_2016_2018 = get_countries_load(load_2016_2018_countries, years=[2016, 2017, 2018])
-    # load_2016_2018.to_csv("load_opsd_2016_2018.csv")
+if __name__ == '__main__':
+    timestamps = pd.date_range('2015-01-01T00:00', '2015-12-31T23:00', freq='1H')
+    get_load(years_range=[2017, 2017], countries=["BE", "UA"])

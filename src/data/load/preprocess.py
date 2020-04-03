@@ -6,6 +6,8 @@ from scipy import stats
 
 import matplotlib.pyplot as plt
 
+from src.data.load.manager import get_load
+
 
 def filter_outliers(time_series: pd.DataFrame) -> pd.DataFrame:
     """
@@ -107,8 +109,8 @@ def correct_time_series(time_series: pd.DataFrame, plot: bool = False) \
 
 def preprocess():
     """
-    This function builds a complete and easy to use database of load by formating and correcting some open-source data
-    contained in the folder data/load/source.
+    This function builds a complete and easy to use database of load by formatting and
+    correcting some open-source data contained in the folder data/load/source.
     The results are saved in the folder data/load/generated.
     """
 
@@ -150,9 +152,74 @@ def preprocess():
         print(key)
         final_data[key] = correct_time_series(final_data[key])
 
+    final_data.index = final_data.index.strftime('%Y-%m-%d %H:%M:%S')
     final_data_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
     final_data.to_csv(final_data_fn)
 
 
+def get_load_full_years_range(save: bool = False) -> pd.DataFrame:
+    """
+    Returns (and optionally save) for each region for which we have load data in data/load/opsd_load.csv, the first
+    and last year for which we have hourly data for everyday of the year.
+    Note that data/load/opsd_load.csv is supposed to contain only contiguous time series (i.e. no NaN values in the
+    middle of it)
+
+    Parameters
+    ----------
+    save: bool (default: False)
+        Whether to save the output data to a file
+
+    Returns
+    -------
+    load_full_years_range: pd.DataFrame
+        Contains for each region the first and last year for which we have data for every hour
+
+    """
+
+    opsd_load_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
+    load = pd.read_csv(opsd_load_fn, index_col=0)
+    load.index = pd.DatetimeIndex(load.index)
+
+    # Extract the load of the first and last hour of the year for every region
+    load_first_hour_of_year = load[(load.index.month == 1) & (load.index.day == 1) & (load.index.hour == 0)]
+    load_last_hour_of_year = load[(load.index.month == 12) & (load.index.day == 31) & (load.index.hour == 23)]
+
+    # For each region, get the first year for which the first hour is not NaN and the last year for which it is not NaN
+    load_full_years_range = pd.DataFrame(index=load.keys(), columns=["start", "end"])
+    for key in load.keys():
+        load_start_indexes = load_first_hour_of_year[key].dropna().index
+        load_end_indexes = load_last_hour_of_year[key].dropna().index
+        load_full_years_range.loc[key, 'start'] = min(load_start_indexes).year
+        load_full_years_range.loc[key, 'end'] = max(load_end_indexes).year
+
+    if save:
+        load_full_years_range.to_csv("available_load_years.csv")
+
+    return load_full_years_range
+
+
+def create_countries_load_files():
+    """
+    This function creates two files: one containing hourly load data from 2015 to 2018 for countries for which we have
+    data for each hour of those years and the other one created the same way but for years 2016 to 2018.
+
+    """
+    available_years = get_load_full_years_range()
+    available_years_countries = available_years[[len(idx) == 2 for idx in available_years.index]]
+
+    load_dir = join(dirname(abspath(__file__)), "../../../data/load/generated/")
+
+    load_2015_2018_countries = available_years_countries[(available_years_countries.start <= 2015) &
+                                                         (available_years_countries.end >= 2018)].index
+    load_2015_2018 = get_load(countries=load_2015_2018_countries.values, years_range=[2015, 2018])
+    load_2015_2018.to_csv(load_dir + "load_opsd_2015_2018.csv")
+
+    load_2016_2018_countries = available_years_countries[(available_years_countries.start <= 2016) &
+                                                         (available_years_countries.end >= 2018)].index
+    load_2016_2018 = get_load(countries=load_2016_2018_countries.values, years_range=[2016, 2018])
+    load_2016_2018.to_csv(load_dir + "load_opsd_2016_2018.csv")
+
+
 if __name__ == "__main__":
-    preprocess()
+    # preprocess()
+    create_countries_load_files()

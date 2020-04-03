@@ -12,7 +12,7 @@ import pypsa
 from src.data.emission.manager import get_reference_emission_levels
 from src.data.topologies.tyndp2018 import get_topology
 from src.data.geographics.manager import get_subregions
-from src.data.load.manager import retrieve_load_data_per_country
+from src.data.load.manager import get_prepared_load, get_load
 from src.network_builder.res import add_generators_from_file as add_res_from_file
 from src.network_builder.res import \
     add_generators as add_res, \
@@ -77,7 +77,8 @@ if __name__ == '__main__':
     # Adding load
     logger.info("Adding load.")
     onshore_bus_indexes = net.buses[net.buses.onshore].index
-    load = retrieve_load_data_per_country(countries, timestamps)
+    # load = get_prepared_load(timestamps=timestamps, countries=countries)
+    load = get_load(timestamps=timestamps, countries=countries)
     load_indexes = "Load " + onshore_bus_indexes
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
     net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)

@@ -84,6 +84,7 @@ if __name__ == "__main__":
     # Adding load
     logger.info("Adding load.")
     onshore_bus_indexes = net.buses[net.buses.onshore].index
+    # TODO: change this once the code is cleaned in load.manager
     load = get_load_from_nuts_codes(
         [eh_clusters.loc[bus_id].codes.split(',') for bus_id in onshore_bus_indexes],
         days_range_start=datetime.date(1, timestamps[0].month, timestamps[0].day),
