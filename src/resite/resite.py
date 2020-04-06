@@ -7,7 +7,7 @@ from src.data.legacy.manager import get_legacy_capacity
 from src.data.resource.manager import read_resource_database, compute_capacity_factors
 from src.data.land_data.manager import filter_points
 from src.data.res_potential.manager import get_capacity_potential
-from src.data.load.manager import get_prepared_load, get_load
+from src.data.load.manager import get_load
 from src.data.geographics.manager import return_region_shape, return_points_in_shape, get_subregions
 from typing import List, Dict, Tuple, Any
 from shutil import copy, rmtree

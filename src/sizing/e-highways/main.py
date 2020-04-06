@@ -84,12 +84,8 @@ if __name__ == "__main__":
     # Adding load
     logger.info("Adding load.")
     onshore_bus_indexes = net.buses[net.buses.onshore].index
-    # TODO: change this once the code is cleaned in load.manager
     load = get_load_from_nuts_codes(
-        [eh_clusters.loc[bus_id].codes.split(',') for bus_id in onshore_bus_indexes],
-        days_range_start=datetime.date(1, timestamps[0].month, timestamps[0].day),
-        days_range_end=datetime.date(1, timestamps[-1].month, timestamps[-1].day))
-    load /= 1000.  # From MWh to GWh
+        [eh_clusters.loc[bus_id].codes.split(',') for bus_id in onshore_bus_indexes], net.snapshots)
     load_indexes = "Load " + onshore_bus_indexes
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
     net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)

@@ -18,7 +18,7 @@ time:
 
 # Space
 region: "EU"
-add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES technologies
+add_offshore: False # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
 res:
