@@ -22,10 +22,9 @@ logger = logging.getLogger()
 
 
 # TODO: does not work for ehighway anymore
-def add_generators_from_file(network: pypsa.Network, strategy: str, site_nb: int,
+def add_generators_from_file(network: pypsa.Network, technologies: List[str], strategy: str, site_nb: int,
                              area_per_site: int, topology_type: str = "countries",
-                             cap_dens_dict: Dict[str, float] = None) \
-        -> pypsa.Network:
+                             cap_dens_dict: Dict[str, float] = None) -> pypsa.Network:
     """Adds wind and pv generator that where selected via a certain siting method to a Network class.
 
     Parameters
@@ -55,11 +54,18 @@ def add_generators_from_file(network: pypsa.Network, strategy: str, site_nb: int
 
     resite_data_fn = join(dirname(abspath(__file__)),
                           "../../data/resite/generated/" + strategy + "_site_data_" + str(site_nb) + ".p")
-    selected_points = pickle.load(open(resite_data_fn, "rb"))
+    tech_points_cap_factor_df = pickle.load(open(resite_data_fn, "rb"))
 
-    for tech, points_dict in selected_points.items():
+    missing_timestamps = set(network.snapshots) - set(tech_points_cap_factor_df.index)
+    assert not missing_timestamps, f"Error: Following timestamps are not part of capacity factors {missing_timestamps}"
 
-        print(tech)
+    for tech in technologies:
+
+        if tech not in set(tech_points_cap_factor_df.columns.get_level_values(0)):
+            print(f"Warning: Technology {tech} is not part of RES data from files. Therefore it was not added.")
+            continue
+
+        points = list(tech_points_cap_factor_df[tech].columns)
 
         is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
         buses = network.buses[network.buses.onshore == is_onshore]
@@ -84,7 +90,7 @@ def add_generators_from_file(network: pypsa.Network, strategy: str, site_nb: int
 
         # Detect to which bus the node should be associated
         # TODO: not working with offshore
-        points_bus_ds = match_points_to_region(list(points_dict.keys()), buses.region).dropna()
+        points_bus_ds = match_points_to_region(points, buses.region).dropna()
         points = list(points_bus_ds.index)
 
         # Get potential capacity for each point
@@ -92,8 +98,7 @@ def add_generators_from_file(network: pypsa.Network, strategy: str, site_nb: int
             [bus_capacity_potential_per_km[points_bus_ds[point]]*area_per_site for point in points]
 
         # Get capacity factors
-        cap_factor_series = np.array([points_dict[point][0:len(network.snapshots)] for point in points]).T
-        print(cap_factor_series.shape)
+        cap_factor_series = tech_points_cap_factor_df.loc[network.snapshots][tech][points].values
 
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 

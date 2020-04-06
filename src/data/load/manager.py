@@ -35,8 +35,8 @@ def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
 
     assert (countries is None) != (regions is None), "Error: You must either specify a list of countries or " \
                                                      "a list of regions made of countries, but not both."
-    assert bool(timestamps) != bool(years_range), "Error: You must either specify a range of years or " \
-                                                  "a series of time stamps, but not both."
+    assert (timestamps is None) != (years_range is None), "Error: You must either specify a range of years or " \
+                                                          "a series of time stamps, but not both."
     assert years_range is None or len(years_range) == 2, \
         f"The desired years range must be specified as a list of two ints, received {years_range}"
 
