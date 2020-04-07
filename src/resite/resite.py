@@ -309,6 +309,7 @@ class Resite:
         # Remove instance because it can't be pickled
         self.instance = None
         self.y = None
+        # TODO: why do i set that here to None? - see gurobipy
         self.obj = None
         pickle.dump(self, open(join(self.output_folder, 'resite_model.p'), 'wb'))
 

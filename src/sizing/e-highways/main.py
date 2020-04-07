@@ -9,7 +9,7 @@ import datetime
 from shapely.ops import cascaded_union
 from pyomo.opt import ProblemFormat
 
-from src.data.emission.manager import get_reference_emission_levels
+from src.data.emission.manager import get_reference_emission_levels_for_region
 from src.data.load.manager import get_load_from_nuts_codes
 from src.data.topologies.ehighways import get_topology
 from src.network_builder.res import add_generators_from_file as add_res_from_file
@@ -154,7 +154,8 @@ if __name__ == "__main__":
     if config["battery"]["include"]:
         net = add_batteries(net, config["battery"]["type"], config["battery"]["max_hours"])
 
-    co2_reference_kt = get_reference_emission_levels(config["region"], config["co2_emissions"]["reference_year"])
+    co2_reference_kt = \
+        get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
     co2_budget = co2_reference_kt*(1-config["co2_emissions"]["mitigation_factor"])*len(net.snapshots)/NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
 
