@@ -170,7 +170,7 @@ def add_phs_plants(network: pypsa.Network, topology_type: str = "countries",
     hydro_capacities = pd.read_csv(hydro_capacities_fn, index_col=0, delimiter=";", usecols=[0, 4, 5])
 
     buses_onshore = network.buses[network.buses.onshore]
-    if topology_type == "ehiwghay":
+    if topology_type == "ehighway":
         psp_pow_cap, psp_en_cap = phs_inputs_nuts_to_ehighway(buses_onshore.index,
                                                               hydro_capacities["PSP_CAP [GW]"],
                                                               hydro_capacities["PSP_EN_CAP [GWh]"])

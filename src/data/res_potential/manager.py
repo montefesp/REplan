@@ -235,17 +235,15 @@ def capacity_potential_from_enspresso(tech: str) -> pd.DataFrame:
     if tech == 'wind_onshore':
 
         cap_potential_file = pd.read_excel(join(path_potential_data, 'ENSPRESO_WIND_ONSHORE_OFFSHORE.XLSX'),
-                                           sheet_name='Wind Potential EU28 Full', index_col=1)
+                                   sheet_name='Raw data', index_col=1, skiprows=5)
 
         scenario = 'EU-Wide high restrictions'  # TODO: parametrize
 
         onshore_wind = cap_potential_file[
-            (cap_potential_file['Unit'] == 'GWe') &
-            (cap_potential_file['Onshore Offshore'] == 'Onshore') &
+            (cap_potential_file['ONOFF'] == 'Onshore') &
             (cap_potential_file['Scenario'] == scenario) &
-            (cap_potential_file['Wind condition'] == 'CF > 25%')]
-
-        nuts2_capacity_potentials_ds = onshore_wind.groupby(onshore_wind.index)['Value'].sum()
+            (cap_potential_file['Subscenario - not cumulative'] == '2000m setback distance')]
+        nuts2_capacity_potentials_ds = onshore_wind['GW_Morethan25%_2030_100m_ALLTIMESLICESAVERAGE_V112']
 
     elif tech == 'wind_offshore':
 

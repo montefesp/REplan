@@ -13,17 +13,17 @@ solver_options:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-01-01T23:00']
+  slice: ['2015-01-01T00:00', '2015-01-31T23:00']
   resolution: 1
 
 # Space
-region: "EU"
+region: "CWE"
 add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
 res:
-  include: False
-  strategy: "bus" # (max or comp) or bus or no_siting or siting
+  include: True
+  strategy: "siting" # (max or comp) or bus or no_siting or siting
 
   # For strategy = max or comp
   resite_nb: 100 # can be multiples of 25
@@ -38,7 +38,7 @@ res:
   technologies: ['wind_onshore', 'pv_utility', 'wind_offshore']
   timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
   use_ex_cap: True
-  limit_max_cap: False
+  limit_max_cap: True
   filtering_layers:
     resource_quality: True
     population_density: True
@@ -61,9 +61,9 @@ res:
   write_lp: False
   write_log: False
   # Type of problem to be solved. Check resite.py for a full list.
-  formulation: 'meet_RES_targets_agg' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
+  formulation: 'meet_RES_targets_hourly' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
   # List of deployments per region (ordered as the 'regions' list above)
-  deployment_vector: [0.5] # [0.5, 0.5, 0.5, 0.5]
+  deployment_vector: [0.3] # [0.5, 0.5, 0.5, 0.5]
   # Keeping files at the end of the run.
   keep_files: True
 
