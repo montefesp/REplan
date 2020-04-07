@@ -85,10 +85,7 @@ if __name__ == "__main__":
     logger.info("Adding load.")
     onshore_bus_indexes = net.buses[net.buses.onshore].index
     load = get_load_from_nuts_codes(
-        [eh_clusters.loc[bus_id].codes.split(',') for bus_id in onshore_bus_indexes],
-        days_range_start=datetime.date(1, timestamps[0].month, timestamps[0].day),
-        days_range_end=datetime.date(1, timestamps[-1].month, timestamps[-1].day))
-    load /= 1000.  # From MWh to GWh
+        [eh_clusters.loc[bus_id].codes.split(',') for bus_id in onshore_bus_indexes], net.snapshots)
     load_indexes = "Load " + onshore_bus_indexes
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
     net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)
@@ -111,12 +108,8 @@ if __name__ == "__main__":
     if config['res']['include']:
         logger.info(f"Adding RES ({config['res']['technologies']}) generation.")
         if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
-            # Computing shapes
-            total_onshore_shape = cascaded_union(net.buses[net.buses.onshore].region.values.flatten())
-            total_offshore_shape = cascaded_union(net.buses[net.buses.onshore == False].region.values.flatten())
-            total_shape = cascaded_union([total_onshore_shape, total_offshore_shape])
-            net = add_res_from_file(net, total_shape, config['res']['strategy'], config["res"]["resite_nb"],
-                                     config["res"]["area_per_site"], config["res"]["cap_dens"])
+            net = add_res_from_file(net, config['res']['strategy'], config["res"]["resite_nb"],
+                                    config["res"]["area_per_site"], "ehighway", config["res"]["cap_dens"])
         if config['res']["strategy"] == "bus":
             net = add_res_per_bus(net, config["res"]["technologies"], countries, pv_wind_tech_config,
                                   config["res"]["use_ex_cap"])

@@ -7,7 +7,7 @@ from src.data.legacy.manager import get_legacy_capacity
 from src.data.resource.manager import read_resource_database, compute_capacity_factors
 from src.data.land_data.manager import filter_points
 from src.data.res_potential.manager import get_capacity_potential
-from src.data.load.manager import retrieve_load_data
+from src.data.load.manager import get_load
 from src.data.geographics.manager import return_region_shape, return_points_in_shape, get_subregions
 from typing import List, Dict, Tuple, Any
 from shutil import copy, rmtree
@@ -91,7 +91,8 @@ class Resite:
         self.use_ex_cap = use_ex_cap
         self.filtering_layers = filtering_layers
 
-        self.load_df = retrieve_load_data(self.regions, self.timestamps)
+        # self.load_df = get_prepared_load(timestamps=self.timestamps, regions=self.regions)
+        self.load_df = get_load(timestamps=self.timestamps, regions=self.regions)
 
         region_shapes = pd.DataFrame(index=self.regions, columns=['full'])
         all_subregions = []
