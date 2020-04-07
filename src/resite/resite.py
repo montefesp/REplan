@@ -114,7 +114,7 @@ class Resite:
 
         if use_ex_cap:
             tech_with_legacy_data = \
-                list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility']))
+                list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']))
             existing_capacity_dict = get_legacy_capacity(tech_with_legacy_data, self.tech_config, all_subregions,
                                                          init_points, self.spatial_res)
 
@@ -306,11 +306,27 @@ class Resite:
 
         yaml.dump(self.tech_config, open(self.output_folder + 'pv_wind_tech_configs.yaml', 'w'))
 
-        # Remove instance because it can't be pickled
-        self.instance = None
-        self.y = None
-        self.obj = None
-        pickle.dump(self, open(join(self.output_folder, 'resite_model.p'), 'wb'))
+        resite_output = [
+            self.formulation,
+            self.timestamps,
+            self.regions,
+            self.modelling,
+            self.technologies,
+            self.deployment_vector,
+            self.tech_points_dict,
+            self.cap_potential_ds,
+            self.cap_factor_df,
+            self.existing_capacity_ds,
+            self.optimal_capacity_ds,
+            self.selected_tech_points_dict,
+            self.tech_points_dict,
+            self.generation_potential_df,
+            self.load_df,
+            self.selected_capacity_potential_ds,
+            self.selected_cap_factor_df
+        ]
+
+        pickle.dump(resite_output, open(join(self.output_folder, 'resite_model.p'), 'wb'))
 
 
 

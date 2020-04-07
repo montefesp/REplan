@@ -66,7 +66,7 @@ def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
         timestamps = pd.date_range(f"{years_range[0]}-01-01 00:00:00", f"{years_range[1]}-12-31 00:00:00", freq='1H')
 
     opsd_load_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
-    load = pd.read_csv(opsd_load_fn, index_col=0)
+    load = pd.read_csv(opsd_load_fn, index_col=0, engine='python')
     load.index = pd.DatetimeIndex(load.index)
 
     # Slice on time and remove columns in which we don't have available data for the full time period

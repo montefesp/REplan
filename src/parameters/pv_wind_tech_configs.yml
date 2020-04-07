@@ -76,5 +76,5 @@ pv_residential:
   altitude_threshold: 3000.
   terrain_slope_threshold: 1.
   forestry_ratio_threshold: 1.
-
+  legacy_min_capacity: 0.001
 

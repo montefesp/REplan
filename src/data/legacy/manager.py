@@ -4,14 +4,16 @@ from typing import List, Tuple, Dict, Union, Any
 import numpy as np
 import pandas as pd
 import scipy.spatial
+import xarray as xr
+from shapely.geometry import MultiPoint
 
-from src.data.geographics.manager import convert_country_codes, match_points_to_region
+from src.data.geographics.manager import convert_country_codes, match_points_to_region, get_onshore_shapes
 from src.data.land_data.manager import filter_onshore_offshore_points
 
 
 # TODO: could there be points outside of mainland europe??? -> Yes expl: NL -69.8908, 12.474 in curaçao
 # TODO: need to merge the end of the if and else
-def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: List[str],
+def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: List[str], spatial_resolution: float,
                               points: List[Tuple[float, float]]) -> Dict[List[Tuple[float, float]], float]:
     """
     Reads dataset of existing RES units in the given area and associated to the closest points. Available for EU only.
@@ -33,7 +35,7 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
         Dictionary storing existing capacities per node.
     """
 
-    accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility']
+    accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     path_legacy_data = join(dirname(abspath(__file__)), '../../../data/legacy')
@@ -66,7 +68,7 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
 
         point_capacity_dict = aggregate_capacity_per_node[aggregate_capacity_per_node > legacy_min_capacity].to_dict()
 
-    else:
+    elif tech == 'pv_utility':
 
         data = pd.read_excel(join(path_legacy_data, 'Solarfarms_Europe_20200208.xlsx'), sheet_name='ProjReg_rpt',
                              header=0, usecols=[0, 3, 4, 5, 8])
@@ -88,6 +90,52 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
 
         data['Node'] = associated_points
         aggregate_capacity_per_node = data.groupby(['Node'])['MWac'].agg('sum')
+
+        point_capacity_dict = aggregate_capacity_per_node[aggregate_capacity_per_node > legacy_min_capacity].to_dict()
+
+    else: # tech == 'pv_residential'
+
+        data = pd.read_excel(join(path_legacy_data, 'SolarEurope_Residential_deployment.xlsx'), header=0, index_col=0)
+        data = data['Capacity [GW]']
+        data = data[data.index.isin(countries)]
+
+        # Load population density dataset
+        path_pop_data = join(dirname(abspath(__file__)), '../../../data/population_density')
+        dataset_population = \
+            xr.open_dataset(join(path_pop_data, 'gpw_v4_population_density_rev11_' + str(spatial_resolution) + '.nc'))
+        # Rename the only variable to 'data' # TODO: is there not a cleaner way to do this?
+        varname = [item for item in dataset_population.data_vars][0]
+        dataset_population = dataset_population.rename({varname: 'data'})
+        # The value of 5 for "raster" fetches data for the latest estimate available in the dataset, that is, 2020.
+        data_pop = dataset_population.sel(raster=5)
+
+        # Compute population density at intermediate points
+        array_pop_density = data_pop['data'].interp(longitude=np.arange(-180, 180, float(spatial_resolution)),
+                                                    latitude=np.arange(-89, 91, float(spatial_resolution))[::-1],
+                                                    method='linear').fillna(0.)
+        array_pop_density = array_pop_density.stack(locations=('longitude', 'latitude')).sel(locations=points)
+
+        codes = [item for item in data.index]
+        filter_shape_data = get_onshore_shapes(codes, filterremote=True,
+                                               save_file_name=''.join(sorted(codes)) + "_nuts2_on.geojson")
+
+        coords_multipoint = MultiPoint(points)
+        df = pd.DataFrame([])
+
+        for country in data.index:
+
+            points_in_country = coords_multipoint.intersection(filter_shape_data.loc[country, 'geometry'])
+            points_in_country = [(point.x, point.y) for point in points_in_country]
+
+            unit_capacity = data.loc[country] / array_pop_density.sel(locations=points_in_country).values.sum()
+
+            dict_in_country = {key: None for key in points_in_country}
+
+            for point in points_in_country:
+                dict_in_country[point] = unit_capacity * array_pop_density.sel(locations=point).values
+
+            df = pd.concat([df, pd.DataFrame.from_dict(dict_in_country, orient='index')])
+        aggregate_capacity_per_node = df.T.squeeze()
 
         point_capacity_dict = aggregate_capacity_per_node[aggregate_capacity_per_node > legacy_min_capacity].to_dict()
 
@@ -119,7 +167,7 @@ def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
 
     """
 
-    accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility']
+    accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
     for tech in technologies:
         assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
@@ -130,7 +178,7 @@ def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
         land_filtered_points = filter_onshore_offshore_points(onshore, points, spatial_resolution)
         # Get legacy capacity at points in land_filtered_coordinates where legacy capacity exists
         existing_capacity_dict[tech] = read_legacy_capacity_data(tech, tech_config[tech]['legacy_min_capacity'],
-                                                                 regions, land_filtered_points)
+                                                                 regions, spatial_resolution, land_filtered_points)
 
     return existing_capacity_dict
 
@@ -155,7 +203,7 @@ def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: Lis
 
     """
 
-    accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility']
+    accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     path_legacy_data = join(dirname(abspath(__file__)), '../../../data/legacy')
