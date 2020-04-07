@@ -22,7 +22,7 @@ def get_yearly_country_load(country: str, year: int = 2016) -> int:
     Yearly load: int
     """
 
-    key_ind_fn = join(dirname(abspath(__file__)), "../../../data/key_indicators/generated/" + country + ".csv")
+    key_ind_fn = join(dirname(abspath(__file__)), "../../../data/key_indicators/source/" + country + ".csv")
     return pd.read_csv(key_ind_fn, index_col=0).loc[year, "Electricity consumption (TWh)"]
 
 
