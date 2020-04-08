@@ -80,7 +80,6 @@ def get_cost(tech: str, nb_hours: float) -> Tuple[float, float]:
             # Add fuel cost
             marginal_cost += fuel_info.loc[fuel, 'cost'] / tech_info['efficiency_ds']
             # Add CO2 cost
-            # TODO: correct to divide by efficiency?
             marginal_cost += fuel_info.loc['CO2', 'cost'] * fuel_info.loc[fuel, 'CO2'] / tech_info["efficiency_ds"]
 
     return round(capital_cost, 4), round(marginal_cost, 4)

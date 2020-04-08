@@ -115,13 +115,12 @@ class Resite:
         if use_ex_cap:
             tech_with_legacy_data = \
                 list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']))
-            existing_capacity_dict = get_legacy_capacity(tech_with_legacy_data, self.tech_config, all_subregions,
-                                                         init_points, self.spatial_res)
-
+            existing_capacity_ds = get_legacy_capacity(tech_with_legacy_data, self.tech_config, all_subregions,
+                                                       init_points, self.spatial_res)
             # Update filtered points
-            for tech in existing_capacity_dict:
-                if existing_capacity_dict[tech] is not None:
-                    self.tech_points_dict[tech] += list(existing_capacity_dict[tech].keys())
+            for tech in tech_with_legacy_data:
+                if tech in existing_capacity_ds.index.get_level_values(0):
+                    self.tech_points_dict[tech] += list(existing_capacity_ds[tech].index)
                 # Remove duplicates
                 self.tech_points_dict[tech] = list(set(self.tech_points_dict[tech]))
 
@@ -132,10 +131,7 @@ class Resite:
         self.tech_points_tuples = [(tech, point) for tech, points in self.tech_points_dict.items() for point in points]
         self.existing_capacity_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(self.tech_points_tuples))
         if use_ex_cap:
-            for tech, coord in self.existing_capacity_ds.index:
-                if tech in existing_capacity_dict and existing_capacity_dict[tech] is not None \
-                        and coord in existing_capacity_dict[tech]:
-                    self.existing_capacity_ds[tech, coord] = existing_capacity_dict[tech][coord]
+            self.existing_capacity_ds.loc[existing_capacity_ds.index] = existing_capacity_ds.values
 
         self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.tech_config,
                                                       self.spatial_res, self.timestamps)

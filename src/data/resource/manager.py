@@ -14,8 +14,6 @@ from shapely.geometry import Point, Polygon
 import atlite
 import windpowerlib
 
-import matplotlib.pyplot as plt
-
 # TODO: revise the functions in this file
 
 
@@ -102,7 +100,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
     path_resource_data = join(dirname(abspath(__file__)), '../../../data/resource/' + str(spatial_res))
     dataset = read_resource_database(path_resource_data).sel(time=timestamps)
 
-    # Create output dataframe with mutliindex (tech, coords)
+    # Create output dataframe with MultiIndex (tech, coords)
     tech_points_tuples = [(tech, point) for tech, points in tech_points_dict.items() for point in points]
     cap_factor_df = pd.DataFrame(index=timestamps,
                                  columns=pd.MultiIndex.from_tuples(tech_points_tuples,
@@ -112,16 +110,11 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 
         resource = tech.split('_')[0]
         converter = tech_config[tech]['converter']  # TODO: just pass the convrters as argument instead of tech_config?
-        # xs, ys = zip(*tech_points_dict[tech])
-        # dataset_xs, dataset_ys = zip(*dataset.locations.values)
-        # plt.scatter(dataset_xs, dataset_ys, color='b')
-        # plt.scatter(xs, ys, color='r')
-        # plt.show()
         sub_dataset = dataset.sel(locations=sorted(tech_points_dict[tech]))
 
         if resource == 'wind':
 
-            wind_speed_height = 100.  # TODO: parametrize?
+            wind_speed_height = 100.
             array_roughness = sub_dataset.fsr
 
             # Compute wind speed for the all the coordinates
@@ -174,12 +167,11 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
                             (1. + float(data_converter_pv.loc['k_P [%/C]', converter])/100. *
                              (temperature - float(data_converter_pv.loc['t_ref', converter]))))
 
+            power_output = np.array(power_output)
+
         else:
             raise ValueError(' The resource specified is not available yet.')
 
-        # TODO: it is pretty strange because we get a list when resource = wind and an xarray when resource = pv
-        #  Should we homogenize this?
-        power_output = np.array(power_output)
         cap_factor_df[tech] = power_output
 
     # Decrease precision of capacity factors
@@ -188,6 +180,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
     return cap_factor_df
 
 
+# --- Using atlite --- #
 def get_cap_factor_for_regions(regions: List[Polygon], start_month: int, end_month: int = None):
     """
     Return the capacity factor series and generation capacity for pv and wind for a list of regions
@@ -271,3 +264,14 @@ def get_cap_factor_at_points(points: List[Point], start_month: int, end_month: i
                                         (point.x+resolution, point.y-resolution)]) for point in points],
                               index=[(point.x, point.y) for point in points], columns=["region"]).region
     return get_cap_factor_for_regions(polygon_df, start_month, end_month)
+
+
+if __name__ == '__main__':
+
+    import yaml
+
+    tech_config_path = join(dirname(abspath(__file__)), '../../parameters/pv_wind_tech_configs.yml')
+    tech_conf = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
+    tech_points_d = {"wind_onshore": [(0, 50)], "pv_utility": [(0, 50)]}
+    ts = pd.date_range('2015-01-01T00:00', '2015-01-31T23:00', freq='1H')
+    compute_capacity_factors(tech_points_d, tech_conf, 0.5, ts)

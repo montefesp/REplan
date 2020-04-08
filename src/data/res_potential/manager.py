@@ -3,7 +3,6 @@ from typing import List, Dict, Tuple, Union
 
 import numpy as np
 import pandas as pd
-import xarray as xr
 
 from shapely.ops import cascaded_union
 from shapely.geometry import Polygon, MultiPolygon
@@ -18,8 +17,9 @@ from src.data.population_density.manager import load_population_density_data
 
 # TODO: need to revise the functions in this file
 
+
 # TODO: check what it takes for this function not to crash on the tyndp model
-def append_non_EU_potential(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
+def append_non_eu_potential(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
 
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
@@ -46,13 +46,13 @@ def append_non_EU_potential(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
 
             pop_dens_sum = data_population.loc[nuts_regions].sum()
             for region in nuts_regions:
-                    potential_dict[region] = round(data_potential.loc[item]*(data_population.loc[region]/pop_dens_sum),6)
+                potential_dict[region] = round(data_potential.loc[item]*(data_population.loc[region]/pop_dens_sum), 6)
 
             potential_df = pd.concat([potential_df, pd.DataFrame.from_dict(potential_dict, orient='index')])
 
         potential_df = potential_df['pop_dens']
 
-    else: # tech in ['wind_offshore', 'wind_floating']
+    else:  # tech in ['wind_offshore', 'wind_floating']
 
         potential_df = data_potential
         potential_df.index = ['EZ'+string for string in data_potential.index]
@@ -60,12 +60,6 @@ def append_non_EU_potential(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
     input_ds = pd.concat([input_ds, potential_df], axis=0, ignore_index=False)
 
     return input_ds
-
-
-
-
-
-
 
 
 # TODO: need to change this - where does these values come from
@@ -83,7 +77,7 @@ def update_potential_files(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
     input_ds : pd.DataFrame
     """
 
-    input_ds = append_non_EU_potential(input_ds, tech)
+    input_ds = append_non_eu_potential(input_ds, tech)
 
     if tech in ['wind_onshore', 'pv_residential', 'pv_utility']:
 
@@ -102,18 +96,18 @@ def update_potential_files(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
         # Update according to the Irish NUTS2 zones, shifting from 2 to 3 zones in 2014.
         input_ds.at['IE04'] = input_ds.at['IE01']
         input_ds.at['IE05'] = input_ds.at['IE02']
-        input_ds.at['IE06'] = 0. # Dublin area.
+        input_ds.at['IE06'] = 0.  # Dublin area.
         # Update according to the Lithuanian NUTS2 zones, shifting from 1 to 2 zones in 2016.
-        input_ds.at['LT01'] = 0. # Region of Vilnius.
+        input_ds.at['LT01'] = 0.  # Region of Vilnius.
         input_ds.at['LT02'] = input_ds.at['LT00']
         # Update according to the Scottish NUTS2 zones in 2016.
-        input_ds.at['UKM8'] = 0. # Glasgow area.
+        input_ds.at['UKM8'] = 0.  # Glasgow area.
         input_ds.at['UKM9'] = input_ds.at['UKM3']
         # Update according to the Warsaw enclave.
         input_ds.at['PL92'] = input_ds.at['PL9']
-        input_ds.at['PL91'] = 0. # Inner city of Warsaw.
+        input_ds.at['PL91'] = 0.  # Inner city of Warsaw.
         # Update according to the Budapest split in Budapest (enclave city) and Pest (the region).
-        input_ds.at['HU11'] = 0. # Inner city of Budapest.
+        input_ds.at['HU11'] = 0.  # Inner city of Budapest.
         input_ds.at['HU12'] = input_ds.at['HU10']
         # Inner London
         input_ds.at['UKI5'] = 0.
@@ -125,15 +119,15 @@ def update_potential_files(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
         # Update according to the Irish NUTS2 zones, shifting from 2 to 3 zones in 2014.
         input_ds.at['IE04'] = input_ds.at['IE01']
         input_ds.at['IE05'] = input_ds.at['IE02']*(1/3)
-        input_ds.at['IE06'] = input_ds.at['IE02']*(2/3) # Dublin region, two thirds of population.
+        input_ds.at['IE06'] = input_ds.at['IE02']*(2/3)  # Dublin region, two thirds of population.
         # Update according to the Lithuanian NUTS2 zones, shifting from 1 to 2 zones in 2016.
-        input_ds.at['LT01'] = input_ds.at['LT00']*(1/3) # Capital region, one third of population.
-        input_ds.at['LT02'] = input_ds.at['LT00']*(2/3) # Rest of the country.
+        input_ds.at['LT01'] = input_ds.at['LT00']*(1/3)  # Capital region, one third of population.
+        input_ds.at['LT02'] = input_ds.at['LT00']*(2/3)  # Rest of the country.
         # Update according to the Scottish NUTS2 zones in 2016.
-        input_ds.at['UKM8'] = input_ds.at['UKM3']*(1/3) # Glasgow region, split based on population share.
+        input_ds.at['UKM8'] = input_ds.at['UKM3']*(1/3)  # Glasgow region, split based on population share.
         input_ds.at['UKM9'] = input_ds.at['UKM3']*(2/3)
         # Update according to the Warsaw enclave.
-        input_ds.at['PL92'] = input_ds.at['PL9']*(1/2) # Warsaw region, split based on population share.
+        input_ds.at['PL92'] = input_ds.at['PL9']*(1/2)  # Warsaw region, split based on population share.
         input_ds.at['PL91'] = input_ds.at['PL9']*(1/2)
         # Update according to the Budapest split in Budapest (enclave city) and Pest (the region).
         input_ds.at['HU11'] = input_ds.at['HU10']*(1/2)
@@ -148,24 +142,23 @@ def update_potential_files(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
         # Update according of the Irish NUTS2 zones, shifting from 2 to 3 zones in 2014.
         input_ds.at['IE04'] = input_ds.at['IE01']
         input_ds.at['IE05'] = input_ds.at['IE02']
-        input_ds.at['IE06'] = 0. # Dublin city area.
+        input_ds.at['IE06'] = 0.  # Dublin city area.
         # Update according of the Lithuanian NUTS2 zones, shifting from 1 to 2 zones in 2016.
-        input_ds.at['LT01'] = 0. # Capital region.
-        input_ds.at['LT02'] = input_ds.at['LT00'] # Rest of the country.
+        input_ds.at['LT01'] = 0.  # Capital region.
+        input_ds.at['LT02'] = input_ds.at['LT00']  # Rest of the country.
         # Update according to the Scottish NUTS2 zones in 2016.
-        input_ds.at['UKM8'] = 0. # Glasgow area.
+        input_ds.at['UKM8'] = 0.  # Glasgow area.
         input_ds.at['UKM9'] = input_ds.at['UKM3']
         # Update according to the Warsaw enclave.
         input_ds.at['PL92'] = input_ds.at['PL9']
-        input_ds.at['PL91'] = 0. # Inner city of Warsaw.
+        input_ds.at['PL91'] = 0.  # Inner city of Warsaw.
         # Update according to the Budapest split in Budapest (enclave city) and Pest (the region).
-        input_ds.at['HU11'] = 0. # Inner city of Budapest.
+        input_ds.at['HU11'] = 0.  # Inner city of Budapest.
         input_ds.at['HU12'] = input_ds.at['HU10']
         # Inner London.
         input_ds.at['UKI5'] = 0.
         input_ds.at['UKI6'] = 0.
         input_ds.at['UKI7'] = 0.
-
 
     elif tech == 'wind_offshore':
 
@@ -177,15 +170,15 @@ def update_potential_files(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
         input_ds.at['EZUK'] = input_ds.at['EZGB']
         input_ds.at['EZEL'] = input_ds.at['EZGR']
 
-    regions_to_remove = ['AD00', 'SM00', 'CY00', 'LI00', 'FRY1', 'FRY2', 'FRY3', 'FRY4', 'FRY5', 'ES63', 'ES64', 'ES70',
-                         'HU10', 'IE01', 'IE02', 'LT00', 'UKM3']
+    regions_to_remove = ['AD00', 'SM00', 'CY00', 'LI00', 'FRY1', 'FRY2', 'FRY3', 'FRY4',
+                         'FRY5', 'ES63', 'ES64', 'ES70', 'HU10', 'IE01', 'IE02', 'LT00', 'UKM3']
 
     input_ds = input_ds.drop(regions_to_remove, errors='ignore')
 
     return input_ds
 
 
-def capacity_potential_from_enspresso(tech: str) -> pd.DataFrame:
+def capacity_potential_from_enspreso(tech: str) -> pd.DataFrame:
     """
     Returning capacity potential (in GW) per NUTS2 region for a given tech, based on the ENSPRESSO dataset.
 
@@ -210,7 +203,7 @@ def capacity_potential_from_enspresso(tech: str) -> pd.DataFrame:
     if tech == 'wind_onshore':
 
         cap_potential_file = pd.read_excel(join(path_potential_data, 'ENSPRESO_WIND_ONSHORE_OFFSHORE.XLSX'),
-                                   sheet_name='Raw data', index_col=1, skiprows=5)
+                                           sheet_name='Raw data', index_col=1, skiprows=5)
 
         onshore_wind = cap_potential_file[
             (cap_potential_file['ONOFF'] == 'Onshore') &
@@ -303,7 +296,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
     for tech, coords in tech_points_dict.items():
 
         # Compute potential for each NUTS2 or EEZ
-        potential_per_region_df = capacity_potential_from_enspresso(tech)
+        potential_per_region_df = capacity_potential_from_enspreso(tech)
 
         # Get NUTS2 and EEZ shapes
         # TODO: this is shit -> not generic enough, expl: would probably not work for us states
@@ -397,7 +390,7 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
     for tech, regions in tech_regions_dict.items():
 
         # Compute potential for each NUTS2 or EEZ
-        potential_per_subregion_df = capacity_potential_from_enspresso(tech)
+        potential_per_subregion_df = capacity_potential_from_enspreso(tech)
 
         # Get NUTS2 or EEZ shapes
         # TODO: this is shit -> not generic enough, expl: would probably not work for us states
@@ -526,7 +519,7 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
 #     for i, bus_id in enumerate(bus_ids):
 #
 #         # ODO: would probably need to do sth more clever
-#         #  --> just setting capacitities at seas as 10MW/km2
+#         #  --> just setting capacities at seas as 10MW/km2
 #         # if bus_id not in eh_clusters.index:
 #         #     total_capacities[i] = 0.01 if tech == 'wind' else 0
 #         #     continue

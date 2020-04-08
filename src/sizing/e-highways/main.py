@@ -5,8 +5,6 @@ import yaml
 from time import strftime
 import pandas as pd
 import numpy as np
-import datetime
-from shapely.ops import cascaded_union
 from pyomo.opt import ProblemFormat
 
 from src.data.emission.manager import get_reference_emission_levels_for_region
@@ -29,8 +27,6 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 NHoursPerYear = 8760.
-
-from src.data.geographics.manager import convert_country_codes
 
 if __name__ == "__main__":
 
@@ -108,8 +104,9 @@ if __name__ == "__main__":
     if config['res']['include']:
         logger.info(f"Adding RES ({config['res']['technologies']}) generation.")
         if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
+            # TODO: probably not working anymore
             net = add_res_from_file(net, config['res']['strategy'], config["res"]["resite_nb"],
-                                    config["res"]["area_per_site"], "ehighway", config["res"]["cap_dens"])
+                                    config["res"]["area_per_site"], config["res"]["cap_dens"], "ehighway")
         if config['res']["strategy"] == "bus":
             net = add_res_per_bus(net, config["res"]["technologies"], countries, pv_wind_tech_config,
                                   config["res"]["use_ex_cap"])
@@ -121,7 +118,6 @@ if __name__ == "__main__":
             net = add_res(net, config['res'], pv_wind_tech_config, config["region"], output_dir)
         if config['res']['strategy'] == 'bus_test':
             net = add_generators_at_bus_test(net, config['res'], pv_wind_tech_config, config["region"], output_dir)
-
 
     # Remove offshore locations that have no RES generators associated to them
     for bus_id in net.buses.index:

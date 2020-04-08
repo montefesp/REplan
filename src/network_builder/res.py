@@ -2,10 +2,7 @@ from os.path import join, dirname, abspath
 import pickle
 from typing import *
 
-import numpy as np
 import pandas as pd
-from datetime import datetime
-from shapely.geometry import Point, Polygon, MultiPolygon
 
 import pypsa
 

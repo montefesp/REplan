@@ -1,5 +1,5 @@
 from os.path import join, dirname, abspath
-from typing import List, Tuple, Dict, Union, Any
+from typing import List, Tuple, Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -15,7 +15,7 @@ from src.data.population_density.manager import load_population_density_data
 # TODO: could there be points outside of mainland europe??? -> Yes expl: NL -69.8908, 12.474 in curaçao
 # TODO: need to merge the end of the if and else
 def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: List[str], spatial_resolution: float,
-                              points: List[Tuple[float, float]]) -> Dict[List[Tuple[float, float]], float]:
+                              points: List[Tuple[float, float]]) -> pd.Series:
     """
     Reads dataset of existing RES units in the given area and associated to the closest points. Available for EU only.
 
@@ -32,8 +32,8 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
 
     Returns
     -------
-    point_capacity_dict : Dict[List[Tuple[float, float]], float]
-        Dictionary storing existing capacities per node.
+    point_capacity_ds : pd.Series
+        Existing capacities per each node.
     """
 
     accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
@@ -62,12 +62,13 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
         points = np.array(points)
         associated_points = \
             [(x[0], x[1]) for x in
-             points[np.argmin(scipy.spatial.distance.cdist(np.array(points), legacy_capacity_locs, 'euclidean'), axis=0)]]
+             points[np.argmin(scipy.spatial.distance.cdist(np.array(points), legacy_capacity_locs, 'euclidean'),
+                              axis=0)]]
 
         data['Node'] = associated_points
         aggregate_capacity_per_node = data.groupby(['Node'])['Total power'].agg('sum')
 
-        point_capacity_dict = aggregate_capacity_per_node[aggregate_capacity_per_node > legacy_min_capacity].to_dict()
+        points_capacity_ds = aggregate_capacity_per_node[aggregate_capacity_per_node > legacy_min_capacity]
 
     elif tech == 'pv_utility':
 
@@ -92,9 +93,9 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
         data['Node'] = associated_points
         aggregate_capacity_per_node = data.groupby(['Node'])['MWac'].agg('sum')
 
-        point_capacity_dict = aggregate_capacity_per_node[aggregate_capacity_per_node > legacy_min_capacity].to_dict()
+        points_capacity_ds = aggregate_capacity_per_node[aggregate_capacity_per_node > legacy_min_capacity]
 
-    else: # tech == 'pv_residential'
+    else:  # tech == 'pv_residential'
 
         data = pd.read_excel(join(path_legacy_data, 'SolarEurope_Residential_deployment.xlsx'), header=0, index_col=0)
         data = data['Capacity [GW]']
@@ -103,8 +104,8 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
         array_pop_density = load_population_density_data(spatial_resolution)
 
         codes = [item for item in data.index]
-        filter_shape_data = get_onshore_shapes(codes, filterremote=True,
-                                               save_file_name=''.join(sorted(codes)) + "_nuts2_on.geojson")
+        filter_shape_data = get_onshore_shapes(codes, filterremote=True)
+        # , save_file_name=''.join(sorted(codes)) + "_nuts2_on.geojson")
 
         coords_multipoint = MultiPoint(points)
         df = pd.DataFrame([])
@@ -124,14 +125,14 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
             df = pd.concat([df, pd.DataFrame.from_dict(dict_in_country, orient='index')])
         aggregate_capacity_per_node = df.T.squeeze()
 
-        point_capacity_dict = aggregate_capacity_per_node[aggregate_capacity_per_node > legacy_min_capacity].to_dict()
+        points_capacity_ds = aggregate_capacity_per_node[aggregate_capacity_per_node > legacy_min_capacity]
 
-    return point_capacity_dict
+    return points_capacity_ds
 
 
 def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
-                        regions: List[str], points: List[Tuple[float, float]],
-                        spatial_resolution: float) -> Dict[str, Dict[Tuple[float, float], float]]:
+                        countries: List[str], points: List[Tuple[float, float]],
+                        spatial_resolution: float) -> pd.Series:
     """
     Returns, for each technology and for each point, the existing (legacy) capacity in GW.
 
@@ -139,8 +140,8 @@ def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
     ----------
     technologies: List[str]
         List of technologies for which we want to obtain legacy capacity
-    regions: List[str]
-        Regions for which we want legacy capacity
+    countries: List[str]
+        Countries for which we want legacy capacity
     points : List[Tuple[float, float]]
         Points to which existing capacity must be associated
     spatial_resolution: float
@@ -148,9 +149,8 @@ def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
 
     Returns
     -------
-    existing_capacity_dict : Dict[str, Dict[Tuple[float, float], float]]
-        Dictionary giving for each technology a dictionary associating each location
-        with its legacy capacity for that technology.
+    existing_capacity_dict : pd.Series (MultiIndex on technologies and points)
+        Gives for each technology and each point its existing capacity (if its not zero)
 
     """
 
@@ -158,19 +158,22 @@ def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
     for tech in technologies:
         assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
-    existing_capacity_dict = dict.fromkeys(technologies)
+    existing_capacity_ds = pd.Series(index=pd.MultiIndex.from_product([technologies, points]))
     for tech in technologies:
         # Filter coordinates to obtain only the ones on land or offshore
         onshore = False if tech == 'wind_offshore' else True
         land_filtered_points = filter_onshore_offshore_points(onshore, points, spatial_resolution)
         # Get legacy capacity at points in land_filtered_coordinates where legacy capacity exists
-        existing_capacity_dict[tech] = read_legacy_capacity_data(tech, tech_config[tech]['legacy_min_capacity'],
-                                                                 regions, spatial_resolution, land_filtered_points)
+        points_capacity_ds = read_legacy_capacity_data(tech, tech_config[tech]['legacy_min_capacity'],
+                                                       countries, spatial_resolution, land_filtered_points)
+        existing_capacity_ds.loc[tech, points_capacity_ds.index] = points_capacity_ds.values
+    existing_capacity_ds = existing_capacity_ds.dropna()
 
-    return existing_capacity_dict
+    return existing_capacity_ds
 
 
-def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: List[str]):
+# TODO: need to add legacy capacity for pv residential
+def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: List[str]) -> pd.Series:
     """
     Returns the total existing capacity (in GW) for the given tech for a set of regions
 
@@ -210,7 +213,7 @@ def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: Lis
         # Keep only onshore or offshore point depending on technology
         if tech == 'wind_onshore':
             data = data[data['Area'] != 'Offshore']
-        else:  # wind_offhsore
+        else:  # wind_offshore
             data = data[data['Area'] == 'Offshore']
 
     else:  # pv_utility
@@ -234,3 +237,12 @@ def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: Lis
         capacities[region] = data[data["Location"].isin(points_in_region)]["Total power"].sum()
 
     return capacities
+
+
+if __name__ == '__main__':
+
+    import yaml
+    tech_config_path = join(dirname(abspath(__file__)), '../../parameters/pv_wind_tech_configs.yml')
+    tech_conf = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
+    print(get_legacy_capacity(["wind_onshore", "pv_utility"],
+                              tech_conf, ['FR'], [(2.0, 49.0), (2.5, 50.0), (5.0, 69.0)], 0.5))
