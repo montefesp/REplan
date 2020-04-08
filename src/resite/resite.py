@@ -193,7 +193,8 @@ class Resite:
 
         if formulation == 'meet_demand_with_capacity' and len(self.regions) != 1:
             raise ValueError('The selected formulation works for one region only!')
-        elif formulation in ['meet_RES_targets_agg', 'meet_RES_targets_hourly', 'maximize_generation',
+        elif formulation in ['meet_RES_targets_agg', 'meet_RES_targets_hourly', 'meet_RES_targets_daily',
+                             'meet_RES_targets_weekly', 'meet_RES_targets_monthly', 'maximize_generation',
                              'maximize_aggr_cap_factor'] and len(deployment_vector) != len(self.regions):
             raise ValueError('For the selected formulation, the "regions" and "deployment_vector" '
                              'lists must have the same cardinality!')
@@ -215,7 +216,7 @@ class Resite:
             from src.resite.models.gurobipy import build_model as build_gurobipy_model
             build_gurobipy_model(self, formulation, deployment_vector, write_lp)
 
-    def solve_model(self, solver, solver_options, write_log = False):
+    def solve_model(self):
         """
         Solve a model
 
@@ -229,16 +230,9 @@ class Resite:
             Whether to save solver log
 
         """
-
-        if write_log and not hasattr(self, 'output_folder'):
-            self.init_output_folder()
-
-        self.solver = solver
-        self.solver_options = solver_options
         if self.modelling == 'pyomo':
-            # TODO: David, you sure you want to import this here?
             from src.resite.models.pyomo import solve_model as solve_pyomo_model
-            return solve_pyomo_model(self, solver, solver_options, write_log)
+            return solve_pyomo_model(self)
         elif self.modelling == 'docplex':
             from src.resite.models.docplex import solve_model as solve_docplex_model
             solve_docplex_model(self)

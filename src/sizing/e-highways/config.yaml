@@ -13,7 +13,7 @@ solver_options:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-01-31T23:00']
+  slice: ['2017-01-01T00:00', '2017-01-01T10:00']
   resolution: 1
 
 # Space
@@ -23,7 +23,12 @@ add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES
 # RES
 res:
   include: True
+  use_ex_cap: True
+  limit_max_cap: True
+
   strategy: "siting" # (max or comp) or bus or no_siting or siting
+  modelling: 'gurobipy' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
+
 
   # For strategy = max or comp
   resite_nb: 100 # can be multiples of 25
@@ -36,9 +41,8 @@ res:
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
   technologies: ['wind_onshore', 'pv_utility', 'wind_offshore', 'pv_residential']
-  timeslice: ['2015-01-01T00:00', '2015-01-31T23:00']
-  use_ex_cap: True
-  limit_max_cap: True
+  timeslice: ['2017-01-01T00:00', '2017-01-31T23:00']
+
   filtering_layers:
     resource_quality: True
     population_density: True
@@ -48,22 +52,14 @@ res:
     forestry: True
     water_mask: True
 
-  # For strategy = generate
-  modelling: 'docplex' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
-  solver: 'cplex' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
-  solver_options:
-    gurobi:
-      Threads: 0
-      Method: 1
-    cplex:
-      solutiontype: 1
-    cbc: 0
-  write_lp: False
-  write_log: False
+
   # Type of problem to be solved. Check resite.py for a full list.
-  formulation: 'meet_RES_targets_hourly' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
+  formulation: 'meet_RES_targets_daily' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
   # List of deployments per region (ordered as the 'regions' list above)
-  deployment_vector: [0.1] # [0.5, 0.5, 0.5, 0.5]
+  deployment_vector: [0.2] # [0.5, 0.5, 0.5, 0.5]
+
+  # For strategy = generate
+  write_lp: True
   # Keeping files at the end of the run.
   keep_files: True
 
@@ -104,5 +100,5 @@ sto:
 
 # Emissions
 co2_emissions:
-  reference_year: 1990 # The only available point now.
+  reference_year: 1990
   mitigation_factor: 0.8

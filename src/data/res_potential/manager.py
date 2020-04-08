@@ -11,11 +11,61 @@ from shapely.errors import TopologicalError
 
 from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes, \
     match_points_to_region
+from src.data.population_density.manager import load_population_density_data
 # from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area,
 # from src.data.topologies.ehighways import get_ehighway_clusters
 
 
 # TODO: need to revise the functions in this file
+
+# TODO: check what it takes for this function not to crash on the tyndp model
+def append_non_EU_potential(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
+
+    accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
+    assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
+
+    path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/generated')
+
+    data_potential = pd.read_excel(join(path_potential_data, 'RES_potential_non_EU.xlsx'), index_col=0)
+    data_potential = data_potential[tech].dropna().copy()
+
+    if tech in ['wind_onshore', 'pv_utility', 'pv_residential']:
+
+        path_pop_dens_data = join(dirname(abspath(__file__)), '../../../data/population_density')
+        data_population = pd.read_csv(join(path_pop_dens_data, 'pop_dens_nuts2.csv'), index_col=0, sep=';')
+
+        potential_df = pd.DataFrame([])
+
+        for item in data_potential.index:
+
+            nuts_regions = [i for i in data_population.index if (i.startswith(item))]
+            potential_dict = {key: None for key in nuts_regions}
+
+            if tech in ['wind_onshore', 'pv_utility']:
+                data_population = 1./data_population
+
+            pop_dens_sum = data_population.loc[nuts_regions].sum()
+            for region in nuts_regions:
+                    potential_dict[region] = round(data_potential.loc[item]*(data_population.loc[region]/pop_dens_sum),6)
+
+            potential_df = pd.concat([potential_df, pd.DataFrame.from_dict(potential_dict, orient='index')])
+
+        potential_df = potential_df['pop_dens']
+
+    else: # tech in ['wind_offshore', 'wind_floating']
+
+        potential_df = data_potential
+        potential_df.index = ['EZ'+string for string in data_potential.index]
+
+    input_ds = pd.concat([input_ds, potential_df], axis=0, ignore_index=False)
+
+    return input_ds
+
+
+
+
+
+
 
 
 # TODO: need to change this - where does these values come from
@@ -33,6 +83,8 @@ def update_potential_files(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
     input_ds : pd.DataFrame
     """
 
+    input_ds = append_non_EU_potential(input_ds, tech)
+
     if tech in ['wind_onshore', 'pv_residential', 'pv_utility']:
 
         dict_regions_update = {'FR21': 'FRF2', 'FR22': 'FRE2', 'FR23': 'FRD1', 'FR24': 'FRB0', 'FR25': 'FRD2',
@@ -47,150 +99,83 @@ def update_potential_files(input_ds: pd.DataFrame, tech: str) -> pd.DataFrame:
 
     if tech == 'wind_onshore':
 
-        input_ds.at['AL01'] = 2.
-        input_ds.at['AL02'] = 2.
-        input_ds.at['AL03'] = 2.
-        input_ds.at['BA'] = 3.
-        input_ds.at['ME00'] = 3.
-        input_ds.at['MK00'] = 5.
-        input_ds.at['RS11'] = 0.
-        input_ds.at['RS12'] = 10.
-        input_ds.at['RS21'] = 10.
-        input_ds.at['RS22'] = 10.
-        input_ds.at['CH01'] = 1.
-        input_ds.at['CH02'] = 1.
-        input_ds.at['CH03'] = 1.
-        input_ds.at['CH04'] = 1.
-        input_ds.at['CH05'] = 1.
-        input_ds.at['CH06'] = 1.
-        input_ds.at['CH07'] = 1.
-        input_ds.at['NO01'] = 3.
-        input_ds.at['NO02'] = 3.
-        input_ds.at['NO03'] = 3.
-        input_ds.at['NO04'] = 3.
-        input_ds.at['NO05'] = 3.
-        input_ds.at['NO06'] = 3.
-        input_ds.at['NO07'] = 3.
+        # Update according to the Irish NUTS2 zones, shifting from 2 to 3 zones in 2014.
         input_ds.at['IE04'] = input_ds.at['IE01']
         input_ds.at['IE05'] = input_ds.at['IE02']
-        input_ds.at['IE06'] = input_ds.at['IE02']
-        input_ds.at['LT01'] = input_ds.at['LT00']
+        input_ds.at['IE06'] = 0. # Dublin area.
+        # Update according to the Lithuanian NUTS2 zones, shifting from 1 to 2 zones in 2016.
+        input_ds.at['LT01'] = 0. # Region of Vilnius.
         input_ds.at['LT02'] = input_ds.at['LT00']
-        input_ds.at['UKM8'] = input_ds.at['UKM3']
+        # Update according to the Scottish NUTS2 zones in 2016.
+        input_ds.at['UKM8'] = 0. # Glasgow area.
         input_ds.at['UKM9'] = input_ds.at['UKM3']
+        # Update according to the Warsaw enclave.
         input_ds.at['PL92'] = input_ds.at['PL9']
-        input_ds.at['PL91'] = 0.
-        input_ds.at['HU11'] = 0.
+        input_ds.at['PL91'] = 0. # Inner city of Warsaw.
+        # Update according to the Budapest split in Budapest (enclave city) and Pest (the region).
+        input_ds.at['HU11'] = 0. # Inner city of Budapest.
         input_ds.at['HU12'] = input_ds.at['HU10']
+        # Inner London
         input_ds.at['UKI5'] = 0.
         input_ds.at['UKI6'] = 0.
         input_ds.at['UKI7'] = 0.
 
+    elif tech == 'pv_residential':
+
+        # Update according to the Irish NUTS2 zones, shifting from 2 to 3 zones in 2014.
+        input_ds.at['IE04'] = input_ds.at['IE01']
+        input_ds.at['IE05'] = input_ds.at['IE02']*(1/3)
+        input_ds.at['IE06'] = input_ds.at['IE02']*(2/3) # Dublin region, two thirds of population.
+        # Update according to the Lithuanian NUTS2 zones, shifting from 1 to 2 zones in 2016.
+        input_ds.at['LT01'] = input_ds.at['LT00']*(1/3) # Capital region, one third of population.
+        input_ds.at['LT02'] = input_ds.at['LT00']*(2/3) # Rest of the country.
+        # Update according to the Scottish NUTS2 zones in 2016.
+        input_ds.at['UKM8'] = input_ds.at['UKM3']*(1/3) # Glasgow region, split based on population share.
+        input_ds.at['UKM9'] = input_ds.at['UKM3']*(2/3)
+        # Update according to the Warsaw enclave.
+        input_ds.at['PL92'] = input_ds.at['PL9']*(1/2) # Warsaw region, split based on population share.
+        input_ds.at['PL91'] = input_ds.at['PL9']*(1/2)
+        # Update according to the Budapest split in Budapest (enclave city) and Pest (the region).
+        input_ds.at['HU11'] = input_ds.at['HU10']*(1/2)
+        input_ds.at['HU12'] = input_ds.at['HU10']*(1/2)
+        # Outer London. Values not assigned within ENSPRESO.
+        input_ds.at['UKI5'] = 0.
+        input_ds.at['UKI6'] = 0.
+        input_ds.at['UKI7'] = 0.
+
+    elif tech == 'pv_utility':
+
+        # Update according of the Irish NUTS2 zones, shifting from 2 to 3 zones in 2014.
+        input_ds.at['IE04'] = input_ds.at['IE01']
+        input_ds.at['IE05'] = input_ds.at['IE02']
+        input_ds.at['IE06'] = 0. # Dublin city area.
+        # Update according of the Lithuanian NUTS2 zones, shifting from 1 to 2 zones in 2016.
+        input_ds.at['LT01'] = 0. # Capital region.
+        input_ds.at['LT02'] = input_ds.at['LT00'] # Rest of the country.
+        # Update according to the Scottish NUTS2 zones in 2016.
+        input_ds.at['UKM8'] = 0. # Glasgow area.
+        input_ds.at['UKM9'] = input_ds.at['UKM3']
+        # Update according to the Warsaw enclave.
+        input_ds.at['PL92'] = input_ds.at['PL9']
+        input_ds.at['PL91'] = 0. # Inner city of Warsaw.
+        # Update according to the Budapest split in Budapest (enclave city) and Pest (the region).
+        input_ds.at['HU11'] = 0. # Inner city of Budapest.
+        input_ds.at['HU12'] = input_ds.at['HU10']
+        # Inner London.
+        input_ds.at['UKI5'] = 0.
+        input_ds.at['UKI6'] = 0.
+        input_ds.at['UKI7'] = 0.
+
+
     elif tech == 'wind_offshore':
 
-        input_ds.at['EZAL'] = 2.
-        input_ds.at['EZBA'] = 0.
-        input_ds.at['EZME'] = 0.
-        input_ds.at['EZMK'] = 0.
-        input_ds.at['EZRS'] = 0.
-        input_ds.at['EZCH'] = 0.
-        input_ds.at['EZNO'] = 20.
-        input_ds.at['EZIE'] = 20.
+        input_ds.at['EZUK'] = input_ds.at['EZGB']
         input_ds.at['EZEL'] = input_ds.at['EZGR']
 
     elif tech == 'wind_floating':
 
-        input_ds.at['EZAL'] = 2.
-        input_ds.at['EZBA'] = 0.
-        input_ds.at['EZME'] = 0.
-        input_ds.at['EZMK'] = 0.
-        input_ds.at['EZRS'] = 0.
-        input_ds.at['EZCH'] = 0.
-        input_ds.at['EZNO'] = 100.
-        input_ds.at['EZIE'] = 120.
+        input_ds.at['EZUK'] = input_ds.at['EZGB']
         input_ds.at['EZEL'] = input_ds.at['EZGR']
-
-    elif tech == 'pv_residential':
-
-        input_ds.at['AL01'] = 1.
-        input_ds.at['AL02'] = 1.
-        input_ds.at['AL03'] = 1.
-        input_ds.at['BA'] = 3.
-        input_ds.at['ME00'] = 1.
-        input_ds.at['MK00'] = 1.
-        input_ds.at['RS11'] = 5.
-        input_ds.at['RS12'] = 2.
-        input_ds.at['RS21'] = 2.
-        input_ds.at['RS22'] = 2.
-        input_ds.at['CH01'] = 6.
-        input_ds.at['CH02'] = 6.
-        input_ds.at['CH03'] = 6.
-        input_ds.at['CH04'] = 6.
-        input_ds.at['CH05'] = 6.
-        input_ds.at['CH06'] = 6.
-        input_ds.at['CH07'] = 6.
-        input_ds.at['NO01'] = 3.
-        input_ds.at['NO02'] = 0.
-        input_ds.at['NO03'] = 3.
-        input_ds.at['NO04'] = 3.
-        input_ds.at['NO05'] = 0.
-        input_ds.at['NO06'] = 0.
-        input_ds.at['NO07'] = 0.
-        input_ds.at['IE04'] = input_ds.at['IE01']
-        input_ds.at['IE05'] = input_ds.at['IE02']
-        input_ds.at['IE06'] = input_ds.at['IE02']
-        input_ds.at['LT01'] = input_ds.at['LT00']
-        input_ds.at['LT02'] = input_ds.at['LT00']
-        input_ds.at['UKM8'] = input_ds.at['UKM3']
-        input_ds.at['UKM9'] = input_ds.at['UKM3']
-        input_ds.at['PL92'] = input_ds.at['PL9']
-        input_ds.at['PL91'] = 5.
-        input_ds.at['HU11'] = input_ds.at['HU10']
-        input_ds.at['HU12'] = input_ds.at['HU10']
-        input_ds.at['UKI5'] = 1.
-        input_ds.at['UKI6'] = 1.
-        input_ds.at['UKI7'] = 1.
-
-    elif tech == 'pv_utility':
-
-        input_ds.at['AL01'] = 1.
-        input_ds.at['AL02'] = 1.
-        input_ds.at['AL03'] = 1.
-        input_ds.at['BA'] = 3.
-        input_ds.at['ME00'] = 1.
-        input_ds.at['MK00'] = 1.
-        input_ds.at['RS11'] = 0.
-        input_ds.at['RS12'] = 2.
-        input_ds.at['RS21'] = 2.
-        input_ds.at['RS22'] = 1.
-        input_ds.at['CH01'] = 6.
-        input_ds.at['CH02'] = 6.
-        input_ds.at['CH03'] = 6.
-        input_ds.at['CH04'] = 6.
-        input_ds.at['CH05'] = 6.
-        input_ds.at['CH06'] = 6.
-        input_ds.at['CH07'] = 6.
-        input_ds.at['NO01'] = 3.
-        input_ds.at['NO02'] = 0.
-        input_ds.at['NO03'] = 3.
-        input_ds.at['NO04'] = 3.
-        input_ds.at['NO05'] = 0.
-        input_ds.at['NO06'] = 0.
-        input_ds.at['NO07'] = 0.
-        input_ds.at['IE04'] = input_ds.at['IE01']
-        input_ds.at['IE05'] = input_ds.at['IE02']
-        input_ds.at['IE06'] = input_ds.at['IE02']
-        input_ds.at['LT01'] = input_ds.at['LT00']
-        input_ds.at['LT02'] = input_ds.at['LT00']
-        input_ds.at['UKM8'] = input_ds.at['UKM3']
-        input_ds.at['UKM9'] = input_ds.at['UKM3']
-        input_ds.at['PL92'] = input_ds.at['PL9']
-        input_ds.at['PL91'] = 2.
-        input_ds.at['HU11'] = 0.
-        input_ds.at['HU12'] = 2.
-        input_ds.at['UKI5'] = 0.
-        input_ds.at['UKI6'] = 0.
-        input_ds.at['UKI7'] = 0.
 
     regions_to_remove = ['AD00', 'SM00', 'CY00', 'LI00', 'FRY1', 'FRY2', 'FRY3', 'FRY4', 'FRY5', 'ES63', 'ES64', 'ES70',
                          'HU10', 'IE01', 'IE02', 'LT00', 'UKM3']
@@ -227,34 +212,16 @@ def capacity_potential_from_enspresso(tech: str) -> pd.DataFrame:
         cap_potential_file = pd.read_excel(join(path_potential_data, 'ENSPRESO_WIND_ONSHORE_OFFSHORE.XLSX'),
                                    sheet_name='Raw data', index_col=1, skiprows=5)
 
-        scenario = 'EU-Wide high restrictions'  # TODO: parametrize
-
         onshore_wind = cap_potential_file[
             (cap_potential_file['ONOFF'] == 'Onshore') &
-            (cap_potential_file['Scenario'] == scenario) &
+            (cap_potential_file['Scenario'] == 'EU-Wide high restrictions') &
             (cap_potential_file['Subscenario - not cumulative'] == '2000m setback distance')]
-        nuts2_capacity_potentials_ds = onshore_wind['GW_Morethan25%_2030_100m_ALLTIMESLICESAVERAGE_V112']
+        nuts2_capacity_potentials_ds = onshore_wind['GW_Morethan25%_2030_100m_ALLTIMESLICESAVERAGE_V112'].copy()
 
     elif tech == 'wind_offshore':
 
         offshore_categories = ['12nm zone, water depth 0-30m', '12nm zone, water depth 30-60m',
-                               '12nm zone, water depth 60-100m Floating', 'Water depth 0-30m',
-                               'Water depth 30-60m', 'Water depth 60-100m Floating']
-
-        cap_potential_file = pd.read_excel(join(path_potential_data, 'ENSPRESO_WIND_ONSHORE_OFFSHORE.XLSX'),
-                                           sheet_name='Wind Potential EU28 Full', index_col=1)
-
-        scenario = 'EU-Wide low restrictions'  # TODO: Parametrize?
-
-        offshore_wind = cap_potential_file[
-            (cap_potential_file['Unit'] == 'GWe') &
-            (cap_potential_file['Onshore Offshore'] == 'Offshore') &
-            (cap_potential_file['Scenario'] == scenario) &
-            (cap_potential_file['Wind condition'] == 'CF > 25%') &
-            (cap_potential_file['Offshore categories'].isin(offshore_categories))]
-        nuts2_capacity_potentials_ds = offshore_wind.groupby(offshore_wind.index)['Value'].sum()
-
-    elif tech == 'wind_floating':
+                               'Water depth 0-30m', 'Water depth 30-60m']
 
         cap_potential_file = pd.read_excel(join(path_potential_data, 'ENSPRESO_WIND_ONSHORE_OFFSHORE.XLSX'),
                                            sheet_name='Wind Potential EU28 Full', index_col=1)
@@ -264,7 +231,23 @@ def capacity_potential_from_enspresso(tech: str) -> pd.DataFrame:
             (cap_potential_file['Onshore Offshore'] == 'Offshore') &
             (cap_potential_file['Scenario'] == 'EU-Wide low restrictions') &
             (cap_potential_file['Wind condition'] == 'CF > 25%') &
-            (cap_potential_file['Offshore categories'] == 'Water depth 100-1000m Floating')]
+            (cap_potential_file['Offshore categories'].isin(offshore_categories))]
+        nuts2_capacity_potentials_ds = offshore_wind.groupby(offshore_wind.index)['Value'].sum()
+
+    elif tech == 'wind_floating':
+
+        floating_categories = ['12nm zone, water depth 60-100m Floating',
+                               'Water depth 60-100m Floating', 'Water depth 100-1000m Floating']
+
+        cap_potential_file = pd.read_excel(join(path_potential_data, 'ENSPRESO_WIND_ONSHORE_OFFSHORE.XLSX'),
+                                           sheet_name='Wind Potential EU28 Full', index_col=1)
+
+        offshore_wind = cap_potential_file[
+            (cap_potential_file['Unit'] == 'GWe') &
+            (cap_potential_file['Onshore Offshore'] == 'Offshore') &
+            (cap_potential_file['Scenario'] == 'EU-Wide low restrictions') &
+            (cap_potential_file['Wind condition'] == 'CF > 25%') &
+            (cap_potential_file['Offshore categories'].isin(floating_categories))]
         nuts2_capacity_potentials_ds = offshore_wind.groupby(offshore_wind.index)['Value'].sum()
 
     elif tech == 'pv_utility':
@@ -312,21 +295,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
     nuts0_problems = {"GB": "UK", "GR": "EL"}
     nuts0_regions = [nuts0_problems[r] if r in nuts0_problems else r for r in regions]
 
-    # Load population density dataset
-    path_pop_data = join(dirname(abspath(__file__)), '../../../data/population_density')
-    dataset_population = \
-        xr.open_dataset(join(path_pop_data, 'gpw_v4_population_density_rev11_' + str(spatial_resolution) + '.nc'))
-    # Rename the only variable to 'data' # TODO: is there not a cleaner way to do this?
-    varname = [item for item in dataset_population.data_vars][0]
-    dataset_population = dataset_population.rename({varname: 'data'})
-    # The value of 5 for "raster" fetches data for the latest estimate available in the dataset, that is, 2020.
-    data_pop = dataset_population.sel(raster=5)
-
-    # Compute population density at intermediate points
-    array_pop_density = data_pop['data'].interp(longitude=np.arange(-180, 180, float(spatial_resolution)),
-                                                latitude=np.arange(-89, 91, float(spatial_resolution))[::-1],
-                                                method='linear').fillna(0.)
-    array_pop_density = array_pop_density.stack(locations=('longitude', 'latitude'))
+    array_pop_density = load_population_density_data(spatial_resolution)
 
     tech_coords_tuples = [(tech, point) for tech, points in tech_points_dict.items() for point in points]
     capacity_potential_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(tech_coords_tuples))

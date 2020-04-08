@@ -150,7 +150,7 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
     resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
 
     logger.info('Sending resite to solver.')
-    resite.solve_model(params['solver'], params['solver_options'][params['solver']], params['write_log'])
+    resite.solve_model()
 
     logger.info('Retrieving resite results.')
     tech_location_dict = resite.retrieve_solution()

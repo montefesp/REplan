@@ -9,6 +9,7 @@ from shapely.geometry import MultiPoint
 
 from src.data.geographics.manager import convert_country_codes, match_points_to_region, get_onshore_shapes
 from src.data.land_data.manager import filter_onshore_offshore_points
+from src.data.population_density.manager import load_population_density_data
 
 
 # TODO: could there be points outside of mainland europe??? -> Yes expl: NL -69.8908, 12.474 in curaçao
@@ -99,21 +100,7 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
         data = data['Capacity [GW]']
         data = data[data.index.isin(countries)]
 
-        # Load population density dataset
-        path_pop_data = join(dirname(abspath(__file__)), '../../../data/population_density')
-        dataset_population = \
-            xr.open_dataset(join(path_pop_data, 'gpw_v4_population_density_rev11_' + str(spatial_resolution) + '.nc'))
-        # Rename the only variable to 'data' # TODO: is there not a cleaner way to do this?
-        varname = [item for item in dataset_population.data_vars][0]
-        dataset_population = dataset_population.rename({varname: 'data'})
-        # The value of 5 for "raster" fetches data for the latest estimate available in the dataset, that is, 2020.
-        data_pop = dataset_population.sel(raster=5)
-
-        # Compute population density at intermediate points
-        array_pop_density = data_pop['data'].interp(longitude=np.arange(-180, 180, float(spatial_resolution)),
-                                                    latitude=np.arange(-89, 91, float(spatial_resolution))[::-1],
-                                                    method='linear').fillna(0.)
-        array_pop_density = array_pop_density.stack(locations=('longitude', 'latitude')).sel(locations=points)
+        array_pop_density = load_population_density_data(spatial_resolution)
 
         codes = [item for item in data.index]
         filter_shape_data = get_onshore_shapes(codes, filterremote=True,

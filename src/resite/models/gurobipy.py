@@ -24,17 +24,30 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
         If True, the model is written to an .lp file.
     """
 
-    accepted_formulations = ['meet_RES_targets_agg', 'meet_RES_targets_hourly', 'meet_demand_with_capacity']
+    accepted_formulations = ['meet_RES_targets_agg', 'meet_RES_targets_hourly', 'meet_demand_with_capacity',
+                             'meet_RES_targets_daily', 'meet_RES_targets_weekly', 'meet_RES_targets_monthly']
     assert formulation in accepted_formulations, f"Error: formulation {formulation} is not implemented." \
                                                  f"Accepted formulations are {accepted_formulations}."
 
     load = resite.load_df.values
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in resite.tech_points_tuples]
 
+    intrange = arange(len(resite.timestamps))
+    timerange = pd.date_range(resite.timestamps[0], resite.timestamps[-1], freq='H')
+    if formulation == 'meet_RES_targets_daily':
+        temp_constraint_set = [list(intrange[timerange.dayofyear == day])
+                               for day in timerange.dayofyear.unique()]
+    elif formulation == 'meet_RES_targets_weekly':
+        temp_constraint_set = [list(intrange[timerange.weekofyear == week]) for week in timerange.weekofyear.unique()]
+    elif formulation == 'meet_RES_targets_monthly':
+        temp_constraint_set = [list(intrange[timerange.month == mon]) for mon in timerange.month.unique()]
+    elif formulation in ['meet_RES_targets_hourly', 'meet_RES_targets_agg', 'meet_demand_with_capacity']:
+        temp_constraint_set = intrange
+    else:
+        pass
+
     model = Model()
 
-    x = model.addVars(list(product(resite.regions, arange(len(resite.timestamps)))),
-                      lb=0., ub=1., name=lambda k: 'x_%s_%s' % (k[0], k[1]))
     y = model.addVars(tech_points_tuples, lb=0., ub=1., name=lambda k: 'y_%s_%s_%s' % (k[0], k[1], k[2]))
 
     # Create generation dictionary for building speed up
@@ -48,22 +61,20 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
         region_generation = tech_points_generation_potential.values*region_ys.values
         region_generation_y_dict[region] = np.sum(region_generation, axis=1)
 
-    # TODO: need to correct formulation (see pyomo version)
     if formulation == 'meet_RES_targets_agg':
 
+        # Impose a certain percentage of the load to be covered over the whole time slice
+        covered_load_perc_per_region = dict(zip(resite.regions, deployment_vector))
+
         # Generation must be greater than x percent of the load in each region for each time step
-        model.addConstrs(((region_generation_y_dict[region][t] >= load[t, resite.regions.index(region)] * x[region, t])
-                         for region in resite.regions for t in arange(len(resite.timestamps))), name='generation_check')
+        model.addConstrs((sum(region_generation_y_dict[region][t] for t in temp_constraint_set) >=
+                          sum(load[t, resite.regions.index(region)] for t in temp_constraint_set) *
+                          covered_load_perc_per_region[region]
+                          for region in resite.regions), name='generation_check')
 
         # Percentage of capacity installed must be bigger than existing percentage
         model.addConstrs(((y[tech, lon, lat] >= resite.existing_cap_percentage_ds[tech][(lon, lat)])
                          for (tech, lon, lat) in tech_points_tuples), name='potential_constraint')
-
-        # Impose a certain percentage of the load to be covered over the whole time slice
-        covered_load_perc_per_region = dict(zip(resite.regions, deployment_vector))
-        model.addConstrs(((sum(x[region, t] for t in arange(len(resite.timestamps)))
-                          >= covered_load_perc_per_region[region] * len(resite.timestamps))
-                         for region in resite.regions), name='policy_target')
 
         # Minimize the capacity that is deployed
         obj = sum(y[tech, lon, lat] * resite.cap_potential_ds[tech, (lon, lat)]
@@ -72,18 +83,36 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
 
     elif formulation == 'meet_RES_targets_hourly':
 
+        covered_load_perc_per_region = dict(zip(resite.regions, deployment_vector))
+
         # Generation must be greater than x percent of the load in each region for each time step
-        model.addConstrs(((region_generation_y_dict[region][t] >= load[t, resite.regions.index(region)] * x[region, t])
-                         for region in resite.regions for t in arange(len(resite.timestamps))), name='generation_check')
+        model.addConstrs(((region_generation_y_dict[region][t] >=
+                           load[t, resite.regions.index(region)] * covered_load_perc_per_region[region])
+                         for region in resite.regions for t in temp_constraint_set), name='generation_check')
 
         # Percentage of capacity installed must be bigger than existing percentage
         model.addConstrs(((y[tech, lon, lat] >= resite.existing_cap_percentage_ds[tech][(lon, lat)])
                          for (tech, lon, lat) in tech_points_tuples), name='potential_constraint')
 
-        # Impose a certain percentage of the load to be covered for each time step
+        # Minimize the capacity that is deployed
+        obj = sum(y[tech, lon, lat] * resite.cap_potential_ds[tech, (lon, lat)]
+                  for tech, (lon, lat) in resite.cap_potential_ds.keys())
+        model.setObjective(obj, GRB.MINIMIZE)
+
+    elif formulation in ['meet_RES_targets_daily', 'meet_RES_targets_weekly', 'meet_RES_targets_monthly']:
+
+        # Impose a certain percentage of the load to be covered over the whole time slice
         covered_load_perc_per_region = dict(zip(resite.regions, deployment_vector))
-        model.addConstrs(((x[region, t] >= covered_load_perc_per_region[region])
-                         for region in resite.regions for t in arange(len(resite.timestamps))), name='policy_target')
+
+        # Generation must be greater than x percent of the load in each region for each time step
+        model.addConstrs((sum(region_generation_y_dict[region][t] for t in temp_constraint_set[u]) >=
+                          sum(load[t, resite.regions.index(region)] for t in temp_constraint_set[u]) *
+                          covered_load_perc_per_region[region]
+                          for region in resite.regions for u in arange(len(temp_constraint_set))), name='generation_check')
+
+        # Percentage of capacity installed must be bigger than existing percentage
+        model.addConstrs(((y[tech, lon, lat] >= resite.existing_cap_percentage_ds[tech][(lon, lat)])
+                         for (tech, lon, lat) in tech_points_tuples), name='potential_constraint')
 
         # Minimize the capacity that is deployed
         obj = sum(y[tech, lon, lat] * resite.cap_potential_ds[tech, (lon, lat)]
@@ -92,27 +121,31 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
 
     elif formulation == 'meet_demand_with_capacity':
 
+        # Impose a certain percentage of the load to be covered for each time step
+        required_installed_cap_per_tech = dict(zip(resite.technologies, deployment_vector))
+
+        x = model.addVars(list(product(resite.regions, temp_constraint_set)),
+                          lb=0., ub=1., name=lambda k: 'x_%s_%s' % (k[0], k[1]))
+
         # Generation must be greater than x percent of the load in each region for each time step
         model.addConstrs(((region_generation_y_dict[region][t] >= load[t, resite.regions.index(region)] * x[region, t])
-                         for region in resite.regions for t in arange(len(resite.timestamps))), name='generation_check')
+                         for region in resite.regions for t in temp_constraint_set), name='generation_check')
 
         # Percentage of capacity installed must be bigger than existing percentage
         model.addConstrs(((y[tech, lon, lat] >= resite.existing_cap_percentage_ds[tech][(lon, lat)])
                          for (tech, lon, lat) in tech_points_tuples), name='potential_constraint')
 
-        # Impose a certain percentage of the load to be covered for each time step
-        required_installed_cap_per_tech = dict(zip(resite.technologies, deployment_vector))
         model.addConstrs(((sum(y[tech, loc[0], loc[1]] * resite.cap_potential_ds[tech, loc]
                               for loc in resite.tech_points_dict[tech])
                           >= required_installed_cap_per_tech[tech])
                          for tech in resite.technologies), name='capacity_target')
 
         # Maximize the proportion of load that is satisfied
-        obj = sum(x[region, t] for region in resite.regions for t in arange(len(resite.timestamps)))
+        obj = sum(x[region, t] for region in resite.regions for t in temp_constraint_set)
         model.setObjective(obj, GRB.MAXIMIZE)
 
     if write_lp:
-        model.write(join(resite.output_folder, 'model.lp'))
+        model.write(join(resite.output_folder, 'model_resite_gurobipy.lp'))
 
     resite.instance = model
     resite.y = y

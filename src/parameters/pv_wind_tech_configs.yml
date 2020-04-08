@@ -25,7 +25,7 @@ wind_offshore:
   protected_areas_selection: ['Ia', 'Ib', 'II', 'V']
   protected_areas_distance_threshold: 5.
   depth_threshold_low: 5.
-  depth_threshold_high: 100.
+  depth_threshold_high: 59.
   altitude_threshold: 0.
   terrain_slope_threshold: 1.
   forestry_ratio_threshold: 1.
@@ -40,8 +40,8 @@ wind_floating:
   population_density_threshold_high: 100.
   protected_areas_selection: ['Ia', 'Ib', 'II', 'V']
   protected_areas_distance_threshold: 5.
-  depth_threshold_low: 100.
-  depth_threshold_high: 990.
+  depth_threshold_low: 60.
+  depth_threshold_high: 999.
   altitude_threshold: 0.
   terrain_slope_threshold: 1.
   forestry_ratio_threshold: 1.
