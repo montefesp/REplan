@@ -54,7 +54,7 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
         # Keep only onshore or offshore point depending on technology
         if tech == 'wind_onshore':
             data = data[data['Area'] != 'Offshore']
-        else:  # wind_offhsore
+        else:  # wind_offshore
             data = data[data['Area'] == 'Offshore']
 
         # Associate each location with legacy capacity to a point in points

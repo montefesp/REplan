@@ -20,6 +20,7 @@ from src.network_builder.hydro import add_phs_plants, add_ror_plants, add_sto_pl
 from src.network_builder.conventional import add_generators as add_conventional
 from src.network_builder.battery import add_batteries
 from src.data.geographics.manager import get_subregions
+# from src.data.geographics import get_subregions # TODO: would be nice to try to use this instead of full name using init files
 from src.postprocessing.sizing_results import SizingResults
 
 import logging

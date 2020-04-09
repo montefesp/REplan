@@ -1,6 +1,5 @@
 from os.path import join, dirname, abspath
 from typing import List, Tuple, Dict, Any
-import yaml
 
 import xarray as xr
 import numpy as np
@@ -15,11 +14,8 @@ from copy import copy
 from src.data.resource.manager import read_resource_database
 
 
-# TODO:
-#  - It's actually probably smarter than using shapes to differentiate between onshore and offshore
-#  - I think we should actually change the tech argument to an onshore or offshore argument
-#  - Or maybe not because then we have the problem of associating offshore points which are considered onshore
-def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, float]], spatial_resolution: float):
+def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, float]],
+                                   spatial_resolution: float) -> List[Tuple[float, float]]:
     """
     Filters coordinates to leave only onshore and offshore coordinates depending on technology
 
@@ -34,12 +30,12 @@ def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, floa
 
     Returns
     -------
-    coordinates : List[tuple(float, float)]
-        Coordinates filtered via land/water mask.
+    List[Tuple[float, float]]
+        Points filtered via land/water mask.
     """
 
     path_land_data = join(dirname(abspath(__file__)),
-                          '../../../data/land_data/ERA5_land_sea_mask_20181231_' + str(spatial_resolution) + '.nc')
+                          f"../../../data/land_data/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
     dataset = xr.open_dataset(path_land_data)
     dataset = dataset.sortby([dataset.longitude, dataset.latitude])
     dataset = dataset.assign_coords(longitude=(((dataset.longitude + 180) % 360) - 180)).sortby('longitude')
@@ -56,7 +52,6 @@ def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, floa
     return list(set(points).intersection(set(points_in_mask)))
 
 
-# TODO: merge with other read_database?
 def read_filter_database(filename: str, coords: List[Tuple[float, float]] = None) -> xr.Dataset:
     """
     Opens a file containing filtering information
@@ -89,7 +84,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
                            tech_dict: Dict[str, Any]) -> List[Tuple[float, float]]:
     """
     Compute locations to remove from the initial set following various
-    land-, resource-, populatio-based criteria.
+    land-, resource-, population-based criteria.
 
     Parameters
     ----------
