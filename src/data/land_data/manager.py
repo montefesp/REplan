@@ -131,12 +131,13 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
 
     elif filter_name == 'resource_quality':
 
-        # TODO: still fucking slow, make no sense to be so slow
-        # TODO: does it make sense to reload this dataset?
+        # TODO:
+        #  - still fucking slow, make no sense to be so slow
+        #  - does it make sense to reload this dataset?
+        #  - should we slice on time, alredy here?
         path_resource_data = join(dirname(abspath(__file__)), '../../../data/resource/' + str(spatial_resolution))
         database = read_resource_database(path_resource_data)
         database = database.sel(locations=sorted(points))
-        # TODO: slice on time?
 
         if tech_dict['resource'] == 'wind':
             array_resource = xu.sqrt(database.u100 ** 2 + database.v100 ** 2)
