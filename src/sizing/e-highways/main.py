@@ -69,8 +69,6 @@ if __name__ == "__main__":
     # Adding carriers
     for fuel in fuel_info.index[1:-1]:
         net.add("Carrier", fuel, co2_emissions=fuel_info.loc[fuel, "CO2"])
-    # TODO: I don't think we need that or then we add wind and solar too
-    net.add("Carrier", "load", co2_emissions=0.)
 
     # Loading topology
     logger.info("Loading topology.")
@@ -92,7 +90,6 @@ if __name__ == "__main__":
     # Add generators for load shedding (prevents the model from being infeasible
     net.madd("Generator", "Load shed " + onshore_bus_indexes,
              bus=onshore_bus_indexes,
-             carrier="load",  # TODO: not sure we need this
              type="load",
              p_nom=loads_max.values,
              p_max_pu=loads_pu.values,

@@ -7,7 +7,7 @@ import scipy.spatial
 import xarray as xr
 from shapely.geometry import MultiPoint
 
-from src.data.geographics.manager import convert_country_codes, match_points_to_region, get_onshore_shapes
+from src.data.geographics.manager import convert_country_codes, match_points_to_regions, get_onshore_shapes
 from src.data.land_data.manager import filter_onshore_offshore_points
 from src.data.population_density.manager import load_population_density_data
 
@@ -230,7 +230,7 @@ def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: Lis
 
     data = data[["Location", "Total power"]]
 
-    points_region = match_points_to_region(data["Location"].values, regions).dropna()
+    points_region = match_points_to_regions(data["Location"].values, regions).dropna()
     capacities = pd.Series(index=regions.index)
     for region in regions.index:
         points_in_region = points_region[points_region == region].index.values

@@ -27,7 +27,7 @@ for v in values:
     resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
 
     logger.info('Sending model to solver.')
-    results = resite.solve_model(params['solver'], params['solver_options'][params['solver']], params['write_log'])
+    results = resite.solve_model()
 
     logger.info('Retrieving results.')
     if params["modelling"] != "pyomo" or \

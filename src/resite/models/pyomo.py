@@ -127,7 +127,8 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
                        sum(load[t, resite.regions.index(region)] for t in temp_constraint_set[u]) * \
                        covered_load_perc_per_region[region]
 
-            model.generation_check = Constraint(resite.regions, arange(len(temp_constraint_set)), rule=generation_check_rule)
+            model.generation_check = Constraint(resite.regions, arange(len(temp_constraint_set)),
+                                                rule=generation_check_rule)
 
             # Percentage of capacity installed must be bigger than existing percentage
             def potential_constraint_rule(model, tech, lon, lat):

@@ -59,23 +59,15 @@ def is_onshore(point: Point, onshore_shape: Polygon, dist_threshold: float = 20.
 
 
 def nuts3_to_nuts2(nuts3_codes):
-
-    nuts2_codes = []
-    for code in nuts3_codes:
-        if code[:4] == "UKN1":
-            nuts2_codes += ["UKN0"]
-        else:
-            nuts2_codes += [code[:4]]
-    return nuts2_codes
+    return [code[:4] if code[:4] != "UKN1" else "UKN0" for code in nuts3_codes]
 
 
-def get_nuts_area():
+def get_nuts_area() -> pd.DataFrame:
+    """Returns in a pd.DataFrame for each NUTS region (2013 and 2016 version) its size in km"""
 
     area_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/reg_area3.xls")
     return pd.read_excel(area_fn, header=9, index_col=0)[:2193]
 
-
-# -- Auxiliary functions -- #
 
 # TODO: document or maybe delete and just used directly pyc?
 def convert_country_codes(target, **keys):
@@ -117,24 +109,29 @@ def save_to_geojson(df, fn):
     # df.to_file(fn, driver='GeoJSON', schema=schema)
 
 
-def save_polygon(df: gpd.GeoDataFrame, fn: str):
+def save_polygon(df: gpd.GeoDataFrame, fn: str) -> None:
 
     assert isinstance(df, gpd.GeoDataFrame), \
         "Error: The first argument of this function should be a geopandas.GeoDataFrame"
     df.to_file(fn, driver='GeoJSON')
 
 
-def display_polygons(polygons_list):
+def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]]) -> None:
+    """
+    Displays in different colours a set of polygons or multipolygons
+
+    Parameters
+    ----------
+    polygons_list: List[Union[Polygon, MultiPolygon]]
+        List of shapely polygons or multipolygons
+    """
 
     assert isinstance(polygons_list, list) or isinstance(polygons_list, np.ndarray) \
-           or isinstance(polygons_list, gpd.array.GeometryArray), \
-           f'The argument must be a list of polygons or multipolygons, got {type(polygons_list)}'
+        or isinstance(polygons_list, gpd.array.GeometryArray), \
+        f'The argument must be a list of polygons or multipolygons, got {type(polygons_list)}'
 
     fig = plt.figure(figsize=(13, 13))
-
     ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-
-    print(polygons_list)
 
     for polygons in polygons_list:
         c = (random(), random(), random())
@@ -155,10 +152,12 @@ def display_polygons(polygons_list):
 
 
 # TODO: need to check if it is not removing to much points
-def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Series,
-                           keep_outside: bool = True) -> pd.Series:
+def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Series,
+                            keep_outside: bool = True) -> pd.Series:
     """
-    TODO: improve description
+    Matches a set of points to regions by identifying in which region each point falls.
+    If keep_outside is True, points that don't fall in any shape but which are close enough to one shape are kept,
+    otherwise those points are dumped.
 
     Parameters
     ----------
@@ -224,13 +223,14 @@ def match_points_to_region(points: List[Tuple[float, float]], shapes_ds: pd.Seri
     return points_region_ds
 
 
-def get_subregions(region: str):
+def get_subregions(region: str) -> List[str]:
     """
-    Returns the list of the codes of the subregion of a given region
+    Returns the list of the subregions composing one of the region defined in data/region_definition.csv.
+
     Parameters
     ----------
     region: str
-        Code of a geographical region
+        Code of a geographical region defined in data/region_definition.csv.
 
     Returns
     -------
@@ -298,6 +298,7 @@ def return_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: floa
     shape: Polygon or MultiPolygon
         Geographical shape made of points (lon, lat)
     resolution: float
+        Longitudinal and latitudinal spatial resolution of points
     points: List[(float, float)]
         Points from which to start
 
@@ -306,6 +307,8 @@ def return_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: floa
     points: List[(float, float)]
 
     """
+    # Generate all points at the given resolution inside a rectangle whose bounds are the
+    #  based on the outermost points of the shape.
     if points is None:
         minx, miny, maxx, maxy = shape.bounds
         minx = round(minx / resolution) * resolution
@@ -632,4 +635,3 @@ if __name__ == "__main__":
     # us_on_shape = onshore_shapes_['geometry'].values
     #
     # display_polygons(np.append(us_off_shape, us_on_shape))
-    #convert_nuts()

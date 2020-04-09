@@ -57,7 +57,6 @@ class Resite:
     def init_output_folder(self, dir_name: str = None):
         """Initialize an output folder."""
 
-        # TODO: change this to give dirname as argument?
         if dir_name is None:
             dir_name = join(dirname(abspath(__file__)), "../../output/resite/")
             self.output_folder = abspath(dir_name + str(strftime("%Y%m%d_%H%M%S"))) + "/"
@@ -214,17 +213,8 @@ class Resite:
 
     def solve_model(self):
         """
+        # TODO: update comment
         Solve a model
-
-        Parameters
-        ----------
-        solver: str
-            Name of the solver to use
-        solver_options: Dict[str, float]
-            Dictionary of solver options name and value
-        write_log: bool (default = False)
-            Whether to save solver log
-
         """
         if self.modelling == 'pyomo':
             from src.resite.models.pyomo import solve_model as solve_pyomo_model

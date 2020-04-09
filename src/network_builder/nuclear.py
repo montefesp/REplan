@@ -5,7 +5,7 @@ import pandas as pd
 
 import pypsa
 
-from src.data.geographics.manager import convert_country_codes, match_points_to_region
+from src.data.geographics.manager import convert_country_codes, match_points_to_regions
 from src.data.generation.manager import get_gen_from_ppm
 from src.parameters.costs import get_cost, get_plant_type
 
@@ -47,7 +47,7 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
         gens = get_gen_from_ppm(fuel_type="Nuclear", countries=countries)
 
     onshore_buses = network.buses[network.buses.onshore]
-    gens_bus_ds = match_points_to_region(gens[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values,
+    gens_bus_ds = match_points_to_regions(gens[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values,
                                             onshore_buses.region)
     points = list(gens_bus_ds.index)
     gens = gens[gens[["lon", "lat"]].apply(lambda x: (x[0], x[1]) in points, axis=1)]

@@ -9,7 +9,7 @@ from shapely.geometry import Polygon, MultiPolygon
 from shapely.errors import TopologicalError
 
 from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes, \
-    match_points_to_region
+    match_points_to_regions
 from src.data.population_density.manager import load_population_density_data
 # from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area,
 # from src.data.topologies.ehighways import get_ehighway_clusters
@@ -317,7 +317,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
                                                    save_file_name=''.join(sorted(regions)) + "_nuts2_on.geojson")
 
         # Find the geographical region code associated to each coordinate
-        coords_regions_ds = match_points_to_region(coords, filter_shape_data["geometry"]).dropna()
+        coords_regions_ds = match_points_to_regions(coords, filter_shape_data["geometry"]).dropna()
         coords = list(coords_regions_ds.index)
         coords_regions_df = pd.DataFrame(coords_regions_ds.values, coords_regions_ds.index,
                                                columns=["region"])
