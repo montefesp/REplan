@@ -199,13 +199,13 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
         if points.is_empty:
             return points_region_ds
 
-    logger.info(f"Warning: Some points ({points}) are not contained in any shape.")
+    logger.debug(f"Warning: Some points ({points}) are not contained in any shape.")
 
     if not keep_outside:
         return points_region_ds
 
     min_distance = 1.
-    logger.info(f"These points will be assigned to closest one if distance is less than {min_distance}.")
+    logger.debug(f"These points will be assigned to closest one if distance is less than {min_distance}.")
     if isinstance(points, Point):
         points = [points]
 

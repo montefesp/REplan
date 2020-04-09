@@ -91,7 +91,7 @@ class Resite:
         self.filtering_layers = filtering_layers
 
         # self.load_df = get_prepared_load(timestamps=self.timestamps, regions=self.regions)
-        self.load_df = get_load(timestamps=self.timestamps, regions=self.regions)
+        self.load_df = get_load(timestamps=self.timestamps, regions=self.regions, missing_data='interpolate')
 
         region_shapes = pd.DataFrame(index=self.regions, columns=['full'])
         all_subregions = []

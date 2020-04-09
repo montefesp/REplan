@@ -107,7 +107,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
 
     # Check if there is a bus for each country considered
     missing_countries = set(countries) - set(buses.index)
-    assert not missing_countries, f"Warning: No buses exist for the following countries: {missing_countries}"
+    assert not missing_countries, f"Error: No buses exist for the following countries: {missing_countries}"
 
     # Remove onshore buses that are not in the considered countries, keep also buses that are offshore
     def filter_buses(bus):
@@ -129,6 +129,9 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     # Removing offshore buses that are not connected anymore
     connected_buses = sorted(list(set(links["bus0"]).union(set(links["bus1"]))))
     buses = buses.loc[connected_buses]
+
+    disconnected_onshore_bus = set(countries) - set(buses.index)
+    assert not disconnected_onshore_bus, f"Error: Buses {disconnected_onshore_bus} were disconnected."
 
     if not use_ex_line_cap:
         links['p_nom'] = 0
