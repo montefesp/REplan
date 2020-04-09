@@ -70,7 +70,7 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
-    net = get_topology(net, countries, config["add_offshore"], plot=True)
+    net = get_topology(net, countries, config["add_offshore"], plot=False)
 
     # Adding load
     logger.info("Adding load.")
@@ -80,11 +80,6 @@ if __name__ == '__main__':
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
     net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)
 
-    net.mremove("Load", ["Load RS"])
-    net.mremove("Bus", ["RS"])
-
-
-    """
     # Get peak load and normalized load profile
     loads_max = loads.max(axis=0)
     loads_pu = loads.apply(lambda x: x/x.max(), axis=0)
@@ -114,14 +109,12 @@ if __name__ == '__main__':
                                         config['res']['filtering_layers'], config["res"]["use_ex_cap"])
         if config['res']['strategy'] == 'siting':
             net = add_res(net, config['res'], pv_wind_tech_config, config["region"], output_dir)
-    """
 
     # Add conv gen
     if config["dispatch"]["include"]:
         tech = config["dispatch"]["tech"]
         net = add_conventional(net, tech)
 
-    """
     # Adding nuclear
     if config["nuclear"]["include"]:
         net = add_nuclear(net, countries, config["nuclear"]["use_ex_cap"], config["nuclear"]["extendable"],
@@ -144,9 +137,6 @@ if __name__ == '__main__':
     co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(
         net.snapshots) / NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
-    """
-
-    # TODO: there KeyError on first bus (maybe on subsequent ones too?) after solving when RO or RS are included in countries??? but I can't figure out why
 
     # Compute and save results
     if not isdir(output_dir):

@@ -73,8 +73,6 @@ def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
     load = load.loc[timestamps].dropna(axis=1)
     # Convert to GWh
     load = load * 1e-3
-    # Round to kWh
-    load = load.round(6)
 
     def get_countries_load(countries_: List[str]):
         countries_load = pd.DataFrame(index=timestamps, columns=countries_)
@@ -91,7 +89,7 @@ def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
 
     # Get load per country
     if countries is not None:
-        return get_countries_load(countries)
+        return get_countries_load(countries).round(6)
     # Get load aggregated by region
     else:  # regions is not None
         load_per_region = pd.DataFrame(columns=regions, index=timestamps)
@@ -100,7 +98,7 @@ def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
             countries = get_subregions(region)
             load_per_region[region] = get_countries_load(countries).sum(axis=1).values
 
-        return load_per_region
+        return load_per_region.round(6)
 
 
 def get_load_from_source_country(target_countries: List[str], timestamps: pd.DatetimeIndex) -> pd.DataFrame:
@@ -124,7 +122,7 @@ def get_load_from_source_country(target_countries: List[str], timestamps: pd.Dat
     """
 
     opsd_load_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
-    load = pd.read_csv(opsd_load_fn, index_col=0)
+    load = pd.read_csv(opsd_load_fn, index_col=0, engine='python')
     load.index = pd.DatetimeIndex(load.index)
     load = load*1e-3
     load = load.round(6)
@@ -139,7 +137,7 @@ def get_load_from_source_country(target_countries: List[str], timestamps: pd.Dat
     load_info = load_info.dropna()
 
     # Source countries might change from year to year (depending on data availability)
-    target_countries_load = pd.DataFrame(index=timestamps, columns=target_countries)
+    target_countries_load = pd.DataFrame(index=timestamps, columns=target_countries, dtype=float)
     for year in years_range:
 
         year_timestamps = timestamps[timestamps.year == year]
@@ -162,9 +160,10 @@ def get_load_from_source_country(target_countries: List[str], timestamps: pd.Dat
         # Compute target load
         for i, target_c in enumerate(target_countries_load):
             source_c = source_countries[i]
+            source_c_load = source_countries_load[source_c]
+            yearly_load_source_country = yearly_load_source_countries[source_c]
             target_countries_load.loc[year_timestamps, target_c] = \
-                source_countries_load[source_c] \
-                * yearly_load_target_countries[target_c] / yearly_load_source_countries[source_c]
+                source_c_load * yearly_load_target_countries[target_c] / yearly_load_source_country
 
     return target_countries_load
 
