@@ -76,9 +76,9 @@ def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
     # Round to kWh
     load = load.round(6)
 
-    def get_countries_load(countries: List[str]):
-        countries_load = pd.DataFrame(index=timestamps, columns=countries)
-        missing_countries = set(countries) - set(load.columns)
+    def get_countries_load(countries_: List[str]):
+        countries_load = pd.DataFrame(index=timestamps, columns=countries_)
+        missing_countries = set(countries_) - set(load.columns)
         if missing_countries:
             if missing_data == "error":
                 raise ValueError(f"Error: Load is not available for countries {sorted(list(missing_countries))}")

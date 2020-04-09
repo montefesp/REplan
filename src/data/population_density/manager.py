@@ -1,6 +1,8 @@
 from os.path import join, dirname, abspath
+
 import xarray as xr
 import numpy as np
+
 
 def load_population_density_data(spatial_resolution: float) -> xr.DataArray:
 
@@ -8,7 +10,7 @@ def load_population_density_data(spatial_resolution: float) -> xr.DataArray:
     path_pop_data = join(dirname(abspath(__file__)), '../../../data/population_density')
     dataset_population = \
         xr.open_dataset(join(path_pop_data, 'gpw_v4_population_density_rev11_' + str(spatial_resolution) + '.nc'))
-    # Rename the only variable to 'data' # TODO: is there not a cleaner way to do this?
+    # Rename the only variable to 'data' # TODO: is there not a cleaner way to do this? and why do we need to do this?
     varname = [item for item in dataset_population.data_vars][0]
     dataset_population = dataset_population.rename({varname: 'data'})
     # The value of 5 for "raster" fetches data for the latest estimate available in the dataset, that is, 2020.
