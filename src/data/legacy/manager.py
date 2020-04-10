@@ -105,7 +105,7 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
 
         codes = [item for item in data.index]
         filter_shape_data = get_onshore_shapes(codes, filterremote=True)
-        # , save_file_name=''.join(sorted(codes)) + "_nuts2_on.geojson")
+        # , save_file_name=f"{''.join(sorted(codes))}_nuts2_on.geojson")
 
         coords_multipoint = MultiPoint(points)
         df = pd.DataFrame([])

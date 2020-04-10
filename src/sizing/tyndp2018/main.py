@@ -35,8 +35,7 @@ if __name__ == '__main__':
     # Main directories
     data_dir = join(dirname(abspath(__file__)), "../../../data/")
     params_dir = join(dirname(abspath(__file__)), "../../parameters/")
-    output_dir = join(dirname(abspath(__file__)),
-                      '../../../output/sizing/tyndp2018/' + strftime("%Y%m%d") + "_" + strftime("%H%M%S") + "/")
+    output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/tyndp2018/{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -50,7 +49,7 @@ if __name__ == '__main__':
     # Time
     timeslice = config['time']['slice']
     time_resolution = config['time']['resolution']
-    timestamps = pd.date_range(timeslice[0], timeslice[1], freq=str(time_resolution) + 'H')
+    timestamps = pd.date_range(timeslice[0], timeslice[1], freq=f"{time_resolution}H")
 
     # Building network
     # Add location to Generators and StorageUnits
@@ -84,7 +83,8 @@ if __name__ == '__main__':
     loads_max = loads.max(axis=0)
     loads_pu = loads.apply(lambda x: x/x.max(), axis=0)
     # Add generators for load shedding (prevents the model from being infeasible
-    net.madd("Generator", "Load shed " + onshore_bus_indexes,
+    net.madd("Generator",
+             "Load shed " + onshore_bus_indexes,
              bus=onshore_bus_indexes,
              type="load",
              p_nom=loads_max.values,
@@ -149,7 +149,7 @@ if __name__ == '__main__':
     # Compute and save results
     if not isdir(output_dir):
         makedirs(output_dir)
-    net.lopf(solver_name=config["solver"], solver_logfile=output_dir + "test.log",
+    net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}test.log",
              solver_options=config["solver_options"][config["solver"]], pyomo=True)
 
     # if True:
@@ -158,10 +158,10 @@ if __name__ == '__main__':
     #                     io_options={'symbolic_solver_labels': True})
 
     # Save config and parameters files
-    yaml.dump(config, open(output_dir + 'config.yaml', 'w'))
-    yaml.dump(tech_info, open(output_dir + 'tech_info.yaml', 'w'))
-    yaml.dump(fuel_info, open(output_dir + 'fuel_info.yaml', 'w'))
-    yaml.dump(pv_wind_tech_config, open(output_dir + 'pv_wind_tech_config.yaml', 'w'))
+    yaml.dump(config, open(f"{output_dir}config.yaml", 'w'))
+    yaml.dump(tech_info, open(f"{output_dir}tech_info.yaml", 'w'))
+    yaml.dump(fuel_info, open(f"{output_dir}fuel_info.yaml", 'w'))
+    yaml.dump(pv_wind_tech_config, open(f"{output_dir}'pv_wind_tech_config.yaml", 'w'))
 
     net.export_to_csv_folder(output_dir)
 

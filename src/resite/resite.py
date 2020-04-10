@@ -59,9 +59,9 @@ class Resite:
 
         if dir_name is None:
             dir_name = join(dirname(abspath(__file__)), "../../output/resite/")
-            self.output_folder = abspath(dir_name + str(strftime("%Y%m%d_%H%M%S"))) + "/"
+            self.output_folder = abspath(f"{dir_name}{strftime('%Y%m%d_%H%M%S')}/")
         else:
-            self.output_folder = dir_name + "resite/"
+            self.output_folder = f"{dir_name}resite/"
         makedirs(self.output_folder)
 
         self.logger.info(f"Folder path is: {self.output_folder}")
@@ -103,7 +103,8 @@ class Resite:
         regions_shapes_union = cascaded_union(region_shapes['full'].values)
 
         # TODO: Need to remove the first init_points by downloading new data
-        path_resource_data = join(dirname(abspath(__file__)), '../../data/resource/' + str(self.spatial_res))
+        path_resource_data = join(dirname(abspath(__file__)),
+                                  f"../../data/resource/source/era5-land/{self.spatial_res}")
         database = read_resource_database(path_resource_data)
         init_points = list(zip(database.longitude.values, database.latitude.values))
         init_points = return_points_in_shape(regions_shapes_union, self.spatial_res, init_points)
@@ -282,9 +283,9 @@ class Resite:
             self.init_output_folder(dir_name)
 
         # TODO: change this -> maybe we would need to have a function copying the parameters back to a file
-        yaml.dump(params, open(self.output_folder + 'config.yaml', 'w'))
+        yaml.dump(params, open(f"{self.output_folder}config.yaml", 'w'))
 
-        yaml.dump(self.tech_config, open(self.output_folder + 'pv_wind_tech_configs.yaml', 'w'))
+        yaml.dump(self.tech_config, open(f"{self.output_folder}pv_wind_tech_configs.yaml", 'w'))
 
         resite_output = [
             self.formulation,

@@ -46,7 +46,7 @@ def add_batteries(network: pypsa.Network, type: str, max_hours: float):
     self_discharge = round(1 - self_discharge, 4)
 
     network.madd("StorageUnit",
-                 [f"StorageUnit {type} " + str(bus_id) for bus_id in onshore_bus_indexes],
+                 [f"StorageUnit {type} {bus_id}" for bus_id in onshore_bus_indexes],
                  type=type,
                  bus=onshore_bus_indexes,
                  p_nom_extendable=True,

@@ -350,7 +350,7 @@ if __name__ == "__main__":
     test_number = sys.argv[2] if len(sys.argv) == 3 else None
     if test_number is None:
         test_number = sorted(os.listdir(main_output_dir))[-1]
-    output_dir = main_output_dir + test_number + "/"
+    output_dir = f"{main_output_dir}{test_number}/"
     print(output_dir)
     net = Network()
     net.import_from_csv_folder(output_dir)

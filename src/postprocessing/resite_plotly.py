@@ -250,12 +250,12 @@ if __name__ == "__main__":
     test_number = sys.argv[2] if len(sys.argv) == 3 else None
     if test_number is None:
         test_number = sorted(os.listdir(main_output_dir))[-1]
-    output_dir = main_output_dir + test_number + "/"
+    output_dir = f"{main_output_dir}{test_number}/"
     """
     output_dir = "/home/utilisateur/Global_Grid/code/py_ggrid/output/resite_EU_meet_res_agg_use_ex_cap/0.1/"
     print(output_dir)
 
-    resite = pickle.load(open(output_dir + "resite_model.p", 'rb'))
+    resite = pickle.load(open(f"{output_dir}resite_model.p", 'rb'))
     print(f"Region: {resite.regions}")
     ro = ResitePlotly(resite)
 

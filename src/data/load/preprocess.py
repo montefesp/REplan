@@ -212,12 +212,12 @@ def create_countries_load_files():
     load_2015_2018_countries = available_years_countries[(available_years_countries.start <= 2015) &
                                                          (available_years_countries.end >= 2018)].index
     load_2015_2018 = get_load(countries=load_2015_2018_countries.values, years_range=[2015, 2018])
-    load_2015_2018.to_csv(load_dir + "load_opsd_2015_2018.csv")
+    load_2015_2018.to_csv(f"{load_dir}load_opsd_2015_2018.csv")
 
     load_2016_2018_countries = available_years_countries[(available_years_countries.start <= 2016) &
                                                          (available_years_countries.end >= 2018)].index
     load_2016_2018 = get_load(countries=load_2016_2018_countries.values, years_range=[2016, 2018])
-    load_2016_2018.to_csv(load_dir + "load_opsd_2016_2018.csv")
+    load_2016_2018.to_csv(f"{load_dir}load_opsd_2016_2018.csv")
 
 
 if __name__ == "__main__":

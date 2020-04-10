@@ -12,7 +12,7 @@ months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'
 
 spatial_resolution = 0.5
 region = 'EU'
-directory = f"../../data/resource/{spatial_resolution}/{region}/"
+directory = f"../../data/resource/source/era5-land/{spatial_resolution}/{region}/"
 if not os.path.exists(directory):
     os.makedirs(directory)
 

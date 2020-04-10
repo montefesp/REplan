@@ -169,10 +169,10 @@ if __name__ == "__main__":
     test_number = sys.argv[2] if len(sys.argv) == 3 else None
     if test_number is None:
         test_number = sorted(listdir(main_output_dir))[-1]
-    output_dir = main_output_dir + test_number + "/"
+    output_dir = f"{main_output_dir}{test_number}/"
     print(output_dir)
 
-    resite = pickle.load(open(output_dir + "resite_model.p", 'rb'))
+    resite = pickle.load(open(f"{output_dir}resite_model.p", 'rb'))
 
     ro = ResiteResults(resite)
     ro.print_summary()

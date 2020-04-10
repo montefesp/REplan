@@ -135,7 +135,8 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
         #  - still fucking slow, make no sense to be so slow
         #  - does it make sense to reload this dataset?
         #  - should we slice on time, alredy here?
-        path_resource_data = join(dirname(abspath(__file__)), '../../../data/resource/' + str(spatial_resolution))
+        path_resource_data = join(dirname(abspath(__file__)),
+                                  f"../../../data/resource/source/era5-land/{spatial_resolution}")
         database = read_resource_database(path_resource_data)
         database = database.sel(locations=sorted(points))
 
@@ -154,7 +155,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
     elif filter_name == 'orography':
 
         dataset_name = join(dirname(abspath(__file__)),
-                            '../../../data/land_data/ERA5_orography_characteristics_20181231_' + str(spatial_resolution) + '.nc')
+                            f"../../../data/land_data/ERA5_orography_characteristics_20181231_{spatial_resolution}.nc")
         dataset = read_filter_database(dataset_name, points)
 
         altitude_threshold = tech_dict['altitude_threshold']
@@ -190,7 +191,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
     elif filter_name == 'water_mask':
 
         dataset_name = join(dirname(abspath(__file__)),
-                            '../../../data/land_data/ERA5_land_sea_mask_20181231_' + str(spatial_resolution) + '.nc')
+                            f"../../../data/land_data/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
         dataset = read_filter_database(dataset_name, points)
 
         array_watermask = dataset['lsm']
@@ -203,7 +204,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
     elif filter_name == 'bathymetry':
 
         dataset_name = join(dirname(abspath(__file__)),
-                            '../../../data/land_data/ERA5_land_sea_mask_20181231_' + str(spatial_resolution) + '.nc')
+                            f"../../../data/land_data/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
         dataset = read_filter_database(dataset_name, points)
 
         depth_threshold_low = tech_dict['depth_threshold_low']
@@ -225,7 +226,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
 
         path_population_data = \
             join(dirname(abspath(__file__)),
-                 '../../../data/population_density/gpw_v4_population_density_rev11_' + str(spatial_resolution) + '.nc')
+                 f"../../../data/population_density/gpw_v4_population_density_rev11_{spatial_resolution}.nc")
         dataset = xr.open_dataset(path_population_data)
 
         varname = [item for item in dataset.data_vars][0]

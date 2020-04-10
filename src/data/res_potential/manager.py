@@ -39,10 +39,10 @@ def read_capacity_potential(tech: str) -> pd.Series:
     path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/generated/')
     # Onshore, return NUTS2 capacity potentials
     if tech in ['wind_onshore', 'pv_utility', 'pv_residential']:
-        return pd.read_csv(path_potential_data + "nuts2_capacity_potentials_GW.csv", index_col=0)[tech]
+        return pd.read_csv(f"{path_potential_data}nuts2_capacity_potentials_GW.csv", index_col=0)[tech]
     # Offshore, return EEZ capacity potentials
     else:
-        return pd.read_csv(path_potential_data + "eez_capacity_potentials_GW.csv", index_col=0)[tech]
+        return pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0)[tech]
 
 
 def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]], spatial_resolution: float,
@@ -91,17 +91,16 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
         if tech in ['wind_offshore', 'wind_floating']:
             onshore_shapes_union = \
                 cascaded_union(get_onshore_shapes(regions, filterremote=True,
-                                                  save_file_name=''.join(sorted(regions))
-                                                                 + "_regions_on.geojson")["geometry"].values)
+                                                  save_file_name=f"{''.join(sorted(regions))}_regions_on.geojson")
+                               ["geometry"].values)
             filter_shape_data = get_offshore_shapes(regions, onshore_shape=onshore_shapes_union,
                                                     filterremote=True,
-                                                    save_file_name=''.join(sorted(regions))
-                                                                   + "_regions_off.geojson")
-            filter_shape_data.index = ["EZ" + code for code in filter_shape_data.index]
+                                                    save_file_name=f"{''.join(sorted(regions))}_regions_off.geojson")
+            filter_shape_data.index = [f"EZ{code}" for code in filter_shape_data.index]
         else:
             codes = [code for code in potential_per_region_ds.index if code[:2] in nuts0_regions]
             filter_shape_data = get_onshore_shapes(codes, filterremote=True,
-                                                   save_file_name=''.join(sorted(regions)) + "_nuts2_on.geojson")
+                                                   save_file_name=f"{''.join(sorted(regions))}_nuts2_on.geojson")
 
         # Find the geographical region code associated to each coordinate
         coords_regions_ds = match_points_to_regions(coords, filter_shape_data["geometry"]).dropna()
@@ -187,7 +186,7 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
                                                   #, save_file_name="cap_potential_regions_on.geojson"
             shapes = get_offshore_shapes(codes, onshore_shape=onshore_shapes_union,
                                          filterremote=True)#, save_file_name="cap_potential_regions_off.geojson")
-            shapes.index = ["EZ" + code for code in shapes.index]
+            shapes.index = [f"EZ{code}" for code in shapes.index]
         else:
             shapes = get_onshore_shapes(potential_per_subregion_ds.index.values, filterremote=True)
                                         # save_file_name="cap_potential_regions_on.geojson")

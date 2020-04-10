@@ -54,8 +54,7 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
     assert topology_type in accepted_topologies, \
         f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
 
-    resite_data_fn = join(dirname(abspath(__file__)),
-                          "../../data/resite/generated/" + strategy + "_site_data_" + str(site_nb) + ".p")
+    resite_data_fn = join(dirname(abspath(__file__)), f"../../data/resite/generated/{strategy}_site_data_{site_nb}.p")
     tech_points_cap_factor_df = pickle.load(open(resite_data_fn, "rb"))
 
     missing_timestamps = set(network.snapshots) - set(tech_points_cap_factor_df.index)
@@ -115,7 +114,7 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 
         network.madd("Generator",
-                     "Gen " + tech + " " + pd.Index([str(x) for x, _ in points]) + "-" +
+                     f"Gen {tech} " + pd.Index([str(x) for x, _ in points]) + "-" +
                      pd.Index([str(y) for _, y in points]),
                      bus=points_bus_ds.values,
                      p_nom_extendable=True,
@@ -215,7 +214,7 @@ def add_generators(network: pypsa.Network, technologies: List[str],
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 
         network.madd("Generator",
-                     "Gen " + tech + " " + pd.Index([str(x) for x, _ in points]) + "-" +
+                     f"Gen {tech} " + pd.Index([str(x) for x, _ in points]) + "-" +
                      pd.Index([str(y) for _, y in points]),
                      bus=associated_buses.values,
                      p_nom_extendable=True,
@@ -283,7 +282,7 @@ def add_generators_at_resolution(network: pypsa.Network, technologies: List[str]
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 
         network.madd("Generator",
-                     "Gen " + tech + " " + pd.Index([str(x) for x, _ in points]) + "-" +
+                     f"Gen {tech} " + pd.Index([str(x) for x, _ in points]) + "-" +
                      pd.Index([str(y) for _, y in points]),
                      bus=associated_buses.values,
                      p_nom_extendable=True,
@@ -377,7 +376,8 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 
         # Adding to the network
-        network.madd("Generator", f"Gen {tech} " + buses.index,
+        network.madd("Generator",
+                     f"Gen {tech} " + buses.index,
                      bus=buses.index,
                      p_nom_extendable=True,
                      p_nom=legacy_capacities,
@@ -472,7 +472,7 @@ def add_generators_at_bus_test(network: pypsa.Network, params: Dict[str, Any], t
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 
         network.madd("Generator",
-                     "Gen " + tech + " " + pd.Index([str(x) for x, _ in points]) + "-" +
+                     f"Gen {tech} " + pd.Index([str(x) for x, _ in points]) + "-" +
                      pd.Index([str(y) for _, y in points]),
                      bus=one_point_per_bus.index,
                      p_nom_extendable=True,

@@ -196,7 +196,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     """
 
     topology_dir = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/generated/")
-    buses = pd.read_csv(topology_dir + "buses.csv", index_col='id')
+    buses = pd.read_csv(f"{topology_dir}buses.csv", index_col='id')
 
     # Remove offshore buses if not considered
     if not add_offshore:
@@ -219,7 +219,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
             regions[i] = shapely.wkt.loads(region)
 
     # Get corresponding lines
-    lines = pd.read_csv(topology_dir + "lines.csv", index_col='id')
+    lines = pd.read_csv(f"{topology_dir}lines.csv", index_col='id')
     # Remove lines for which one of the two end buses has been removed
     lines = pd.DataFrame(lines.loc[lines.bus0.isin(buses.index) & lines.bus1.isin(buses.index)])
 

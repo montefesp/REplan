@@ -196,7 +196,8 @@ def add_phs_plants(network: pypsa.Network, topology_type: str = "countries",
         tech_info.loc[get_plant_type('phs')][["efficiency_ds", "efficiency_ch", "efficiency_sd"]]
     self_discharge = round(1 - self_discharge, 4)
 
-    network.madd("StorageUnit", "Storage PHS " + psp_pow_cap.index,
+    network.madd("StorageUnit",
+                 "Storage PHS " + psp_pow_cap.index,
                  bus=psp_pow_cap.index,
                  type='phs',
                  p_nom=psp_pow_cap.values,
@@ -393,7 +394,8 @@ def add_ror_plants(network: pypsa.Network, topology_type: str = "countries",
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
     efficiency = tech_info.loc[get_plant_type('ror')]["efficiency_ds"]
 
-    network.madd("Generator", "Generator ror " + bus_cap.index,
+    network.madd("Generator",
+                 "Generator ror " + bus_cap.index,
                  bus=bus_cap.index.values,
                  type='ror',
                  p_nom=bus_cap.values,
@@ -588,9 +590,9 @@ def add_sto_plants(network: pypsa.Network, topology_type: str = "countries",
 
     data_dir = join(dirname(abspath(__file__)), "../../data/hydro/generated/")
 
-    hydro_capacities = pd.read_csv(data_dir + "hydro_capacities_per_nuts.csv",
+    hydro_capacities = pd.read_csv(f"{data_dir}hydro_capacities_per_nuts.csv",
                                    index_col=0, delimiter=";", usecols=[0, 2, 3])
-    reservoir_inflow = pd.read_csv(data_dir + "hydro_sto_inflow_time_series_per_nuts_GWh.csv",
+    reservoir_inflow = pd.read_csv(f"{data_dir}hydro_sto_inflow_time_series_per_nuts_GWh.csv",
                                    index_col=0, delimiter=";")
     reservoir_inflow.index = pd.DatetimeIndex(reservoir_inflow.index)
     reservoir_inflow = reservoir_inflow.loc[network.snapshots]
@@ -624,7 +626,8 @@ def add_sto_plants(network: pypsa.Network, topology_type: str = "countries",
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
     efficiency_dispatch = tech_info.loc[get_plant_type('sto')]["efficiency_ds"]
 
-    network.madd("StorageUnit", "Storage reservoir " + bus_pow_cap.index,
+    network.madd("StorageUnit",
+                 "Storage reservoir " + bus_pow_cap.index,
                  bus=bus_pow_cap.index.values,
                  type='sto',
                  p_nom=bus_pow_cap.values,

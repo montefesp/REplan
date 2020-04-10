@@ -301,12 +301,12 @@ def return_region_shape(region_name: str, subregions: List[str], prepare: bool =
 
     """
     # Get onshore shape
-    filename = region_name + "_on.geojson"
+    filename = f"{region_name}_on.geojson"
     onshore_union = cascaded_union(get_onshore_shapes(subregions, save_file_name=filename,
                                                       filterremote=True)["geometry"].values)
 
     # Get offshore shape
-    filename = region_name + "_off.geojson"
+    filename = f"{region_name}_off.geojson"
     offshore_union = \
         cascaded_union(get_offshore_shapes(subregions, onshore_shape=onshore_union, save_file_name=filename,
                                            filterremote=True)["geometry"].values)
@@ -455,7 +455,7 @@ def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, sav
     """
 
     if save_file_name is not None:
-        save_file_name = join(dirname(abspath(__file__)), "../../../output/geographics/" + save_file_name)
+        save_file_name = join(dirname(abspath(__file__)), f"../../../output/geographics/{save_file_name}")
         if isfile(save_file_name):
             return gpd.read_file(save_file_name).set_index('name')
 
@@ -512,7 +512,7 @@ def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, fi
     ids = [uk_el_to_gb_gr[c] if c in uk_el_to_gb_gr else c for c in ids]
 
     if save_file_name is not None:
-        save_file_name = join(dirname(abspath(__file__)), "../../../output/geographics/" + save_file_name)
+        save_file_name = join(dirname(abspath(__file__)), f"../../../output/geographics/{save_file_name}")
         if isfile(save_file_name):
             return gpd.read_file(save_file_name).set_index('name')
 

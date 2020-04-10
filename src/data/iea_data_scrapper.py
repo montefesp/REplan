@@ -14,7 +14,7 @@ class DataScrapper:
         logging.info("Building DataScrapper")
         self.data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../data/")
         print(self.data_dir)
-        self.countries_dict = pd.read_csv(self.data_dir + "countries-codes.csv", index_col="Code")
+        self.countries_dict = pd.read_csv(f"{self.data_dir}countries-codes.csv", index_col="Code")
 
     def iea_electricity_production(self, countries, start_year, end_year):
 

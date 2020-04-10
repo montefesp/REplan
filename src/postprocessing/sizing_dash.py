@@ -54,7 +54,7 @@ class SizingDash:
             self.current_test_number = sorted(os.listdir(output_dir))[-1]
         self.output_dir = output_dir
         self.net = Network()
-        self.net.import_from_csv_folder(self.output_dir + self.current_test_number + "/")
+        self.net.import_from_csv_folder(f"{self.output_dir}{self.current_test_number}/")
         if len(self.net.lines) != 0:
             self.current_line_id = self.net.lines.index[0]
         if len(self.net.links) != 0:
@@ -202,8 +202,7 @@ class SizingDash:
                                 marker=dict(color='blue'),
                                 name='Power flow'),
                             layout=go.Layout(
-                                # title='Power flow for ' + self.current_line_id,
-                                title='Power flow for ' + self.current_link_id,
+                                title=f"Power flow for {self.current_line_id}",
                                 xaxis={'title': 'Time stamps'},
                                 yaxis={'title': 'GWh (or GW)'}))
     
@@ -248,7 +247,7 @@ class SizingDash:
 
             fig = go.Figure(
                 layout=go.Layout(
-                    title='Generation in ' + self.current_bus_id,
+                    title=f"Generation in {self.current_bus_id}",
                     xaxis={'title': 'Time stamps'},
                     yaxis={'title': 'GWh (or GW)'}
                 ))
@@ -293,7 +292,7 @@ class SizingDash:
 
             fig = go.Figure(
                 layout=go.Layout(
-                    title='Generation in ' + self.current_bus_id,
+                    title=f"Generation in {self.current_bus_id}",
                     xaxis={'title': 'Time stamps'},
                     yaxis={'title': 'GWh (or GW)'}
                 ))
@@ -367,7 +366,7 @@ class SizingDash:
                                 opacity=0.5)
                 ),
                 layout=go.Layout(
-                    title='Demand balancing in ' + self.current_bus_id,
+                    title=f"Demand balancing in {self.current_bus_id}",
                     xaxis={'title': 'Time stamps'},
                     yaxis={'title': 'GWh (or GW)'}
                 ))
@@ -398,7 +397,7 @@ class SizingDash:
                     y=np.sum(storages.state_of_charge.values, axis=0),
                     name='SOF'),
                 layout=go.Layout(
-                    title='State of charge in ' + self.current_bus_id,
+                    title=f"State of charge in {self.current_bus_id}",
                     xaxis={'title': 'Time stamps'},
                     yaxis={'title': 'GWh (or GW)'},
                 ))
@@ -425,7 +424,7 @@ class SizingDash:
                     y=np.sum(storages.charge.values, axis=0),
                     name='Charge-Discharge'),
                 layout=go.Layout(
-                    title='Charge in ' + self.current_bus_id,
+                    title=f"Charge in {self.current_bus_id}",
                     xaxis={'title': 'Time stamps'},
                     yaxis={'title': 'GWh (or GW)'},
                 ))
@@ -448,7 +447,7 @@ class SizingDash:
 
         def get_costs_table():
 
-            #costs_fn = self.output_dir + self.current_test_number + "/costs.yaml"
+            #costs_fn = f"{self.output_dir}{self.current_test_number}/costs.yaml"
             #costs = yaml.load(open(costs_fn, "r"), Loader=yaml.FullLoader)
 
             # Generation
@@ -537,7 +536,7 @@ class SizingDash:
             return [{'label': dir_name, 'value': dir_name} for dir_name in sorted(os.listdir(self.output_dir))]
     
         def get_parameters_list():
-            attrs = yaml.load(open(self.output_dir + self.current_test_number + "/config.yaml", "rb"),
+            attrs = yaml.load(open(f"{self.output_dir}{self.current_test_number}/config.yaml", "rb"),
                               Loader=yaml.FullLoader)
             return [{'name': key, 'value': str(attrs[key])} for key in attrs]
 
@@ -812,7 +811,7 @@ class SizingDash:
         def update_network(n_clicks, value1, value2):
             print(value2)
             self.net = Network()
-            self.net.import_from_csv_folder(self.output_dir + value1 + "/")
+            self.net.import_from_csv_folder(f"{self.output_dir}{value1}/")
             self.current_link_id = self.net.links.index[0]
             self.current_bus_id = self.net.buses.index[0]
             self.selected_types = value2

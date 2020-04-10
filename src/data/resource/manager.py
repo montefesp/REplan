@@ -46,7 +46,7 @@ def read_resource_database(file_path, coords=None):
     # and also aggregating (longitude, latitude) into one single 'location'. As
     # well, data is read as float32 (memory concerns).
     for area in areas_unique:
-        file_list = [file for file in glob.glob(file_path + '/*.nc') if area in file]
+        file_list = [file for file in glob.glob(f"{file_path}/*.nc") if area in file]
         ds = xr.open_mfdataset(file_list,
                                combine='by_coords',
                                chunks={'latitude': 20, 'longitude': 20})\
@@ -97,7 +97,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
     data_converter_wind = pd.read_csv(join(path_to_transfer_function, 'data_wind_turbines.csv'), sep=';', index_col=0)
     data_converter_pv = pd.read_csv(join(path_to_transfer_function, 'data_pv_modules.csv'), sep=';', index_col=0)
 
-    path_resource_data = join(dirname(abspath(__file__)), '../../../data/resource/' + str(spatial_res))
+    path_resource_data = join(dirname(abspath(__file__)), f"../../../data/resource/source/era5-land/{spatial_res}")
     dataset = read_resource_database(path_resource_data).sel(time=timestamps)
 
     # Create output dataframe with MultiIndex (tech, coords)

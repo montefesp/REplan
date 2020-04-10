@@ -61,7 +61,7 @@ def get_non_eu28_potential(tech: str) -> pd.Series:
     else:  # tech in ['wind_offshore', 'wind_floating']
 
         capacity_potential_ds = capacity_potential_non_eu28
-        capacity_potential_ds.index = 'EZ' + capacity_potential_ds.index
+        capacity_potential_ds.index = "EZ" + capacity_potential_ds.index
 
     return capacity_potential_ds
 

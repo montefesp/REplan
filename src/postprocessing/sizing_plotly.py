@@ -271,7 +271,7 @@ class SizingPlotly:
         all_ys = generators.y.values
         map_coords = [min(all_xs) - 5, max(all_xs) + 5, min(all_ys) - 2, max(all_ys) + 2]
         if fig is None:
-            title = attribute + " for " + ",".join(types)
+            title = f"{attribute} for {','.join(types)}"
             fig = get_map_layout(title, map_coords)
 
         #
@@ -315,7 +315,7 @@ class SizingPlotly:
         all_xs = self.net.storage_units.loc[storage_idx, "x"].values
         all_ys = self.net.storage_units.loc[storage_idx, "y"].values
         map_coords = [min(all_xs) - 5, max(all_xs) + 5, min(all_ys) - 2, max(all_ys) + 2]
-        title = attribute + " for " + ",".join(types)
+        title = f"{attribute} for {','.join(types)}"
         fig = get_map_layout(title, map_coords)
 
         if attribute in self.net.storage_units_t.keys():
@@ -335,7 +335,7 @@ class SizingPlotly:
             mode="markers",
             lat=all_ys,
             lon=all_xs,
-            text=[storage_idx[i] + " " + str(values[i]) for i in range(len(values))],
+            text=[f"{storage_idx[i]}  {values[i]}" for i in range(len(values))],
             hoverinfo='text',
             marker=dict(
                 size=10 + 40 * np.log(1 + values / max_value),
@@ -505,7 +505,7 @@ class SizingPlotly:
 
             title = idx
             if ' ' in title:
-                title = title.split(" ")[0] + "<br>" + title.split(" ")[1]
+                title = f"{title.split(' ')[0]}<br>{title.split(' ')[1]}"
 
             # Sort values
             sorted_keys = sorted(list(all_cap.keys()))
@@ -610,10 +610,10 @@ if __name__ == "__main__":
     test_number = sys.argv[2] if len(sys.argv) == 3 else None
     if test_number is None:
         test_number = sorted(os.listdir(main_output_dir))[-1]
-    output_dir = main_output_dir + test_number + "/"
+    output_dir = f"{main_output_dir}{test_number}/"
     print(output_dir)
     import yaml
-    config = yaml.load(open(output_dir + "config.yaml", 'r'), yaml.SafeLoader)
+    config = yaml.load(open(f"{output_dir}config.yaml", 'r'), yaml.SafeLoader)
 
     pprp = SizingPlotly(output_dir)
 
@@ -636,13 +636,13 @@ if __name__ == "__main__":
         types = ["wind_offshore", "wind_onshore"]  # ["wind_onshore", "wind_offshore", "pv_utility", "pv_residential"]
         attribute = "p_nom_opt"
         fig = pprp.add_generators_to_map(types, attribute)
-        title = attribute + "_for_" + "_".join(types) + '.html'
+        title = f"{attribute}_for_{'_'.join(types)}.html"
     if fig_choice == 5:
         # Individual storage position
         types = ["sto", "phs"]
         attribute = "p_nom_opt"
         fig = pprp.add_storage_to_map(types, attribute)
-        title = attribute + "_for_" + "_".join(types) + '.html'
+        title = f"{attribute}_for_{'_'.join(types)}.html"
     if fig_choice == 6:
         # Map with pie charts
         regions_dict = {'Iberia': ['ES', 'PT'],

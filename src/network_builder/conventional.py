@@ -39,7 +39,8 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
     fuel, efficiency = tech_info.loc[get_plant_type(tech)][["fuel", "efficiency_ds"]]
 
-    network.madd("Generator", "Gen " + tech + " " + buses.index,
+    network.madd("Generator",
+                 f"Gen {tech} " + buses.index,
                  bus=buses.index,
                  p_nom_extendable=True,
                  type=tech,
