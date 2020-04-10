@@ -109,13 +109,13 @@ if __name__ == "__main__":
             net = add_res_per_bus(net, config["res"]["technologies"], countries, pv_wind_tech_config,
                                   config["res"]["use_ex_cap"])
         if config['res']["strategy"] == "no_siting":
-            net = add_res_at_resolution(net, [config["region"]], config["res"]["technologies"],
+            net = add_res_at_resolution(net, config["res"]["technologies"], [config["region"]],
                                         pv_wind_tech_config, config["res"]["spatial_resolution"],
                                         config['res']['filtering_layers'], config["res"]["use_ex_cap"],
                                         topology_type='ehighway')
         if config['res']['strategy'] == 'siting':
-            net = add_res(net, config['res'], pv_wind_tech_config, config["region"], topology_type='ehighway',
-                          output_dir=output_dir)
+            net = add_res(net, config["res"]["technologies"], config['res'], pv_wind_tech_config, config["region"],
+                          topology_type='ehighway', output_dir=output_dir)
         if config['res']['strategy'] == 'bus_test':
             net = add_generators_at_bus_test(net, config['res'], pv_wind_tech_config, config["region"], output_dir)
 

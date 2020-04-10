@@ -18,12 +18,19 @@ time:
 
 # Space
 region: "CWE"
+# TODO: remove?
 add_offshore: False # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
 res:
   include: True
-  strategy: "no_siting" # (max or comp) or bus or no_siting or siting
+  # Give which technology should be installed using each strategy
+  strategies:
+    max: ['wind_offshore', 'wind_onshore']
+    comp: []
+    no_siting: []
+    siting: []
+    bus: ['pv_residential', 'pv_utility']
 
   # For strategy = max or comp
   resite_nb: 0 # can be multiples of 25
@@ -33,11 +40,10 @@ res:
     # pv_utility: ""  # GW/km2
     wind_offshore: 10
 
-  # For strategy = full or generate
+  # For strategy = siting or no siting
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
-  technologies: ['wind_offshore', 'wind_onshore']
-  timeslice: ['2015-01-01T00:00', '2015-01-31T23:00']
+  timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
   use_ex_cap: True
   limit_max_cap: False
   filtering_layers:
@@ -49,7 +55,7 @@ res:
     forestry: True
     water_mask: True
 
-  # For strategy = generate
+  # For strategy = siting
   modelling: 'docplex' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
   solver: 'cplex' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
   solver_options:

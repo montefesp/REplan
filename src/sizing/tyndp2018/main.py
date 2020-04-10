@@ -95,22 +95,28 @@ if __name__ == '__main__':
 
     # Adding pv and wind generators
     if config['res']['include']:
-        logger.info(f"Adding RES ({config['res']['technologies']}) generation.")
-        if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
-            net = add_res_from_file(net, config['res']['technologies'], config['res']['strategy'],
-                                    config["res"]["resite_nb"], config["res"]["area_per_site"],
-                                    "countries", config["res"]["cap_dens"], offshore_buses=False)
-        if config['res']["strategy"] == "bus":
-            net = add_res_per_bus(net, config["res"]["technologies"], countries, pv_wind_tech_config,
-                                  config["res"]["use_ex_cap"], offshore_buses=False)
-        if config['res']["strategy"] == "no_siting":
-            net = add_res_at_resolution(net, [config["region"]], config["res"]["technologies"],
-                                        pv_wind_tech_config, config["res"]["spatial_resolution"],
-                                        config['res']['filtering_layers'], config["res"]["use_ex_cap"],
-                                        topology_type='countries', offshore_buses=False)
-        if config['res']['strategy'] == 'siting':
-            net = add_res(net, config['res'], pv_wind_tech_config, config["region"],
-                          output_dir=output_dir, offshore_buses=False, topology_type='countries')
+        for strategy, technologies in config['res']['strategies'].items():
+            # If no technology is associated to this strategy, continue
+            if not len(technologies):
+                continue
+
+            logger.info(f"Adding RES {technologies} generation with strategy {strategy}.")
+
+            if strategy in ["comp", "max"]:
+                net = add_res_from_file(net, technologies, strategy,
+                                        config["res"]["resite_nb"], config["res"]["area_per_site"],
+                                        "countries", config["res"]["cap_dens"], offshore_buses=False)
+            elif strategy == "bus":
+                net = add_res_per_bus(net, technologies, countries, pv_wind_tech_config,
+                                      config["res"]["use_ex_cap"], offshore_buses=False)
+            elif strategy == "no_siting":
+                net = add_res_at_resolution(net, technologies, [config["region"]],
+                                            pv_wind_tech_config, config["res"]["spatial_resolution"],
+                                            config['res']['filtering_layers'], config["res"]["use_ex_cap"],
+                                            topology_type='countries', offshore_buses=False)
+            elif strategy == 'siting':
+                net = add_res(net, technologies, config['res'], pv_wind_tech_config, config["region"],
+                              output_dir=output_dir, offshore_buses=False, topology_type='countries')
 
     # Add conv gen
     if config["dispatch"]["include"]:

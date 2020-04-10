@@ -130,8 +130,10 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
     return network
 
 
-def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any], region: str,
-                   topology_type: str = 'countries', offshore_buses: bool = True, output_dir: str = None) -> pypsa.Network:
+def add_generators(network: pypsa.Network, technologies: List[str],
+                   params: Dict[str, Any], tech_config: Dict[str, Any], region: str,
+                   topology_type: str = 'countries', offshore_buses: bool = True,
+                   output_dir: str = None) -> pypsa.Network:
     """
     This function will add generators for different technologies at a series of location selected via an optimization
     mechanism.
@@ -160,7 +162,7 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
         f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
 
     logger.info('Setting up resite.')
-    resite = Resite([region], params["technologies"], tech_config, params["timeslice"], params["spatial_resolution"],
+    resite = Resite([region], technologies, tech_config, params["timeslice"], params["spatial_resolution"],
                     params["keep_files"])
 
     resite.build_input_data(params['use_ex_cap'], params['filtering_layers'])
@@ -231,7 +233,7 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
 
 
 # TODO: add existing capacity,
-def add_generators_at_resolution(network: pypsa.Network, regions: List[str], technologies: List[str],
+def add_generators_at_resolution(network: pypsa.Network, technologies: List[str], regions: List[str],
                                  tech_config: Dict[str, Any], spatial_resolution: float,
                                  filtering_layers: Dict[str, bool], use_ex_cap: bool,
                                  topology_type: str = 'countries', offshore_buses: bool = True,) -> pypsa.Network:
