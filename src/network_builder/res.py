@@ -131,8 +131,7 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
 
 
 def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any], region: str,
-                   output_dir=None) \
-        -> pypsa.Network:
+                   topology_type: str = 'countries', offshore_buses: bool = True, output_dir: str = None) -> pypsa.Network:
     """
     This function will add generators for different technologies at a series of location selected via an optimization
     mechanism.
@@ -143,6 +142,10 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
         A network with region associated to each buses.
     region: str
         Region over which the network is defined
+    topology_type: str
+        Can currently be countries (for one node per country topologies) or ehighway (for topologies based on ehighway)
+    offshore_buses: bool (default: True)
+        Whether the network contains offshore buses
     output_dir: str
         Absolute path to directory where resite output should be stored
 
@@ -151,6 +154,10 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
     network: pypsa.Network
         Updated network
     """
+
+    accepted_topologies = ["countries", "ehighway"]
+    assert topology_type in accepted_topologies, \
+        f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
 
     logger.info('Setting up resite.')
     resite = Resite([region], params["technologies"], tech_config, params["timeslice"], params["spatial_resolution"],
@@ -183,12 +190,16 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
 
     for tech, points in tech_location_dict.items():
 
-        if tech in ['wind_offshore', 'wind_floating']:
-            offshore_buses = network.buses[network.buses.onshore == False]
-            associated_buses = match_points_to_regions(points, offshore_buses.region).dropna()
+        buses = network.buses.copy()
+        if offshore_buses or tech in ["pv_residential", "pv_utility", "wind_onshore"]:
+            is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
+            buses = buses[buses.onshore == is_onshore]
+            associated_buses = match_points_to_regions(points, buses.region).dropna()
+        elif topology_type == 'countries':
+            associated_buses = match_points_to_countries(points, list(buses.index)).dropna()
         else:
-            onshore_buses = network.buses[network.buses.onshore]
-            associated_buses = match_points_to_regions(points, onshore_buses.region).dropna()
+            raise ValueError("If you are not using a one-node-per-country topology, you must define offshore buses.")
+
         points = list(associated_buses.index)
 
         existing_cap = 0
@@ -219,107 +230,11 @@ def add_generators(network: pypsa.Network, params: Dict[str, Any], tech_config: 
     return network
 
 
-# TODO: to be removed
-def add_generators_at_bus_test(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any], region: str,
-                   output_dir=None) \
-        -> pypsa.Network:
-    """
-    This function will add generators for different technologies at a series of location selected via an optimization
-    mechanism.
-
-    Parameters
-    ----------
-    network: pypsa.Network
-        A network with region associated to each buses.
-    region: str
-        Region over which the network is defined
-    output_dir: str
-        Absolute path to directory where resite output should be stored
-
-    Returns
-    -------
-    network: pypsa.Network
-        Updated network
-    """
-
-    logger.info('Setting up resite.')
-    resite = Resite([region], params["technologies"], tech_config, params["timeslice"], params["spatial_resolution"],
-                    params["keep_files"])
-
-    resite.build_input_data(params['use_ex_cap'], params['filtering_layers'])
-
-    logger.info('resite model being built.')
-    resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
-
-    logger.info('Sending resite to solver.')
-    resite.solve_model(params['solver'], params['solver_options'][params['solver']], params['write_log'])
-
-    logger.info('Retrieving resite results.')
-    tech_location_dict = resite.retrieve_solution()
-    existing_cap_ds, cap_potential_ds, cap_factor_df = resite.retrieve_sites_data()
-
-    logger.info("Saving resite results")
-    resite.save(params, output_dir)
-
-    if not resite.timestamps.equals(network.snapshots):
-        # If network snapshots is a subset of resite snapshots just crop the data
-        # TODO: probably need a better condition
-        if network.snapshots[0] in resite.timestamps and network.snapshots[-1] in resite.timestamps:
-            cap_factor_df = cap_factor_df.loc[network.snapshots]
-        else:
-            # In other case, need to recompute capacity factors
-            # TODO: to be implemented
-            pass
-
-    for tech, points in tech_location_dict.items():
-
-        if tech in ['wind_offshore', 'wind_floating']:
-            offshore_buses = network.buses[network.buses.onshore == False]
-            associated_buses = match_points_to_regions(points, offshore_buses.region).dropna()
-        else:
-            onshore_buses = network.buses[network.buses.onshore]
-            associated_buses = match_points_to_regions(points, onshore_buses.region).dropna()
-
-        # Get only one point per bus
-        buses_points_df = pd.DataFrame(list(associated_buses.index), index=associated_buses.values)
-        buses_points_df["Locations"] = buses_points_df[[0, 1]].apply(lambda x: [(x[0], (x[1]))], axis=1)
-        buses_points_df = buses_points_df.drop([0, 1], axis=1)
-        one_point_per_bus = buses_points_df.groupby(buses_points_df.index).sum().apply(lambda x: x[0][0], axis=1)
-        points = one_point_per_bus.values
-
-        existing_cap = 0
-        if params['use_ex_cap']:
-            existing_cap = existing_cap_ds[tech][points].values
-
-        p_nom_max = 'inf'
-        if params['limit_max_cap']:
-            p_nom_max = cap_potential_ds[tech][points].values
-
-        capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
-
-        network.madd("Generator",
-                     "Gen " + tech + " " + pd.Index([str(x) for x, _ in points]) + "-" +
-                     pd.Index([str(y) for _, y in points]),
-                     bus=one_point_per_bus.index,
-                     p_nom_extendable=True,
-                     p_nom_max=p_nom_max,
-                     p_nom=existing_cap,
-                     p_nom_min=existing_cap,
-                     p_max_pu=cap_factor_df[tech][points].values,
-                     type=tech,
-                     x=[x for x, _ in points],
-                     y=[y for _, y in points],
-                     marginal_cost=marginal_cost,
-                     capital_cost=capital_cost)
-
-    return network
-
-
 # TODO: add existing capacity,
 def add_generators_at_resolution(network: pypsa.Network, regions: List[str], technologies: List[str],
                                  tech_config: Dict[str, Any], spatial_resolution: float,
-                                 filtering_layers: Dict[str, bool], use_ex_cap: bool) \
-        -> pypsa.Network:
+                                 filtering_layers: Dict[str, bool], use_ex_cap: bool,
+                                 topology_type: str = 'countries', offshore_buses: bool = True,) -> pypsa.Network:
     """
     Creates pv and wind generators for every coordinate at a resolution of 0.5 inside the region associate to each bus
     and attach them to the corresponding bus.
@@ -328,12 +243,20 @@ def add_generators_at_resolution(network: pypsa.Network, regions: List[str], tec
     ----------
     network: pypsa.Network
         A PyPSA Network instance with buses associated to regions
+    topology_type: str
+        Can currently be countries (for one node per country topologies) or ehighway (for topologies based on ehighway)
+    offshore_buses: bool (default: True)
+        Whether the network contains offshore buses
 
     Returns
     -------
     network: pypsa.Network
         Updated network
     """
+
+    accepted_topologies = ["countries", "ehighway"]
+    assert topology_type in accepted_topologies, \
+        f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
 
     # Generate input data using resite
     resite = Resite(regions, technologies, tech_config, [network.snapshots[0], network.snapshots[-1]],
@@ -344,12 +267,15 @@ def add_generators_at_resolution(network: pypsa.Network, regions: List[str], tec
 
         points = resite.tech_points_dict[tech]
 
-        if tech in ['wind_offshore', 'wind_floating']:
-            offshore_buses = network.buses[network.buses.onshore == False]
-            associated_buses = match_points_to_regions(points, offshore_buses.region).dropna()
+        buses = network.buses.copy()
+        if offshore_buses or tech in ["pv_residential", "pv_utility", "wind_onshore"]:
+            is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
+            buses = buses[buses.onshore == is_onshore]
+            associated_buses = match_points_to_regions(points, buses.region).dropna()
+        elif topology_type == 'countries':
+            associated_buses = match_points_to_countries(points, list(buses.index)).dropna()
         else:
-            onshore_buses = network.buses[network.buses.onshore]
-            associated_buses = match_points_to_regions(points, onshore_buses.region).dropna()
+            raise ValueError("If you are not using a one-node-per-country topology, you must define offshore buses.")
         points = list(associated_buses.index)
 
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
@@ -459,6 +385,102 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
                      type=tech,
                      x=buses.x.values,
                      y=buses.y.values,
+                     marginal_cost=marginal_cost,
+                     capital_cost=capital_cost)
+
+    return network
+
+
+# TODO: to be removed
+def add_generators_at_bus_test(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any], region: str,
+                   output_dir=None) \
+        -> pypsa.Network:
+    """
+    This function will add generators for different technologies at a series of location selected via an optimization
+    mechanism.
+
+    Parameters
+    ----------
+    network: pypsa.Network
+        A network with region associated to each buses.
+    region: str
+        Region over which the network is defined
+    output_dir: str
+        Absolute path to directory where resite output should be stored
+
+    Returns
+    -------
+    network: pypsa.Network
+        Updated network
+    """
+
+    logger.info('Setting up resite.')
+    resite = Resite([region], params["technologies"], tech_config, params["timeslice"], params["spatial_resolution"],
+                    params["keep_files"])
+
+    resite.build_input_data(params['use_ex_cap'], params['filtering_layers'])
+
+    logger.info('resite model being built.')
+    resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
+
+    logger.info('Sending resite to solver.')
+    resite.solve_model(params['solver'], params['solver_options'][params['solver']], params['write_log'])
+
+    logger.info('Retrieving resite results.')
+    tech_location_dict = resite.retrieve_solution()
+    existing_cap_ds, cap_potential_ds, cap_factor_df = resite.retrieve_sites_data()
+
+    logger.info("Saving resite results")
+    resite.save(params, output_dir)
+
+    if not resite.timestamps.equals(network.snapshots):
+        # If network snapshots is a subset of resite snapshots just crop the data
+        # TODO: probably need a better condition
+        if network.snapshots[0] in resite.timestamps and network.snapshots[-1] in resite.timestamps:
+            cap_factor_df = cap_factor_df.loc[network.snapshots]
+        else:
+            # In other case, need to recompute capacity factors
+            # TODO: to be implemented
+            pass
+
+    for tech, points in tech_location_dict.items():
+
+        if tech in ['wind_offshore', 'wind_floating']:
+            offshore_buses = network.buses[network.buses.onshore == False]
+            associated_buses = match_points_to_regions(points, offshore_buses.region).dropna()
+        else:
+            onshore_buses = network.buses[network.buses.onshore]
+            associated_buses = match_points_to_regions(points, onshore_buses.region).dropna()
+
+        # Get only one point per bus
+        buses_points_df = pd.DataFrame(list(associated_buses.index), index=associated_buses.values)
+        buses_points_df["Locations"] = buses_points_df[[0, 1]].apply(lambda x: [(x[0], (x[1]))], axis=1)
+        buses_points_df = buses_points_df.drop([0, 1], axis=1)
+        one_point_per_bus = buses_points_df.groupby(buses_points_df.index).sum().apply(lambda x: x[0][0], axis=1)
+        points = one_point_per_bus.values
+
+        existing_cap = 0
+        if params['use_ex_cap']:
+            existing_cap = existing_cap_ds[tech][points].values
+
+        p_nom_max = 'inf'
+        if params['limit_max_cap']:
+            p_nom_max = cap_potential_ds[tech][points].values
+
+        capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
+
+        network.madd("Generator",
+                     "Gen " + tech + " " + pd.Index([str(x) for x, _ in points]) + "-" +
+                     pd.Index([str(y) for _, y in points]),
+                     bus=one_point_per_bus.index,
+                     p_nom_extendable=True,
+                     p_nom_max=p_nom_max,
+                     p_nom=existing_cap,
+                     p_nom_min=existing_cap,
+                     p_max_pu=cap_factor_df[tech][points].values,
+                     type=tech,
+                     x=[x for x, _ in points],
+                     y=[y for _, y in points],
                      marginal_cost=marginal_cost,
                      capital_cost=capital_cost)
 

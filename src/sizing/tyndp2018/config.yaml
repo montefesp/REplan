@@ -23,7 +23,7 @@ add_offshore: False # ! if False, remove wind_offshore and wind_floating from RE
 # RES
 res:
   include: True
-  strategy: "bus" # (max or comp) or bus or no_siting or siting
+  strategy: "no_siting" # (max or comp) or bus or no_siting or siting
 
   # For strategy = max or comp
   resite_nb: 0 # can be multiples of 25
@@ -37,7 +37,7 @@ res:
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
   technologies: ['wind_offshore', 'wind_onshore']
-  timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
+  timeslice: ['2015-01-01T00:00', '2015-01-31T23:00']
   use_ex_cap: True
   limit_max_cap: False
   filtering_layers:

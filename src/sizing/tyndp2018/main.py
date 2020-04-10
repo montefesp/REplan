@@ -106,9 +106,11 @@ if __name__ == '__main__':
         if config['res']["strategy"] == "no_siting":
             net = add_res_at_resolution(net, [config["region"]], config["res"]["technologies"],
                                         pv_wind_tech_config, config["res"]["spatial_resolution"],
-                                        config['res']['filtering_layers'], config["res"]["use_ex_cap"])
+                                        config['res']['filtering_layers'], config["res"]["use_ex_cap"],
+                                        topology_type='countries', offshore_buses=False)
         if config['res']['strategy'] == 'siting':
-            net = add_res(net, config['res'], pv_wind_tech_config, config["region"], output_dir)
+            net = add_res(net, config['res'], pv_wind_tech_config, config["region"],
+                          output_dir=output_dir, offshore_buses=False, topology_type='countries')
 
     # Add conv gen
     if config["dispatch"]["include"]:
