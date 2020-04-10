@@ -421,9 +421,14 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
         cap_pot_ds = get_capacity_potential_for_regions({tech: regions_shapes})
 
         # Compute capacity factors at buses position
-        # TODO: this is super shitty for offshore technologies...
-        points = [(round(x/spatial_res)*spatial_res, round(y/spatial_res)*spatial_res)
-                  for x, y in buses[["x", "y"]].values]
+        if tech in ['wind_offshore', 'wind_floating'] and not offshore_buses:
+            points = [(round(region_shape.centroid.x/spatial_res)*spatial_res,
+                       round(region_shape.centroid.y/spatial_res)*spatial_res)
+                      for region_shape in regions_shapes]
+        else:
+            points = [(round(x/spatial_res)*spatial_res,
+                       round(y/spatial_res)*spatial_res)
+                      for x, y in buses[["x", "y"]].values]
         cap_factor_df = compute_capacity_factors({tech: points}, tech_config, spatial_res, network.snapshots)
 
         # Compute legacy capacity (not available for wind_floating)
