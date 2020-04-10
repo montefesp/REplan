@@ -99,7 +99,7 @@ if __name__ == '__main__':
         if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
             net = add_res_from_file(net, config['res']['technologies'], config['res']['strategy'],
                                     config["res"]["resite_nb"], config["res"]["area_per_site"],
-                                    "countries", config["res"]["cap_dens"])
+                                    "countries", config["res"]["cap_dens"], offshore_buses=False)
         if config['res']["strategy"] == "bus":
             net = add_res_per_bus(net, config["res"]["technologies"], countries, pv_wind_tech_config,
                                   config["res"]["use_ex_cap"])

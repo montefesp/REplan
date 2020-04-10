@@ -48,7 +48,7 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
 
     onshore_buses = network.buses[network.buses.onshore]
     gens_bus_ds = match_points_to_regions(gens[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values,
-                                            onshore_buses.region)
+                                          onshore_buses.region)
     points = list(gens_bus_ds.index)
     gens = gens[gens[["lon", "lat"]].apply(lambda x: (x[0], x[1]) in points, axis=1)]
 

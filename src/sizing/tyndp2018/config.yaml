@@ -17,13 +17,13 @@ time:
   resolution: 1
 
 # Space
-region: "South-EU"
+region: "EU"
 add_offshore: False # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
 res:
-  include: False
-  strategy: "siting" # (max or comp) or bus or no_siting or siting
+  include: True
+  strategy: "comp" # (max or comp) or bus or no_siting or siting
 
   # For strategy = max or comp
   resite_nb: 0 # can be multiples of 25
@@ -36,8 +36,8 @@ res:
   # For strategy = full or generate
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
-  technologies: ['wind_onshore', 'pv_utility'] #, 'wind_offshore']
-  timeslice: ['2015-01-01T00:00', '2015-01-01T23:00']
+  technologies: ['wind_onshore', 'pv_utility', 'wind_offshore']
+  timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
   use_ex_cap: True
   limit_max_cap: False
   filtering_layers:

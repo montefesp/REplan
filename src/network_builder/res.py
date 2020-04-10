@@ -7,7 +7,7 @@ import pandas as pd
 import pypsa
 
 from src.data.resource.manager import compute_capacity_factors
-from src.data.geographics.manager import match_points_to_regions, get_nuts_area
+from src.data.geographics.manager import match_points_to_regions, match_points_to_countries, get_nuts_area
 from src.data.res_potential.manager import get_capacity_potential_for_regions
 from src.data.legacy.manager import get_legacy_capacity_in_regions
 from src.resite.resite import Resite
@@ -21,7 +21,7 @@ logger = logging.getLogger()
 # TODO: does not work for ehighway anymore
 def add_generators_from_file(network: pypsa.Network, technologies: List[str], strategy: str, site_nb: int,
                              area_per_site: int, topology_type: str = "countries",
-                             cap_dens_dict: Dict[str, float] = None) -> pypsa.Network:
+                             cap_dens_dict: Dict[str, float] = None, offshore_buses = True) -> pypsa.Network:
     """Adds wind and pv generator that where selected via a certain siting method to a Network class.
 
     Parameters
@@ -38,6 +38,8 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
         Can currently be countries (for one node per country topologies) or ehighway (for topologies based on ehighway)
     cap_dens_dict: Dict[str, float] (default: None)
         Dictionary giving per technology the max capacity per km2
+    offshore_buses: bool (default: True)
+        Whether the network contains offshore buses
 
     Returns
     -------
@@ -64,13 +66,19 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
 
         points = list(tech_points_cap_factor_df[tech].columns)
 
-        is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
-        buses = network.buses[network.buses.onshore == is_onshore]
+        if offshore_buses:
+            is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
+            buses = network.buses[network.buses.onshore == is_onshore]
+        else:
+            buses = network.buses
 
         # Compute capacity potential
         if cap_dens_dict is None or tech not in cap_dens_dict:
-            tech_regions_dict = {tech: buses.region.values}
-            bus_capacity_potential = get_capacity_potential_for_regions(tech_regions_dict)[tech]
+
+            assert tech not in ["wind_offshore", "wind_floating"], \
+                "Error: Capacities per km for offshore technologies must be pre-specified."
+
+            bus_capacity_potential = get_capacity_potential_for_regions({tech: buses.region.values})[tech]
             bus_capacity_potential.index = buses.index
 
             # Convert to capacity per km
@@ -86,8 +94,11 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
             bus_capacity_potential_per_km = pd.Series(cap_dens_dict[tech], index=buses.index)
 
         # Detect to which bus the node should be associated
-        # TODO: not working with offshore
-        points_bus_ds = match_points_to_regions(points, buses.region).dropna()
+        # TODO: this condition is shitty
+        if not offshore_buses and topology_type == "countries" and tech in ["wind_offshore", "wind_floating"]:
+            points_bus_ds = match_points_to_countries(points, list(buses.index)).dropna()
+        else:
+            points_bus_ds = match_points_to_regions(points, buses.region).dropna()
         points = list(points_bus_ds.index)
 
         # Get potential capacity for each point

@@ -223,6 +223,38 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
     return points_region_ds
 
 
+def match_points_to_countries(points: List[Tuple[float, float]], countries: List[str]) -> pd.Series:
+    """
+    Returns in which country's region (onshore + offshore) each points falls into
+
+    Parameters
+    ----------
+    points: List[Tuple[float, float]]
+        List of points defined as tuples (longitude, latitude)
+    countries: List[str]
+        List of ISO codes of countries
+
+    Returns
+    -------
+    pd.Series
+        Series giving for each point the associated region or NA if the point didn't fall into any region
+    """
+
+    # Get offshore and onshore regions for each country and combine them
+    onshore_shapes = get_onshore_shapes(countries)["geometry"]
+    onshore_shapes_union = cascaded_union(onshore_shapes.values)
+    offshore_shapes = get_offshore_shapes(countries, onshore_shapes_union, filterremote=True)["geometry"]
+    total_shapes = pd.Series(index=countries)
+    for country in countries:
+        if country in offshore_shapes.index:
+            total_shapes[country] = cascaded_union([onshore_shapes[country], offshore_shapes.loc[country]])
+        else:
+            total_shapes[country] = onshore_shapes[country]
+
+    # Assign points to each country based on region
+    return match_points_to_regions(points, total_shapes)
+
+
 def get_subregions(region: str) -> List[str]:
     """
     Returns the list of the subregions composing one of the region defined in data/region_definition.csv.

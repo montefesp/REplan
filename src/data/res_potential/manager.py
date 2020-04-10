@@ -187,11 +187,12 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
                 cascaded_union(get_onshore_shapes(codes, filterremote=True,
                                                   save_file_name="cap_potential_regions_on.geojson")["geometry"].values)
             shapes = get_offshore_shapes(codes, onshore_shape=onshore_shapes_union,
-                                         filterremote=True, save_file_name="cap_potential_regions_off.geojson")
+                                         filterremote=True), #save_file_name="cap_potential_regions_off.geojson")
             shapes.index = ["EZ" + code for code in shapes.index]
         else:
-            shapes = get_onshore_shapes(potential_per_subregion_ds.index.values, filterremote=True,
-                                        save_file_name="cap_potential_regions_on.geojson")
+            shapes = get_onshore_shapes(potential_per_subregion_ds.index.values, filterremote=True)
+                                        # save_file_name="cap_potential_regions_on.geojson")
+            # TODO: problem BA00 does not exists in shapes
 
         # Compute capacity potential for the regions given as argument
         for i, region in enumerate(regions):
