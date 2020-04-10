@@ -5,7 +5,6 @@ import yaml
 from time import strftime
 import pandas as pd
 import numpy as np
-from pyomo.opt import ProblemFormat
 
 from src.data.emission.manager import get_reference_emission_levels_for_region
 from src.data.load.manager import get_load_from_nuts_codes
@@ -20,7 +19,8 @@ from src.network_builder.hydro import add_phs_plants, add_ror_plants, add_sto_pl
 from src.network_builder.conventional import add_generators as add_conventional
 from src.network_builder.battery import add_batteries
 from src.data.geographics.manager import get_subregions
-# from src.data.geographics import get_subregions # TODO: would be nice to try to use this instead of full name using init files
+# TODO: would be nice to try to use this instead of full name using init files
+# from src.data.geographics import get_subregions
 from src.postprocessing.sizing_results import SizingResults
 
 import logging
@@ -57,13 +57,13 @@ if __name__ == "__main__":
 
     # Building network
     # Add location to Generators and StorageUnits
-    override_component_attrs = pypsa.descriptors.Dict({k: v.copy() for k, v in pypsa.components.component_attrs.items()})
-    override_component_attrs["Generator"].loc["x"] = ["float", np.nan, np.nan, "x in position (x;y)", "Input (optional)"]
-    override_component_attrs["Generator"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
-    override_component_attrs["StorageUnit"].loc["x"] = ["float", np.nan, np.nan, "x in position (x;y)", "Input (optional)"]
-    override_component_attrs["StorageUnit"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
+    override_comp_attrs = pypsa.descriptors.Dict({k: v.copy() for k, v in pypsa.components.component_attrs.items()})
+    override_comp_attrs["Generator"].loc["x"] = ["float", np.nan, np.nan, "x in position (x;y)", "Input (optional)"]
+    override_comp_attrs["Generator"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["x"] = ["float", np.nan, np.nan, "x in position (x;y)", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
 
-    net = pypsa.Network(name="E-highway network", override_component_attrs=override_component_attrs)
+    net = pypsa.Network(name="E-highway network", override_component_attrs=override_comp_attrs)
     net.set_snapshots(timestamps)
 
     # Adding carriers
@@ -128,7 +128,7 @@ if __name__ == "__main__":
             # !!!!! Change to links for transportation model -> turn back to line when needed
             net.mremove("Link", net.links[net.links.bus0 == bus_id].index)
 
-    # Add conv gen
+    # Add conventional gen
     if config["dispatch"]["include"]:
         tech = config["dispatch"]["tech"]
         net = add_conventional(net, tech)
@@ -162,6 +162,7 @@ if __name__ == "__main__":
              solver_options=config["solver_options"][config["solver"]], pyomo=True)
 
     # if True:
+    #     from pyomo.opt import ProblemFormat
     #     net.model.write(filename=join(output_dir, 'model.lp'),
     #                     format=ProblemFormat.cpxlp,
     #                     io_options={'symbolic_solver_labels': True})

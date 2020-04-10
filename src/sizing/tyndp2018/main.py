@@ -5,7 +5,6 @@ from time import strftime
 
 import numpy as np
 import pandas as pd
-from shapely.ops import cascaded_union
 
 import pypsa
 
@@ -53,13 +52,13 @@ if __name__ == '__main__':
 
     # Building network
     # Add location to Generators and StorageUnits
-    override_component_attrs = pypsa.descriptors.Dict({k: v.copy() for k, v in pypsa.components.component_attrs.items()})
-    override_component_attrs["Generator"].loc["x"] = ["float", np.nan, np.nan, "x in position (x;y)", "Input (optional)"]
-    override_component_attrs["Generator"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
-    override_component_attrs["StorageUnit"].loc["x"] = ["float", np.nan, np.nan, "x in position (x;y)", "Input (optional)"]
-    override_component_attrs["StorageUnit"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
+    override_comp_attrs = pypsa.descriptors.Dict({k: v.copy() for k, v in pypsa.components.component_attrs.items()})
+    override_comp_attrs["Generator"].loc["x"] = ["float", np.nan, np.nan, "x in position (x;y)", "Input (optional)"]
+    override_comp_attrs["Generator"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["x"] = ["float", np.nan, np.nan, "x in position (x;y)", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
 
-    net = pypsa.Network(name="E-highway network", override_component_attrs=override_component_attrs)
+    net = pypsa.Network(name="E-highway network", override_component_attrs=override_comp_attrs)
     net.set_snapshots(timestamps)
 
     # Adding carriers
@@ -108,7 +107,7 @@ if __name__ == '__main__':
                                         "countries", config["res"]["cap_dens"], offshore_buses=False)
             elif strategy == "bus":
                 net = add_res_per_bus(net, technologies, countries, pv_wind_tech_config,
-                                      config["res"]["use_ex_cap"], offshore_buses=False)
+                                      config["res"]["use_ex_cap"], topology_type='countries', offshore_buses=False)
             elif strategy == "no_siting":
                 net = add_res_at_resolution(net, technologies, [config["region"]],
                                             pv_wind_tech_config, config["res"]["spatial_resolution"],
@@ -118,7 +117,7 @@ if __name__ == '__main__':
                 net = add_res(net, technologies, config['res'], pv_wind_tech_config, config["region"],
                               output_dir=output_dir, offshore_buses=False, topology_type='countries')
 
-    # Add conv gen
+    # Add conventional gen
     if config["dispatch"]["include"]:
         tech = config["dispatch"]["tech"]
         net = add_conventional(net, tech)
@@ -170,4 +169,3 @@ if __name__ == '__main__':
     results.display_generation()
     results.display_transmission()
     results.display_storage()
-

@@ -266,12 +266,58 @@ def get_cap_factor_at_points(points: List[Point], start_month: int, end_month: i
     return get_cap_factor_for_regions(polygon_df, start_month, end_month)
 
 
+def get_cap_factor_for_countries(tech: str, countries: List[str], timestamps: pd.DatetimeIndex) -> pd.DataFrame:
+    """
+    Returns capacity factors time-series for a set of countries over a given timestamps, for a given technology.
+
+    Parameters
+    ----------
+    tech: str
+        One of the technology among 'pv_residential', 'pv_utility', 'wind_onshore', 'wind_offshore', 'wind_floating'
+    countries: List[str]
+        List of ISO codes of countries
+    timestamps: pd.DatetimeIndex
+        List of time stamps
+
+    Returns
+    -------
+
+    """
+    accepted_techs = ['pv_residential', 'pv_utility', 'wind_onshore', 'wind_offshore', 'wind_floating']
+    assert tech in accepted_techs, f"Error: Technology {tech} is not part of {accepted_techs}"
+
+    resource_dir = join(dirname(abspath(__file__)), "../../../data/resource/generated/")
+    if tech in ['pv_residential', 'pv_utility']:
+        capacity_factors = pd.read_csv(f"{resource_dir}pv_cap_factors.csv", index_col=0)
+    elif tech == "wind_onshore":
+        capacity_factors = pd.read_csv(f"{resource_dir}onshore_wind_cap_factors.csv", index_col=0)
+    else:  # tech in ["wind_offshore", "wind_floating"]
+        capacity_factors = pd.read_csv(f"{resource_dir}offshore_wind_cap_factors.csv", index_col=0)
+
+    capacity_factors.index = pd.DatetimeIndex(capacity_factors.index)
+
+    missing_countries = set(countries) - set(capacity_factors.columns)
+    assert not missing_countries, f"Error: Data for countries {missing_countries} is not available."
+    missing_timestamps = set(timestamps) - set(capacity_factors.index)
+    assert not missing_timestamps, f"Error: Data for timestamps {missing_timestamps} is not available."
+
+    return capacity_factors.loc[timestamps, countries]
+
+
 if __name__ == '__main__':
 
-    import yaml
+    ts = pd.date_range('2015-01-01T00:00', '2016-01-31T23:00', freq='1H')
 
-    tech_config_path = join(dirname(abspath(__file__)), '../../parameters/pv_wind_tech_configs.yml')
-    tech_conf = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
-    tech_points_d = {"wind_onshore": [(0, 50)], "pv_utility": [(0, 50)]}
-    ts = pd.date_range('2015-01-01T00:00', '2015-01-31T23:00', freq='1H')
-    compute_capacity_factors(tech_points_d, tech_conf, 0.5, ts)
+    if 0:
+        import yaml
+        tech_config_path = join(dirname(abspath(__file__)), '../../parameters/pv_wind_tech_configs.yml')
+        tech_conf = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
+        tech_points_d = {"wind_onshore": [(0, 50)], "pv_utility": [(0, 50)]}
+        compute_capacity_factors(tech_points_d, tech_conf, 0.5, ts)
+
+    if 1:
+        countries = "AL;AT;BA;BE;BG;CH;CZ;DE;DK;EE;ES;FI;FR;GB;GR;" \
+                    "HR;HU;IE;IT;LT;LU;LV;ME;MK;NL;NO;PL;PT;RO;RS;SE;SI;SK".split(";")
+        print(get_cap_factor_for_countries(countries, ts, "pv_utility"))
+        print(get_cap_factor_for_countries(list(set(countries)-{'RS', 'AL', 'BA', 'ME'}), ts, "wind_onshore"))
+        print(get_cap_factor_for_countries(countries, ts, "wind_offshore"))

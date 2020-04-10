@@ -8,7 +8,7 @@ import pypsa
 
 from shapely.ops import cascaded_union
 
-from src.data.resource.manager import compute_capacity_factors
+from src.data.resource.manager import compute_capacity_factors, get_cap_factor_for_countries
 from src.data.geographics.manager import match_points_to_regions, match_points_to_countries, get_nuts_area, \
     get_onshore_shapes, get_offshore_shapes
 from src.data.res_potential.manager import get_capacity_potential_for_regions
@@ -299,7 +299,7 @@ def add_generators_at_resolution(network: pypsa.Network, technologies: List[str]
 
 def add_generators_per_bus(network: pypsa.Network, technologies: List[str], countries: List[str],
                            tech_config: Dict[str, Any], use_ex_cap: bool = True,
-                           offshore_buses: bool = True) -> pypsa.Network:
+                           topology_type: str = 'countries', offshore_buses: bool = True) -> pypsa.Network:
     """
     Adds pv and wind generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
 
@@ -315,6 +315,8 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
         # TODO: comment
     use_ex_cap: bool (default: True)
         Whether to take into account existing capacity
+    topology_type: str
+        Can currently be countries (for one node per country topologies) or ehighway (for topologies based on ehighway)
     offshore_buses: bool (default: True)
         Whether the network contains offshore buses
 
@@ -324,6 +326,10 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
     network: pypsa.Network
         Updated network
     """
+
+    accepted_topologies = ["countries", "ehighway"]
+    assert topology_type in accepted_topologies, \
+        f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
 
     spatial_res = 0.5
     for tech in technologies:
@@ -347,16 +353,19 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
             regions_shapes = buses.region.values
         cap_pot_ds = get_capacity_potential_for_regions({tech: regions_shapes})
 
-        # Compute capacity factors at buses position
-        if tech in ['wind_offshore', 'wind_floating'] and not offshore_buses:
-            points = [(round(region_shape.centroid.x/spatial_res)*spatial_res,
-                       round(region_shape.centroid.y/spatial_res)*spatial_res)
-                      for region_shape in regions_shapes]
+        if topology_type != 'countries':
+            # Compute capacity factors at buses position
+            if tech in ['wind_offshore', 'wind_floating'] and not offshore_buses:
+                points = [(round(region_shape.centroid.x/spatial_res)*spatial_res,
+                           round(region_shape.centroid.y/spatial_res)*spatial_res)
+                          for region_shape in regions_shapes]
+            else:
+                points = [(round(x/spatial_res)*spatial_res,
+                           round(y/spatial_res)*spatial_res)
+                          for x, y in buses[["x", "y"]].values]
+            cap_factor_df = compute_capacity_factors({tech: points}, tech_config, spatial_res, network.snapshots)[tech]
         else:
-            points = [(round(x/spatial_res)*spatial_res,
-                       round(y/spatial_res)*spatial_res)
-                      for x, y in buses[["x", "y"]].values]
-        cap_factor_df = compute_capacity_factors({tech: points}, tech_config, spatial_res, network.snapshots)
+            cap_factor_df = get_cap_factor_for_countries(tech, buses.index, network.snapshots)
 
         # Compute legacy capacity (not available for wind_floating)
         legacy_capacities = 0
@@ -383,7 +392,7 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
                      p_nom=legacy_capacities,
                      p_nom_min=legacy_capacities,
                      p_nom_max=cap_potential,
-                     p_max_pu=cap_factor_df[tech].values,
+                     p_max_pu=cap_factor_df.values,
                      type=tech,
                      x=buses.x.values,
                      y=buses.y.values,

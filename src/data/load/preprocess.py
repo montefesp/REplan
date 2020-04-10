@@ -193,7 +193,8 @@ def get_load_full_years_range(save: bool = False) -> pd.DataFrame:
         load_full_years_range.loc[key, 'end'] = max(load_end_indexes).year
 
     if save:
-        load_full_years_range.to_csv("available_load_years.csv")
+        load_dir = join(dirname(abspath(__file__)), "../../../data/load/generated/")
+        load_full_years_range.to_csv(f"{load_dir}available_load_years.csv")
 
     return load_full_years_range
 
