@@ -183,11 +183,10 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
         #  would need to get this out of the loop
         if tech in ['wind_offshore', 'wind_floating']:
             codes = [code[2:4] for code in potential_per_subregion_ds.index.values]
-            onshore_shapes_union = \
-                cascaded_union(get_onshore_shapes(codes, filterremote=True,
-                                                  save_file_name="cap_potential_regions_on.geojson")["geometry"].values)
+            onshore_shapes_union = cascaded_union(get_onshore_shapes(codes, filterremote=True)["geometry"].values)
+                                                  #, save_file_name="cap_potential_regions_on.geojson"
             shapes = get_offshore_shapes(codes, onshore_shape=onshore_shapes_union,
-                                         filterremote=True), #save_file_name="cap_potential_regions_off.geojson")
+                                         filterremote=True)#, save_file_name="cap_potential_regions_off.geojson")
             shapes.index = ["EZ" + code for code in shapes.index]
         else:
             shapes = get_onshore_shapes(potential_per_subregion_ds.index.values, filterremote=True)

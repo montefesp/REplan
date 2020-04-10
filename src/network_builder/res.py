@@ -6,8 +6,11 @@ import pandas as pd
 
 import pypsa
 
+from shapely.ops import cascaded_union
+
 from src.data.resource.manager import compute_capacity_factors
-from src.data.geographics.manager import match_points_to_regions, match_points_to_countries, get_nuts_area
+from src.data.geographics.manager import match_points_to_regions, match_points_to_countries, get_nuts_area, \
+    get_onshore_shapes, get_offshore_shapes
 from src.data.res_potential.manager import get_capacity_potential_for_regions
 from src.data.legacy.manager import get_legacy_capacity_in_regions
 from src.resite.resite import Resite
@@ -66,11 +69,12 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
 
         points = list(tech_points_cap_factor_df[tech].columns)
 
+        # If there are no offshore buses, add all generators to onshore buses
+        # If there are offshore buses, add onshore techs to onshore buses and offshore techs to offshore buses
+        buses = network.buses.copy()
         if offshore_buses:
             is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
-            buses = network.buses[network.buses.onshore == is_onshore]
-        else:
-            buses = network.buses
+            buses = buses[buses.onshore == is_onshore]
 
         # Compute capacity potential
         if cap_dens_dict is None or tech not in cap_dens_dict:
@@ -367,7 +371,8 @@ def add_generators_at_resolution(network: pypsa.Network, regions: List[str], tec
 
 
 def add_generators_per_bus(network: pypsa.Network, technologies: List[str], countries: List[str],
-                           tech_config: Dict[str, Any], use_ex_cap: bool = True) -> pypsa.Network:
+                           tech_config: Dict[str, Any], use_ex_cap: bool = True,
+                           offshore_buses: bool = True) -> pypsa.Network:
     """
     Adds pv and wind generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
 
@@ -383,6 +388,9 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
         # TODO: comment
     use_ex_cap: bool (default: True)
         Whether to take into account existing capacity
+    offshore_buses: bool (default: True)
+        Whether the network contains offshore buses
+
 
     Returns
     -------
@@ -391,38 +399,49 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
     """
 
     spatial_res = 0.5
-    # Get for each tech the list of points (used for fetching capacity factor) and
-    # regions (used for fetching capacity potential)
-    tech_regions_dict = dict.fromkeys(technologies)
-    tech_points_dict = dict.fromkeys(technologies)
     for tech in technologies:
 
-        is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
-        buses = network.buses[network.buses.onshore == is_onshore]
-        tech_points_dict[tech] = [(round(x/spatial_res)*spatial_res, round(y/spatial_res)*spatial_res)
-                                  for x, y in buses[["x", "y"]].values]
-        tech_regions_dict[tech] = buses.region.values
+        # If there are no offshore buses, add all generators to onshore buses
+        # If there are offshore buses, add onshore techs to onshore buses and offshore techs to offshore buses
+        buses = network.buses.copy()
+        if offshore_buses:
+            is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
+            buses = buses[buses.onshore == is_onshore]
 
-    # Compute capacity potential and capacity factors
-    cap_pot_ds = get_capacity_potential_for_regions(tech_regions_dict)
-    cap_factor_df = compute_capacity_factors(tech_points_dict, tech_config, spatial_res, network.snapshots)
+        # Compute capacity potential
+        # TODO: this will only work for countries topology -> need to add it as argument
+        if tech in ['wind_offshore', 'wind_floating'] and not offshore_buses:
+            # Get offshore regions
+            onshore_shapes_union = cascaded_union(get_onshore_shapes(list(buses.index))["geometry"].values)
+            offshore_shapes = get_offshore_shapes(list(buses.index), onshore_shapes_union, filterremote=True)
+            buses = buses.loc[offshore_shapes.index]
+            regions_shapes = offshore_shapes["geometry"].values
+        else:
+            regions_shapes = buses.region.values
+        cap_pot_ds = get_capacity_potential_for_regions({tech: regions_shapes})
 
-    for tech in technologies:
+        # Compute capacity factors at buses position
+        # TODO: this is super shitty for offshore technologies...
+        points = [(round(x/spatial_res)*spatial_res, round(y/spatial_res)*spatial_res)
+                  for x, y in buses[["x", "y"]].values]
+        cap_factor_df = compute_capacity_factors({tech: points}, tech_config, spatial_res, network.snapshots)
 
-        is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
-        buses = network.buses[network.buses.onshore == is_onshore]
-
-        # Get legacy capacity
+        # Compute legacy capacity (not available for wind_floating)
         legacy_capacities = 0
-        if use_ex_cap and tech in ['wind_onshore', 'wind_offshore', 'pv_utility']:
-            legacy_capacities = get_legacy_capacity_in_regions(tech, buses.region, countries).values
+        if use_ex_cap and tech != "wind_floating":
+            if tech in ['wind_offshore'] and not offshore_buses:
+                legacy_capacities = get_legacy_capacity_in_regions(tech, pd.Series(regions_shapes), countries).values
+            else:
+                legacy_capacities = get_legacy_capacity_in_regions(tech, buses.region, countries).values
 
-        capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
-
+        # Update capacity potentials if legacy capacity is bigger
         cap_potential = cap_pot_ds[tech].values
         for i in range(len(cap_potential)):
             if cap_potential[i] < legacy_capacities[i]:
                 cap_potential[i] = legacy_capacities[i]
+
+        # Get costs
+        capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
 
         # Adding to the network
         network.madd("Generator", f"Gen {tech} " + buses.index,

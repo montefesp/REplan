@@ -102,7 +102,7 @@ if __name__ == '__main__':
                                     "countries", config["res"]["cap_dens"], offshore_buses=False)
         if config['res']["strategy"] == "bus":
             net = add_res_per_bus(net, config["res"]["technologies"], countries, pv_wind_tech_config,
-                                  config["res"]["use_ex_cap"])
+                                  config["res"]["use_ex_cap"], offshore_buses=False)
         if config['res']["strategy"] == "no_siting":
             net = add_res_at_resolution(net, [config["region"]], config["res"]["technologies"],
                                         pv_wind_tech_config, config["res"]["spatial_resolution"],
