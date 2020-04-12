@@ -172,7 +172,6 @@ def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
     return existing_capacity_ds
 
 
-# TODO: need to add legacy capacity for pv residential
 def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: List[str]) -> pd.Series:
     """
     Returns the total existing capacity (in GW) for the given tech for a set of regions
@@ -198,43 +197,56 @@ def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: Lis
 
     path_legacy_data = join(dirname(abspath(__file__)), '../../../data/legacy')
 
-    if tech in ["wind_onshore", "wind_offshore"]:
-
-        data = pd.read_excel(join(path_legacy_data, 'Windfarms_Europe_20200127.xls'), sheet_name='Windfarms',
-                             header=0, usecols=[2, 5, 9, 10, 18, 23], skiprows=[1], na_values='#ND')
-        data = data.dropna(subset=['Latitude', 'Longitude', 'Total power'])
-        data = data[data['Status'] != 'Dismantled']
-        if countries is not None:
-            data = data[data['ISO code'].isin(countries)]
-        # Converting from kW to GW
-        data['Total power'] *= 1e-6
-        data["Location"] = data[["Longitude", "Latitude"]].apply(lambda x: (x.Longitude, x.Latitude), axis=1)
-
-        # Keep only onshore or offshore point depending on technology
-        if tech == 'wind_onshore':
-            data = data[data['Area'] != 'Offshore']
-        else:  # wind_offshore
-            data = data[data['Area'] == 'Offshore']
-
-    else:  # pv_utility
-
-        data = pd.read_excel(join(path_legacy_data, 'Solarfarms_Europe_20200208.xlsx'), sheet_name='ProjReg_rpt',
-                             header=0, usecols=[0, 4, 8])
-        data = data[pd.notnull(data['Coords'])]
-        data["Location"] = data["Coords"].apply(lambda x: (float(x.split(',')[1]), float(x.split(',')[0])))
-        if countries is not None:
-            data['Country'] = data['Country'].apply(lambda c: convert_country_codes('alpha_2', name=c))
-            data = data[data['Country'].isin(countries)]
-        # Converting from MW to GW
-        data['Total power'] = data['MWac']*1e-3
-
-    data = data[["Location", "Total power"]]
-
-    points_region = match_points_to_regions(data["Location"].values, regions).dropna()
     capacities = pd.Series(index=regions.index)
-    for region in regions.index:
-        points_in_region = points_region[points_region == region].index.values
-        capacities[region] = data[data["Location"].isin(points_in_region)]["Total power"].sum()
+
+    if tech in ["wind_onshore", "wind_offshore", "pv_utility"]:
+
+        if tech in ["wind_onshore", "wind_offshore"]:
+
+            data = pd.read_excel(join(path_legacy_data, 'Windfarms_Europe_20200127.xls'), sheet_name='Windfarms',
+                                 header=0, usecols=[2, 5, 9, 10, 18, 23], skiprows=[1], na_values='#ND')
+            data = data.dropna(subset=['Latitude', 'Longitude', 'Total power'])
+            data = data[data['Status'] != 'Dismantled']
+            if countries is not None:
+                data = data[data['ISO code'].isin(countries)]
+            # Converting from kW to GW
+            data['Total power'] *= 1e-6
+            data["Location"] = data[["Longitude", "Latitude"]].apply(lambda x: (x.Longitude, x.Latitude), axis=1)
+
+            # Keep only onshore or offshore point depending on technology
+            if tech == 'wind_onshore':
+                data = data[data['Area'] != 'Offshore']
+            else:  # wind_offshore
+                data = data[data['Area'] == 'Offshore']
+
+        elif tech == "pv_utility":
+
+            data = pd.read_excel(join(path_legacy_data, 'Solarfarms_Europe_20200208.xlsx'), sheet_name='ProjReg_rpt',
+                                 header=0, usecols=[0, 4, 8])
+            data = data[pd.notnull(data['Coords'])]
+            data["Location"] = data["Coords"].apply(lambda x: (float(x.split(',')[1]), float(x.split(',')[0])))
+            if countries is not None:
+                data['Country'] = data['Country'].apply(lambda c: convert_country_codes('alpha_2', name=c))
+                data = data[data['Country'].isin(countries)]
+            # Converting from MW to GW
+            data['Total power'] = data['MWac']*1e-3
+
+        data = data[["Location", "Total power"]]
+
+        points_region = match_points_to_regions(data["Location"].values, regions).dropna()
+
+        for region in regions.index:
+            points_in_region = points_region[points_region == region].index.values
+            capacities[region] = data[data["Location"].isin(points_in_region)]["Total power"].sum()
+
+    else: # tech == "pv_residential" TODO: make sure this works with the ehighway topology
+
+        data = pd.read_excel(join(path_legacy_data, 'SolarEurope_Residential_deployment.xlsx'), header=0, index_col=0)
+        data = data['Capacity [GW]']
+        data = data[data.index.isin(countries)]
+
+        for region in regions.index:
+            capacities[region] = data[region]
 
     return capacities
 

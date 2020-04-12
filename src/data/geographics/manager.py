@@ -63,7 +63,7 @@ def nuts3_to_nuts2(nuts3_codes):
 
 
 def get_nuts_area() -> pd.DataFrame:
-    """Returns in a pd.DataFrame for each NUTS region (2013 and 2016 version) its size in km"""
+    """Returns in a pd.DataFrame for each NUTS region (2013 and 2016 version) its size in km2"""
 
     area_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/reg_area3.xls")
     return pd.read_excel(area_fn, header=9, index_col=0)[:2193]
@@ -218,7 +218,7 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
         else:
             not_added_points += [point]
     if len(not_added_points) != 0:
-        logger.info(f"Warning: These points were not assigned to any shape: {not_added_points}.")
+        logger.info(f"Warning: These points were not assigned to any shape: {[(point.x, point.y) for point in not_added_points]}.")
 
     return points_region_ds
 
