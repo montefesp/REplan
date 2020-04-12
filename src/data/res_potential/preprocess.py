@@ -265,25 +265,69 @@ def get_capacity_potential_from_enspreso(tech: str) -> pd.Series:
                                            sheet_name='NUTS2 170 W per m2 and 3%', skiprows=2, index_col=2)
         nuts2_capacity_potentials_ds = cap_potential_file['PV - roof/facades']
 
-    return update_enspreso_capacity_potential(nuts2_capacity_potentials_ds, tech).round(6)
+    updated_potential_per_tech = update_enspreso_capacity_potential(nuts2_capacity_potentials_ds, tech).round(6)
+
+    return updated_potential_per_tech
 
 
-def built_capacity_potential_files():
+
+def group_potentials_per_country(potential_ds: pd.Series) -> pd.Series:
+
+    potential_ds = potential_ds.to_frame()
+    potential_ds.columns=['value']
+
+    potential_ds['country'] = potential_ds.index.str[:2]
+
+    potential_per_country = potential_ds.groupby(['country'])['value'].sum()
+
+    return potential_per_country
+
+
+
+
+
+def built_capacity_potential_files(topology: str):
     """Saves capacity potentials (in GW) for NUTS2 (2016 version) and EEZ regions."""
 
     path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/generated/')
-    file_names = ["nuts2_capacity_potentials_GW.csv", "eez_capacity_potentials_GW.csv"]
-    techs = [["pv_residential", "pv_utility", "wind_onshore"], ['wind_offshore', 'wind_floating']]
-    for i in range(len(file_names)):
-        capacities = pd.DataFrame(columns=techs[i])
-        for tech in capacities.columns:
+
+    techs_offshore = ['wind_offshore', 'wind_floating']
+    capacities_offshore = pd.DataFrame(columns=techs_offshore)
+
+    for tech in capacities_offshore.columns:
+        non_eu28_potentials = get_non_eu28_potential(tech)
+        eu28_potentials = get_capacity_potential_from_enspreso(tech)
+        capacity_potential = pd.concat([non_eu28_potentials, eu28_potentials], axis=0).sort_index()
+        capacities_offshore[tech] = capacity_potential
+
+    capacities_offshore.to_csv(path_potential_data + "eez_capacity_potentials_GW.csv")
+
+    techs_onshore = ["pv_residential", "pv_utility", "wind_onshore"]
+    capacities_onshore = pd.DataFrame(columns=techs_onshore)
+
+    if topology == 'ehighway':
+
+        for tech in capacities_onshore.columns:
             non_eu28_potentials = get_non_eu28_potential(tech)
             eu28_potentials = get_capacity_potential_from_enspreso(tech)
             capacity_potential = pd.concat([non_eu28_potentials, eu28_potentials], axis=0).sort_index()
-            capacities[tech] = capacity_potential
+            capacities_onshore[tech] = capacity_potential
 
-        capacities.to_csv(path_potential_data + file_names[i])
+        capacities_onshore.to_csv(path_potential_data + "nuts2_capacity_potentials_GW.csv")
 
+    else: # topology == 'countries'
+
+        for tech in capacities_onshore.columns:
+            non_eu28_potentials = group_potentials_per_country(get_non_eu28_potential(tech))
+            eu28_potentials = group_potentials_per_country(get_capacity_potential_from_enspreso(tech))
+            capacity_potential = pd.concat([non_eu28_potentials, eu28_potentials], axis=0).sort_index()
+            capacities_onshore[tech] = capacity_potential
+
+        capacities_onshore.to_csv(path_potential_data + "nuts0_capacity_potentials_GW.csv")
 
 if __name__ == '__main__':
-    built_capacity_potential_files()
+
+    # TODO: maybe do something cleaner here..
+    topology = 'countries'
+
+    built_capacity_potential_files(topology=topology)
