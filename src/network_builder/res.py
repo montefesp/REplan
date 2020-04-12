@@ -11,7 +11,8 @@ from shapely.ops import cascaded_union
 from src.data.resource.manager import compute_capacity_factors, get_cap_factor_for_countries
 from src.data.geographics.manager import match_points_to_regions, match_points_to_countries, get_nuts_area, \
     get_onshore_shapes, get_offshore_shapes
-from src.data.res_potential.manager import get_capacity_potential_for_regions
+from src.data.res_potential.manager import get_capacity_potential_for_countries, \
+                                           get_capacity_potential, read_init_siting_coordinates
 from src.data.legacy.manager import get_legacy_capacity_in_regions
 from src.resite.resite import Resite
 from src.parameters.costs import get_cost
@@ -22,8 +23,8 @@ logger = logging.getLogger()
 
 
 # TODO: does not work for ehighway anymore
-def add_generators_from_file(network: pypsa.Network, technologies: List[str], strategy: str, site_nb: int,
-                             area_per_site: int, topology_type: str = "countries",
+def add_generators_from_file(network: pypsa.Network, technologies: List[str], strategy: str, path: str,
+                             area_per_site: int, spatial_resolution: float, countries: List[str], topology_type: str = "countries",
                              cap_dens_dict: Dict[str, float] = None, offshore_buses = True) -> pypsa.Network:
     """Adds wind and pv generator that where selected via a certain siting method to a Network class.
 
@@ -54,7 +55,8 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
     assert topology_type in accepted_topologies, \
         f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
 
-    resite_data_fn = join(dirname(abspath(__file__)), f"../../data/resite/generated/{strategy}_site_data_{site_nb}.p")
+    resite_data_path = join(dirname(abspath(__file__)), f"../../data/resite/generated/{path}/")
+    resite_data_fn = join(resite_data_path, f"{strategy}_site_data.p")
     tech_points_cap_factor_df = pickle.load(open(resite_data_fn, "rb"))
 
     missing_timestamps = set(network.snapshots) - set(tech_points_cap_factor_df.index)
@@ -66,7 +68,7 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
             print(f"Warning: Technology {tech} is not part of RES data from files. Therefore it was not added.")
             continue
 
-        points = list(tech_points_cap_factor_df[tech].columns)
+        points_list = sorted(list(tech_points_cap_factor_df[tech].columns), key=lambda x: x[0])
 
         # If there are no offshore buses, add all generators to onshore buses
         # If there are offshore buses, add onshore techs to onshore buses and offshore techs to offshore buses
@@ -75,38 +77,32 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
             is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
             buses = buses[buses.onshore == is_onshore]
 
+        # Detect to which bus the node should be associated
+        # TODO: this condition is shitty
+        if not offshore_buses and topology_type == "countries" and tech in ["wind_offshore", "wind_floating", "wind_onshore"]:
+            points_bus_ds = match_points_to_countries(points_list, list(buses.index)).dropna()
+        else:
+            pass
+            # points_bus_ds = match_points_to_regions(points_list, buses.region).dropna()
+        points = list(points_bus_ds.index)
+
+        logger.info(f"Adding {tech} in {list(set(points_bus_ds.values))}.")
+
         # Compute capacity potential
         if cap_dens_dict is None or tech not in cap_dens_dict:
 
-            assert tech not in ["wind_offshore", "wind_floating"], \
-                "Error: Capacities per km for offshore technologies must be pre-specified."
+            init_coordinates_dict = read_init_siting_coordinates(resite_data_path)
+            #TODO: fix lexsort warning in the line below
+            capacity_potential_per_node_full = \
+                get_capacity_potential(init_coordinates_dict, spatial_resolution, countries)[tech]
+            points_capacity_potential = list(capacity_potential_per_node_full.loc[points_list].values)
 
-            bus_capacity_potential = get_capacity_potential_for_regions({tech: buses.region.values})[tech]
-            bus_capacity_potential.index = buses.index
-
-            # Convert to capacity per km
-            if topology_type == "countries":
-                nuts_area = get_nuts_area()["2016"]
-                uk_el_to_gb_gr = {'UK': 'GB', 'EL': 'GR'}
-                nuts_area.index = [uk_el_to_gb_gr[c] if c in uk_el_to_gb_gr else c for c in nuts_area.index]
-                bus_capacity_potential_per_km = bus_capacity_potential/nuts_area[bus_capacity_potential.index]
-            else:  # topology_type == "ehighway"
-                # TODO: need to be implemented
-                pass
         else:
+
             bus_capacity_potential_per_km = pd.Series(cap_dens_dict[tech], index=buses.index)
-
-        # Detect to which bus the node should be associated
-        # TODO: this condition is shitty
-        if not offshore_buses and topology_type == "countries" and tech in ["wind_offshore", "wind_floating"]:
-            points_bus_ds = match_points_to_countries(points, list(buses.index)).dropna()
-        else:
-            points_bus_ds = match_points_to_regions(points, buses.region).dropna()
-        points = list(points_bus_ds.index)
-
-        # Get potential capacity for each point
-        points_capacity_potential = \
-            [bus_capacity_potential_per_km[points_bus_ds[point]]*area_per_site for point in points]
+            # Get potential capacity for each point
+            points_capacity_potential = \
+                [bus_capacity_potential_per_km[points_bus_ds[point]]*area_per_site/1e3 for point in points]
 
         # Get capacity factors
         cap_factor_series = tech_points_cap_factor_df.loc[network.snapshots][tech][points].values
@@ -333,7 +329,6 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
 
     spatial_res = 0.5
     for tech in technologies:
-
         # If there are no offshore buses, add all generators to onshore buses
         # If there are offshore buses, add onshore techs to onshore buses and offshore techs to offshore buses
         buses = network.buses.copy()
@@ -351,7 +346,11 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
             regions_shapes = offshore_shapes["geometry"].values
         else:
             regions_shapes = buses.region.values
-        cap_pot_ds = get_capacity_potential_for_regions({tech: regions_shapes})
+
+        if tech in ['wind_onshore', 'pv_residential', 'pv_utility']:
+            cap_pot_ds = get_capacity_potential_for_countries(tech).reindex(countries).dropna()
+        else: #tech in ['wind_offshore', 'wind_floating']
+            cap_pot_ds = get_capacity_potential_for_countries(tech).reindex(['EZ'+bus for bus in countries]).dropna()
 
         if topology_type != 'countries':
             # Compute capacity factors at buses position
@@ -368,18 +367,22 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
             cap_factor_df = get_cap_factor_for_countries(tech, buses.index, network.snapshots)
 
         # Compute legacy capacity (not available for wind_floating)
-        legacy_capacities = 0
         if use_ex_cap and tech != "wind_floating":
             if tech in ['wind_offshore'] and not offshore_buses:
-                legacy_capacities = get_legacy_capacity_in_regions(tech, pd.Series(regions_shapes), countries).values
+                legacy_capacities = get_legacy_capacity_in_regions(tech,
+                                                    pd.Series(regions_shapes, index=offshore_shapes.index), countries)
             else:
-                legacy_capacities = get_legacy_capacity_in_regions(tech, buses.region, countries).values
+                legacy_capacities = get_legacy_capacity_in_regions(tech, buses.region, countries)
+
 
         # Update capacity potentials if legacy capacity is bigger
-        cap_potential = cap_pot_ds[tech].values
-        for i in range(len(cap_potential)):
-            if cap_potential[i] < legacy_capacities[i]:
-                cap_potential[i] = legacy_capacities[i]
+        for bus in legacy_capacities.index:
+            if tech in ['wind_onshore', 'pv_residential', 'pv_utility']:
+                if cap_pot_ds.loc[bus] < legacy_capacities.loc[bus]:
+                    cap_pot_ds.loc[bus] = legacy_capacities.loc[bus]
+            else: #tech in ['wind_offshore', 'wind_floating']
+                if cap_pot_ds.loc['EZ'+bus] < legacy_capacities.loc[bus]:
+                    cap_pot_ds.loc['EZ'+bus] = legacy_capacities.loc[bus]
 
         # Get costs
         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
@@ -389,9 +392,9 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
                      f"Gen {tech} " + buses.index,
                      bus=buses.index,
                      p_nom_extendable=True,
-                     p_nom=legacy_capacities,
-                     p_nom_min=legacy_capacities,
-                     p_nom_max=cap_potential,
+                     p_nom=legacy_capacities.values,
+                     p_nom_min=legacy_capacities.values,
+                     p_nom_max=cap_pot_ds.values,
                      p_max_pu=cap_factor_df.values,
                      type=tech,
                      x=buses.x.values,

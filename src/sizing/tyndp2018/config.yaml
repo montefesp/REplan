@@ -13,11 +13,11 @@ solver_options:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-01-01T23:00']
+  slice: ['2015-01-01T00:00', '2015-12-31T23:00']
   resolution: 1
 
 # Space
-region: "CWE"
+region: "EU"
 # TODO: remove?
 add_offshore: False # ! if False, remove wind_offshore and wind_floating from RES technologies
 
@@ -27,25 +27,25 @@ res:
   # Give which technology should be installed using each strategy
   strategies:
     max: []
-    comp: []
+    comp: ['wind_onshore', 'wind_offshore']
     no_siting: []
     siting: []
-    bus: ['pv_residential', 'pv_utility', 'wind_offshore', 'wind_onshore']
+    bus: ['pv_residential', 'pv_utility']
 
   # For strategy = max or comp
+  path: '20200412_105830'
   resite_nb: 0 # can be multiples of 25
   area_per_site: 2500 #km2
   cap_dens:
-    # wind_onshore: ""  # GW/km2
-    # pv_utility: ""  # GW/km2
-    wind_offshore: 10
+#    wind_onshore: 1  # MW/km2, assuming 10% max utilization of the entire cell area
+#    wind_offshore: 4 # MW/km2, assuming 40% max utilization of the entire cell area
 
   # For strategy = siting or no siting
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
   timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
   use_ex_cap: True
-  limit_max_cap: False
+  limit_max_cap: True
   filtering_layers:
     resource_quality: True
     population_density: True
@@ -112,4 +112,4 @@ sto:
 # Emissions
 co2_emissions:
   reference_year: 1990 # The only available point now.
-  mitigation_factor: 0.0
+  mitigation_factor: 0.8

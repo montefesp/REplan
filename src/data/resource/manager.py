@@ -297,9 +297,9 @@ def get_cap_factor_for_countries(tech: str, countries: List[str], timestamps: pd
     capacity_factors.index = pd.DatetimeIndex(capacity_factors.index)
 
     missing_countries = set(countries) - set(capacity_factors.columns)
-    assert not missing_countries, f"Error: Data for countries {missing_countries} is not available."
+    assert not missing_countries, f"Error: {tech} data for countries {missing_countries} is not available."
     missing_timestamps = set(timestamps) - set(capacity_factors.index)
-    assert not missing_timestamps, f"Error: Data for timestamps {missing_timestamps} is not available."
+    assert not missing_timestamps, f"Error: {tech} data for timestamps {missing_timestamps} is not available."
 
     return capacity_factors.loc[timestamps, countries]
 

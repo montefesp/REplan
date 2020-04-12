@@ -103,7 +103,8 @@ if __name__ == '__main__':
 
             if strategy in ["comp", "max"]:
                 net = add_res_from_file(net, technologies, strategy,
-                                        config["res"]["resite_nb"], config["res"]["area_per_site"],
+                                        config["res"]["path"], config["res"]["area_per_site"],
+                                        config["res"]["spatial_resolution"], countries,
                                         "countries", config["res"]["cap_dens"], offshore_buses=False)
             elif strategy == "bus":
                 net = add_res_per_bus(net, technologies, countries, pv_wind_tech_config,

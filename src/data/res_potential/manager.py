@@ -3,6 +3,7 @@ from typing import List, Dict, Tuple, Union
 
 import numpy as np
 import pandas as pd
+import pickle
 
 from shapely.ops import cascaded_union
 from shapely.geometry import Polygon, MultiPolygon
@@ -17,7 +18,22 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
-def read_capacity_potential(tech: str) -> pd.Series:
+def read_init_siting_coordinates(resite_data_path: str):
+    """
+
+    """
+
+    coordinates_fn = join(resite_data_path, "init_coordinates_dict.p")
+    coordinates_dict = pickle.load(open(coordinates_fn, "rb"))
+
+    for tech in coordinates_dict:
+        coordinates_dict[tech] = sorted(coordinates_dict[tech], key=lambda x: x[0])
+
+    return coordinates_dict
+
+
+
+def read_capacity_potential(tech: str, topology: str) -> pd.Series:
     """
     Returns for each NUTS2 region or EEZ (depending on technology) its capacity potential in GW
 
@@ -25,6 +41,8 @@ def read_capacity_potential(tech: str) -> pd.Series:
     ----------
     tech: str
         Technology name among 'wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility' and 'pv_residential'
+    topology: str
+        Topology.
 
     Returns
     -------
@@ -37,9 +55,13 @@ def read_capacity_potential(tech: str) -> pd.Series:
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/generated/')
+
     # Onshore, return NUTS2 capacity potentials
     if tech in ['wind_onshore', 'pv_utility', 'pv_residential']:
-        return pd.read_csv(f"{path_potential_data}nuts2_capacity_potentials_GW.csv", index_col=0)[tech]
+        if topology == 'ehighway':
+            return pd.read_csv(f"{path_potential_data}nuts2_capacity_potentials_GW.csv", index_col=0)[tech]
+        else: # topology == 'countries'
+            return pd.read_csv(f"{path_potential_data}nuts0_capacity_potentials_GW.csv", index_col=0)[tech]
     # Offshore, return EEZ capacity potentials
     else:
         return pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0)[tech]
@@ -83,7 +105,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
     for tech, coords in tech_points_dict.items():
 
         # Compute potential for each NUTS2 or EEZ
-        potential_per_region_ds = read_capacity_potential(tech)
+        potential_per_region_ds = read_capacity_potential(tech, topology='ehighway')
 
         # Get NUTS2 and EEZ shapes
         # TODO: this is shit -> not generic enough, e.g.: would probably not work for us states
@@ -175,7 +197,7 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
     for tech, regions in tech_regions_dict.items():
 
         # Compute potential for each NUTS2 or EEZ
-        potential_per_subregion_ds = read_capacity_potential(tech)
+        potential_per_subregion_ds = read_capacity_potential(tech, topology='ehighway')
 
         # Get NUTS2 or EEZ shapes
         # TODO: this is shit -> not generic enough, e.g.: would probably not work for us states
@@ -211,6 +233,30 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
                 if region.is_empty or region.area == 0.:
                     break
             capacity_potential_ds.loc[tech, i] = cap_pot
+
+    return capacity_potential_ds
+
+
+def get_capacity_potential_for_countries(tech: str) -> pd.Series:
+    """
+    Get capacity potential (in GW) for a series of technology for associated geographical regions
+
+    Parameters
+    ----------
+    tech: str
+
+    Returns
+    -------
+    capacity_potential_ds: pd.Series
+        Gives for each pair of technology and region the associated potential capacity in GW
+
+    """
+    accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
+    assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
+
+    capacity_potential_ds = read_capacity_potential(tech, topology='countries')
+
+    capacity_potential_ds.rename(index={'UK': 'GB', 'EL': 'GR'}, inplace=True)
 
     return capacity_potential_ds
 
