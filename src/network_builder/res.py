@@ -366,6 +366,11 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
         else:
             cap_factor_df = get_cap_factor_for_countries(tech, buses.index, network.snapshots)
 
+        if tech in ['wind_onshore', 'pv_residential', 'pv_utility']:
+            legacy_capacities = pd.Series(0., index=cap_pot_ds.index)
+        else:
+            legacy_capacities = pd.Series(0., index=['EZ'+item for item in cap_pot_ds.index])
+
         # Compute legacy capacity (not available for wind_floating)
         if use_ex_cap and tech != "wind_floating":
             if tech in ['wind_offshore'] and not offshore_buses:
@@ -373,7 +378,6 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
                                                     pd.Series(regions_shapes, index=offshore_shapes.index), countries)
             else:
                 legacy_capacities = get_legacy_capacity_in_regions(tech, buses.region, countries)
-
 
         # Update capacity potentials if legacy capacity is bigger
         for bus in legacy_capacities.index:
