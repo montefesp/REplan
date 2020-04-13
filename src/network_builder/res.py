@@ -91,10 +91,10 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
         # Compute capacity potential
         if cap_dens_dict is None or tech not in cap_dens_dict:
 
-            init_coordinates_dict = read_init_siting_coordinates(resite_data_path)
+            init_coordinates_dict = read_init_siting_coordinates(resite_data_path)[tech]
             #TODO: fix lexsort warning in the line below
             capacity_potential_per_node_full = \
-                get_capacity_potential(init_coordinates_dict, spatial_resolution, countries)[tech]
+                get_capacity_potential({tech: init_coordinates_dict}, spatial_resolution, countries)[tech]
             points_capacity_potential = list(capacity_potential_per_node_full.loc[points_list].values)
 
         else:

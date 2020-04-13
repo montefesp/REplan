@@ -169,6 +169,9 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
         underestimated_capacity = existing_capacity_ds > capacity_potential_ds
         capacity_potential_ds[underestimated_capacity] = existing_capacity_ds[underestimated_capacity]
 
+    # TODO: some weird behaviour happening for offshore, duplicate locations occurring. To be further checked, ideally this filtering disappears..
+    capacity_potential_ds = capacity_potential_ds.loc[~capacity_potential_ds.index.duplicated(keep='first')]
+
     return capacity_potential_ds
 
 
