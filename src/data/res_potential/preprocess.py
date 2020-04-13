@@ -3,11 +3,6 @@ from os.path import join, dirname, abspath
 import pandas as pd
 
 
-# TODO: we should probably create a preprocess.py file where we crate a file containing for each NUTS2 regions
-#  the capacities for each technology, would basically move the three first functions and use them to generate
-#  this file once and for all
-
-# TODO: check what it takes for this function not to crash on the tyndp model
 def get_non_eu28_potential(tech: str) -> pd.Series:
     """
     Returns capacity potential per NUTS2 or EEZ region of countries that are not in EU28 for a given technology.
@@ -270,11 +265,10 @@ def get_capacity_potential_from_enspreso(tech: str) -> pd.Series:
     return updated_potential_per_tech
 
 
-
 def group_potentials_per_country(potential_ds: pd.Series) -> pd.Series:
 
     potential_ds = potential_ds.to_frame()
-    potential_ds.columns=['value']
+    potential_ds.columns = ['value']
 
     potential_ds['country'] = potential_ds.index.str[:2]
 
@@ -283,9 +277,7 @@ def group_potentials_per_country(potential_ds: pd.Series) -> pd.Series:
     return potential_per_country
 
 
-
-
-
+# TODO: why is this taking topology argument either? Shouldn't take any argument to me, just generate for NUTS0
 def built_capacity_potential_files(topology: str):
     """Saves capacity potentials (in GW) for NUTS2 (2016 version) and EEZ regions."""
 
@@ -315,7 +307,7 @@ def built_capacity_potential_files(topology: str):
 
         capacities_onshore.to_csv(path_potential_data + "nuts2_capacity_potentials_GW.csv")
 
-    else: # topology == 'countries'
+    else:  # topology == 'countries'
 
         for tech in capacities_onshore.columns:
             non_eu28_potentials = group_potentials_per_country(get_non_eu28_potential(tech))
@@ -324,6 +316,7 @@ def built_capacity_potential_files(topology: str):
             capacities_onshore[tech] = capacity_potential
 
         capacities_onshore.to_csv(path_potential_data + "nuts0_capacity_potentials_GW.csv")
+
 
 if __name__ == '__main__':
 

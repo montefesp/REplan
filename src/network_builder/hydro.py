@@ -21,6 +21,7 @@ logger = logging.getLogger()
 
 # ----- PHS ----- #
 
+# TODO: this function makes no sense, nuts0 levels are countries so why do we need a function to convert it?
 def phs_inputs_nuts_to_countries(countries: List[str], nuts0_pow_cap: pd.Series, nuts0_en_cap: pd.Series) \
         -> (pd.Series, pd.Series):
     """
@@ -169,7 +170,8 @@ def add_phs_plants(network: pypsa.Network, topology_type: str = "countries",
     buses_onshore = network.buses[network.buses.onshore]
 
     if topology_type == "ehighway":
-        hydro_capacities_fn = join(dirname(abspath(__file__)), "../../data/hydro/generated/hydro_capacities_per_NUTS2.csv")
+        hydro_capacities_fn = join(dirname(abspath(__file__)),
+                                   "../../data/hydro/generated/hydro_capacities_per_NUTS2.csv")
         hydro_capacities = pd.read_csv(hydro_capacities_fn, index_col=0, delimiter=";", usecols=[0, 4, 5])
 
         psp_pow_cap, psp_en_cap = phs_inputs_nuts_to_ehighway(buses_onshore.index,
@@ -177,8 +179,9 @@ def add_phs_plants(network: pypsa.Network, topology_type: str = "countries",
                                                               hydro_capacities["PSP_EN_CAP [GWh]"])
         countries = list(set([i[2:] for i in psp_pow_cap.index]))
 
-    else: # topology_type == "countries":
-        hydro_capacities_fn = join(dirname(abspath(__file__)), "../../data/hydro/generated/hydro_capacities_per_NUTS0.csv")
+    else:  # topology_type == "countries":
+        hydro_capacities_fn = join(dirname(abspath(__file__)),
+                                   "../../data/hydro/generated/hydro_capacities_per_NUTS0.csv")
         hydro_capacities = pd.read_csv(hydro_capacities_fn, index_col=0, delimiter=";", usecols=[0, 4, 5])
 
         psp_pow_cap, psp_en_cap = phs_inputs_nuts_to_countries(buses_onshore.index,
@@ -232,9 +235,9 @@ def ror_inputs_nuts_to_countries(countries: List[str], nuts0_cap: pd.Series, nut
     ----------
     countries: List[str]
         List of ISO codes of countries
-    nuts2_cap: pd.Series (index: nuts0 regions)
+    nuts0_cap: pd.Series (index: nuts0 regions)
         ROR power capacity (GW) for each NUTS0 region (if no capacity for a region, value=NaN)
-    nuts2_inflows: pd.DataFrame (index: time, columns: nuts0 regions for which data exists)
+    nuts0_inflows: pd.DataFrame (index: time, columns: nuts0 regions for which data exists)
         ROR energy inflow (per unit) for each NUTS0 region for which there is installed capacity
 
     Returns
@@ -372,8 +375,7 @@ def add_ror_plants(network: pypsa.Network, topology_type: str = "countries",
 
         hydro_capacities_fn = join(dirname(abspath(__file__)),
                                    "../../data/hydro/generated/hydro_capacities_per_NUTS2.csv")
-        hydro_capacities = pd.read_csv(hydro_capacities_fn, index_col=0, delimiter=";",
-                                   usecols=[0, 1])
+        hydro_capacities = pd.read_csv(hydro_capacities_fn, index_col=0, delimiter=";", usecols=[0, 1])
 
         ror_inflow_fn = join(dirname(abspath(__file__)),
                              "../../data/hydro/generated/hydro_ror_time_series_per_NUTS2_pu.csv")
