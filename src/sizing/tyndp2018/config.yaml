@@ -13,7 +13,7 @@ solver_options:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-12-31T23:00']
+  slice: ['2015-01-01T00:00', '2015-01-01T23:00']
   resolution: 1
 
 # Space
@@ -23,7 +23,7 @@ add_offshore: False # ! if False, remove wind_offshore and wind_floating from RE
 
 # RES
 res:
-  include: True
+  include: False
   # Give which technology should be installed using each strategy
   strategies:
     max: []

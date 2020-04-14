@@ -1,213 +1,513 @@
+from os.path import join, dirname, abspath
+from typing import List, Tuple, Union
+
 import pandas as pd
-import xarray as xr
-import geopandas as gpd
-from shapely.geometry import Point
-from datetime import datetime
-from os import listdir
-from os.path import join, abspath, dirname
+import numpy as np
+
+from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area
+from src.data.topologies.ehighways import get_ehighway_clusters
+
+# TODO: need to revise all these functions, either deleting some of them or removing the dependencies with regard
+#  to e-highway
 
 
-from src.data.geographics.manager import match_points_to_regions
+def get_hydro_capacities_per_nuts(nuts_type: str, plant_type: str) -> Union[pd.Series, Tuple[pd.Series, pd.Series]]:
+    """
+    Returns available hydro capacities
+    If sto or psp, returns power (in GW) and energy (in GWh) capacities
+    If ror, returns power capacities (in GW)
+
+    Parameters
+    ----------
+    nuts_type: str
+        Whether to return the capacities per NUTS2 or NUTS0
+    plant_type: str
+        One of phs, ror or sto
+
+    Returns
+    -------
+    (pd.Series, pd.Series) or pd.Series
+    """
+
+    accepted_nuts_types = ["NUTS0", "NUTS2"]
+    assert nuts_type in accepted_nuts_types, \
+        f"Error: Accepted NUTS types are {accepted_nuts_types}, received {nuts_type}"
+    accepted_plant_types = ["phs", "ror", "sto"]
+    assert plant_type in accepted_plant_types, \
+        f"Error: Accepted plant types are {accepted_plant_types}, received {plant_type}"
+
+    hydro_dir = join(dirname(abspath(__file__)), "../../../data/hydro/generated/")
+    hydro_capacities = pd.read_csv(f"{hydro_dir}hydro_capacities_per_{nuts_type}.csv", index_col=0)
+
+    if plant_type == "sto":
+        return hydro_capacities["STO_CAP [GW]"], hydro_capacities["STO_EN_CAP [GWh]"]
+    elif plant_type == "phs":
+        return hydro_capacities["PSP_CAP [GW]"], hydro_capacities["PSP_EN_CAP [GWh]"]
+    else:  # plant_type == "ror"
+        return hydro_capacities["ROR_CAP [GW]"]
 
 
-# TODO: the two following functions might be already implemented somewhere else (geographics/manager.py)
+def get_hydro_inflows_per_nuts(nuts_type: str, plant_type: str, timestamps: pd.DatetimeIndex = None) -> pd.DataFrame:
+    """
+    Returns available hydro inflows.
+    If sto, returns inflows (in GWh).
+    If ror, returns normalized inflows (per unit of installed capacity)
+    If 'timestamps' is specified, return just data for those timestamps, otherwise return all available timestamps.
+
+    Parameters
+    ----------
+    nuts_type: str
+        Whether to return the capacities per NUTS2 or NUTS0
+    plant_type: str
+        One of ror or sto
+    timestamps: pd.DatetimeIndex
+
+    Returns
+    -------
+    nuts_inflows: pd.DataFrame
+        DataFrame indexed by timestamps and whose columns are NUTS codes
+
+    """
+
+    accepted_nuts_types = ["NUTS0", "NUTS2"]
+    assert nuts_type in accepted_nuts_types, \
+        f"Error: Accepted NUTS types are {accepted_nuts_types}, received {nuts_type}"
+    accepted_plant_types = ["ror", "sto"]
+    assert plant_type in accepted_plant_types, \
+        f"Error: Accepted plant types are {accepted_plant_types}, received {plant_type}"
+
+    hydro_dir = join(dirname(abspath(__file__)), "../../../data/hydro/generated/")
+    if plant_type == "sto":
+        nuts_inflow_fn = f"{hydro_dir}hydro_sto_inflow_time_series_per_{nuts_type}_GWh.csv"
+    else:  # plant_type == "ror"
+        nuts_inflow_fn = f"{hydro_dir}hydro_ror_time_series_per_{nuts_type}_pu.csv"
+    nuts_inflows = pd.read_csv(nuts_inflow_fn, index_col=0)
+    nuts_inflows.index = pd.DatetimeIndex(nuts_inflows.index)
+
+    if timestamps is not None:
+        missing_timestamps = set(timestamps) - set(nuts_inflows.index)
+        assert not missing_timestamps, f"Error: Data is not available for timestamps {missing_timestamps}"
+        nuts_inflows = nuts_inflows.loc[timestamps]
+
+    return nuts_inflows
 
 
-def retrieve_points_within_region(shapefile_data, start_coordinates, region):
+# ----- PHS ----- #
 
-    l = []
-    for coord in start_coordinates:
-        p = Point(coord)
-        if p.within(shapefile_data.loc[region, 'geometry']):
-            l.append(coord)
-
-    return l
+def get_phs_capacities_per_nuts(nuts_type: str) -> Tuple[pd.Series, pd.Series]:
+    """Returns available PHS power (in GW) and energy (in GWh) capacities"""
+    return get_hydro_capacities_per_nuts(nuts_type, 'phs')
 
 
-def compute_ror_series(dataset_runoff, region, shapefile, flood_event_threshold):
+# TODO: this function makes no sense, nuts0 levels are countries so why do we need a function to convert it?
+def phs_inputs_nuts_to_countries(countries: List[str], nuts0_pow_cap: pd.Series, nuts0_en_cap: pd.Series) \
+        -> (pd.Series, pd.Series):
+    """
+    This function takes in inputs for PHS plants at the nuts2 levels and computes equivalent inputs at e-highway
+    bus levels.
 
-    coordinates = list(zip(dataset_runoff.longitude.values, dataset_runoff.latitude.values))
+    Parameters
+    ----------
+    countries: List[str]
+        List of ISO codes of countries
+    nuts0_pow_cap: pd.Series (index: nuts0 regions)
+        PHS power capacity (GW) for each NUTS0 region (if no capacity for a region, value=NaN)
+    nuts0_en_cap: pd.Series (index: nuts0 regions)
+        PHS energy capacity (GWh) for each NUTS0 region (if no capacity for a region, value=NaN)
 
-    region_points = retrieve_points_within_region(shapefile, coordinates, region)
+    Returns
+    -------
+    bus_pow_cap: pd.Series (index: ids of bus for which capacity exists)
+        PHS power capacity (GW) for each bus for which there is installed capacity
+    bus_en_cap: pd.Series (index: ids of bus for which capacity exists)
+        PHS energy capacity (GWh) for each bus for which there is installed capacity
+    """
 
-    ts = dataset_runoff.sel(locations=region_points).sum(dim='locations').ro.load()
-    ts_clip = ts.clip(max=ts.quantile(q=flood_event_threshold).values)
-    ts_norm = ts_clip / ts_clip.max()
+    nuts0_pow_cap = nuts0_pow_cap.fillna(0)
+    nuts0_en_cap = nuts0_en_cap.fillna(0)
 
-    return ts_norm
+    bus_pow_cap = pd.Series(index=countries)
+    bus_en_cap = pd.Series(index=countries)
 
+    for country in countries:
 
-def compute_sto_inflows(dataset_runoff, region, shapefile, sto_multipliers):
+        def correct_countries(c):
+            if c == "GB":
+                return "UK"
+            if c == "GR":
+                return "EL"
+            return c
 
-    unit_area = 1e10
-    coordinates = list(zip(dataset_runoff.longitude.values, dataset_runoff.latitude.values))
+        # If the code corresponds to a country, get the correspond list of NUTS0
+        nuts0_code = correct_countries(country)
+        # Pow cap (GW)
+        bus_pow_cap.loc[country] = nuts0_pow_cap.loc[nuts0_code]
+        # En cap (GWh)
+        bus_en_cap.loc[country] = nuts0_en_cap.loc[nuts0_code]
 
-    region_points = retrieve_points_within_region(shapefile, coordinates, region)
+    # Remove buses with no capacity
+    bus_pow_cap = bus_pow_cap.drop(bus_pow_cap.loc[bus_pow_cap == 0].index)
+    bus_en_cap = bus_en_cap.drop(bus_en_cap.loc[bus_en_cap == 0].index)
 
-    ts = dataset_runoff.sel(locations=region_points).sum(dim='locations').ro
-    # assume a grid box area of 10'000 km2
-    ts_cm = ts * unit_area
-    ts_GWh = ts_cm * 9.81 * 1000 * (1/3.6) * 1e-12 * sto_multipliers[region[:2]]
-
-    # prod = ts_GWh.sum(dim='time').values*(1e-3)
-    # exp = hydro_production_dict[region[:2]]
-
-    return ts_GWh
-
-
-# TODO comment and change arguments
-def retrieve_hydro_eu_data(topology_unit: str, php_duration_dict, sto_multipliers,
-                           flood_event_threshold, timestamps):
-
-    assert topology_unit in ["NUTS0", "NUTS2"], "Error: topology_unit must be NUTS2 or NUTS0"
-
-    # Read region shapes
-    # TODO: can we not use geogaphics manager? probably yes
-    geographics_dir = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/")
-    if topology_unit == 'NUTS2':
-        # TODO: need to change that
-        nuts_shapes_fn = f"{geographics_dir}NUTS_RG_01M_2016_4326_LEVL_2_incl_BA.geojson"
-        # nuts_shapes_fn = f"{geographics_dir}NUTS_RG_01M_2016_4326_LEVL_2.geojson"
-    else:  # topology_unit == 'NUTS0':
-        nuts_shapes_fn = f"{geographics_dir}NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson"
-    nuts_shapes = gpd.read_file(nuts_shapes_fn).set_index('NUTS_ID')
-
-    # Read hydro plants data from powerplantmatching tool from which we can retrieve capacity (in MW)
-    hydro_plants_fn = join(dirname(abspath(__file__)), "../../../data/hydro/source/pp_fresna_hydro_updated.csv")
-    hydro_plants_df = pd.read_csv(hydro_plants_fn, sep=';', usecols=[0, 1, 3, 5, 6, 8, 13, 14], index_col=0)
-
-    # Find to which NUTS region each plant belongs
-    # TODO: maybe we should first check countries
-    hydro_plants_locs = hydro_plants_df[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values
-    points_nuts_ds = match_points_to_regions(hydro_plants_locs, nuts_shapes["geometry"]).dropna()
-
-    def add_region(lon, lat):
-        nuts = points_nuts_ds[lon, lat]
-        # Need the if because some points are exactly at the same position
-        return nuts if isinstance(nuts, str) else nuts.iloc[0]
-    hydro_plants_df["NUTS"] = hydro_plants_df[["lon", "lat"]].apply(lambda x: add_region(x[0], x[1]), axis=1)
-    hydro_plants_df = hydro_plants_df[~hydro_plants_df['NUTS'].isnull()]
-
-    # ROR plants
-    # Get ROR plants and aggregate capacity (to GW) per NUTS region
-    ror_plants_df = hydro_plants_df[hydro_plants_df['Technology'] == 'Run-Of-River']
-    ror_nuts_capacity_ds = ror_plants_df.groupby(ror_plants_df['NUTS'])['Capacity'].sum()*1e-3
-
-    # STO plants
-    # Get STO plants and aggregate capacity (to GW) per NUTS region
-    hydro_sto = hydro_plants_df[hydro_plants_df['Technology'] == 'Reservoir']
-    sto_nuts_capacity_df = hydro_sto.groupby(hydro_sto['NUTS'])['Capacity'].sum().to_frame()*1e-3
-
-    # Get energy capacity per country (in GWh)
-    nuts_hydro_storage_capacities_fn = join(dirname(abspath(__file__)),
-                                            "../../../data/hydro/source/hydro_storage_capacities_updated.csv")
-    nuts_hydro_storage_energy_cap_ds = pd.read_csv(nuts_hydro_storage_capacities_fn, sep=';',
-                                                   usecols=['Country', 'E_store[TWh]'], index_col='Country',
-                                                   squeeze=True)*1e3
-
-    # Divide this energy capacity between NUTS regions proportionally to power capacity
-    for nuts in sto_nuts_capacity_df.index:
-        nuts0 = nuts[:2]
-        country_storage_potential = nuts_hydro_storage_energy_cap_ds[nuts0]
-        country_capacity_potential = \
-            sto_nuts_capacity_df.loc[sto_nuts_capacity_df.index.str.startswith(nuts0), "Capacity"].sum()
-        sto_nuts_capacity_df.loc[nuts, "Energy"] = \
-            (sto_nuts_capacity_df.loc[nuts, "Capacity"] / country_capacity_potential) * country_storage_potential
-
-    # PHS plants
-    # Get PHS plants and aggregate capacity (to GW) per NUTS region
-    php_plants_df = hydro_plants_df[hydro_plants_df['Technology'] == 'Pumped Storage']
-    php_nuts_capacity_df = php_plants_df.groupby(php_plants_df['NUTS'])['Capacity'].sum().to_frame()*1e-3
-
-    # Compute PHS energy capacity
-    for item in php_nuts_capacity_df.index:
-        php_nuts_capacity_df.loc[item, 'Energy'] = php_nuts_capacity_df.loc[item, 'Capacity'] * \
-                                                   php_duration_dict[item[:2]]
-
-    # Group all capacities in one dataframe (+ round to MWh)
-    capacities_df = pd.DataFrame(index=sorted(nuts_shapes.index),
-                                 columns=['ROR_CAP [GW]', 'STO_CAP [GW]', 'STO_EN_CAP [GWh]',
-                                          'PSP_CAP [GW]', 'PSP_EN_CAP [GWh]'])
-    capacities_df['ROR_CAP [GW]'] = ror_nuts_capacity_ds
-    capacities_df['STO_CAP [GW]'] = sto_nuts_capacity_df['Capacity']
-    capacities_df['STO_EN_CAP [GWh]'] = sto_nuts_capacity_df['Energy']
-    capacities_df['PSP_CAP [GW]'] = php_nuts_capacity_df['Capacity']
-    capacities_df['PSP_EN_CAP [GWh]'] = php_nuts_capacity_df['Energy']
-    capacities_df = capacities_df.round(3)
-
-    # TODO: david, why do we do that?
-    if topology_unit == 'NUTS2':
-
-        regions_ror = ['PT20', 'PT30', 'DE50', 'DE60', 'DE71', 'DE80', 'DEA4', 'DE24',
-                       'DE72', 'DE92', 'DEA1', 'DEB3', 'HU22', 'DED2', 'DED5', 'NO02',
-                       'NO03', 'PL61', 'PL62', 'PL71', 'UKC1', 'UKF1', 'UKC2', 'AT13']
-        capacities_df.loc[regions_ror, 'ROR_CAP [GW]'] = None
-
-        regions_sto = ['BE33', 'BE34', 'IE05', 'AT13']
-        capacities_df.loc[regions_sto, 'STO_CAP [GW]'] = None
-        capacities_df.loc[regions_sto, 'STO_EN_CAP [GWh]'] = None
-
-    # TODO: this take ages, why?
-    # Compute time-series of inflow for STO (in GWh) and ROR (per unit of capacity)
-    runoff_dir = join(dirname(abspath(__file__)), "../../../data/land_data/runoff")
-    runoff_files = [join(runoff_dir, fn) for fn in listdir(runoff_dir) if fn.endswith(".nc")]
-    runoff_dataset = xr.open_mfdataset(runoff_files, combine='by_coords')
-    runoff_dataset = runoff_dataset.stack(locations=('longitude', 'latitude'))
-
-    df_ror = pd.DataFrame(index=timestamps, columns=list(capacities_df[capacities_df['ROR_CAP [GW]'].notnull()].index))
-    for region in capacities_df[capacities_df['ROR_CAP [GW]'].notnull()].index:
-        df_ror[region] = compute_ror_series(runoff_dataset, region, nuts_shapes, flood_event_threshold)
-
-    df_sto = pd.DataFrame(index=timestamps, columns=list(capacities_df[capacities_df['STO_CAP [GW]'].notnull()].index))
-    for region in capacities_df[capacities_df['STO_CAP [GW]'].notnull()].index:
-        df_sto[region] = compute_sto_inflows(runoff_dataset, region, nuts_shapes, sto_multipliers)
-
-    # Do some 'hand' correcting work
-    if topology_unit == 'NUTS2':
-        # For some reason, there is no point associated with ITC2. Fill with neighboring area.
-        df_ror['ITC2'] = df_ror['ITC3']
-
-        # Same situation here, some wild hacks for the moment to fill
-        # them with data from regions with similar capacities.
-        df_sto['ES52'] = df_sto['ES24']
-        df_sto['EL42'] = df_sto['EL61']
-        df_sto['ITC2'] = df_sto['ITC4'] / 2.
-
-    # Saving files
-    save_dir = join(dirname(abspath(__file__)), "../../../data/hydro/generated/")
-    capacities_save_fn = f"{save_dir}hydro_capacities_per_{topology_unit}.csv"
-    capacities_df.to_csv(capacities_save_fn, sep=';')
-    ror_save_fn = f"{save_dir}hydro_ror_time_series_per_{topology_unit}_pu.csv"
-    df_ror.to_csv(ror_save_fn, sep=';')
-    sto_save_fn = f"{save_dir}hydro_sto_inflow_time_series_per_{topology_unit}_GWh.csv"
-    df_sto.to_csv(sto_save_fn, sep=';')  # TODO; why use ; instead of , ?
+    return bus_pow_cap, bus_en_cap
 
 
-if __name__ == '__main__':
+def phs_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en_cap: pd.Series) \
+        -> (pd.Series, pd.Series):
+    """
+    This function takes in inputs for PHS plants at the nuts2 levels and computes equivalent inputs at e-highway
+    bus levels.
+    All inputs are rescaled based on regions areas.
 
-    # TODO: Store in file?
-    # # IEA validation data in 2016 (TWh produced per year)
-    # hydro_production_dict = {'AT': 14., 'BE': 0.5, 'BG': 5.7, 'HR': 6.4, 'CZ': 1.8, 'FI': 16.8, 'FR': 54.5,
-    #                          'DE': 19., 'EL': 6.1, 'IE': 0.8, 'IT': 45.5, 'LV': 1.9, 'NO': 137.9, 'PL': 1.8,
-    #                          'PT': 8.9, 'RO': 16.6, 'SK': 3.9, 'SI': 3.8, 'CH': 36., 'ES': 28.1, 'SE': 75.3,
-    #                          'UK': 6.3, 'AL': 6., 'BA': 5., 'ME': 1.5, 'MK': 1.9, 'RS': 9.7, 'HU': 1., 'LT': 1.}
+    Parameters
+    ----------
+    bus_ids: List[str]
+    nuts2_pow_cap: pd.Series (index: nuts2 regions)
+        STO power capacity (GW) for each NUTS2 region (if no capacity for a region, value=NaN)
+    nuts2_en_cap: pd.Series (index: nuts2 regions)
+        STO energy capacity (GWh) for each NUTS2 region (if no capacity for a region, value=NaN)
 
-    # Inflow multiplier (proportional to the water head) required to reach IEA production levels throughout the year.
-    sto_multipliers = {'AT': 35., 'BE': 1., 'BG': 71., 'HR': 27., 'CZ': 38., 'FI': 1., 'FR': 1., 'DE': 1.,
-                       'EL': 30., 'IE': 1., 'IT': 21., 'LV': 1., 'NO': 44., 'PL': 60., 'PT': 30., 'RO': 42.,
-                       'SK': 110., 'SI': 36., 'CH': 60., 'ES': 59., 'SE': 35., 'UK': 1., 'AL': 48.,
-                       'BA': 1., 'ME': 10., 'MK': 48., 'RS': 120., 'HU': 1., 'LT': 1.}
+    Returns
+    -------
+    bus_pow_cap: pd.Series (index: ids of bus for which capacity exists)
+        STO power capacity (GW) for each bus for which there is installed capacity
+    bus_en_cap: pd.Series (index: ids of bus for which capacity exists)
+        STO energy capacity (GWh) for each bus for which there is installed capacity
+    """
 
-    # Eurelectric 2011 study. Assumed 12h for the rest. Optimistic from a existing storage perspective.
-    # TODO: need to move to a file and make pd.series with it, and read it directly when used
-    php_durations = {'BG': 12, 'BE': 7, 'CH': 246, 'CZ': 6, 'ES': 340, 'FR': 41, 'AT': 42, 'PT': 107, 'LT': 49, 'DE': 6,
-                     'UK': 11, 'EL': 30, 'PL': 6, 'LU': 6, 'SK': 8, 'IE': 7,
-                     'SI': 4, 'NO': 12, 'IT': 12, 'SE': 12, 'HR': 12}
+    nuts2_pow_cap = nuts2_pow_cap.fillna(0)
+    nuts2_en_cap = nuts2_en_cap.fillna(0)
 
-    topology_unit = 'NUTS2'
-    ror_flood_threshold = 0.8
-    start = datetime(2014, 1, 1, 0, 0, 0)
-    end = datetime(2018, 12, 31, 23, 0, 0)
-    timestamps = pd.date_range(start, end, freq='H')
+    bus_pow_cap = pd.Series(index=bus_ids)
+    bus_en_cap = pd.Series(index=bus_ids)
 
-    retrieve_hydro_eu_data(topology_unit, php_durations, sto_multipliers, ror_flood_threshold, timestamps)
+    area_df = get_nuts_area()
+    eh_clusters = get_ehighway_clusters()
+
+    for i, bus_id in enumerate(bus_ids):
+
+        # Get e-highway clusters codes (NUTS3 or countries)
+        codes = eh_clusters.loc[bus_id].codes.split(",")
+
+        # If the codes are NUTS3
+        if len(codes[0]) != 2:
+
+            nuts3_codes = [code for code in codes if code[:4] in nuts2_pow_cap.index]
+            # Obtain corresponding NUTS2 codes
+            nuts2_codes = [code[:4] for code in nuts3_codes]
+
+            nuts2_area = np.array([area_df.loc[code]["2016"] for code in nuts2_codes])
+            nuts3_area = np.array([area_df.loc[code]["2016"] for code in nuts3_codes])
+            nuts_area_prop = nuts3_area/nuts2_area
+
+            # Power cap (GW)
+            bus_pow_cap.loc[bus_id] = nuts2_pow_cap.loc[nuts2_codes].mul(nuts_area_prop, axis=0).sum()
+            # Energy cap (GWh)
+            bus_en_cap.loc[bus_id] = nuts2_en_cap.loc[nuts2_codes].mul(nuts_area_prop, axis=0).sum()
+
+        else:
+            # If the code corresponds to a country, get the correspond list of NUTS2
+            nuts2_codes = [code for code in nuts2_pow_cap.index if code[0:2] == codes[0]]
+            # Pow cap (GW)
+            bus_pow_cap.loc[bus_id] = np.sum(nuts2_pow_cap.loc[nuts2_codes])
+            # En cap (GWh)
+            bus_en_cap.loc[bus_id] = np.sum(nuts2_en_cap.loc[nuts2_codes])
+
+    # Remove buses with no capacity
+    bus_pow_cap = bus_pow_cap.drop(bus_pow_cap.loc[bus_pow_cap == 0].index)
+    bus_en_cap = bus_en_cap.drop(bus_en_cap.loc[bus_en_cap == 0].index)
+
+    return bus_pow_cap, bus_en_cap
+
+
+# ----- ROR ----- #
+
+def get_ror_capacities_per_nuts(nuts_type: str) -> pd.Series:
+    """Returns available ROR power capacities (in GW)"""
+    return get_hydro_capacities_per_nuts(nuts_type, 'ror')
+
+
+def get_ror_inflows_per_nuts(nuts_type: str, timestamps: pd.DatetimeIndex = None) -> pd.DataFrame:
+    """Returns ROR inflows (per unit of installed power capacity)"""
+    return get_hydro_inflows_per_nuts(nuts_type, 'ror', timestamps)
+
+
+def ror_inputs_nuts_to_countries(countries: List[str], nuts0_cap: pd.Series, nuts0_inflows: pd.DataFrame) \
+        -> (pd.Series, pd.DataFrame):
+    """
+    This function takes in inputs for ROR plants at the nuts0 levels and computes equivalent inputs at country level.
+
+    Parameters
+    ----------
+    countries: List[str]
+        List of ISO codes of countries
+    nuts0_cap: pd.Series (index: nuts0 regions)
+        ROR power capacity (GW) for each NUTS0 region (if no capacity for a region, value=NaN)
+    nuts0_inflows: pd.DataFrame (index: time, columns: nuts0 regions for which data exists)
+        ROR energy inflow (per unit) for each NUTS0 region for which there is installed capacity
+
+    Returns
+    -------
+    bus_cap: pd.Series (index: ids of bus for which capacity exists)
+        ROR power capacity (GW) for each bus for which there is installed capacity
+    nuts2_inflows: pd.DataFrame (index: time, columns: ids of bus for which capacity exists)
+        ROR energy inflow (per unit) for each bus for which there is installed capacity
+    """
+    nuts0_cap = nuts0_cap.fillna(0)
+
+    bus_cap = pd.Series(index=countries)
+    bus_inflows = pd.DataFrame(index=nuts0_inflows.index, columns=countries)
+
+    for country in countries:
+
+        def correct_countries(c):
+            if c == "GB":
+                return "UK"
+            if c == "GR":
+                return "EL"
+            return c
+
+        nuts0_code = correct_countries(country)
+
+        if nuts0_code not in nuts0_inflows.keys():
+            bus_cap = bus_cap.drop(country)
+            bus_inflows = bus_inflows.drop(country, axis=1)
+            continue
+
+        bus_cap.loc[country] = nuts0_cap.loc[nuts0_code]
+        bus_inflows[country] = nuts0_inflows[nuts0_code]
+
+    return bus_cap, bus_inflows
+
+
+def ror_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_cap: pd.Series, nuts2_inflows: pd.DataFrame) \
+        -> (pd.Series, pd.DataFrame):
+    """
+    This function takes in inputs for ROR plants at the nuts2 levels and computes equivalent inputs at e-highway
+    bus levels.
+    Capacity is rescaled based on regions areas and inflows, as capacity factors, are obtained using an weighted
+    average of the inflows of the underlying NUTS3 (or NUTS2) regions composing the bus region where the weights
+    are the capacities.
+
+    Parameters
+    ----------
+    bus_ids: List[str]
+    nuts2_cap: pd.Series (index: nuts2 regions)
+        ROR power capacity (GW) for each NUTS2 region (if no capacity for a region, value=NaN)
+    nuts2_inflows: pd.DataFrame (index: time, columns: nuts2 regions for which data exists)
+        ROR energy inflow (per unit) for each NUTS2 region for which there is installed capacity
+
+    Returns
+    -------
+    bus_cap: pd.Series (index: ids of bus for which capacity exists)
+        ROR power capacity (GW) for each bus for which there is installed capacity
+    nuts2_inflows: pd.DataFrame (index: time, columns: ids of bus for which capacity exists)
+        ROR energy inflow (per unit) for each bus for which there is installed capacity
+    """
+    nuts2_cap = nuts2_cap.fillna(0)
+
+    bus_cap = pd.Series(index=bus_ids)
+    bus_inflows = pd.DataFrame(index=nuts2_inflows.index, columns=bus_ids)
+
+    area_df = get_nuts_area()
+    eh_clusters = get_ehighway_clusters()
+
+    for i, bus_id in enumerate(bus_ids):
+
+        # Get e-highway clusters codes (NUTS3 or countries)
+        codes = eh_clusters.loc[bus_id].codes.split(",")
+
+        # If the codes are NUTS3
+        if len(codes[0]) != 2:
+
+            nuts3_codes = [code for code in codes if code[:4] in nuts2_inflows.keys()]
+            if len(nuts3_codes) == 0:
+                bus_cap = bus_cap.drop(bus_id)
+                bus_inflows = bus_inflows.drop(bus_id, axis=1)
+                continue
+            nuts2_codes = nuts3_to_nuts2(nuts3_codes)
+
+            nuts2_area = np.array([area_df.loc[code]["2016"] for code in nuts2_codes])
+            nuts3_area = np.array([area_df.loc[code]["2016"] for code in nuts3_codes])
+            nuts_area_prop = nuts3_area/nuts2_area
+
+            nuts3_cap = nuts2_cap.loc[nuts2_codes].mul(nuts_area_prop, axis=0)
+
+            # Power cap (GW)
+            bus_cap.loc[bus_id] = nuts3_cap.sum()
+            # Inflow, compute an average with weights proportional to capacity
+            bus_inflows[bus_id] = nuts2_inflows[nuts2_codes].mul(nuts3_cap/nuts3_cap.sum()).sum(axis=1)
+
+        else:
+            # If the code corresponds to a country, get the correspond list of NUTS2
+            nuts2_codes = [code for code in nuts2_inflows.keys() if code[0:2] == codes[0]]
+            if len(nuts2_codes) == 0:
+                bus_cap = bus_cap.drop(bus_id)
+                bus_inflows = bus_inflows.drop(bus_id, axis=1)
+                continue
+            bus_cap.loc[bus_id] = nuts2_cap.loc[nuts2_codes].sum()
+            nuts2_cap_for_bus = nuts2_cap.loc[nuts2_codes]
+            bus_inflows[bus_id] = nuts2_inflows[nuts2_codes].mul(nuts2_cap_for_bus/nuts2_cap_for_bus.sum()).sum(axis=1)
+
+    return bus_cap, bus_inflows
+
+
+# ----- STO ----- #
+
+
+def get_sto_capacities_per_nuts(nuts_type: str) -> Tuple[pd.Series, pd.Series]:
+    """Returns available STO power (in GW) and energy (in GWh) capacities"""
+    return get_hydro_capacities_per_nuts(nuts_type, 'sto')
+
+
+def get_sto_inflows_per_nuts(nuts_type: str, timestamps: pd.DatetimeIndex = None) -> pd.DataFrame:
+    """Returns STO inflows (in GWh)"""
+    return get_hydro_inflows_per_nuts(nuts_type, 'sto', timestamps)
+
+
+def sto_inputs_nuts_to_countries(countries: List[str], nuts0_pow_cap: pd.Series, nuts0_en_cap: pd.Series,
+                                 nuts0_inflows: pd.DataFrame) -> (pd.Series, pd.Series, pd.DataFrame):
+    """
+    This function takes in inputs for STO plants at the nuts2 levels and computes equivalent inputs at country levels.
+
+    Parameters
+    ----------
+    countries: List[str]
+        List of ISO codes of countries
+    nuts0_pow_cap: pd.Series (index: nuts0 regions)
+        STO power capacity (GW) for each NUTS0 region (if no capacity for a region, value=NaN)
+    nuts0_en_cap: pd.Series (index: nuts0 regions)
+        STO energy capacity (GWh) for each NUTS0 region (if no capacity for a region, value=NaN)
+    nuts0_inflows: pd.DataFrame (index: time, columns: nuts0 regions for which data exists)
+        STO energy inflow (GWh) for each NUTS0 region for which there is installed capacity
+
+    Returns
+    -------
+    bus_pow_cap: pd.Series (index: ids of bus for which capacity exists)
+        STO power capacity (GW) for each bus for which there is installed capacity
+    bus_en_cap: pd.Series (index: ids of bus for which capacity exists)
+        STO energy capacity (GWh) for each bus for which there is installed capacity
+    nuts2_inflows: pd.DataFrame (index: time, columns: ids of bus for which capacity exists)
+        STO energy inflow (GWh) for each bus for which there is installed capacity
+    """
+
+    # TODO: need to know what we do that?
+    nuts0_pow_cap = nuts0_pow_cap.fillna(0)
+    nuts0_en_cap = nuts0_en_cap.fillna(0)
+
+    bus_pow_cap = pd.Series(index=countries)
+    bus_en_cap = pd.Series(index=countries)
+    bus_inflows = pd.DataFrame(index=nuts0_inflows.index, columns=countries)
+
+    for country in countries:
+
+        def correct_countries(c):
+            if c == "GB":
+                return "UK"
+            if c == "GR":
+                return "EL"
+            return c
+
+        # Get the correspond list of NUTS2
+        nuts0_code = correct_countries(country)
+        # If there is no code in the inflow data file for this bus, drop it
+        if nuts0_code not in nuts0_inflows.keys():
+            bus_pow_cap = bus_pow_cap.drop(country)
+            bus_en_cap = bus_en_cap.drop(country)
+            bus_inflows = bus_inflows.drop(country, axis=1)
+            continue
+
+        # Pow cap (GW)
+        bus_pow_cap.loc[country] = nuts0_pow_cap.loc[nuts0_code]
+        # En cap (GWh)
+        bus_en_cap.loc[country] = nuts0_en_cap.loc[nuts0_code]
+        # Inflow (GWh)
+        bus_inflows[country] = nuts0_inflows[nuts0_code]
+
+    return bus_pow_cap, bus_en_cap, bus_inflows
+
+
+def sto_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en_cap: pd.Series,
+                                nuts2_inflows: pd.DataFrame) -> (pd.Series, pd.Series, pd.DataFrame):
+    """
+    This function takes in inputs for STO plants at the nuts2 levels and computes equivalent inputs at e-highway
+    bus levels.
+    All inputs are rescaled based on regions areas.
+
+    Parameters
+    ----------
+    bus_ids: List[str]
+    nuts2_pow_cap: pd.Series (index: nuts2 regions)
+        STO power capacity (GW) for each NUTS2 region (if no capacity for a region, value=NaN)
+    nuts2_en_cap: pd.Series (index: nuts2 regions)
+        STO energy capacity (GWh) for each NUTS2 region (if no capacity for a region, value=NaN)
+    nuts2_inflows: pd.DataFrame (index: time, columns: nuts2 regions for which data exists)
+        STO energy inflow (GWh) for each NUTS2 region for which there is installed capacity
+
+    Returns
+    -------
+    bus_pow_cap: pd.Series (index: ids of bus for which capacity exists)
+        STO power capacity (GW) for each bus for which there is installed capacity
+    bus_en_cap: pd.Series (index: ids of bus for which capacity exists)
+        STO energy capacity (GWh) for each bus for which there is installed capacity
+    nuts2_inflows: pd.DataFrame (index: time, columns: ids of bus for which capacity exists)
+        STO energy inflow (GWh) for each bus for which there is installed capacity
+    """
+
+    nuts2_pow_cap = nuts2_pow_cap.fillna(0)
+    nuts2_en_cap = nuts2_en_cap.fillna(0)
+
+    bus_pow_cap = pd.Series(index=bus_ids)
+    bus_en_cap = pd.Series(index=bus_ids)
+    bus_inflows = pd.DataFrame(index=nuts2_inflows.index, columns=bus_ids)
+
+    area_df = get_nuts_area()
+    eh_clusters = get_ehighway_clusters()
+
+    for i, bus_id in enumerate(bus_ids):
+
+        # Get e-highway clusters codes (NUTS3 or countries)
+        codes = eh_clusters.loc[bus_id].codes.split(",")
+
+        # If the codes are NUTS3
+        if len(codes[0]) != 2:
+
+            # If there is no code in the inflow data file for this bus, drop it
+            nuts3_codes = [code for code in codes if code[:4] in nuts2_inflows.keys()]
+            if len(nuts3_codes) == 0:
+                bus_pow_cap = bus_pow_cap.drop(bus_id)
+                bus_en_cap = bus_en_cap.drop(bus_id)
+                bus_inflows = bus_inflows.drop(bus_id, axis=1)
+                continue
+            # Obtain corresponding NUTS2 codes
+            nuts2_codes = [code[:4] for code in nuts3_codes]
+
+            nuts2_area = np.array([area_df.loc[code]["2016"] for code in nuts2_codes])
+            nuts3_area = np.array([area_df.loc[code]["2016"] for code in nuts3_codes])
+            nuts_area_prop = nuts3_area/nuts2_area
+
+            # Power cap (GW)
+            bus_pow_cap.loc[bus_id] = nuts2_pow_cap.loc[nuts2_codes].mul(nuts_area_prop, axis=0).sum()
+            # Energy cap (GWh)
+            bus_en_cap.loc[bus_id] = nuts2_en_cap.loc[nuts2_codes].mul(nuts_area_prop, axis=0).sum()
+            # Inflow (GWh)
+            bus_inflows[bus_id] = nuts2_inflows[nuts2_codes].mul(nuts_area_prop).sum(axis=1)
+
+        else:
+            # If the code corresponds to a country, get the correspond list of NUTS2
+            nuts2_codes = [code for code in nuts2_inflows.keys() if code[0:2] == codes[0]]
+            # If there is no code in the inflow data file for this bus, drop it
+            if len(nuts2_codes) == 0:
+                bus_pow_cap = bus_pow_cap.drop(bus_id)
+                bus_en_cap = bus_en_cap.drop(bus_id)
+                bus_inflows = bus_inflows.drop(bus_id, axis=1)
+                continue
+
+            # Pow cap (GW)
+            bus_pow_cap.loc[bus_id] = np.sum(nuts2_pow_cap.loc[nuts2_codes])
+            # En cap (GWh)
+            bus_en_cap.loc[bus_id] = np.sum(nuts2_en_cap.loc[nuts2_codes])
+            # Inflow (GWh)
+            bus_inflows[bus_id] = nuts2_inflows[nuts2_codes].sum(axis=1)
+
+    return bus_pow_cap, bus_en_cap, bus_inflows
