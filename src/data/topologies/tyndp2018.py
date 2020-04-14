@@ -27,14 +27,14 @@ def preprocess(plotting=True):
     # Create links
     link_data_fn = join(dirname(abspath(__file__)),
                         "../../../data/topologies/tyndp2018/source/NTC_TYNDP2018_country.xlsx")
-    links = pd.read_excel(link_data_fn, names=["name", "NTC (MW)"])
+    links = pd.read_excel(link_data_fn, names=["name", "NTC (MW)", "Carrier"])
     links["bus0"] = links["name"].apply(lambda k: k.split('-')[0])
     links["bus1"] = links["name"].apply(lambda k: k.split('-')[1].split("_")[0])
     links["p_nom"] = links["NTC (MW)"]/1000.0
     links = links.set_index("name")
     links.index.names = ["id"]
     links = links.drop(["NTC (MW)"], axis=1)
-    links["carrier"] = "AC"
+    links["carrier"] = links["Carrier"]
 
     # Create buses
     buses_names = []

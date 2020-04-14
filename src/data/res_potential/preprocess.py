@@ -255,9 +255,22 @@ def get_capacity_potential_from_enspreso(tech: str) -> pd.Series:
 
     elif tech == 'pv_utility':
 
-        cap_potential_file = pd.read_excel(join(path_potential_data, 'ENSPRESO_SOLAR_PV_CSP.XLSX'),
-                                           sheet_name='NUTS2 170 W per m2 and 3%', skiprows=2, index_col=2)
-        nuts2_capacity_potentials_ds = cap_potential_file['PV - ground']
+        #TODO: maybe parametrize this, if we decide to stick with it
+        land_use_high_irradiance_potential = 0.05
+        land_use_low_irradiance_potential = 0.00
+
+        cap_potential_file = pd.read_excel(join(path_potential_data, 'ENSPRESO_SOLAR_PV_CSP_85W.XLSX'),
+                                               sheet_name='Raw Data Available Areas', index_col=0,
+                                               skiprows=[0, 1, 2, 3], usecols=[1, 43, 44, 45, 46],
+                                               names=["NUTS2", "Agricultural HI", "Agricultural LI",
+                                                      "Non-Agricultural HI", "Non-Agricultural LI"])
+
+        capacity_potential_high = cap_potential_file[["Agricultural HI", "Non-Agricultural HI"]].sum(axis=1)
+        capacity_potential_low = cap_potential_file[["Agricultural LI", "Non-Agricultural LI"]].sum(axis=1)
+
+        nuts2_capacity_potentials_ds = capacity_potential_high * land_use_high_irradiance_potential + \
+                                       capacity_potential_low * land_use_low_irradiance_potential
+
 
     else:  # 'pv_residential'
 
