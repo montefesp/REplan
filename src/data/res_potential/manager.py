@@ -18,6 +18,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
+# TODO: need to move that out of here, we don't need a function for that I think actually, only used for reading fie
 def read_init_siting_coordinates(resite_data_path: str):
     """
 
@@ -32,7 +33,8 @@ def read_init_siting_coordinates(resite_data_path: str):
     return coordinates_dict
 
 
-
+# TODO: this shouldn't take topology as argument! NUTS level maybe...
+#  Moreover this should be an optional argument
 def read_capacity_potential(tech: str, topology: str) -> pd.Series:
     """
     Returns for each NUTS2 region or EEZ (depending on technology) its capacity potential in GW
@@ -60,7 +62,7 @@ def read_capacity_potential(tech: str, topology: str) -> pd.Series:
     if tech in ['wind_onshore', 'pv_utility', 'pv_residential']:
         if topology == 'ehighway':
             return pd.read_csv(f"{path_potential_data}nuts2_capacity_potentials_GW.csv", index_col=0)[tech]
-        else: # topology == 'countries'
+        else:  # topology == 'countries'
             return pd.read_csv(f"{path_potential_data}nuts0_capacity_potentials_GW.csv", index_col=0)[tech]
     # Offshore, return EEZ capacity potentials
     else:
@@ -170,6 +172,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
         capacity_potential_ds[underestimated_capacity] = existing_capacity_ds[underestimated_capacity]
 
     # TODO: some weird behaviour happening for offshore, duplicate locations occurring. To be further checked, ideally this filtering disappears..
+    #   Antoine: This is happening because when creating the files you create an entry for UK and for GB
     capacity_potential_ds = capacity_potential_ds.loc[~capacity_potential_ds.index.duplicated(keep='first')]
 
     return capacity_potential_ds
@@ -240,9 +243,10 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
     return capacity_potential_ds
 
 
+# TODO: just put the aggregation of nuts2 region here?
 def get_capacity_potential_for_countries(tech: str) -> pd.Series:
     """
-    Get capacity potential (in GW) for a series of technology for associated geographical regions
+    Get capacity potential (in GW) for a given technology for all countries for which it is available
 
     Parameters
     ----------

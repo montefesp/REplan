@@ -92,7 +92,7 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
         if cap_dens_dict is None or tech not in cap_dens_dict:
 
             init_coordinates_dict = read_init_siting_coordinates(resite_data_path)[tech]
-            #TODO: fix lexsort warning in the line below
+            # TODO: fix lexsort warning in the line below
             capacity_potential_per_node_full = \
                 get_capacity_potential({tech: init_coordinates_dict}, spatial_resolution, countries)[tech]
             points_capacity_potential = list(capacity_potential_per_node_full.loc[points_list].values)
@@ -347,9 +347,11 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
         else:
             regions_shapes = buses.region.values
 
+        # TODO: using from countries also means that it doesn't work for ehighway anymore...
+        # TODO: why are we using reindex here?
         if tech in ['wind_onshore', 'pv_residential', 'pv_utility']:
             cap_pot_ds = get_capacity_potential_for_countries(tech).reindex(countries).dropna()
-        else: #tech in ['wind_offshore', 'wind_floating']
+        else:  # tech in ['wind_offshore', 'wind_floating']
             cap_pot_ds = get_capacity_potential_for_countries(tech).reindex(['EZ'+bus for bus in countries]).dropna()
 
         if topology_type != 'countries':
