@@ -165,20 +165,13 @@ def update_enspreso_capacity_potential(capacity_potential_ds: pd.Series, tech: s
         capacity_potential_ds.at['UKI6'] = 0.
         capacity_potential_ds.at['UKI7'] = 0.
 
-    # TODO: does it make sense to have two copies of the same data points? Wouldn't it create problems?
-    elif tech == 'wind_offshore':
+    elif tech in ['wind_offshore', 'wind_floating']:
 
-        capacity_potential_ds.at['EZUK'] = capacity_potential_ds.at['EZGB']
-        capacity_potential_ds.at['EZEL'] = capacity_potential_ds.at['EZGR']
-
-    elif tech == 'wind_floating':
-
-        capacity_potential_ds.at['EZUK'] = capacity_potential_ds.at['EZGB']
-        capacity_potential_ds.at['EZEL'] = capacity_potential_ds.at['EZGR']
+        capacity_potential_ds.at['EZGB'] = capacity_potential_ds.at['EZUK']
 
     # Remove outdated regions
     regions_to_remove = ['AD00', 'SM00', 'CY00', 'LI00', 'FRY1', 'FRY2', 'FRY3', 'FRY4',
-                         'FRY5', 'ES63', 'ES64', 'ES70', 'HU10', 'IE01', 'IE02', 'LT00', 'UKM3']
+                         'FRY5', 'ES63', 'ES64', 'ES70', 'HU10', 'IE01', 'IE02', 'LT00', 'UKM3', 'EZUK']
 
     capacity_potential_ds = capacity_potential_ds.drop(regions_to_remove, errors='ignore')
 
@@ -250,22 +243,21 @@ def get_capacity_potential_from_enspreso(tech: str) -> pd.Series:
 
     elif tech == 'pv_utility':
 
-        #TODO: maybe parametrize this, if we decide to stick with it
+        # TODO: maybe parametrize this, if we decide to stick with it
         land_use_high_irradiance_potential = 0.05
         land_use_low_irradiance_potential = 0.00
 
         cap_potential_file = pd.read_excel(join(path_potential_data, 'ENSPRESO_SOLAR_PV_CSP_85W.XLSX'),
-                                               sheet_name='Raw Data Available Areas', index_col=0,
-                                               skiprows=[0, 1, 2, 3], usecols=[1, 43, 44, 45, 46],
-                                               names=["NUTS2", "Agricultural HI", "Agricultural LI",
-                                                      "Non-Agricultural HI", "Non-Agricultural LI"])
+                                           sheet_name='Raw Data Available Areas', index_col=0,
+                                           skiprows=[0, 1, 2, 3], usecols=[1, 43, 44, 45, 46],
+                                           names=["NUTS2", "Agricultural HI", "Agricultural LI",
+                                                  "Non-Agricultural HI", "Non-Agricultural LI"])
 
         capacity_potential_high = cap_potential_file[["Agricultural HI", "Non-Agricultural HI"]].sum(axis=1)
         capacity_potential_low = cap_potential_file[["Agricultural LI", "Non-Agricultural LI"]].sum(axis=1)
 
         nuts2_capacity_potentials_ds = capacity_potential_high * land_use_high_irradiance_potential + \
-                                       capacity_potential_low * land_use_low_irradiance_potential
-
+            capacity_potential_low * land_use_low_irradiance_potential
 
     else:  # 'pv_residential'
 
@@ -278,28 +270,16 @@ def get_capacity_potential_from_enspreso(tech: str) -> pd.Series:
     return updated_potential_per_tech
 
 
-def group_potentials_per_country(potential_ds: pd.Series) -> pd.Series:
-
-    potential_ds = potential_ds.to_frame()
-    potential_ds.columns = ['value']
-
-    potential_ds['country'] = potential_ds.index.str[:2]
-
-    potential_per_country = potential_ds.groupby(['country'])['value'].sum()
-
-    return potential_per_country
-
-
-# TODO: why is this taking topology argument either? Shouldn't take any argument to me, just generate for NUTS0
-def built_capacity_potential_files(topology: str):
-    """Saves capacity potentials (in GW) for NUTS2 (2016 version) and EEZ regions."""
+def built_capacity_potential_files():
+    """Saves capacity potentials (in GW) for NUTS2 and NUTS0 (2016 version) and EEZ regions."""
 
     path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/generated/')
 
+    # Offshore potential capacity (per EEZ)
     techs_offshore = ['wind_offshore', 'wind_floating']
     capacities_offshore = pd.DataFrame(columns=techs_offshore)
 
-    for tech in capacities_offshore.columns:
+    for tech in techs_offshore:
         non_eu28_potentials = get_non_eu28_potential(tech)
         eu28_potentials = get_capacity_potential_from_enspreso(tech)
         capacity_potential = pd.concat([non_eu28_potentials, eu28_potentials], axis=0).sort_index()
@@ -307,33 +287,27 @@ def built_capacity_potential_files(topology: str):
 
     capacities_offshore.to_csv(path_potential_data + "eez_capacity_potentials_GW.csv")
 
+    # Onshore potential capacity (per NUTS2 and NUTS0)
     techs_onshore = ["pv_residential", "pv_utility", "wind_onshore"]
-    capacities_onshore = pd.DataFrame(columns=techs_onshore)
+    nuts2_capacities_onshore = pd.DataFrame(columns=techs_onshore)
+    nuts0_capacities_onshore = pd.DataFrame(columns=techs_onshore)
 
-    if topology == 'ehighway':
+    for tech in techs_onshore:
 
-        for tech in capacities_onshore.columns:
-            non_eu28_potentials = get_non_eu28_potential(tech)
-            eu28_potentials = get_capacity_potential_from_enspreso(tech)
-            capacity_potential = pd.concat([non_eu28_potentials, eu28_potentials], axis=0).sort_index()
-            capacities_onshore[tech] = capacity_potential
+        nuts2_non_eu28_potentials = get_non_eu28_potential(tech)
+        nuts2_eu28_potentials = get_capacity_potential_from_enspreso(tech)
+        nuts2_potentials = pd.concat([nuts2_non_eu28_potentials, nuts2_eu28_potentials], axis=0).sort_index()
+        nuts2_capacities_onshore[tech] = nuts2_potentials
 
-        capacities_onshore.to_csv(path_potential_data + "nuts2_capacity_potentials_GW.csv")
+        # Aggregate capacity potential per country
+        nuts0_potentials = nuts2_potentials.copy()
+        nuts0_potentials.index = [idx[0:2] for idx in nuts0_potentials.index]
+        nuts0_capacities_onshore[tech] = nuts0_potentials.groupby(level=0).sum()
 
-    else:  # topology == 'countries'
-
-        for tech in capacities_onshore.columns:
-            non_eu28_potentials = group_potentials_per_country(get_non_eu28_potential(tech))
-            eu28_potentials = group_potentials_per_country(get_capacity_potential_from_enspreso(tech))
-            capacity_potential = pd.concat([non_eu28_potentials, eu28_potentials], axis=0).sort_index()
-            capacities_onshore[tech] = capacity_potential
-
-        capacities_onshore.to_csv(path_potential_data + "nuts0_capacity_potentials_GW.csv")
+    nuts2_capacities_onshore.to_csv(path_potential_data + f"nuts2_capacity_potentials_GW.csv")
+    nuts0_capacities_onshore.to_csv(path_potential_data + f"nuts0_capacity_potentials_GW.csv")
 
 
 if __name__ == '__main__':
 
-    # TODO: maybe do something cleaner here..
-    topology = 'countries'
-
-    built_capacity_potential_files(topology=topology)
+    built_capacity_potential_files()
