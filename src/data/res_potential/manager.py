@@ -18,23 +18,6 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
-# TODO: need to move that out of here, we don't need a function for that I think actually, only used for reading fie
-def read_init_siting_coordinates(resite_data_path: str):
-    """
-
-    """
-
-    coordinates_fn = join(resite_data_path, "init_coordinates_dict.p")
-    coordinates_dict = pickle.load(open(coordinates_fn, "rb"))
-
-    for tech in coordinates_dict:
-        coordinates_dict[tech] = sorted(coordinates_dict[tech], key=lambda x: x[0])
-
-    return coordinates_dict
-
-
-# TODO: this shouldn't take topology as argument! NUTS level maybe...
-#  Moreover this should be an optional argument
 def read_capacity_potential(tech: str, nuts_type: str) -> pd.Series:
     """
     Returns for each NUTS2 (or NUTS0) region or EEZ (depending on technology) its capacity potential in GW
@@ -100,7 +83,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
 
     array_pop_density = load_population_density_data(spatial_resolution)
 
-    tech_coords_tuples = [(tech, point) for tech, points in tech_points_dict.items() for point in points]
+    tech_coords_tuples = sorted([(tech, point) for tech, points in tech_points_dict.items() for point in points])
     capacity_potential_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(tech_coords_tuples))
 
     for tech, coords in tech_points_dict.items():
@@ -169,10 +152,6 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
     if existing_capacity_ds is not None:
         underestimated_capacity = existing_capacity_ds > capacity_potential_ds
         capacity_potential_ds[underestimated_capacity] = existing_capacity_ds[underestimated_capacity]
-
-    # TODO: some weird behaviour happening for offshore, duplicate locations occurring. To be further checked, ideally this filtering disappears..
-    #   Antoine: This is happening because when creating the files you create an entry for UK and for GB
-    capacity_potential_ds = capacity_potential_ds.loc[~capacity_potential_ds.index.duplicated(keep='first')]
 
     return capacity_potential_ds
 

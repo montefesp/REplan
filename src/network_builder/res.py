@@ -12,7 +12,7 @@ from src.data.resource.manager import compute_capacity_factors, get_cap_factor_f
 from src.data.geographics.manager import match_points_to_regions, match_points_to_countries, get_nuts_area, \
     get_onshore_shapes, get_offshore_shapes
 from src.data.res_potential.manager import get_capacity_potential_for_countries, \
-                                           get_capacity_potential, read_init_siting_coordinates
+                                           get_capacity_potential
 from src.data.legacy.manager import get_legacy_capacity_in_regions
 from src.resite.resite import Resite
 from src.parameters.costs import get_cost
@@ -24,7 +24,8 @@ logger = logging.getLogger()
 
 # TODO: does not work for ehighway anymore
 def add_generators_from_file(network: pypsa.Network, technologies: List[str], strategy: str, path: str,
-                             area_per_site: int, spatial_resolution: float, countries: List[str], topology_type: str = "countries",
+                             area_per_site: int, spatial_resolution: float, countries: List[str],
+                             topology_type: str = "countries",
                              cap_dens_dict: Dict[str, float] = None, offshore_buses = True) -> pypsa.Network:
     """Adds wind and pv generator that where selected via a certain siting method to a Network class.
 
@@ -91,10 +92,15 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
         # Compute capacity potential
         if cap_dens_dict is None or tech not in cap_dens_dict:
 
-            init_coordinates_dict = read_init_siting_coordinates(resite_data_path)[tech]
-            # TODO: fix lexsort warning in the line below
+            init_points_fn = join(resite_data_path, "init_coordinates_dict.p")
+            init_points_list = pickle.load(open(init_points_fn, "rb"))[tech]
+
+            # TODO: some weird behaviour happening for offshore, duplicate locations occurring.
+            #  To be further checked, ideally this filtering disappears..
+            init_points_list = list(set(init_points_list))
+
             capacity_potential_per_node_full = \
-                get_capacity_potential({tech: init_coordinates_dict}, spatial_resolution, countries)[tech]
+                get_capacity_potential({tech: init_points_list}, spatial_resolution, countries)[tech]
             points_capacity_potential = list(capacity_potential_per_node_full.loc[points_list].values)
 
         else:
