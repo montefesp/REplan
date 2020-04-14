@@ -23,14 +23,14 @@ add_offshore: False # ! if False, remove wind_offshore and wind_floating from RE
 
 # RES
 res:
-  include: False
+  include: True
   # Give which technology should be installed using each strategy
   strategies:
     max: []
-    comp: ['wind_onshore', 'wind_offshore']
+    comp: []
     no_siting: []
     siting: []
-    bus: ['pv_residential', 'pv_utility']
+    bus: ['pv_residential', 'pv_utility', 'wind_onshore', 'wind_offshore']
 
   # For strategy = max or comp
   path: '20200412_105830'

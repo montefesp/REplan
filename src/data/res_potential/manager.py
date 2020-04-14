@@ -35,16 +35,16 @@ def read_init_siting_coordinates(resite_data_path: str):
 
 # TODO: this shouldn't take topology as argument! NUTS level maybe...
 #  Moreover this should be an optional argument
-def read_capacity_potential(tech: str, topology: str) -> pd.Series:
+def read_capacity_potential(tech: str, nuts_type: str) -> pd.Series:
     """
-    Returns for each NUTS2 region or EEZ (depending on technology) its capacity potential in GW
+    Returns for each NUTS2 (or NUTS0) region or EEZ (depending on technology) its capacity potential in GW
 
     Parameters
     ----------
     tech: str
         Technology name among 'wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility' and 'pv_residential'
-    topology: str
-        Topology.
+    nuts_type: str
+        If equal to 'nuts0', returns capacity per NUTS0 region, if 'nuts2', returns per NUTS2 region.
 
     Returns
     -------
@@ -55,15 +55,14 @@ def read_capacity_potential(tech: str, topology: str) -> pd.Series:
 
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
+    accepted_nuts = ["nuts2", "nuts0"]
+    assert nuts_type in accepted_nuts, f"Error: nuts_type {nuts_type} is not in {accepted_nuts}"
 
     path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/generated/')
 
-    # Onshore, return NUTS2 capacity potentials
+    # Onshore, return NUTS (0 or 2) capacity potentials
     if tech in ['wind_onshore', 'pv_utility', 'pv_residential']:
-        if topology == 'ehighway':
-            return pd.read_csv(f"{path_potential_data}nuts2_capacity_potentials_GW.csv", index_col=0)[tech]
-        else:  # topology == 'countries'
-            return pd.read_csv(f"{path_potential_data}nuts0_capacity_potentials_GW.csv", index_col=0)[tech]
+        return pd.read_csv(f"{path_potential_data}{nuts_type}_capacity_potentials_GW.csv", index_col=0)[tech]
     # Offshore, return EEZ capacity potentials
     else:
         return pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0)[tech]
@@ -107,7 +106,7 @@ def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]
     for tech, coords in tech_points_dict.items():
 
         # Compute potential for each NUTS2 or EEZ
-        potential_per_region_ds = read_capacity_potential(tech, topology='ehighway')
+        potential_per_region_ds = read_capacity_potential(tech, nuts_type='nuts2')
 
         # Get NUTS2 and EEZ shapes
         # TODO: this is shit -> not generic enough, e.g.: would probably not work for us states
@@ -203,7 +202,7 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
     for tech, regions in tech_regions_dict.items():
 
         # Compute potential for each NUTS2 or EEZ
-        potential_per_subregion_ds = read_capacity_potential(tech, topology='ehighway')
+        potential_per_subregion_ds = read_capacity_potential(tech, nuts_type='nuts2')
 
         # Get NUTS2 or EEZ shapes
         # TODO: this is shit -> not generic enough, e.g.: would probably not work for us states
@@ -243,7 +242,6 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
     return capacity_potential_ds
 
 
-# TODO: just put the aggregation of nuts2 region here?
 def get_capacity_potential_for_countries(tech: str) -> pd.Series:
     """
     Get capacity potential (in GW) for a given technology for all countries for which it is available
@@ -251,6 +249,7 @@ def get_capacity_potential_for_countries(tech: str) -> pd.Series:
     Parameters
     ----------
     tech: str
+        One of ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
 
     Returns
     -------
@@ -261,16 +260,12 @@ def get_capacity_potential_for_countries(tech: str) -> pd.Series:
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
-    capacity_potential_ds = read_capacity_potential(tech, topology='countries')
-
+    capacity_potential_ds = read_capacity_potential(tech, nuts_type='nuts0')
+    # Change 'UK' to 'GB' and 'EL' to 'GR'
     capacity_potential_ds.rename(index={'UK': 'GB', 'EL': 'GR'}, inplace=True)
 
     return capacity_potential_ds
 
 
 if __name__ == '__main__':
-    print(read_capacity_potential("wind_onshore"))
-    print(read_capacity_potential("wind_offshore"))
-    print(read_capacity_potential("wind_floating"))
-    print(read_capacity_potential("pv_utility"))
-    print(read_capacity_potential("pv_residential"))
+    print(get_capacity_potential_for_countries('wind_offshore'))

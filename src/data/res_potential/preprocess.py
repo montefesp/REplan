@@ -165,20 +165,13 @@ def update_enspreso_capacity_potential(capacity_potential_ds: pd.Series, tech: s
         capacity_potential_ds.at['UKI6'] = 0.
         capacity_potential_ds.at['UKI7'] = 0.
 
-    # TODO: does it make sense to have two copies of the same data points? Wouldn't it create problems?
-    elif tech == 'wind_offshore':
+    elif tech in ['wind_offshore', 'wind_floating']:
 
-        capacity_potential_ds.at['EZUK'] = capacity_potential_ds.at['EZGB']
-        capacity_potential_ds.at['EZEL'] = capacity_potential_ds.at['EZGR']
-
-    elif tech == 'wind_floating':
-
-        capacity_potential_ds.at['EZUK'] = capacity_potential_ds.at['EZGB']
-        capacity_potential_ds.at['EZEL'] = capacity_potential_ds.at['EZGR']
+        capacity_potential_ds.at['EZGB'] = capacity_potential_ds.at['EZUK']
 
     # Remove outdated regions
     regions_to_remove = ['AD00', 'SM00', 'CY00', 'LI00', 'FRY1', 'FRY2', 'FRY3', 'FRY4',
-                         'FRY5', 'ES63', 'ES64', 'ES70', 'HU10', 'IE01', 'IE02', 'LT00', 'UKM3']
+                         'FRY5', 'ES63', 'ES64', 'ES70', 'HU10', 'IE01', 'IE02', 'LT00', 'UKM3', 'EZUK']
 
     capacity_potential_ds = capacity_potential_ds.drop(regions_to_remove, errors='ignore')
 
@@ -312,7 +305,7 @@ def built_capacity_potential_files():
         nuts0_capacities_onshore[tech] = nuts0_potentials.groupby(level=0).sum()
 
     nuts2_capacities_onshore.to_csv(path_potential_data + f"nuts2_capacity_potentials_GW.csv")
-    nuts2_capacities_onshore.to_csv(path_potential_data + f"nuts0_capacity_potentials_GW.csv")
+    nuts0_capacities_onshore.to_csv(path_potential_data + f"nuts0_capacity_potentials_GW.csv")
 
 
 if __name__ == '__main__':

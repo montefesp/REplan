@@ -100,6 +100,7 @@ def get_phs_capacities_per_nuts(nuts_type: str) -> Tuple[pd.Series, pd.Series]:
 
 
 # TODO: this function makes no sense, nuts0 levels are countries so why do we need a function to convert it?
+#  use     capacity_potential_ds.rename(index={'UK': 'GB', 'EL': 'GR'}, inplace=True)
 def phs_inputs_nuts_to_countries(countries: List[str], nuts0_pow_cap: pd.Series, nuts0_en_cap: pd.Series) \
         -> (pd.Series, pd.Series):
     """
