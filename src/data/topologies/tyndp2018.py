@@ -14,7 +14,7 @@ from src.data.topologies.manager import plot_topology
 from src.parameters.costs import get_cost
 
 
-def preprocess(plotting=True):
+def preprocess(plotting=True) -> None:
     """Process tyndp-country buses and links information to create attributes files needed to feed
     into the class Network
 

@@ -1,6 +1,6 @@
 from os.path import join, dirname, abspath
 import pickle
-from typing import *
+from typing import List, Dict, Any
 
 import pandas as pd
 
@@ -9,10 +9,9 @@ import pypsa
 from shapely.ops import cascaded_union
 
 from src.data.resource.manager import compute_capacity_factors, get_cap_factor_for_countries
-from src.data.geographics.manager import match_points_to_regions, match_points_to_countries, get_nuts_area, \
+from src.data.geographics.manager import match_points_to_regions, match_points_to_countries, \
     get_onshore_shapes, get_offshore_shapes
-from src.data.res_potential.manager import get_capacity_potential_for_countries, \
-                                           get_capacity_potential
+from src.data.res_potential.manager import get_capacity_potential_for_countries, get_capacity_potential
 from src.data.legacy.manager import get_legacy_capacity_in_regions
 from src.resite.resite import Resite
 from src.parameters.costs import get_cost
@@ -31,14 +30,17 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
 
     Parameters
     ----------
+    # TODO: comment
     network: pypsa.Network
         A Network instance with regions
+    technologies
     strategy: str
         "comp" or "max, strategy used to select the sites
-    site_nb: int
-        Number of generation sites to add
+    path
     area_per_site: int
         Area per site in km2
+    spatial_resolution
+    countries
     topology_type: str
         Can currently be countries (for one node per country topologies) or ehighway (for topologies based on ehighway)
     cap_dens_dict: Dict[str, float] (default: None)
@@ -143,6 +145,10 @@ def add_generators(network: pypsa.Network, technologies: List[str],
     ----------
     network: pypsa.Network
         A network with region associated to each buses.
+    # TODO: comment
+    technologies
+    params
+    tech_config
     region: str
         Region over which the network is defined
     topology_type: str
@@ -246,6 +252,13 @@ def add_generators_at_resolution(network: pypsa.Network, technologies: List[str]
     ----------
     network: pypsa.Network
         A PyPSA Network instance with buses associated to regions
+    # TODO: comment
+    technologies
+    regions
+    tech_config
+    spatial_resolution
+    filtering_layers
+    use_ex_cap
     topology_type: str
         Can currently be countries (for one node per country topologies) or ehighway (for topologies based on ehighway)
     offshore_buses: bool (default: True)
@@ -392,7 +405,7 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
             if tech in ['wind_onshore', 'pv_residential', 'pv_utility']:
                 if cap_pot_ds.loc[bus] < legacy_capacities.loc[bus]:
                     cap_pot_ds.loc[bus] = legacy_capacities.loc[bus]
-            else: #tech in ['wind_offshore', 'wind_floating']
+            else:  # tech in ['wind_offshore', 'wind_floating']
                 if cap_pot_ds.loc['EZ'+bus] < legacy_capacities.loc[bus]:
                     cap_pot_ds.loc['EZ'+bus] = legacy_capacities.loc[bus]
 
@@ -418,9 +431,8 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
 
 
 # TODO: to be removed
-def add_generators_at_bus_test(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any], region: str,
-                   output_dir=None) \
-        -> pypsa.Network:
+def add_generators_at_bus_test(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any],
+                               region: str, output_dir: str = None) -> pypsa.Network:
     """
     This function will add generators for different technologies at a series of location selected via an optimization
     mechanism.
@@ -429,6 +441,10 @@ def add_generators_at_bus_test(network: pypsa.Network, params: Dict[str, Any], t
     ----------
     network: pypsa.Network
         A network with region associated to each buses.
+    tech_config
+        # TODO comment
+    params
+        # TODO comment
     region: str
         Region over which the network is defined
     output_dir: str
@@ -450,7 +466,7 @@ def add_generators_at_bus_test(network: pypsa.Network, params: Dict[str, Any], t
     resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
 
     logger.info('Sending resite to solver.')
-    resite.solve_model(params['solver'], params['solver_options'][params['solver']], params['write_log'])
+    resite.solve_model()
 
     logger.info('Retrieving resite results.')
     tech_location_dict = resite.retrieve_solution()

@@ -18,7 +18,7 @@ import numpy as np
 from src.data.geographics.manager import return_points_in_shape
 
 
-def plot_topology(buses: pd.DataFrame, lines: pd.DataFrame = None):
+def plot_topology(buses: pd.DataFrame, lines: pd.DataFrame = None) -> None:
     """
     Plots a map with buses and lines.
 

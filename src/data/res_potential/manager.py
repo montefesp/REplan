@@ -3,7 +3,6 @@ from typing import List, Dict, Tuple, Union
 
 import numpy as np
 import pandas as pd
-import pickle
 
 from shapely.ops import cascaded_union
 from shapely.geometry import Polygon, MultiPolygon

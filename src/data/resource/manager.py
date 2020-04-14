@@ -50,7 +50,7 @@ def read_resource_database(file_path, coords=None):
         ds = xr.open_mfdataset(file_list,
                                combine='by_coords',
                                chunks={'latitude': 20, 'longitude': 20})\
-                        .stack(locations=('longitude', 'latitude')).astype(np.float32)
+            .stack(locations=('longitude', 'latitude')).astype(np.float32)
         datasets.append(ds)
 
     # Concatenate all regions on locations.
@@ -315,9 +315,9 @@ if __name__ == '__main__':
         tech_points_d = {"wind_onshore": [(0, 50)], "pv_utility": [(0, 50)]}
         compute_capacity_factors(tech_points_d, tech_conf, 0.5, ts)
 
-    if 1:
-        countries = "AL;AT;BA;BE;BG;CH;CZ;DE;DK;EE;ES;FI;FR;GB;GR;" \
+    if 0:
+        countries_ = "AL;AT;BA;BE;BG;CH;CZ;DE;DK;EE;ES;FI;FR;GB;GR;" \
                     "HR;HU;IE;IT;LT;LU;LV;ME;MK;NL;NO;PL;PT;RO;RS;SE;SI;SK".split(";")
-        print(get_cap_factor_for_countries(countries, ts, "pv_utility"))
-        print(get_cap_factor_for_countries(list(set(countries)-{'RS', 'AL', 'BA', 'ME'}), ts, "wind_onshore"))
-        print(get_cap_factor_for_countries(countries, ts, "wind_offshore"))
+        print(get_cap_factor_for_countries(countries_, ts, "pv_utility"))
+        print(get_cap_factor_for_countries(list(set(countries_)-{'RS', 'AL', 'BA', 'ME'}), ts, "wind_onshore"))
+        print(get_cap_factor_for_countries(countries_, ts, "wind_offshore"))

@@ -60,9 +60,9 @@ def get_cost(tech: str, nb_hours: float) -> Tuple[float, float]:
     tech_info_fn = join(dirname(abspath(__file__)), "tech_info.xlsx")
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
 
-    plant, type = get_plant_type(tech)
+    plant, plant_type = get_plant_type(tech)
     # assert tech in tech_info.index, f"Error: Cost for {tech} is not computable yet."
-    tech_info = tech_info.loc[plant, type]
+    tech_info = tech_info.loc[plant, plant_type]
 
     # Capital cost is the sum of investment and FOM
     capital_cost = (tech_info["FOM"] + tech_info["CAPEX"]/tech_info["lifetime"]) * nb_hours/NHoursPerYear
@@ -88,6 +88,6 @@ def get_cost(tech: str, nb_hours: float) -> Tuple[float, float]:
 if __name__ == "__main__":
     techs = ["ccgt", "ocgt", "nuclear", "sto", "ror", "phs", "wind_onshore", "wind_offshore", "wind_floating",
              "pv_utility", "pv_residential", "Li-ion", "AC", "DC"]
-    for tech in techs:
-        print(tech)
-        print(get_cost(tech, 24))
+    for tech_ in techs:
+        print(tech_)
+        print(get_cost(tech_, 24))

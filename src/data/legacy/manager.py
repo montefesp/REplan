@@ -4,7 +4,6 @@ from typing import List, Tuple, Dict, Any
 import numpy as np
 import pandas as pd
 import scipy.spatial
-import xarray as xr
 from shapely.geometry import MultiPoint
 
 from src.data.geographics.manager import convert_country_codes, match_points_to_regions, get_onshore_shapes
@@ -12,7 +11,7 @@ from src.data.land_data.manager import filter_onshore_offshore_points
 from src.data.population_density.manager import load_population_density_data
 
 
-# TODO: could there be points outside of mainland europe??? -> Yes expl: NL -69.8908, 12.474 in curaçao
+# TODO: could there be points outside of mainland europe??? -> Yes e.g.: NL -69.8908, 12.474 in Curacao
 # TODO: need to merge the end of the if and else
 def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: List[str], spatial_resolution: float,
                               points: List[Tuple[float, float]]) -> pd.Series:
@@ -27,6 +26,8 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
         Points with an aggregate capacity under this capacity will be removed
     countries: List[str]
         List of ISO codes of countries for which we want data
+    spatial_resolution: float
+        # TODO: comment
     points : List[Tuple[float, float]]
         Points to which existing capacity must be associated
 
@@ -140,6 +141,8 @@ def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
     ----------
     technologies: List[str]
         List of technologies for which we want to obtain legacy capacity
+    tech_config: Dict[str, Any]
+        # TODO: comment
     countries: List[str]
         Countries for which we want legacy capacity
     points : List[Tuple[float, float]]
@@ -219,7 +222,7 @@ def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: Lis
             else:  # wind_offshore
                 data = data[data['Area'] == 'Offshore']
 
-        elif tech == "pv_utility":
+        else:  # tech == "pv_utility":
 
             data = pd.read_excel(join(path_legacy_data, 'Solarfarms_Europe_20200208.xlsx'), sheet_name='ProjReg_rpt',
                                  header=0, usecols=[0, 4, 8])
@@ -239,7 +242,7 @@ def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: Lis
             points_in_region = points_region[points_region == region].index.values
             capacities[region] = data[data["Location"].isin(points_in_region)]["Total power"].sum()
 
-    else: # tech == "pv_residential" TODO: make sure this works with the ehighway topology
+    else:  # tech == "pv_residential" TODO: make sure this works with the ehighway topology
 
         data = pd.read_excel(join(path_legacy_data, 'SolarEurope_Residential_deployment.xlsx'), header=0, index_col=0)
         data = data['Capacity [GW]']
