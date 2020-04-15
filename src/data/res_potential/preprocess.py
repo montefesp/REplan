@@ -24,7 +24,7 @@ def get_non_eu28_potential(tech: str) -> pd.Series:
     # Load capacity potential per non-EU28 country (GW)
     path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/source')
     capacity_potential_non_eu28 = pd.read_excel(join(path_potential_data, 'RES_potential_non_EU.xlsx'), index_col=0)
-    capacity_potential_non_eu28 = capacity_potential_non_eu28[tech].dropna().copy()  # TODO: ask david: why a copy?
+    capacity_potential_non_eu28 = capacity_potential_non_eu28[tech].dropna()
 
     if tech in ['wind_onshore', 'pv_utility', 'pv_residential']:
 

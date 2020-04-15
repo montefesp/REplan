@@ -11,7 +11,6 @@ from src.data.land_data.manager import filter_onshore_offshore_points
 from src.data.population_density.manager import load_population_density_data
 
 
-# TODO: could there be points outside of mainland europe??? -> Yes e.g.: NL -69.8908, 12.474 in Curacao
 # TODO: need to merge the end of the if and else
 def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: List[str], spatial_resolution: float,
                               points: List[Tuple[float, float]]) -> pd.Series:

@@ -17,20 +17,19 @@ time:
   resolution: 1
 
 # Space
-region: "EU"
-# TODO: remove?
-add_offshore: False # ! if False, remove wind_offshore and wind_floating from RES technologies
+region: "EU2"
+# add_offshore: False
 
 # RES
 res:
-  include: False
+  include: True
   # Give which technology should be installed using each strategy
   strategies:
     max: []
-    comp: ['wind_onshore', 'wind_offshore']
+    comp: []
     no_siting: []
     siting: []
-    bus: ['pv_residential', 'pv_utility']
+    bus: ['pv_residential', 'pv_utility', 'wind_offshore', 'wind_onshore']
 
   # For strategy = max or comp
   path: '20200411_205036'

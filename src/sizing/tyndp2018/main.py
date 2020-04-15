@@ -68,7 +68,7 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
-    net = get_topology(net, countries, config["add_offshore"], plot=False)
+    net = get_topology(net, countries, plot=False)
 
     # Adding load
     logger.info("Adding load.")
@@ -117,6 +117,8 @@ if __name__ == '__main__':
             elif strategy == 'siting':
                 net = add_res(net, technologies, config['res'], pv_wind_tech_config, config["region"],
                               output_dir=output_dir, offshore_buses=False, topology_type='countries')
+
+    exit()
 
     # Add conventional gen
     if config["dispatch"]["include"]:

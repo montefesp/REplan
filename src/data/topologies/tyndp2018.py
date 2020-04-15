@@ -73,7 +73,7 @@ def preprocess(plotting=True) -> None:
         plt.show()
 
 
-def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool, extend_line_cap: bool = True,
+def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool = False, extend_line_cap: bool = True,
                  use_ex_line_cap: bool = True, plot: bool = False) -> pypsa.Network:
     """Load the e-highway network topology (buses and links) using PyPSA
 

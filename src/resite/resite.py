@@ -6,7 +6,7 @@ import pandas as pd
 from src.data.legacy.manager import get_legacy_capacity
 from src.data.resource.manager import read_resource_database, compute_capacity_factors
 from src.data.land_data.manager import filter_points
-from src.data.res_potential.manager import get_capacity_potential
+from src.data.res_potential.manager import get_capacity_potential_at_points
 from src.data.load.manager import get_load
 from src.data.geographics.manager import return_region_shape, return_points_in_shape, get_subregions
 from typing import List, Dict, Tuple, Any
@@ -136,8 +136,8 @@ class Resite:
         self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.tech_config,
                                                       self.spatial_res, self.timestamps)
 
-        self.cap_potential_ds = get_capacity_potential(self.tech_points_dict, self.spatial_res, all_subregions,
-                                                       self.existing_capacity_ds)
+        self.cap_potential_ds = get_capacity_potential_at_points(self.tech_points_dict, self.spatial_res,
+                                                                 all_subregions, self.existing_capacity_ds)
 
         # Compute percentage of existing capacity and set to 1. when capacity is zero
         existing_cap_percentage_ds = self.existing_capacity_ds.divide(self.cap_potential_ds)
