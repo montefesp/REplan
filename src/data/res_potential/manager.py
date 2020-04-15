@@ -46,7 +46,9 @@ def read_capacity_potential(tech: str, nuts_type: str) -> pd.Series:
         return pd.read_csv(f"{path_potential_data}{nuts_type}_capacity_potentials_GW.csv", index_col=0)[tech]
     # Offshore, return EEZ capacity potentials
     else:
-        return pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0)[tech]
+        offshore_potential = pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0)[tech]
+        offshore_potential.rename(index={'EZIR': 'EZIE'}, inplace=True)
+        return offshore_potential
 
 
 def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[float, float]]],
@@ -241,7 +243,6 @@ def get_capacity_potential_for_countries(tech: str, countries: List[str]) -> pd.
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     capacity_potential_ds = read_capacity_potential(tech, nuts_type='nuts0')
-    print(capacity_potential_ds)
 
     # Convert EEZ names to country names
     if tech in ['wind_offshore', 'wind_floating']:

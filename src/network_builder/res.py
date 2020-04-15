@@ -368,7 +368,6 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
             regions_shapes = buses.region.values
 
         # Compute capacity potential at each bus
-        print(tech)
         if topology_type == "countries":
             cap_pot_ds = get_capacity_potential_for_countries(tech, buses.index)
         else:  # topology_type == "ehighway"

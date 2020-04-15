@@ -118,8 +118,6 @@ if __name__ == '__main__':
                 net = add_res(net, technologies, config['res'], pv_wind_tech_config, config["region"],
                               output_dir=output_dir, offshore_buses=False, topology_type='countries')
 
-    exit()
-
     # Add conventional gen
     if config["dispatch"]["include"]:
         tech = config["dispatch"]["tech"]

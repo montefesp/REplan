@@ -17,7 +17,7 @@ time:
   resolution: 1
 
 # Space
-region: "EU2"
+region: "EU"
 # add_offshore: False
 
 # RES
@@ -26,13 +26,13 @@ res:
   # Give which technology should be installed using each strategy
   strategies:
     max: []
-    comp: []
+    comp: ['wind_offshore', 'wind_onshore']
     no_siting: []
     siting: []
-    bus: ['pv_residential', 'pv_utility', 'wind_offshore', 'wind_onshore']
+    bus: ['pv_residential', 'pv_utility']
 
   # For strategy = max or comp
-  path: '20200411_205036'
+  path: '20200414_214108'
   resite_nb: 0 # can be multiples of 25
   area_per_site: 2500 #km2
   cap_dens:
@@ -75,7 +75,7 @@ res:
 
 # Conventional generation
 dispatch:
-  include: False
+  include: True
   tech: "ccgt"
 
 # Nuclear
@@ -86,7 +86,7 @@ nuclear:
 
 # Battery
 battery:
-  include: False
+  include: True
   type: "Li-ion"
   max_hours: 4 # THIS IS FIXED. IF IT CHANGES, CAPEX MUST CHANGE ACCORDINGLY.
 
