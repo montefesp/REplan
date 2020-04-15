@@ -47,7 +47,6 @@ def read_capacity_potential(tech: str, nuts_type: str) -> pd.Series:
     # Offshore, return EEZ capacity potentials
     else:
         offshore_potential = pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0)[tech]
-        offshore_potential.rename(index={'EZIR': 'EZIE'}, inplace=True)
         return offshore_potential
 
 
@@ -248,8 +247,9 @@ def get_capacity_potential_for_countries(tech: str, countries: List[str]) -> pd.
     if tech in ['wind_offshore', 'wind_floating']:
         capacity_potential_ds.index = [code[2:] for code in capacity_potential_ds.index]
 
+    print(capacity_potential_ds)
     # Change 'UK' to 'GB' and 'EL' to 'GR'
-    capacity_potential_ds.rename(index={'UK': 'GB', 'EL': 'GR', 'IR': 'IE'}, inplace=True)
+    capacity_potential_ds.rename(index={'UK': 'GB', 'EL': 'GR'}, inplace=True)
 
     # Extract only countries for which data is available
     countries = sorted(list(set(countries) & set(capacity_potential_ds.index)))

@@ -168,10 +168,11 @@ def update_enspreso_capacity_potential(capacity_potential_ds: pd.Series, tech: s
     elif tech in ['wind_offshore', 'wind_floating']:
 
         capacity_potential_ds.at['EZGB'] = capacity_potential_ds.at['EZUK']
+        capacity_potential_ds.at['EZIE'] = capacity_potential_ds.at['EZIR']
 
     # Remove outdated regions
     regions_to_remove = ['AD00', 'SM00', 'CY00', 'LI00', 'FRY1', 'FRY2', 'FRY3', 'FRY4',
-                         'FRY5', 'ES63', 'ES64', 'ES70', 'HU10', 'IE01', 'IE02', 'LT00', 'UKM3', 'EZUK']
+                         'FRY5', 'ES63', 'ES64', 'ES70', 'HU10', 'IE01', 'IE02', 'LT00', 'UKM3', 'EZUK', 'EZIR']
 
     capacity_potential_ds = capacity_potential_ds.drop(regions_to_remove, errors='ignore')
 
