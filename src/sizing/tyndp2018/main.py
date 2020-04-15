@@ -90,7 +90,7 @@ if __name__ == '__main__':
              p_max_pu=loads_pu.values,
              x=net.buses.loc[onshore_bus_indexes].x.values,
              y=net.buses.loc[onshore_bus_indexes].y.values,
-             marginal_cost=3.)  # TODO: parametrize
+             marginal_cost=fuel_info.loc["load", "cost"])
 
     # Adding pv and wind generators
     if config['res']['include']:
@@ -145,8 +145,6 @@ if __name__ == '__main__':
     co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(
         net.snapshots) / NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
-
-    exit()
 
     # Compute and save results
     if not isdir(output_dir):
