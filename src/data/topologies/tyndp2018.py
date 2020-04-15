@@ -14,7 +14,7 @@ from src.data.topologies.manager import plot_topology
 from src.parameters.costs import get_cost
 
 
-def preprocess(plotting=True):
+def preprocess(plotting=True) -> None:
     """Process tyndp-country buses and links information to create attributes files needed to feed
     into the class Network
 
@@ -73,7 +73,7 @@ def preprocess(plotting=True):
         plt.show()
 
 
-def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool, extend_line_cap: bool = True,
+def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool = False, extend_line_cap: bool = True,
                  use_ex_line_cap: bool = True, plot: bool = False) -> pypsa.Network:
     """Load the e-highway network topology (buses and links) using PyPSA
 

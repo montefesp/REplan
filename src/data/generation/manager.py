@@ -24,8 +24,8 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "", countries: List[
         'Oil', 'Other', 'Solar', 'Waste', 'Wind']
     technology: str
         One of the generator's technology contained in the power plant matching tool
-        ['Pv', 'Reservoir', 'Offshore', 'OCGT', 'Storage Technologies', 'Run-Of-River', 'CCGT', 'CCGT, Thermal',
-        'Steam Turbine', 'Pumped Storage']
+        ['Pv', 'Reservoir', 'Offshore', 'OCGT', 'Storage Technologies', 'Run-Of-River',
+         'CCGT', 'CCGT, Thermal', 'Steam Turbine', 'Pumped Storage']
     countries: List[str]
         List of ISO codes of countries for which we want to obtain plants
 
@@ -33,8 +33,8 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "", countries: List[
     -------
     fuel_type_plants: pandas.DataFrame
         Dataframe giving for each generator having the right fuel_type and technology
-        ['Volume_Mm3', 'YearCommissioned', 'Duration', 'Set', 'Name', 'projectID', 'Country', 'DamHeight_m', 'Retrofit',
-         'Technology', 'Efficiency', 'Capacity' (in MW), 'lat', 'lon', 'Fueltype']
+        ['Volume_Mm3', 'YearCommissioned', 'Duration', 'Set', 'Name', 'projectID', 'Country', 'DamHeight_m',
+         'Retrofit', 'Technology', 'Efficiency', 'Capacity' (in MW), 'lat', 'lon', 'Fueltype']
          Note that the Country field is converted to the associated country code
     """
 

@@ -7,20 +7,19 @@ import numpy as np
 from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area
 from src.data.topologies.ehighways import get_ehighway_clusters
 
-# TODO: need to revise all these functions, either deleting some of them or removing the dependencies with regard
-#  to e-highway
+# TODO: still need to revise the e-highway function, removing the dependencies with regard to e-highway?
 
 
-def get_hydro_capacities_per_nuts(nuts_type: str, plant_type: str) -> Union[pd.Series, Tuple[pd.Series, pd.Series]]:
+def get_hydro_capacities(aggregation_level: str, plant_type: str) -> Union[pd.Series, Tuple[pd.Series, pd.Series]]:
     """
-    Returns available hydro capacities
+    Returns available hydro capacities per NUTS in which it exists.
     If sto or psp, returns power (in GW) and energy (in GWh) capacities
     If ror, returns power capacities (in GW)
 
     Parameters
     ----------
-    nuts_type: str
-        Whether to return the capacities per NUTS2 or NUTS0
+    aggregation_level: str
+        Whether to return the capacities per NUTS2, NUTS0 or per country
     plant_type: str
         One of phs, ror or sto
 
@@ -29,35 +28,39 @@ def get_hydro_capacities_per_nuts(nuts_type: str, plant_type: str) -> Union[pd.S
     (pd.Series, pd.Series) or pd.Series
     """
 
-    accepted_nuts_types = ["NUTS0", "NUTS2"]
-    assert nuts_type in accepted_nuts_types, \
-        f"Error: Accepted NUTS types are {accepted_nuts_types}, received {nuts_type}"
+    accepted_levels = ["NUTS0", "NUTS2", "country"]
+    assert aggregation_level in accepted_levels, \
+        f"Error: Accepted aggregation levels are {accepted_levels}, received {aggregation_level}"
     accepted_plant_types = ["phs", "ror", "sto"]
     assert plant_type in accepted_plant_types, \
         f"Error: Accepted plant types are {accepted_plant_types}, received {plant_type}"
 
     hydro_dir = join(dirname(abspath(__file__)), "../../../data/hydro/generated/")
+    nuts_type = "NUTS2" if aggregation_level == "NUTS2" else "NUTS0"
     hydro_capacities = pd.read_csv(f"{hydro_dir}hydro_capacities_per_{nuts_type}.csv", index_col=0)
+    # If aggregation level is country, just change index names for UK and EL
+    if aggregation_level == "country":
+        hydro_capacities.rename(index={'UK': 'GB', 'EL': 'GR'}, inplace=True)
 
     if plant_type == "sto":
-        return hydro_capacities["STO_CAP [GW]"], hydro_capacities["STO_EN_CAP [GWh]"]
+        return hydro_capacities["STO_CAP [GW]"].dropna(), hydro_capacities["STO_EN_CAP [GWh]"].dropna()
     elif plant_type == "phs":
-        return hydro_capacities["PSP_CAP [GW]"], hydro_capacities["PSP_EN_CAP [GWh]"]
+        return hydro_capacities["PSP_CAP [GW]"].dropna(), hydro_capacities["PSP_EN_CAP [GWh]"].dropna()
     else:  # plant_type == "ror"
-        return hydro_capacities["ROR_CAP [GW]"]
+        return hydro_capacities["ROR_CAP [GW]"].dropna()
 
 
-def get_hydro_inflows_per_nuts(nuts_type: str, plant_type: str, timestamps: pd.DatetimeIndex = None) -> pd.DataFrame:
+def get_hydro_inflows(aggregation_level: str, plant_type: str, timestamps: pd.DatetimeIndex = None) -> pd.DataFrame:
     """
-    Returns available hydro inflows.
+    Returns available hydro inflows per NUTS in which it exists
     If sto, returns inflows (in GWh).
     If ror, returns normalized inflows (per unit of installed capacity)
     If 'timestamps' is specified, return just data for those timestamps, otherwise return all available timestamps.
 
     Parameters
     ----------
-    nuts_type: str
-        Whether to return the capacities per NUTS2 or NUTS0
+    aggregation_level: str
+        Whether to return the capacities per NUTS2, NUTS0 or country
     plant_type: str
         One of ror or sto
     timestamps: pd.DatetimeIndex
@@ -69,90 +72,41 @@ def get_hydro_inflows_per_nuts(nuts_type: str, plant_type: str, timestamps: pd.D
 
     """
 
-    accepted_nuts_types = ["NUTS0", "NUTS2"]
-    assert nuts_type in accepted_nuts_types, \
-        f"Error: Accepted NUTS types are {accepted_nuts_types}, received {nuts_type}"
+    accepted_levels = ["NUTS0", "NUTS2", "country"]
+    assert aggregation_level in accepted_levels, \
+        f"Error: Accepted aggregation levels are {accepted_levels}, received {aggregation_level}"
     accepted_plant_types = ["ror", "sto"]
     assert plant_type in accepted_plant_types, \
         f"Error: Accepted plant types are {accepted_plant_types}, received {plant_type}"
 
     hydro_dir = join(dirname(abspath(__file__)), "../../../data/hydro/generated/")
+    nuts_type = "NUTS2" if aggregation_level == "NUTS2" else "NUTS0"
     if plant_type == "sto":
-        nuts_inflow_fn = f"{hydro_dir}hydro_sto_inflow_time_series_per_{nuts_type}_GWh.csv"
+        inflows_fn = f"{hydro_dir}hydro_sto_inflow_time_series_per_{nuts_type}_GWh.csv"
     else:  # plant_type == "ror"
-        nuts_inflow_fn = f"{hydro_dir}hydro_ror_time_series_per_{nuts_type}_pu.csv"
-    nuts_inflows = pd.read_csv(nuts_inflow_fn, index_col=0)
-    nuts_inflows.index = pd.DatetimeIndex(nuts_inflows.index)
+        inflows_fn = f"{hydro_dir}hydro_ror_time_series_per_{nuts_type}_pu.csv"
+    inflows_df = pd.read_csv(inflows_fn, index_col=0)
+    inflows_df.index = pd.DatetimeIndex(inflows_df.index)
+    # If aggregation level is country, just change index names for UK and EL
+    if aggregation_level == "country":
+        inflows_df.rename(columns={'UK': 'GB', 'EL': 'GR'}, inplace=True)
 
     if timestamps is not None:
-        missing_timestamps = set(timestamps) - set(nuts_inflows.index)
+        missing_timestamps = set(timestamps) - set(inflows_df.index)
         assert not missing_timestamps, f"Error: Data is not available for timestamps {missing_timestamps}"
-        nuts_inflows = nuts_inflows.loc[timestamps]
+        inflows_df = inflows_df.loc[timestamps]
 
-    return nuts_inflows
+    return inflows_df
 
 
 # ----- PHS ----- #
 
-def get_phs_capacities_per_nuts(nuts_type: str) -> Tuple[pd.Series, pd.Series]:
-    """Returns available PHS power (in GW) and energy (in GWh) capacities"""
-    return get_hydro_capacities_per_nuts(nuts_type, 'phs')
+def get_phs_capacities(aggregation_level: str) -> Tuple[pd.Series, pd.Series]:
+    """Returns available PHS power (in GW) and energy (in GWh) capacities per NUTS or country in which it exists"""
+    return get_hydro_capacities(aggregation_level, 'phs')
 
 
-# TODO: this function makes no sense, nuts0 levels are countries so why do we need a function to convert it?
-#  use     capacity_potential_ds.rename(index={'UK': 'GB', 'EL': 'GR'}, inplace=True)
-def phs_inputs_nuts_to_countries(countries: List[str], nuts0_pow_cap: pd.Series, nuts0_en_cap: pd.Series) \
-        -> (pd.Series, pd.Series):
-    """
-    This function takes in inputs for PHS plants at the nuts2 levels and computes equivalent inputs at e-highway
-    bus levels.
-
-    Parameters
-    ----------
-    countries: List[str]
-        List of ISO codes of countries
-    nuts0_pow_cap: pd.Series (index: nuts0 regions)
-        PHS power capacity (GW) for each NUTS0 region (if no capacity for a region, value=NaN)
-    nuts0_en_cap: pd.Series (index: nuts0 regions)
-        PHS energy capacity (GWh) for each NUTS0 region (if no capacity for a region, value=NaN)
-
-    Returns
-    -------
-    bus_pow_cap: pd.Series (index: ids of bus for which capacity exists)
-        PHS power capacity (GW) for each bus for which there is installed capacity
-    bus_en_cap: pd.Series (index: ids of bus for which capacity exists)
-        PHS energy capacity (GWh) for each bus for which there is installed capacity
-    """
-
-    nuts0_pow_cap = nuts0_pow_cap.fillna(0)
-    nuts0_en_cap = nuts0_en_cap.fillna(0)
-
-    bus_pow_cap = pd.Series(index=countries)
-    bus_en_cap = pd.Series(index=countries)
-
-    for country in countries:
-
-        def correct_countries(c):
-            if c == "GB":
-                return "UK"
-            if c == "GR":
-                return "EL"
-            return c
-
-        # If the code corresponds to a country, get the correspond list of NUTS0
-        nuts0_code = correct_countries(country)
-        # Pow cap (GW)
-        bus_pow_cap.loc[country] = nuts0_pow_cap.loc[nuts0_code]
-        # En cap (GWh)
-        bus_en_cap.loc[country] = nuts0_en_cap.loc[nuts0_code]
-
-    # Remove buses with no capacity
-    bus_pow_cap = bus_pow_cap.drop(bus_pow_cap.loc[bus_pow_cap == 0].index)
-    bus_en_cap = bus_en_cap.drop(bus_en_cap.loc[bus_en_cap == 0].index)
-
-    return bus_pow_cap, bus_en_cap
-
-
+# TODO: check if this still works now that id dropped NA in nuts2_pow_cap and nuts2_en_cap
 def phs_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en_cap: pd.Series) \
         -> (pd.Series, pd.Series):
     """
@@ -176,8 +130,8 @@ def phs_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_pow_cap: pd.Series, nu
         STO energy capacity (GWh) for each bus for which there is installed capacity
     """
 
-    nuts2_pow_cap = nuts2_pow_cap.fillna(0)
-    nuts2_en_cap = nuts2_en_cap.fillna(0)
+    # nuts2_pow_cap = nuts2_pow_cap.fillna(0)
+    # nuts2_en_cap = nuts2_en_cap.fillna(0)
 
     bus_pow_cap = pd.Series(index=bus_ids)
     bus_en_cap = pd.Series(index=bus_ids)
@@ -223,64 +177,17 @@ def phs_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_pow_cap: pd.Series, nu
 
 # ----- ROR ----- #
 
-def get_ror_capacities_per_nuts(nuts_type: str) -> pd.Series:
-    """Returns available ROR power capacities (in GW)"""
-    return get_hydro_capacities_per_nuts(nuts_type, 'ror')
+def get_ror_capacities(aggregation_level: str) -> pd.Series:
+    """Returns available ROR power capacities (in GW) per NUTS or countries in which it exists"""
+    return get_hydro_capacities(aggregation_level, 'ror')
 
 
-def get_ror_inflows_per_nuts(nuts_type: str, timestamps: pd.DatetimeIndex = None) -> pd.DataFrame:
-    """Returns ROR inflows (per unit of installed power capacity)"""
-    return get_hydro_inflows_per_nuts(nuts_type, 'ror', timestamps)
+def get_ror_inflows(aggregation_level: str, timestamps: pd.DatetimeIndex = None) -> pd.DataFrame:
+    """Returns ROR inflows (per unit of installed power capacity) per NUTS or country in which it exists"""
+    return get_hydro_inflows(aggregation_level, 'ror', timestamps)
 
 
-def ror_inputs_nuts_to_countries(countries: List[str], nuts0_cap: pd.Series, nuts0_inflows: pd.DataFrame) \
-        -> (pd.Series, pd.DataFrame):
-    """
-    This function takes in inputs for ROR plants at the nuts0 levels and computes equivalent inputs at country level.
-
-    Parameters
-    ----------
-    countries: List[str]
-        List of ISO codes of countries
-    nuts0_cap: pd.Series (index: nuts0 regions)
-        ROR power capacity (GW) for each NUTS0 region (if no capacity for a region, value=NaN)
-    nuts0_inflows: pd.DataFrame (index: time, columns: nuts0 regions for which data exists)
-        ROR energy inflow (per unit) for each NUTS0 region for which there is installed capacity
-
-    Returns
-    -------
-    bus_cap: pd.Series (index: ids of bus for which capacity exists)
-        ROR power capacity (GW) for each bus for which there is installed capacity
-    nuts2_inflows: pd.DataFrame (index: time, columns: ids of bus for which capacity exists)
-        ROR energy inflow (per unit) for each bus for which there is installed capacity
-    """
-    nuts0_cap = nuts0_cap.fillna(0)
-
-    bus_cap = pd.Series(index=countries)
-    bus_inflows = pd.DataFrame(index=nuts0_inflows.index, columns=countries)
-
-    for country in countries:
-
-        def correct_countries(c):
-            if c == "GB":
-                return "UK"
-            if c == "GR":
-                return "EL"
-            return c
-
-        nuts0_code = correct_countries(country)
-
-        if nuts0_code not in nuts0_inflows.keys():
-            bus_cap = bus_cap.drop(country)
-            bus_inflows = bus_inflows.drop(country, axis=1)
-            continue
-
-        bus_cap.loc[country] = nuts0_cap.loc[nuts0_code]
-        bus_inflows[country] = nuts0_inflows[nuts0_code]
-
-    return bus_cap, bus_inflows
-
-
+# TODO: check if this still works now that id dropped NA in nuts2_pow_cap and nuts2_en_cap
 def ror_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_cap: pd.Series, nuts2_inflows: pd.DataFrame) \
         -> (pd.Series, pd.DataFrame):
     """
@@ -294,7 +201,7 @@ def ror_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_cap: pd.Series, nuts2_
     ----------
     bus_ids: List[str]
     nuts2_cap: pd.Series (index: nuts2 regions)
-        ROR power capacity (GW) for each NUTS2 region (if no capacity for a region, value=NaN)
+        ROR power capacity (GW) for each NUTS2 region for which there is installed capacity
     nuts2_inflows: pd.DataFrame (index: time, columns: nuts2 regions for which data exists)
         ROR energy inflow (per unit) for each NUTS2 region for which there is installed capacity
 
@@ -305,7 +212,7 @@ def ror_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_cap: pd.Series, nuts2_
     nuts2_inflows: pd.DataFrame (index: time, columns: ids of bus for which capacity exists)
         ROR energy inflow (per unit) for each bus for which there is installed capacity
     """
-    nuts2_cap = nuts2_cap.fillna(0)
+    # nuts2_cap = nuts2_cap.fillna(0)
 
     bus_cap = pd.Series(index=bus_ids)
     bus_inflows = pd.DataFrame(index=nuts2_inflows.index, columns=bus_ids)
@@ -356,78 +263,17 @@ def ror_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_cap: pd.Series, nuts2_
 # ----- STO ----- #
 
 
-def get_sto_capacities_per_nuts(nuts_type: str) -> Tuple[pd.Series, pd.Series]:
-    """Returns available STO power (in GW) and energy (in GWh) capacities"""
-    return get_hydro_capacities_per_nuts(nuts_type, 'sto')
+def get_sto_capacities(aggregation_level: str) -> Tuple[pd.Series, pd.Series]:
+    """Returns available STO power (in GW) and energy (in GWh) capacities per NUTS or country in which it exists."""
+    return get_hydro_capacities(aggregation_level, 'sto')
 
 
-def get_sto_inflows_per_nuts(nuts_type: str, timestamps: pd.DatetimeIndex = None) -> pd.DataFrame:
-    """Returns STO inflows (in GWh)"""
-    return get_hydro_inflows_per_nuts(nuts_type, 'sto', timestamps)
+def get_sto_inflows(aggregation_level: str, timestamps: pd.DatetimeIndex = None) -> pd.DataFrame:
+    """Returns STO inflows (in GWh) per NUTS or country in which it exists"""
+    return get_hydro_inflows(aggregation_level, 'sto', timestamps)
 
 
-def sto_inputs_nuts_to_countries(countries: List[str], nuts0_pow_cap: pd.Series, nuts0_en_cap: pd.Series,
-                                 nuts0_inflows: pd.DataFrame) -> (pd.Series, pd.Series, pd.DataFrame):
-    """
-    This function takes in inputs for STO plants at the nuts2 levels and computes equivalent inputs at country levels.
-
-    Parameters
-    ----------
-    countries: List[str]
-        List of ISO codes of countries
-    nuts0_pow_cap: pd.Series (index: nuts0 regions)
-        STO power capacity (GW) for each NUTS0 region (if no capacity for a region, value=NaN)
-    nuts0_en_cap: pd.Series (index: nuts0 regions)
-        STO energy capacity (GWh) for each NUTS0 region (if no capacity for a region, value=NaN)
-    nuts0_inflows: pd.DataFrame (index: time, columns: nuts0 regions for which data exists)
-        STO energy inflow (GWh) for each NUTS0 region for which there is installed capacity
-
-    Returns
-    -------
-    bus_pow_cap: pd.Series (index: ids of bus for which capacity exists)
-        STO power capacity (GW) for each bus for which there is installed capacity
-    bus_en_cap: pd.Series (index: ids of bus for which capacity exists)
-        STO energy capacity (GWh) for each bus for which there is installed capacity
-    nuts2_inflows: pd.DataFrame (index: time, columns: ids of bus for which capacity exists)
-        STO energy inflow (GWh) for each bus for which there is installed capacity
-    """
-
-    # TODO: need to know what we do that?
-    nuts0_pow_cap = nuts0_pow_cap.fillna(0)
-    nuts0_en_cap = nuts0_en_cap.fillna(0)
-
-    bus_pow_cap = pd.Series(index=countries)
-    bus_en_cap = pd.Series(index=countries)
-    bus_inflows = pd.DataFrame(index=nuts0_inflows.index, columns=countries)
-
-    for country in countries:
-
-        def correct_countries(c):
-            if c == "GB":
-                return "UK"
-            if c == "GR":
-                return "EL"
-            return c
-
-        # Get the correspond list of NUTS2
-        nuts0_code = correct_countries(country)
-        # If there is no code in the inflow data file for this bus, drop it
-        if nuts0_code not in nuts0_inflows.keys():
-            bus_pow_cap = bus_pow_cap.drop(country)
-            bus_en_cap = bus_en_cap.drop(country)
-            bus_inflows = bus_inflows.drop(country, axis=1)
-            continue
-
-        # Pow cap (GW)
-        bus_pow_cap.loc[country] = nuts0_pow_cap.loc[nuts0_code]
-        # En cap (GWh)
-        bus_en_cap.loc[country] = nuts0_en_cap.loc[nuts0_code]
-        # Inflow (GWh)
-        bus_inflows[country] = nuts0_inflows[nuts0_code]
-
-    return bus_pow_cap, bus_en_cap, bus_inflows
-
-
+# TODO: check if this still works now that id dropped NA in nuts2_pow_cap and nuts2_en_cap
 def sto_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en_cap: pd.Series,
                                 nuts2_inflows: pd.DataFrame) -> (pd.Series, pd.Series, pd.DataFrame):
     """
@@ -439,9 +285,9 @@ def sto_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_pow_cap: pd.Series, nu
     ----------
     bus_ids: List[str]
     nuts2_pow_cap: pd.Series (index: nuts2 regions)
-        STO power capacity (GW) for each NUTS2 region (if no capacity for a region, value=NaN)
+        STO power capacity (GW) for each NUTS2 region for which there is installed capacity
     nuts2_en_cap: pd.Series (index: nuts2 regions)
-        STO energy capacity (GWh) for each NUTS2 region (if no capacity for a region, value=NaN)
+        STO energy capacity (GWh) for each NUTS2 region for which there is installed capacity
     nuts2_inflows: pd.DataFrame (index: time, columns: nuts2 regions for which data exists)
         STO energy inflow (GWh) for each NUTS2 region for which there is installed capacity
 
@@ -455,8 +301,8 @@ def sto_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_pow_cap: pd.Series, nu
         STO energy inflow (GWh) for each bus for which there is installed capacity
     """
 
-    nuts2_pow_cap = nuts2_pow_cap.fillna(0)
-    nuts2_en_cap = nuts2_en_cap.fillna(0)
+    # nuts2_pow_cap = nuts2_pow_cap.fillna(0)
+    # nuts2_en_cap = nuts2_en_cap.fillna(0)
 
     bus_pow_cap = pd.Series(index=bus_ids)
     bus_en_cap = pd.Series(index=bus_ids)

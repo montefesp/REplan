@@ -1,10 +1,10 @@
+from os.path import join, abspath, dirname
+from os import listdir
+
 import pandas as pd
 import xarray as xr
 import geopandas as gpd
 from datetime import datetime
-from os import listdir
-from os.path import join, abspath, dirname
-
 
 from src.data.geographics.manager import match_points_to_regions
 
@@ -183,12 +183,9 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
 
 if __name__ == '__main__':
 
-    # TODO: can we remove that?
-    # # IEA validation data in 2016 (TWh produced per year)
-    # hydro_production_dict = {'AT': 14., 'BE': 0.5, 'BG': 5.7, 'HR': 6.4, 'CZ': 1.8, 'FI': 16.8, 'FR': 54.5,
-    #                          'DE': 19., 'EL': 6.1, 'IE': 0.8, 'IT': 45.5, 'LV': 1.9, 'NO': 137.9, 'PL': 1.8,
-    #                          'PT': 8.9, 'RO': 16.6, 'SK': 3.9, 'SI': 3.8, 'CH': 36., 'ES': 28.1, 'SE': 75.3,
-    #                          'UK': 6.3, 'AL': 6., 'BA': 5., 'ME': 1.5, 'MK': 1.9, 'RS': 9.7, 'HU': 1., 'LT': 1.}
+    # IEA validation data in 2016 (TWh produced per year)
+    # hydro_production_fn = join(dirname(abspath(__file__)), "../../../data/hydro/source/hydro_production.csv")
+    # hydro_production_ds = pd.read_csv(hydro_production_fn, squeeze=True, index_col=0)
 
     nuts_type = 'NUTS0'
     ror_flood_threshold = 0.8

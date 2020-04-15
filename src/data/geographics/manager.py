@@ -3,6 +3,7 @@ import numpy as np
 from operator import attrgetter
 from six.moves import reduce
 from itertools import takewhile, product
+from typing import List, Union, Tuple, Dict
 
 import pandas as pd
 import geopandas as gpd
@@ -18,9 +19,6 @@ import pycountry as pyc
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 from random import random
-
-from typing import *
-
 
 import logging
 
@@ -58,7 +56,8 @@ def is_onshore(point: Point, onshore_shape: Polygon, dist_threshold: float = 20.
     return False
 
 
-def nuts3_to_nuts2(nuts3_codes):
+# TODO: comment
+def nuts3_to_nuts2(nuts3_codes: List[str]):
     return [code[:4] if code[:4] != "UKN1" else "UKN0" for code in nuts3_codes]
 
 
@@ -218,7 +217,8 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
         else:
             not_added_points += [point]
     if len(not_added_points) != 0:
-        logger.info(f"Warning: These points were not assigned to any shape: {[(point.x, point.y) for point in not_added_points]}.")
+        logger.info(f"Warning: These points were not assigned to any shape: "
+                    f"{[(point.x, point.y) for point in not_added_points]}.")
 
     return points_region_ds
 
@@ -358,7 +358,8 @@ def return_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: floa
 
 # -- Filter polygons functions -- #
 
-def filter_onshore_polys(polys: Union[Polygon, MultiPolygon], minarea=0.1, tolerance=0.01, filterremote=False):
+def filter_onshore_polys(polys: Union[Polygon, MultiPolygon], minarea: float = 0.1,
+                         tolerance: float = 0.01, filterremote: bool = False):
     """Filter onshore polygons based on distance to main land.
 
     Parameters
@@ -387,7 +388,8 @@ def filter_onshore_polys(polys: Union[Polygon, MultiPolygon], minarea=0.1, toler
 
 
 # TODO: might need to do sth more intelligent in terms of distance
-def filter_offshore_polys(offshore_polys, onshore_polys_union, minarea=0.1, tolerance=0.01, filterremote=False):
+def filter_offshore_polys(offshore_polys, onshore_polys_union, minarea: float = 0.1,
+                          tolerance: float = 0.01, filterremote: bool = False):
     """Filter offshore polygons based on distance to main land.
     
     Parameters
@@ -400,7 +402,7 @@ def filter_offshore_polys(offshore_polys, onshore_polys_union, minarea=0.1, tole
         Area under which we do not keep countries parts
     tolerance: float
         ?
-    filterremote: boolean
+    filterremote: bool
         If we filter or not # TODO: does it make sense to have this argument
     """
 
@@ -431,20 +433,21 @@ def filter_offshore_polys(offshore_polys, onshore_polys_union, minarea=0.1, tole
 
 # -- Get specific shapes functions -- #
 
-def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, save_file_name=None):
+def get_onshore_shapes(ids: List[str], minarea: float = 0.1, tolerance: float = 0.01,
+                       filterremote: bool = False, save_file_name: str = None):
     """Load the shapes of the onshore territories a specified set of countries into a GeoPandas Dataframe
     
     Parameters
     ----------
-    ids: list of strings
+    ids: List[str]
         names of the regions for which we want associated shapes
     minarea: float
         defines the minimal area a region of a region (that is not the main one) must have to be kept
     tolerance: float
         ?
-    filterremote: boolean
+    filterremote: bool
         if we filter remote places or not
-    save_file_name: string
+    save_file_name: str
         file name to which the Dataframe must be saved, if the file already exists, the Dataframe
         is recovered from there
     
@@ -482,23 +485,24 @@ def get_onshore_shapes(ids, minarea=0.1, tolerance=0.01, filterremote=False, sav
 
 
 # TODO: might need to revise this function
-def get_offshore_shapes(ids, onshore_shape=None, minarea=0.1, tolerance=0.01, filterremote=False, save_file_name=None):
+def get_offshore_shapes(ids: List[str], onshore_shape: Union[Polygon, MultiPolygon] = None,
+                        minarea: float = 0.1, tolerance: float = 0.01,
+                        filterremote: bool = False, save_file_name: str = None):
     """Load the shapes of the offshore territories of a specified set of regions into a GeoPandas Dataframe
 
     Parameters
     ----------
-    ids: list of strings
+    ids: List[str]
         ids of the onshore region for which we want associated offshore shape
-    onshore_shape: geopandas dataframe
-        indexed by the name of the countries and containing the shape of onshore
-        territories of each countries
+    onshore_shape:
+        # TODO comment
     minarea: float
         defines the minimal area a region of a countries (that is not the main one) must have to be kept
     tolerance: float, 
         ?
-    filterremote: boolean
+    filterremote: bool
         if we filter remote places or not
-    save_file_name: string
+    save_file_name: str
         file name to which the Dataframe must be saved, if the file already exists, the Dataframe
         is recovered from there
     
@@ -645,7 +649,8 @@ def generate_offshore_shapes_geojson():
     unique_countries_shape = unique_countries_shape['geometry']
     unique_countries_shape.index.names = ['name']
 
-    offshore_shapes_fn = join(dirname(abspath(__file__)), '../../../data/geographics/generated/offshore_shapes.geojson')
+    offshore_shapes_fn = join(dirname(abspath(__file__)),
+                              '../../../data/geographics/generated/offshore_shapes.geojson')
     save_to_geojson(unique_countries_shape, offshore_shapes_fn)
 
 

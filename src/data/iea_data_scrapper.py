@@ -95,7 +95,6 @@ class DataScrapper:
 
 if __name__ == '__main__':
 
-
     ds = DataScrapper()
     cntrs_international_codes = ["BE", "FR", "DE", "NL"]
     cntrs_url_codes = ["BE----------2", "FR-RTE------C", "1001A1001A83F", "NL----------L"]

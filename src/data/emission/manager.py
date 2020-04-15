@@ -82,6 +82,3 @@ if __name__ == '__main__':
     for y in range(1990, 2019):
         print(y)
         print(get_reference_emission_levels_for_region("EU", y))
-
-
-

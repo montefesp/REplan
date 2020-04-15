@@ -176,7 +176,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
     elif filter_name == 'forestry':
 
         dataset_name = join(dirname(abspath(__file__)),
-                            '../../../data/land_data/ERA5_surface_characteristics_20181231_'+str(spatial_resolution)+'.nc')
+                            f"../../../data/land_data/ERA5_surface_characteristics_20181231_{spatial_resolution}.nc")
         dataset = read_filter_database(dataset_name, points)
 
         forestry_threshold = tech_dict['forestry_ratio_threshold']
@@ -214,9 +214,10 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
         # Careful with this one because max depth is 999.
         array_bathymetry = dataset['wmb'].fillna(0.)
 
-        mask_offshore = array_bathymetry.where((
-            (array_bathymetry.data < depth_threshold_low) | (array_bathymetry.data > depth_threshold_high)) | \
-            (array_watermask.data > 0.1))
+        # TODO: can we not remove some of the parentheses?
+        mask_offshore = array_bathymetry.where(((array_bathymetry.data < depth_threshold_low) |
+                                                (array_bathymetry.data > depth_threshold_high)) |
+                                               (array_watermask.data > 0.1))
         points_mask_offshore = mask_offshore[mask_offshore.notnull()].locations.values.tolist()
 
         points = list(set(points).difference(set(points_mask_offshore)))

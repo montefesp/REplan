@@ -96,7 +96,7 @@ if __name__ == "__main__":
              p_max_pu=loads_pu.values,
              x=net.buses.loc[onshore_bus_indexes].x.values,
              y=net.buses.loc[onshore_bus_indexes].y.values,
-             marginal_cost=3.)  # TODO: parametrize
+             marginal_cost=fuel_info.loc["load", "cost"])
 
     # Adding pv and wind generators
     if config['res']['include']:

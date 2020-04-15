@@ -3,7 +3,6 @@ from typing import List, Dict, Tuple, Union
 
 import numpy as np
 import pandas as pd
-import pickle
 
 from shapely.ops import cascaded_union
 from shapely.geometry import Polygon, MultiPolygon
@@ -11,7 +10,6 @@ from shapely.errors import TopologicalError
 
 from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes, match_points_to_regions
 from src.data.population_density.manager import load_population_density_data
-
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -51,8 +49,9 @@ def read_capacity_potential(tech: str, nuts_type: str) -> pd.Series:
         return pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0)[tech]
 
 
-def get_capacity_potential(tech_points_dict: Dict[str, List[Tuple[float, float]]], spatial_resolution: float,
-                           regions: List[str], existing_capacity_ds: pd.Series = None) -> pd.Series:
+def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[float, float]]],
+                                     spatial_resolution: float, regions: List[str],
+                                     existing_capacity_ds: pd.Series = None) -> pd.Series:
     """
     Computes the capacity that can potentially be deployed at a series of points for different technologies
 
@@ -221,9 +220,11 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
     return capacity_potential_ds
 
 
-def get_capacity_potential_for_countries(tech: str) -> pd.Series:
+def get_capacity_potential_for_countries(tech: str, countries: List[str]) -> pd.Series:
     """
-    Get capacity potential (in GW) for a given technology for all countries for which it is available
+    Get capacity potential (in GW) for a given technology for all countries for which it is available.
+    If data is not available for one of the given countries, there will be no entry for that country
+     in the returned series.
 
     Parameters
     ----------
@@ -240,11 +241,21 @@ def get_capacity_potential_for_countries(tech: str) -> pd.Series:
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     capacity_potential_ds = read_capacity_potential(tech, nuts_type='nuts0')
+    print(capacity_potential_ds)
+
+    # Convert EEZ names to country names
+    if tech in ['wind_offshore', 'wind_floating']:
+        capacity_potential_ds.index = [code[2:] for code in capacity_potential_ds.index]
+
     # Change 'UK' to 'GB' and 'EL' to 'GR'
-    capacity_potential_ds.rename(index={'UK': 'GB', 'EL': 'GR'}, inplace=True)
+    capacity_potential_ds.rename(index={'UK': 'GB', 'EL': 'GR', 'IR': 'IE'}, inplace=True)
+
+    # Extract only countries for which data is available
+    countries = sorted(list(set(countries) & set(capacity_potential_ds.index)))
+    capacity_potential_ds = capacity_potential_ds.loc[countries]
 
     return capacity_potential_ds
 
 
 if __name__ == '__main__':
-    print(get_capacity_potential_for_countries('wind_offshore'))
+    print(get_capacity_potential_for_countries('wind_offshore', ["CH", "BE", "IE", "GB"]))
