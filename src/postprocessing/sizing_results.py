@@ -363,5 +363,5 @@ if __name__ == "__main__":
 
     pprp = SizingResults(net)
     pprp.display_generation()
-    # pprp.display_transmission()
-    # pprp.display_storage()
+    pprp.display_transmission()
+    pprp.display_storage()
