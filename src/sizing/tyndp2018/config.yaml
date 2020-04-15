@@ -23,7 +23,7 @@ add_offshore: False # ! if False, remove wind_offshore and wind_floating from RE
 
 # RES
 res:
-  include: True
+  include: False
   # Give which technology should be installed using each strategy
   strategies:
     max: []
@@ -76,7 +76,7 @@ res:
 
 # Conventional generation
 dispatch:
-  include: True
+  include: False
   tech: "ccgt"
 
 # Nuclear
@@ -87,7 +87,7 @@ nuclear:
 
 # Battery
 battery:
-  include: True
+  include: False
   type: "Li-ion"
   max_hours: 4 # THIS IS FIXED. IF IT CHANGES, CAPEX MUST CHANGE ACCORDINGLY.
 

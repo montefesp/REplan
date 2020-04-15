@@ -146,6 +146,8 @@ if __name__ == '__main__':
         net.snapshots) / NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
 
+    exit()
+
     # Compute and save results
     if not isdir(output_dir):
         makedirs(output_dir)
