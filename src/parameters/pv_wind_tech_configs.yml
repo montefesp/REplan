@@ -1,6 +1,9 @@
 # Config file for various conversion technologies.
 wind_onshore:
-  converter: 'G3.45'
+  converter_IV: 'V110'
+  converter_III: 'V90'
+  converter_II: 'V117'
+  converter_I: 'V164'
   resource: 'wind'
   deployment: 'onshore'
   resource_threshold: 5. #m/s
@@ -16,7 +19,10 @@ wind_onshore:
   legacy_min_capacity: 0.2
 
 wind_offshore:
-  converter: 'E-126'
+  converter_IV: 'V110'
+  converter_III: 'V90'
+  converter_II: 'V117'
+  converter_I: 'V164'
   resource: 'wind'
   deployment: 'offshore'
   resource_threshold: 7. #m/s

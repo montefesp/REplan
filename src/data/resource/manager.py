@@ -109,50 +109,78 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
     for tech in tech_points_dict.keys():
 
         resource = tech.split('_')[0]
-        converter = tech_config[tech]['converter']  # TODO: just pass the convrters as argument instead of tech_config?
         sub_dataset = dataset.sel(locations=sorted(tech_points_dict[tech]))
 
         if resource == 'wind':
 
-            wind_speed_height = 100.
-            array_roughness = sub_dataset.fsr
+            wind_speed_reference_height = 100.
+            roughness = sub_dataset.fsr
 
             # Compute wind speed for the all the coordinates
             wind = xu.sqrt(sub_dataset.u100 ** 2 + sub_dataset.v100 ** 2)
-            wind_log = windpowerlib.wind_speed.logarithmic_profile(
-                wind.values, wind_speed_height,
-                float(data_converter_wind.loc['Hub height [m]', converter]),
-                array_roughness.values)
-            wind_data = da.from_array(wind_log, chunks='auto', asarray=True)
 
-            # Get the transfer function curve
-            # literal_eval converts a string to an array (in this case)
-            power_curve_array = literal_eval(data_converter_wind.loc['Power curve', converter])
-            wind_speed_references = np.asarray([i[0] for i in power_curve_array])
-            capacity_factor_references = np.asarray([i[1] for i in power_curve_array])
-            capacity_factor_references_pu = capacity_factor_references / max(capacity_factor_references)
+            wind_mean = wind.mean(dim='time')
 
-            # The transfer function of wind assets replicates the one of a wind farm rather than one of a wind turbine.
-            if smooth_wind_power_curve:
+            # Split according to the IEC 61400 WTG classes
+            # TODO: put this in a file, maybe?
+            wind_classes = {'IV': [0., 6.5], 'III': [6.5, 8.], 'II': [8., 9.5], 'I': [9.5, 99.]}
 
-                turbulence_intensity = wind.std(dim='time') / wind.mean(dim='time')
+            for cls in wind_classes:
 
-                capacity_factor_farm = windpowerlib.power_curves.smooth_power_curve(
-                    pd.Series(wind_speed_references), pd.Series(capacity_factor_references_pu),
-                    standard_deviation_method='turbulence_intensity',
-                    turbulence_intensity=float(turbulence_intensity.min().values),
-                    wind_speed_range=10.0)  # TODO: parametrize ?
+                filtered_wind_data = wind_mean.where((wind_mean.data >= wind_classes[cls][0]) &
+                                                     (wind_mean.data < wind_classes[cls][1]), 0)
+                coords_classes = filtered_wind_data[da.nonzero(filtered_wind_data)].locations.values.tolist()
 
-                power_output = da.map_blocks(np.interp, wind_data,
-                                             capacity_factor_farm['wind_speed'].values,
-                                             capacity_factor_farm['value'].values).compute()
-            else:
+                if len(coords_classes) > 0:
 
-                power_output = da.map_blocks(np.interp, wind_data,
-                                             wind_speed_references,
-                                             capacity_factor_references_pu).compute()
+                    wind_filtered = wind.sel(locations=coords_classes)
+                    roughness_filtered = roughness.sel(locations=coords_classes)
+
+                    # Get the transfer function curve
+                    # literal_eval converts a string to an array (in this case)
+                    converter = tech_config[tech]['converter_'+str(cls)]
+                    power_curve_array = literal_eval(data_converter_wind.loc['Power curve', converter])
+                    wind_speed_references = np.asarray([i[0] for i in power_curve_array])
+                    capacity_factor_references = np.asarray([i[1] for i in power_curve_array])
+                    capacity_factor_references_pu = capacity_factor_references / max(capacity_factor_references)
+
+
+                    wind_log = windpowerlib.wind_speed.logarithmic_profile(
+                        wind_filtered.values, wind_speed_reference_height,
+                        float(data_converter_wind.loc['Hub height [m]', converter]),
+                        roughness_filtered.values)
+                    wind_data = da.from_array(wind_log, chunks='auto', asarray=True)
+
+                    # The transfer function of wind assets replicates the one of a wind farm rather than one of a wind turbine.
+                    if smooth_wind_power_curve:
+
+                        turbulence_intensity = wind_filtered.std(dim='time') / wind_filtered.mean(dim='time')
+
+                        capacity_factor_farm = windpowerlib.power_curves.smooth_power_curve(
+                            pd.Series(wind_speed_references), pd.Series(capacity_factor_references_pu),
+                            standard_deviation_method='turbulence_intensity',
+                            turbulence_intensity=float(turbulence_intensity.min().values),
+                            wind_speed_range=10.0)  # TODO: parametrize ?
+
+                        power_output = da.map_blocks(np.interp, wind_data,
+                                                     capacity_factor_farm['wind_speed'].values,
+                                                     capacity_factor_farm['value'].values).compute()
+                    else:
+
+                        power_output = da.map_blocks(np.interp, wind_data,
+                                                     wind_speed_references,
+                                                     capacity_factor_references_pu).compute()
+
+                    cap_factor_df.loc[:, (tech, coords_classes)] = np.array(power_output)
+
+                else:
+
+                    continue
+
 
         elif resource == 'pv':
+
+            converter = tech_config[tech]['converter']  # TODO: just pass the convrters as argument instead of tech_config?
 
             # Get irradiance in W from J
             irradiance = sub_dataset.ssrd / 3600.
@@ -169,13 +197,13 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 
             power_output = np.array(power_output)
 
+            cap_factor_df[tech] = power_output
+
         else:
             raise ValueError(' The resource specified is not available yet.')
 
-        cap_factor_df[tech] = power_output
-
     # Decrease precision of capacity factors
-    cap_factor_df = cap_factor_df.round(2)
+    cap_factor_df = cap_factor_df.round(3)
 
     return cap_factor_df
 
