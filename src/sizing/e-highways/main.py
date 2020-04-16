@@ -11,9 +11,10 @@ from src.data.load.manager import get_load_from_nuts_codes
 from src.data.topologies.ehighways import get_topology
 from src.network_builder.res import add_generators_from_file as add_res_from_file
 from src.network_builder.res import \
-    add_generators as add_res, \
+    add_generators_using_siting as add_res, \
     add_generators_at_resolution as add_res_at_resolution, \
-    add_generators_per_bus as add_res_per_bus, add_generators_at_bus_test
+    add_generators_per_bus as add_res_per_bus
+# from src.network_builder.res import add_generators_at_bus_test
 from src.network_builder.nuclear import add_generators as add_nuclear
 from src.network_builder.hydro import add_phs_plants, add_ror_plants, add_sto_plants
 from src.network_builder.conventional import add_generators as add_conventional
@@ -100,24 +101,31 @@ if __name__ == "__main__":
 
     # Adding pv and wind generators
     if config['res']['include']:
-        logger.info(f"Adding RES ({config['res']['technologies']}) generation.")
-        if config['res']['strategy'] == "comp" or config['res']['strategy'] == "max":
-            # TODO: probably not working anymore
-            net = add_res_from_file(net, config['res']['strategy'], config["res"]["resite_nb"],
-                                    config["res"]["area_per_site"], config["res"]["cap_dens"], "ehighway")
-        if config['res']["strategy"] == "bus":
-            net = add_res_per_bus(net, config["res"]["technologies"], countries, pv_wind_tech_config,
-                                  config["res"]["use_ex_cap"])
-        if config['res']["strategy"] == "no_siting":
-            net = add_res_at_resolution(net, config["res"]["technologies"], [config["region"]],
-                                        pv_wind_tech_config, config["res"]["spatial_resolution"],
-                                        config['res']['filtering_layers'], config["res"]["use_ex_cap"],
-                                        topology_type='ehighway')
-        if config['res']['strategy'] == 'siting':
-            net = add_res(net, config["res"]["technologies"], config['res'], pv_wind_tech_config, config["region"],
-                          topology_type='ehighway', output_dir=output_dir)
-        if config['res']['strategy'] == 'bus_test':
-            net = add_generators_at_bus_test(net, config['res'], pv_wind_tech_config, config["region"], output_dir)
+        for strategy, technologies in config['res']['strategies'].items():
+            # If no technology is associated to this strategy, continue
+            if not len(technologies):
+                continue
+
+            logger.info(f"Adding RES {technologies} generation with strategy {strategy}.")
+
+            if strategy in ["comp", "max"]:
+                net = add_res_from_file(net, technologies, strategy,
+                                        config["res"]["path"], config["res"]["area_per_site"],
+                                        config["res"]["spatial_resolution"], countries,
+                                        topology_type='ehighway', cap_dens_dict=config["res"]["cap_dens"])
+            elif strategy == "bus":
+                net = add_res_per_bus(net, technologies, countries, pv_wind_tech_config,
+                                      config["res"]["use_ex_cap"], topology_type='ehighway')
+            elif strategy == "no_siting":
+                net = add_res_at_resolution(net, technologies, [config["region"]],
+                                            pv_wind_tech_config, config["res"]["spatial_resolution"],
+                                            config['res']['filtering_layers'], config["res"]["use_ex_cap"],
+                                            topology_type='ehighway')
+            elif strategy == 'siting':
+                net = add_res(net, technologies, config['res'], pv_wind_tech_config, config["region"],
+                              topology_type='ehighway', output_dir=output_dir)
+            # elif config['res']['strategy'] == 'bus_test':
+            #    net = add_generators_at_bus_test(net, config['res'], pv_wind_tech_config, config["region"], output_dir)
 
     # Remove offshore locations that have no RES generators associated to them
     for bus_id in net.buses.index:

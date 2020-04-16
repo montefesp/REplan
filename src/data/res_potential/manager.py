@@ -253,7 +253,7 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
         else:
             shapes = get_onshore_shapes(potential_per_subregion_ds.index.values, filterremote=True)
                                         # save_file_name="cap_potential_regions_on.geojson")
-            # TODO: problem BA00 does not exists in shapes
+            # TODO: problem BA00 does not exists in shapes -> rename by BA?
 
         # Compute capacity potential for the regions given as argument
         for i, region in enumerate(regions):

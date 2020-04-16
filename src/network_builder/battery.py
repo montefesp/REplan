@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
-def add_batteries(network: pypsa.Network, battery_type: str, max_hours: float):
+def add_batteries(network: pypsa.Network, battery_type: str, max_hours: float) -> pypsa.Network:
     """
     Adds a battery at each node of the network
 

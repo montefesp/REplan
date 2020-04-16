@@ -3,7 +3,7 @@ from os import makedirs
 from shapely.ops import cascaded_union
 from shapely.geometry import MultiPoint
 import pandas as pd
-from src.data.legacy.manager import get_legacy_capacity
+from src.data.legacy.manager import get_legacy_capacity_at_points
 from src.data.resource.manager import read_resource_database, compute_capacity_factors
 from src.data.land_data.manager import filter_points
 from src.data.res_potential.manager import get_capacity_potential_at_points
@@ -115,8 +115,8 @@ class Resite:
         if use_ex_cap:
             tech_with_legacy_data = \
                 list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']))
-            existing_capacity_ds = get_legacy_capacity(tech_with_legacy_data, self.tech_config, all_subregions,
-                                                       init_points, self.spatial_res)
+            existing_capacity_ds = get_legacy_capacity_at_points(tech_with_legacy_data, self.tech_config,
+                                                                 all_subregions, init_points, self.spatial_res)
             # Update filtered points
             for tech in tech_with_legacy_data:
                 if tech in existing_capacity_ds.index.get_level_values(0):

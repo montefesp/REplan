@@ -130,9 +130,9 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
     return points_capacity_ds
 
 
-def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
-                        countries: List[str], points: List[Tuple[float, float]],
-                        spatial_resolution: float) -> pd.Series:
+def get_legacy_capacity_at_points(technologies: List[str], tech_config: Dict[str, Any],
+                                  countries: List[str], points: List[Tuple[float, float]],
+                                  spatial_resolution: float) -> pd.Series:
     """
     Returns, for each technology and for each point, the existing (legacy) capacity in GW.
 
@@ -141,7 +141,7 @@ def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
     technologies: List[str]
         List of technologies for which we want to obtain legacy capacity
     tech_config: Dict[str, Any]
-        # TODO: comment
+        # TODO: comment -> actually need to remove that and only pass legacy_min_capacity
     countries: List[str]
         Countries for which we want legacy capacity
     points : List[Tuple[float, float]]
@@ -174,14 +174,82 @@ def get_legacy_capacity(technologies: List[str], tech_config: Dict[str, Any],
     return existing_capacity_ds
 
 
-def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: List[str]) -> pd.Series:
+def get_legacy_capacity_in_countries(tech: str, countries: List[str]) -> pd.Series:
     """
-    Returns the total existing capacity (in GW) for the given tech for a set of regions
+    Returns the total existing capacity (in GW) for the given tech for a set of countries
 
     Parameters
     ----------
     tech: str
-        One of 'wind_onshore', 'wind_offshore' or 'pv_utility'
+        One of 'wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential'
+    countries: List[str]
+        List of ISO codes of countries
+
+    Returns
+    -------
+    capacities: pd.Series
+        Legacy capacities (in GW) of technology 'tech' for each country
+    """
+
+    accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+    assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
+
+    path_legacy_data = join(dirname(abspath(__file__)), '../../../data/legacy')
+
+    capacities = pd.Series(0., index=countries, name="Legacy capacity (GW)", dtype=float)
+    if tech in ["wind_onshore", "wind_offshore"]:
+
+        data = pd.read_excel(join(path_legacy_data, 'Windfarms_Europe_20200127.xls'), sheet_name='Windfarms',
+                             header=0, usecols=[2, 5, 9, 10, 18, 23], skiprows=[1], na_values='#ND')
+        data = data.dropna(subset=['Total power'])
+        data = data[data['Status'] != 'Dismantled']
+        if countries is not None:
+            data = data[data['ISO code'].isin(countries)]
+        # Converting from kW to GW
+        data['Total power'] *= 1e-6
+
+        # Keep only onshore or offshore point depending on technology
+        if tech == 'wind_onshore':
+            data = data[data['Area'] != 'Offshore']
+        else:  # wind_offshore
+            data = data[data['Area'] == 'Offshore']
+
+        # Aggregate capacity per country
+        data = data[["ISO code", "Total power"]].groupby('ISO code').sum()
+        capacities[data.index] = data["Total power"]
+
+    elif tech == "pv_utility":
+
+        data = pd.read_excel(join(path_legacy_data, 'Solarfarms_Europe_20200208.xlsx'), sheet_name='ProjReg_rpt',
+                             header=0, usecols=[0, 4, 8])
+        if countries is not None:
+            data['Country'] = data['Country'].apply(lambda c: convert_country_codes('alpha_2', name=c))
+            data = data[data['Country'].isin(countries)]
+        # Converting from MW to GW
+        data['Total power'] = data['MWac']*1e-3
+
+        # Aggregate capacity per country
+        data = data[["Country", "Total power"]].groupby('Country').sum()
+        capacities[data.index] = data["Total power"]
+
+    elif tech == "pv_residential":
+
+        legacy_capacity_fn = join(path_legacy_data, 'SolarEurope_Residential_deployment.xlsx')
+        data = pd.read_excel(legacy_capacity_fn, header=0, index_col=0, usecols=[0, 4], squeeze=True).sort_index()
+        data = data[data.index.isin(countries)]
+        capacities[data.index] = data
+
+    return capacities
+
+
+def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: List[str]) -> pd.Series:
+    """
+    Returns the total existing capacity (in GW) for the given tech for a set of geographical regions
+
+    Parameters
+    ----------
+    tech: str
+        One of 'wind_onshore', 'wind_offshore', 'pv_utility'
     regions: pd.Series [Union[Polygon, MultiPolygon]]
         Geographical regions
     countries: List[str]
@@ -194,7 +262,7 @@ def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: Lis
 
     """
 
-    accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+    accepted_techs = ['wind_onshore', 'wind_offshore', 'pv_utility']
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     path_legacy_data = join(dirname(abspath(__file__)), '../../../data/legacy')
@@ -241,14 +309,9 @@ def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: Lis
             points_in_region = points_region[points_region == region].index.values
             capacities[region] = data[data["Location"].isin(points_in_region)]["Total power"].sum()
 
-    else:  # tech == "pv_residential" TODO: make sure this works with the ehighway topology
+    else:  # tech == "pv_residential" TODO: need to be implemented
 
-        data = pd.read_excel(join(path_legacy_data, 'SolarEurope_Residential_deployment.xlsx'), header=0, index_col=0)
-        data = data['Capacity [GW]']
-        data = data[data.index.isin(countries)]
-
-        for region in regions.index:
-            capacities[region] = data[region]
+        pass
 
     return capacities
 
@@ -258,5 +321,7 @@ if __name__ == '__main__':
     import yaml
     tech_config_path = join(dirname(abspath(__file__)), '../../parameters/pv_wind_tech_configs.yml')
     tech_conf = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
-    print(get_legacy_capacity(["wind_onshore", "pv_utility"],
-                              tech_conf, ['FR'], [(2.0, 49.0), (2.5, 50.0), (5.0, 69.0)], 0.5))
+    # print(get_legacy_capacity_at_points(["wind_onshore", "pv_utility"],
+    #                          tech_conf, ['FR'], [(2.0, 49.0), (2.5, 50.0), (5.0, 69.0)], 0.5))
+    print(get_legacy_capacity_in_countries("pv_utility", ["GR", "LU"]))
+    print(get_legacy_capacity_in_countries("wind_onshore", ["GR", "LU"]))

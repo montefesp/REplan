@@ -17,7 +17,7 @@ time:
   resolution: 1
 
 # Space
-region: "EU"
+region: "EU2"
 # add_offshore: False
 
 # RES
@@ -26,10 +26,10 @@ res:
   # Give which technology should be installed using each strategy
   strategies:
     max: []
-    comp: ['wind_offshore', 'wind_onshore']
+    comp: []
     no_siting: []
     siting: []
-    bus: ['pv_residential', 'pv_utility']
+    bus: ['wind_offshore', 'wind_onshore', 'pv_residential', 'pv_utility']
 
   # For strategy = max or comp
   path: '20200414_214108'
@@ -42,7 +42,7 @@ res:
   # For strategy = siting or no siting
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
-  timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
+  timeslice: ['2015-01-01T00:00', '2015-01-01T23:00']
   use_ex_cap: True
   limit_max_cap: True
   filtering_layers:

@@ -14,7 +14,7 @@ from src.data.geographics.manager import get_subregions
 from src.data.load.manager import get_load
 from src.network_builder.res import add_generators_from_file as add_res_from_file
 from src.network_builder.res import \
-    add_generators as add_res, \
+    add_generators_using_siting as add_res, \
     add_generators_at_resolution as add_res_at_resolution, \
     add_generators_per_bus as add_res_per_bus
 from src.network_builder.nuclear import add_generators as add_nuclear
