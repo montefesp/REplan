@@ -6,7 +6,7 @@ import xarray as xr
 import geopandas as gpd
 from datetime import datetime
 
-from src.data.geographics.manager import match_points_to_regions
+from src.data.geographics import match_points_to_regions
 
 
 # TODO: need to comment

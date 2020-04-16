@@ -8,7 +8,8 @@ import pandas as pd
 
 import pypsa
 
-from src.data.emission.manager import get_reference_emission_levels_for_region
+# from src.data.emission.manager import get_reference_emission_levels_for_region
+from src.data.emission import get_reference_emission_levels_for_region
 from src.data.topologies.tyndp2018 import get_topology
 from src.data.geographics.manager import get_subregions
 from src.data.load.manager import get_load

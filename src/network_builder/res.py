@@ -22,7 +22,6 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
-# TODO: does not work for ehighway anymore
 # TODO: invert path and strategy
 # TODO: too many arguments here too.
 def add_generators_from_file(network: pypsa.Network, technologies: List[str], strategy: str, path: str,
@@ -352,7 +351,6 @@ def add_generators_at_resolution(network: pypsa.Network, technologies: List[str]
     return network
 
 
-# TODO: need to revise to make e-highway work
 def add_generators_per_bus(network: pypsa.Network, technologies: List[str], countries: List[str],
                            tech_config: Dict[str, Any], use_ex_cap: bool = True,
                            topology_type: str = 'countries', offshore_buses: bool = True) -> pypsa.Network:
