@@ -101,7 +101,7 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
         data = data['Capacity [GW]']
         data = data[data.index.isin(countries)]
 
-        array_pop_density = load_population_density_data(spatial_resolution)
+        pop_density_array = load_population_density_data(spatial_resolution)
 
         codes = [item for item in data.index]
         filter_shape_data = get_onshore_shapes(codes, filterremote=True)
@@ -115,12 +115,12 @@ def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: 
             points_in_country = coords_multipoint.intersection(filter_shape_data.loc[country, 'geometry'])
             points_in_country = [(point.x, point.y) for point in points_in_country]
 
-            unit_capacity = data.loc[country] / array_pop_density.sel(locations=points_in_country).values.sum()
+            unit_capacity = data.loc[country] / pop_density_array.sel(locations=points_in_country).values.sum()
 
             dict_in_country = {key: None for key in points_in_country}
 
             for point in points_in_country:
-                dict_in_country[point] = unit_capacity * array_pop_density.sel(locations=point).values
+                dict_in_country[point] = unit_capacity * pop_density_array.sel(locations=point).values
 
             df = pd.concat([df, pd.DataFrame.from_dict(dict_in_country, orient='index')])
         aggregate_capacity_per_node = df.T.squeeze()

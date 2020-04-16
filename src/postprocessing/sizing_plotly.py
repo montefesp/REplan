@@ -429,7 +429,7 @@ class SizingPlotly:
             wind_capacity_potential_per_country.index = offshore_shapes.index
 
             # Compute generation per offshore bus
-            offshore_buses_index = self.net.buses[self.net.buses.onshore == False].index
+            offshore_buses_index = self.net.buses[~self.net.buses.onshore].index
             total_generation_per_bus = pd.Series(index=offshore_buses_index)
             total_max_capacity_per_bus = pd.Series(index=offshore_buses_index)
             for idx in offshore_buses_index:

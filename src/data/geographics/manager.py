@@ -61,6 +61,22 @@ def nuts3_to_nuts2(nuts3_codes: List[str]):
     return [code[:4] if code[:4] != "UKN1" else "UKN0" for code in nuts3_codes]
 
 
+def get_nuts_codes(nuts_level: int, year: int):
+
+    available_years = [2013, 2016]
+    assert year in available_years, f"Error: Year must be one of {available_years}, received {year}"
+    available_nuts_levels = [0, 1, 2, 3]
+    assert nuts_level in available_nuts_levels, \
+        f"Error: NUTS level must be one of {available_nuts_levels}, received {nuts_level}"
+
+
+    nuts_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/NUTS2013-NUTS2016.xlsx")
+    nuts_codes = pd.read_excel(nuts_fn, sheet_name="NUTS2013-NUTS2016", usecols=[1, 2], header=1)
+    nuts_codes = nuts_codes[f"Code {year}"].dropna()
+
+    return [code for code in nuts_codes if len(code) == nuts_level + 2]
+
+
 def get_nuts_area() -> pd.DataFrame:
     """Returns in a pd.DataFrame for each NUTS region (2013 and 2016 version) its size in km2"""
 
@@ -657,7 +673,7 @@ def generate_offshore_shapes_geojson():
 if __name__ == "__main__":
 
     # Need to execute these lines only once
-    generate_onshore_shapes_geojson()
+    # generate_onshore_shapes_geojson()
     # generate_offshore_shapes_geojson()
 
     # onshore_shapes_save_fn = 'on_test.geojson'
@@ -672,3 +688,5 @@ if __name__ == "__main__":
     # us_on_shape = onshore_shapes_['geometry'].values
     #
     # display_polygons(np.append(us_off_shape, us_on_shape))
+
+    print(get_nuts_codes(0, 2016))

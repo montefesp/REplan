@@ -5,21 +5,23 @@ import numpy as np
 
 
 def load_population_density_data(spatial_resolution: float) -> xr.DataArray:
+    """Returns available population density at a given spatial resolution."""
+
+    assert spatial_resolution in [0.5, 1.0], \
+        f"Error: Accepted resolution are 0.5 or 1.0, received {spatial_resolution}"
 
     # Load population density dataset
-    path_pop_data = join(dirname(abspath(__file__)), '../../../data/population_density')
-    dataset_population = \
-        xr.open_dataset(join(path_pop_data, f"gpw_v4_population_density_rev11_{spatial_resolution}.nc"))
-    # Rename the only variable to 'data' # TODO: is there not a cleaner way to do this? and why do we need to do this?
-    varname = [item for item in dataset_population.data_vars][0]
-    dataset_population = dataset_population.rename({varname: 'data'})
-    # The value of 5 for "raster" fetches data for the latest estimate available in the dataset, that is, 2020.
-    data_pop = dataset_population.sel(raster=5)
+    pop_density_dir = join(dirname(abspath(__file__)), '../../../data/population_density/')
+    pop_density_dataset = xr.open_dataset(f"{pop_density_dir}gpw_v4_population_density_rev11_{spatial_resolution}.nc")
+    pop_density_dataset = pop_density_dataset.sel(raster=5)
+
+    # Extract the variable of interest
+    pop_density_array = pop_density_dataset["Population Density, v4.11 (2000, 2005, 2010, 2015, 2020): 30 arc-minutes"]
 
     # Compute population density at intermediate points
-    array_pop_density = data_pop['data'].interp(longitude=np.arange(-180, 180, float(spatial_resolution)),
-                                                latitude=np.arange(-89, 91, float(spatial_resolution))[::-1],
-                                                method='linear').fillna(0.)
-    array_pop_density = array_pop_density.stack(locations=('longitude', 'latitude'))
+    pop_density_array = pop_density_array.interp(longitude=np.arange(-180, 180, float(spatial_resolution)),
+                                                 latitude=np.arange(-89, 91, float(spatial_resolution))[::-1],
+                                                 method='linear').fillna(0.)
+    pop_density_array = pop_density_array.stack(locations=('longitude', 'latitude'))
 
-    return array_pop_density
+    return pop_density_array
