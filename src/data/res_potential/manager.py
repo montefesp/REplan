@@ -65,9 +65,6 @@ def read_capacity_potential(tech: str, nuts_type: str) -> pd.Series:
         return pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0)[tech]
 
 
-# TODO: I don't like the spatial_resolution and countries argument
-# TODO: should this function only work on one technology at a time? Because for now it not very useful for it to take
-#   several technologies at the same time (not much gain in time)
 def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[float, float]]],
                                      spatial_resolution: float, countries: List[str],
                                      existing_capacity_ds: pd.Series = None) -> pd.Series:
