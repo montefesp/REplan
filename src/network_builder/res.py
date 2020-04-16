@@ -483,7 +483,7 @@ def add_generators_at_bus_test(network: pypsa.Network, params: Dict[str, Any], t
     for tech, points in tech_location_dict.items():
 
         if tech in ['wind_offshore', 'wind_floating']:
-            offshore_buses = network.buses[network.buses.onshore == False]
+            offshore_buses = network.buses[~network.buses.onshore]
             associated_buses = match_points_to_regions(points, offshore_buses.region).dropna()
         else:
             onshore_buses = network.buses[network.buses.onshore]

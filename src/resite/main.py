@@ -17,8 +17,6 @@ resite = Resite(params["regions"], params["technologies"], tech_config, params["
 logger.info('Reading input.')
 resite.build_input_data(params["use_ex_cap"], params['filtering_layers'])
 
-exit()
-
 values = [0.1]
 for v in values:
     params['deployment_vector'] = [v]

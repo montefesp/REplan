@@ -10,14 +10,17 @@ from shapely.geometry import Point
 
 import matplotlib.pyplot as plt
 
+import pypsa
+
 from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes
 from src.parameters.costs import get_cost
 from src.data.topologies.manager import plot_topology, voronoi_special
 
-import pypsa
 
-
-def get_ehighway_clusters():
+def get_ehighway_clusters() -> pd.DataFrame:
+    """Returns a DataFrame indicating for each ehighway cluster: its country, composing NUTS regions
+     (either NUTS0 or country) and the position of the bus associated to this cluster (if the position
+     is not specified one can obtain it by taking the centroid of the shapes)"""
     eh_clusters_fn = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/source/clusters_2016.csv")
     return pd.read_csv(eh_clusters_fn, delimiter=";", index_col="name")
 
@@ -241,10 +244,9 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
             offshore_shapes = get_offshore_shapes(offshore_zones_codes, onshore_shape=onshore_buses_regions_union,
                                                   filterremote=True)
             offshore_zones_shape = cascaded_union(offshore_shapes["geometry"].values)
-            offshore_buses = buses[buses.onshore == False]
+            offshore_buses = buses[~buses.onshore]
             # Use a home-made 'voronoi' partition to assign a region to each offshore bus
-            buses.loc[buses.onshore == False, "region"] = voronoi_special(offshore_zones_shape,
-                                                                          offshore_buses[["x", "y"]])
+            buses.loc[~buses.onshore, "region"] = voronoi_special(offshore_zones_shape, offshore_buses[["x", "y"]])
 
     # Setting line parameters
     """ For DC-opf
