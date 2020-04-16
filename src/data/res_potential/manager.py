@@ -8,8 +8,8 @@ from shapely.ops import cascaded_union
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.errors import TopologicalError
 
-from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes, match_points_to_regions
-from src.data.population_density.manager import load_population_density_data
+from src.data.geographics import get_onshore_shapes, get_offshore_shapes, match_points_to_regions
+from src.data.population_density import load_population_density_data
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")

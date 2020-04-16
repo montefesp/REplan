@@ -6,8 +6,8 @@ from time import strftime
 import pandas as pd
 import numpy as np
 
-from src.data.emission.manager import get_reference_emission_levels_for_region
-from src.data.load.manager import get_load_from_nuts_codes
+from src.data.emission import get_reference_emission_levels_for_region
+from src.data.load import get_load_from_nuts_codes
 from src.data.topologies.ehighways import get_topology
 from src.network_builder.res import add_generators_from_file as add_res_from_file
 from src.network_builder.res import \

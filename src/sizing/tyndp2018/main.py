@@ -11,8 +11,8 @@ import pypsa
 # from src.data.emission.manager import get_reference_emission_levels_for_region
 from src.data.emission import get_reference_emission_levels_for_region
 from src.data.topologies.tyndp2018 import get_topology
-from src.data.geographics.manager import get_subregions
-from src.data.load.manager import get_load
+from src.data.geographics import get_subregions
+from src.data.load import get_load
 from src.network_builder.res import add_generators_from_file as add_res_from_file
 from src.network_builder.res import \
     add_generators_using_siting as add_res, \

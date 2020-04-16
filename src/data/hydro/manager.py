@@ -4,7 +4,7 @@ from typing import List, Tuple, Union
 import pandas as pd
 import numpy as np
 
-from src.data.geographics.manager import nuts3_to_nuts2, get_nuts_area
+from src.data.geographics import nuts3_to_nuts2, get_nuts_area
 from src.data.topologies.ehighways import get_ehighway_clusters
 
 # TODO: still need to revise the e-highway function, removing the dependencies with regard to e-highway?

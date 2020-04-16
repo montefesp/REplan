@@ -1,7 +1,7 @@
 import pypsa
 
 from src.parameters.costs import get_cost, get_plant_type
-from src.data.hydro.manager import *
+from src.data.hydro import *
 
 import logging
 

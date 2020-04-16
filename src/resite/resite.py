@@ -1,19 +1,22 @@
 from os.path import join, dirname, abspath
 from os import makedirs
+import yaml
+import pickle
+from typing import List, Dict, Tuple, Any
+from shutil import rmtree
+from time import strftime
+
+import pandas as pd
+
 from shapely.ops import cascaded_union
 from shapely.geometry import MultiPoint
-import pandas as pd
-from src.data.legacy.manager import get_legacy_capacity_at_points
-from src.data.resource.manager import read_resource_database, compute_capacity_factors
-from src.data.land_data.manager import filter_points
-from src.data.res_potential.manager import get_capacity_potential_at_points
-from src.data.load.manager import get_load
-from src.data.geographics.manager import return_region_shape, return_points_in_shape, get_subregions
-from typing import List, Dict, Tuple, Any
-from shutil import copy, rmtree
-import yaml
-from time import strftime
-import pickle
+
+from src.data.legacy import get_legacy_capacity_at_points
+from src.data.resource import read_resource_database, compute_capacity_factors
+from src.data.land_data import filter_points
+from src.data.res_potential import get_capacity_potential_at_points
+from src.data.load import get_load
+from src.data.geographics import return_region_shape, return_points_in_shape, get_subregions
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")

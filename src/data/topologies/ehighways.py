@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 
 import pypsa
 
-from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes
+from src.data.geographics import get_onshore_shapes, get_offshore_shapes
 from src.parameters.costs import get_cost
-from src.data.topologies.manager import plot_topology, voronoi_special
+from .manager import plot_topology, voronoi_special
 
 
 def get_ehighway_clusters() -> pd.DataFrame:

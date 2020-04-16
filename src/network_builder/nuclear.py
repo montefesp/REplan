@@ -5,8 +5,8 @@ import pandas as pd
 
 import pypsa
 
-from src.data.geographics.manager import convert_country_codes, match_points_to_regions
-from src.data.generation.manager import get_gen_from_ppm
+from src.data.geographics import convert_country_codes, match_points_to_regions
+from src.data.generation import get_gen_from_ppm
 from src.parameters.costs import get_cost, get_plant_type
 
 import logging

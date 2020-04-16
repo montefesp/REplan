@@ -6,7 +6,7 @@ from scipy import stats
 
 import matplotlib.pyplot as plt
 
-from src.data.load.manager import get_load
+from src.data.load import get_load
 
 
 def filter_outliers(time_series: pd.DataFrame) -> pd.DataFrame:

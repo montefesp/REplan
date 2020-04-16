@@ -11,7 +11,7 @@ import geopy.distance
 
 from copy import copy
 
-from src.data.resource.manager import read_resource_database
+from src.data.resource import read_resource_database
 
 
 def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, float]],

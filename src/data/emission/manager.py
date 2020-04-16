@@ -2,7 +2,7 @@ from os.path import join, abspath, dirname
 
 import pandas as pd
 
-from src.data.geographics.manager import get_subregions, convert_country_codes
+from src.data.geographics import get_subregions, convert_country_codes
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")

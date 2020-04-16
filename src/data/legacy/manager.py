@@ -6,9 +6,9 @@ import pandas as pd
 import scipy.spatial
 from shapely.geometry import MultiPoint
 
-from src.data.geographics.manager import convert_country_codes, match_points_to_regions, get_onshore_shapes
-from src.data.land_data.manager import filter_onshore_offshore_points
-from src.data.population_density.manager import load_population_density_data
+from src.data.geographics import convert_country_codes, match_points_to_regions, get_onshore_shapes
+from src.data.land_data import filter_onshore_offshore_points
+from src.data.population_density import load_population_density_data
 
 
 # TODO: need to merge the end of the if and else

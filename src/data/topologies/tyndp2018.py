@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 import shapely.wkt
 import geopy.distance
 
-from src.data.geographics.manager import get_onshore_shapes
-from src.data.topologies.manager import plot_topology
+from src.data.geographics import get_onshore_shapes
 from src.parameters.costs import get_cost
+from .manager import plot_topology
 
 
 def preprocess(plotting=True) -> None:

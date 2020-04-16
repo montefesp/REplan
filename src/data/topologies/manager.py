@@ -15,7 +15,7 @@ from vresutils.graph import voronoi_partition_pts
 import networkx as nx
 import numpy as np
 
-from src.data.geographics.manager import return_points_in_shape
+from src.data.geographics import return_points_in_shape
 
 
 def plot_topology(buses: pd.DataFrame, lines: pd.DataFrame = None) -> None:

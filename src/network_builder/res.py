@@ -8,12 +8,12 @@ import pypsa
 
 from shapely.ops import cascaded_union
 
-from src.data.resource.manager import compute_capacity_factors, get_cap_factor_for_countries
-from src.data.geographics.manager import match_points_to_regions, match_points_to_countries, \
-    get_onshore_shapes, get_offshore_shapes
-from src.data.res_potential.manager import get_capacity_potential_for_countries, get_capacity_potential_at_points, \
+from src.data.resource import compute_capacity_factors, get_cap_factor_for_countries
+from src.data.geographics import match_points_to_regions, match_points_to_countries, get_onshore_shapes, \
+    get_offshore_shapes
+from src.data.res_potential import get_capacity_potential_for_countries, get_capacity_potential_at_points, \
     get_capacity_potential_for_regions
-from src.data.legacy.manager import get_legacy_capacity_in_regions, get_legacy_capacity_in_countries
+from src.data.legacy import get_legacy_capacity_in_regions, get_legacy_capacity_in_countries
 from src.resite.resite import Resite
 from src.parameters.costs import get_cost
 

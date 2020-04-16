@@ -3,7 +3,7 @@ from os.path import join, dirname, abspath
 
 import pandas as pd
 
-from src.data.geographics.manager import get_subregions, get_nuts_area
+from src.data.geographics import get_subregions, get_nuts_area
 
 
 def get_yearly_country_load(country: str, year: int = 2016) -> int:

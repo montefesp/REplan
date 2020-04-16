@@ -4,7 +4,7 @@ import pandas as pd
 
 import powerplantmatching as pm
 
-from src.data.geographics.manager import convert_country_codes
+from src.data.geographics import convert_country_codes
 
 
 def load_ppm():
