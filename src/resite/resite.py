@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
-def init_output_folder(output_folder: str = None):
+def init_output_folder(output_folder: str = None) -> str:
     """Initialize an output folder."""
 
     if output_folder is None:
@@ -82,7 +82,6 @@ class Resite:
 
         self.instance = None
 
-    # TODO: this is pretty messy - find a way to clean it up
     def build_input_data(self, use_ex_cap: bool, filtering_layers: Dict[str, bool]):
         """Preprocess data.
 
@@ -102,31 +101,35 @@ class Resite:
         # self.load_df = get_prepared_load(timestamps=self.timestamps, regions=self.regions)
         self.load_df = get_load(timestamps=self.timestamps, regions=self.regions, missing_data='interpolate')
 
-        region_shapes = pd.DataFrame(index=self.regions, columns=['full'])
+        # Get shape of regions and list of subregions
+        regions_shapes = pd.Series(index=self.regions)
         all_subregions = []
         for region in self.regions:
             subregions = get_subregions(region)
             all_subregions += subregions
             shapes = return_region_shape(region, subregions)
-            region_shapes.loc[region, 'full'] = cascaded_union([shapes['onshore'], shapes['offshore']])
-        regions_shapes_union = cascaded_union(region_shapes['full'].values)
+            regions_shapes[region] = cascaded_union([shapes['onshore'], shapes['offshore']])
 
+        # Get all points situated in the given regions at the given spatial resolution
         # TODO: Need to remove the first init_points by downloading new data
         path_resource_data = join(dirname(abspath(__file__)),
                                   f"../../data/resource/source/era5-land/{self.spatial_res}")
         database = read_resource_database(path_resource_data)
         init_points = list(zip(database.longitude.values, database.latitude.values))
-        init_points = return_points_in_shape(regions_shapes_union, self.spatial_res, init_points)
+        init_points = return_points_in_shape(cascaded_union(regions_shapes.values), self.spatial_res, init_points)
 
+        # Filter those points
         self.tech_points_dict = filter_points(self.technologies, self.tech_config, init_points, self.spatial_res,
                                               filtering_layers)
 
         if use_ex_cap:
-            tech_with_legacy_data = \
-                list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']))
+            # Get existing capacity at initial points, for technologies for which we can compute legacy data
+            tech_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore',
+                                                                              'pv_utility', 'pv_residential']))
             existing_capacity_ds = get_legacy_capacity_at_points(tech_with_legacy_data, self.tech_config,
                                                                  all_subregions, init_points, self.spatial_res)
-            # Update filtered points
+
+            # If some initial points with existing capacity were filtered, add them back
             for tech in tech_with_legacy_data:
                 if tech in existing_capacity_ds.index.get_level_values(0):
                     self.tech_points_dict[tech] += list(existing_capacity_ds[tech].index)
@@ -136,19 +139,21 @@ class Resite:
         # Remove techs that have no points associated to them
         self.tech_points_dict = {k: v for k, v in self.tech_points_dict.items() if len(v) > 0}
 
-        # Create dataframe with existing capacity
+        # Create dataframe with existing capacity, for all points (not just the ones with existing capacity)
         self.tech_points_tuples = [(tech, point) for tech, points in self.tech_points_dict.items() for point in points]
         self.existing_capacity_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(self.tech_points_tuples))
         if use_ex_cap:
             self.existing_capacity_ds.loc[existing_capacity_ds.index] = existing_capacity_ds.values
 
+        # Compute capacity factors for each point
         self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.tech_config,
                                                       self.spatial_res, self.timestamps)
 
+        # Compute capacity potential for each point (taking into account existing capacity)
         self.cap_potential_ds = get_capacity_potential_at_points(self.tech_points_dict, self.spatial_res,
                                                                  all_subregions, self.existing_capacity_ds)
 
-        # Compute percentage of existing capacity and set to 1. when capacity is zero
+        # Compute the percentage of potential capacity that is covered by existing capacity
         existing_cap_percentage_ds = self.existing_capacity_ds.divide(self.cap_potential_ds)
 
         # Remove points which have zero potential capacity
@@ -156,27 +161,27 @@ class Resite:
         self.cap_potential_ds = self.cap_potential_ds[self.existing_cap_percentage_ds.index]
         self.cap_factor_df = self.cap_factor_df[self.existing_cap_percentage_ds.index]
         self.existing_capacity_ds = self.existing_capacity_ds[self.existing_cap_percentage_ds.index]
+
+        # Retrieve final points
         self.tech_points_tuples = self.existing_cap_percentage_ds.index.values
         self.tech_points_dict = {}
-        for tech, point in self.tech_points_tuples:
-            if tech in self.tech_points_dict:
-                self.tech_points_dict[tech] += [point]
-            else:
-                self.tech_points_dict[tech] = [point]
+        techs = set(self.existing_cap_percentage_ds.index.get_level_values(0))
+        for tech in techs:
+            self.tech_points_dict[tech] = list(self.existing_capacity_ds[tech].index)
 
         # Maximum generation that can be produced if max capacity installed
         self.generation_potential_df = self.cap_factor_df * self.cap_potential_ds
 
         # Associating coordinates to regions
         self.region_tech_points_dict = {region: set() for region in self.regions}
-        for tech, coords in self.tech_points_dict.items():
-            coords_multipoint = MultiPoint(coords)
+        for tech, points in self.tech_points_dict.items():
+            points = MultiPoint(points)
             for region in self.regions:
-                coords_in_region = coords_multipoint.intersection(region_shapes.loc[region, 'full'])
-                coords_in_region = [(tech, (point.x, point.y)) for point in coords_in_region] \
-                    if isinstance(coords_in_region, MultiPoint) \
-                    else [(tech, (coords_in_region.x, coords_in_region.y))]
-                self.region_tech_points_dict[region] = self.region_tech_points_dict[region].union(set(coords_in_region))
+                points_in_region = points.intersection(regions_shapes[region])
+                points_in_region = [(tech, (point.x, point.y)) for point in points_in_region] \
+                    if isinstance(points_in_region, MultiPoint) \
+                    else [(tech, (points_in_region.x, points_in_region.y))]
+                self.region_tech_points_dict[region] = self.region_tech_points_dict[region].union(set(points_in_region))
 
     def build_model(self, modelling: str, formulation: str, deployment_vector: List[float],
                     write_lp: bool = False, output_folder: str = None):
