@@ -1,6 +1,7 @@
 from pyomo.environ import Constraint, Objective, maximize, minimize
 
 import pandas as pd
+from numpy import arange
 
 
 def create_generation_y_dict(model, resite):
@@ -17,6 +18,15 @@ def create_generation_y_dict(model, resite):
 
     return region_generation_y_dict
 
+
+def generation_bigger_than_load_proportion(model, region_generation_y_dict, load, regions, time_slices,
+                                           covered_load_perc_per_region):
+    def generation_check_rule(model, region, u):
+        return sum(region_generation_y_dict[region][t] for t in time_slices[u]) >= \
+               sum(load[t, regions.index(region)] for t in time_slices[u]) * \
+               covered_load_perc_per_region[region]
+    # TODO: would it be possible to pass directly the sublists in time_slices?
+    return Constraint(regions, arange(len(time_slices)), rule=generation_check_rule)
 
 # Percentage of capacity installed must be bigger than existing percentage
 def capacity_bigger_than_existing(model, existing_cap_percentage_ds, tech_points_tuples):

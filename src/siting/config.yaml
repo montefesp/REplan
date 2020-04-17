@@ -28,7 +28,7 @@ modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docpl
 write_lp: True
 
 # Type of problem to be solved. Check resite.py for a full list.
-formulation: 'meet_demand_with_capacity' # 'meet_RES_targets_hourly' # 'meet_RES_targets_agg' # 'meet_demand_with_capacity' #
+formulation: 'meet_RES_targets_daily' # 'meet_RES_targets_hourly' # 'meet_RES_targets_agg' # 'meet_demand_with_capacity' #
 
 # List of deployments per region (ordered as the 'regions' list above)
-deployment_vector: [0.5, 0.5, 0.5, 0.5]
+deployment_vector: [0.1]
