@@ -17,7 +17,7 @@ from src.data.resource import read_resource_database
 def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, float]],
                                    spatial_resolution: float) -> List[Tuple[float, float]]:
     """
-    Filters coordinates to leave only onshore and offshore coordinates depending on technology
+    Filter coordinates to leave only onshore and offshore coordinates depending on technology.
 
     Parameters
     ----------
@@ -54,7 +54,7 @@ def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, floa
 
 def read_filter_database(filename: str, coords: List[Tuple[float, float]] = None) -> xr.Dataset:
     """
-    Opens a file containing filtering information
+    Open a file containing filtering information.
 
     Parameters
     ----------
@@ -259,7 +259,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
 def filter_points(technologies: List[str], tech_config: Dict[str, Any], init_points: List[Tuple[float, float]],
                   spatial_resolution: float, filtering_layers: Dict[str, bool]) -> Dict[str, List[Tuple[float, float]]]:
     """
-    Returns the set of potential deployment locations for each region and available technology.
+    Filter the set of potential deployment locations for each region and available technology.
 
     Parameters
     ----------

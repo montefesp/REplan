@@ -18,15 +18,16 @@ from .manager import plot_topology, voronoi_special
 
 
 def get_ehighway_clusters() -> pd.DataFrame:
-    """Returns a DataFrame indicating for each ehighway cluster: its country, composing NUTS regions
+    """Return a DataFrame indicating for each ehighway cluster: its country, composing NUTS regions
      (either NUTS0 or country) and the position of the bus associated to this cluster (if the position
-     is not specified one can obtain it by taking the centroid of the shapes)"""
+     is not specified one can obtain it by taking the centroid of the shapes)."""
     eh_clusters_fn = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/source/clusters_2016.csv")
     return pd.read_csv(eh_clusters_fn, delimiter=";", index_col="name")
 
 
 def preprocess(plotting: bool = False):
-    """Process e-highway buses and lines information to create attributes files needed to feed into the class Network
+    """
+    Pre-process e-highway buses and lines information.
 
     Parameters
     ----------
@@ -175,7 +176,8 @@ def preprocess(plotting: bool = False):
 
 def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool, extend_line_cap: bool = True,
                  use_ex_line_cap: bool = True, plot: bool = False) -> pypsa.Network:
-    """Load the e-highway network topology (buses and links) using PyPSA
+    """
+    Load the e-highway network topology (buses and links) using PyPSA.
 
     Parameters
     ----------

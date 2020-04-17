@@ -10,7 +10,8 @@ from os.path import join
 
 
 def build_model(resite, formulation: str, deployment_vector: List[float], write_lp: bool = False):
-    """Model build-up.
+    """
+    Model build-up.
 
     Parameters:
     ------------

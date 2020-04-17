@@ -12,9 +12,10 @@ from src.data.topologies.ehighways import get_ehighway_clusters
 
 def get_hydro_capacities(aggregation_level: str, plant_type: str) -> Union[pd.Series, Tuple[pd.Series, pd.Series]]:
     """
-    Returns available hydro capacities per NUTS in which it exists.
-    If sto or psp, returns power (in GW) and energy (in GWh) capacities
-    If ror, returns power capacities (in GW)
+    Return available hydro capacities per NUTS in which it exists.
+
+    If sto or psp, return power (in GW) and energy (in GWh) capacities
+    If ror, return power capacities (in GW)
 
     Parameters
     ----------
@@ -52,9 +53,10 @@ def get_hydro_capacities(aggregation_level: str, plant_type: str) -> Union[pd.Se
 
 def get_hydro_inflows(aggregation_level: str, plant_type: str, timestamps: pd.DatetimeIndex = None) -> pd.DataFrame:
     """
-    Returns available hydro inflows per NUTS in which it exists
-    If sto, returns inflows (in GWh).
-    If ror, returns normalized inflows (per unit of installed capacity)
+    Return available hydro inflows per NUTS in which it exists.
+
+    If sto, return inflows (in GWh).
+    If ror, return normalized inflows (per unit of installed capacity).
     If 'timestamps' is specified, return just data for those timestamps, otherwise return all available timestamps.
 
     Parameters
@@ -110,8 +112,8 @@ def get_phs_capacities(aggregation_level: str) -> Tuple[pd.Series, pd.Series]:
 def phs_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en_cap: pd.Series) \
         -> (pd.Series, pd.Series):
     """
-    This function takes in inputs for PHS plants at the nuts2 levels and computes equivalent inputs at e-highway
-    bus levels.
+    Rescale PHS plants inputs from NUTS2 levels to e-highway bus levels.
+
     All inputs are rescaled based on regions areas.
 
     Parameters
@@ -191,8 +193,8 @@ def get_ror_inflows(aggregation_level: str, timestamps: pd.DatetimeIndex = None)
 def ror_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_cap: pd.Series, nuts2_inflows: pd.DataFrame) \
         -> (pd.Series, pd.DataFrame):
     """
-    This function takes in inputs for ROR plants at the nuts2 levels and computes equivalent inputs at e-highway
-    bus levels.
+    Rescale ROR plants inputs from NUTS2 levels to e-highway bus levels.
+
     Capacity is rescaled based on regions areas and inflows, as capacity factors, are obtained using an weighted
     average of the inflows of the underlying NUTS3 (or NUTS2) regions composing the bus region where the weights
     are the capacities.
@@ -277,8 +279,8 @@ def get_sto_inflows(aggregation_level: str, timestamps: pd.DatetimeIndex = None)
 def sto_inputs_nuts_to_ehighway(bus_ids: List[str], nuts2_pow_cap: pd.Series, nuts2_en_cap: pd.Series,
                                 nuts2_inflows: pd.DataFrame) -> (pd.Series, pd.Series, pd.DataFrame):
     """
-    This function takes in inputs for STO plants at the nuts2 levels and computes equivalent inputs at e-highway
-    bus levels.
+    Rescale STO plants inputs from NUTS2 levels to e-highway bus levels.
+
     All inputs are rescaled based on regions areas.
 
     Parameters

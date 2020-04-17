@@ -11,7 +11,7 @@ from src.data.load import get_load
 
 def filter_outliers(time_series: pd.DataFrame) -> pd.DataFrame:
     """
-    Takes in a time-series and removes its outliers by looking at monthly patterns
+    Remove outliers from a time series by looking at monthly patterns.
 
     Parameters
     ----------
@@ -37,8 +37,8 @@ def filter_outliers(time_series: pd.DataFrame) -> pd.DataFrame:
 
 def fill_gaps(time_series):
     """
-    Takes in a time-series and fills gaps (i.e. value equals to NaN) inside the time-series (leading and ending missing
-    values are untouched)
+    Fill gaps in a time series (i.e. value equals to NaN) inside the time-series (leading and ending missing
+    values are untouched).
 
     Parameters
     ----------
@@ -76,7 +76,7 @@ def fill_gaps(time_series):
 def correct_time_series(time_series: pd.DataFrame, plot: bool = False) \
         -> pd.DataFrame:
     """
-    Takes in a time series and improves it by removing outliers and filling gaps via interpolation
+    Remove a time series outliers and fill gaps via interpolation.
 
     Parameters
     ----------
@@ -159,10 +159,10 @@ def preprocess():
 
 def get_load_full_years_range(save: bool = False) -> pd.DataFrame:
     """
-    Returns (and optionally save) for each region for which we have load data in data/load/opsd_load.csv, the first
+    Compute (and optionally save) for each region for which we have load data in data/load/opsd_load.csv, the first
     and last year for which we have hourly data for everyday of the year.
     Note that data/load/opsd_load.csv is supposed to contain only contiguous time series (i.e. no NaN values in the
-    middle of it)
+    middle of it).
 
     Parameters
     ----------

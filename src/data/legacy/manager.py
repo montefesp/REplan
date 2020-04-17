@@ -15,7 +15,7 @@ from src.data.population_density import load_population_density_data
 def read_legacy_capacity_data(tech: str, legacy_min_capacity: float, countries: List[str], spatial_resolution: float,
                               points: List[Tuple[float, float]]) -> pd.Series:
     """
-    Reads dataset of existing RES units in the given area and associated to the closest points. Available for EU only.
+    Read dataset of existing RES units in the given area and associated to the closest points. Available for EU only.
 
     Parameters
     ----------
@@ -134,7 +134,7 @@ def get_legacy_capacity_at_points(technologies: List[str], tech_config: Dict[str
                                   countries: List[str], points: List[Tuple[float, float]],
                                   spatial_resolution: float) -> pd.Series:
     """
-    Returns, for each technology and for each point, the existing (legacy) capacity in GW.
+    Return, for each technology and for each point, the existing (legacy) capacity in GW.
 
     Parameters
     ----------
@@ -176,7 +176,7 @@ def get_legacy_capacity_at_points(technologies: List[str], tech_config: Dict[str
 
 def get_legacy_capacity_in_countries(tech: str, countries: List[str]) -> pd.Series:
     """
-    Returns the total existing capacity (in GW) for the given tech for a set of countries
+    Return the total existing capacity (in GW) for the given tech for a set of countries.
 
     Parameters
     ----------
@@ -244,7 +244,7 @@ def get_legacy_capacity_in_countries(tech: str, countries: List[str]) -> pd.Seri
 
 def get_legacy_capacity_in_regions(tech: str, regions: pd.Series, countries: List[str]) -> pd.Series:
     """
-    Returns the total existing capacity (in GW) for the given tech for a set of geographical regions
+    Return the total existing capacity (in GW) for the given tech for a set of geographical regions.
 
     Parameters
     ----------

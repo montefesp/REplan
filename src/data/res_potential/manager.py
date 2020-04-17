@@ -17,7 +17,7 @@ logger = logging.getLogger()
 
 
 def get_available_regions(region_type: str) -> List[str]:
-    """Returns the list of codes of regions for which capacity potential is available"""
+    """Return the list of codes of regions for which capacity potential is available."""
 
     accepted_types = ["nuts2", "nuts0", "eez"]
     assert region_type in accepted_types, f"Error: region_type {region_type} is not in {accepted_types}"
@@ -34,7 +34,7 @@ def get_available_regions(region_type: str) -> List[str]:
 
 def read_capacity_potential(tech: str, nuts_type: str) -> pd.Series:
     """
-    Returns for each NUTS2 (or NUTS0) region or EEZ (depending on technology) its capacity potential in GW
+    Return for each NUTS2 (or NUTS0) region or EEZ (depending on technology) its capacity potential in GW.
 
     Parameters
     ----------
@@ -69,7 +69,7 @@ def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[floa
                                      spatial_resolution: float, countries: List[str],
                                      existing_capacity_ds: pd.Series = None) -> pd.Series:
     """
-    Computes the potential capacity at a series of points for different technologies.
+    Compute the potential capacity at a series of points for different technologies.
 
     Parameters
     ----------
@@ -216,7 +216,7 @@ def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[floa
 
 def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[Polygon, MultiPolygon]]]) -> pd.Series:
     """
-    Get capacity potential (in GW) for a series of technology for associated geographical regions
+    Get capacity potential (in GW) for a series of technology for associated geographical regions.
 
     Parameters
     ----------

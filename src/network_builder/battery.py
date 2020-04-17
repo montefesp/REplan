@@ -14,7 +14,7 @@ logger = logging.getLogger()
 
 def add_batteries(network: pypsa.Network, battery_type: str, max_hours: float) -> pypsa.Network:
     """
-    Adds a battery at each node of the network
+    Add a battery at each node of the network.
 
     Parameters
     ----------

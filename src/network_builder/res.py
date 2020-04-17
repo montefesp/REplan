@@ -28,7 +28,8 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
                              area_per_site: int, spatial_resolution: float, countries: List[str],
                              topology_type: str = "countries", cap_dens_dict: Dict[str, float] = None,
                              offshore_buses: bool = True) -> pypsa.Network:
-    """Adds wind and pv generators based on sites that where selected via a certain siting method to a Network class.
+    """
+    Add wind and PV generators based on sites that where selected via a certain siting method to a Network class.
 
     Parameters
     ----------
@@ -149,8 +150,7 @@ def add_generators_using_siting(network: pypsa.Network, technologies: List[str],
                                 topology_type: str = 'countries', offshore_buses: bool = True,
                                 output_dir: str = None) -> pypsa.Network:
     """
-    This function will add generators for different technologies at a series of location selected via an optimization
-    mechanism.
+    Add generators for different technologies at a series of location selected via an optimization mechanism.
 
     Parameters
     ----------
@@ -262,9 +262,9 @@ def add_generators_using_siting(network: pypsa.Network, technologies: List[str],
 def add_generators_at_resolution(network: pypsa.Network, technologies: List[str], regions: List[str],
                                  tech_config: Dict[str, Any], spatial_resolution: float,
                                  filtering_layers: Dict[str, bool], use_ex_cap: bool, limit_max_cap: bool = False,
-                                 topology_type: str = 'countries', offshore_buses: bool = True,) -> pypsa.Network:
+                                 topology_type: str = 'countries', offshore_buses: bool = True) -> pypsa.Network:
     """
-    Creates pv and wind generators for every coordinate at a given resolution inside the region associate to each bus
+    Create PV and wind generators for every coordinate at a given resolution inside the region associate to each bus
     and attach them to the corresponding bus.
 
     Parameters
@@ -355,7 +355,7 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
                            tech_config: Dict[str, Any], use_ex_cap: bool = True,
                            topology_type: str = 'countries', offshore_buses: bool = True) -> pypsa.Network:
     """
-    Adds pv and wind generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
+    Add PV and wind generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
 
     Parameters
     ----------
@@ -472,8 +472,7 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
 # def add_generators_at_bus_test(network: pypsa.Network, params: Dict[str, Any], tech_config: Dict[str, Any],
 #                                region: str, output_dir: str = None) -> pypsa.Network:
 #     """
-#     This function will add generators for different technologies at a series of location selected via an optimization
-#     mechanism.
+#     Add generators for different technologies at a series of location selected via an optimization mechanism.
 #
 #     Parameters
 #     ----------

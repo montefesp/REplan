@@ -15,8 +15,8 @@ from .manager import plot_topology
 
 
 def preprocess(plotting=True) -> None:
-    """Process tyndp-country buses and links information to create attributes files needed to feed
-    into the class Network
+    """
+    Pre-process tyndp-country buses and links information.
 
     Parameters
     ----------
@@ -75,7 +75,8 @@ def preprocess(plotting=True) -> None:
 
 def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool = False, extend_line_cap: bool = True,
                  use_ex_line_cap: bool = True, plot: bool = False) -> pypsa.Network:
-    """Load the e-highway network topology (buses and links) using PyPSA
+    """
+    Load the e-highway network topology (buses and links) using PyPSA.
 
     Parameters
     ----------

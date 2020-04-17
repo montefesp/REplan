@@ -5,7 +5,7 @@ import pandas as pd
 
 def get_non_eu28_potential(tech: str) -> pd.Series:
     """
-    Returns capacity potential per NUTS2 or EEZ region of countries that are not in EU28 for a given technology.
+    Return capacity potential per NUTS2 or EEZ region of countries that are not in EU28 for a given technology.
 
     Parameters
     ----------
@@ -63,7 +63,7 @@ def get_non_eu28_potential(tech: str) -> pd.Series:
 
 def update_enspreso_capacity_potential(capacity_potential_ds: pd.Series, tech: str) -> pd.Series:
     """
-    Updates potentials from ENSPRESO with re-indexed (2013 vs 2016) NUTS2 regions.
+    Update potentials from ENSPRESO with re-indexed (2013 vs 2016) NUTS2 regions.
 
     Parameters
     ----------
@@ -181,7 +181,7 @@ def update_enspreso_capacity_potential(capacity_potential_ds: pd.Series, tech: s
 
 def get_capacity_potential_from_enspreso(tech: str) -> pd.Series:
     """
-    Returning capacity potential (in GW) per NUTS2 region for a given technology, based on the ENSPRESO dataset.
+    Return capacity potential (in GW) per NUTS2 region for a given technology, based on the ENSPRESO dataset.
 
     Parameters
     ----------

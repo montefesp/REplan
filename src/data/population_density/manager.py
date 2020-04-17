@@ -5,7 +5,7 @@ import numpy as np
 
 
 def load_population_density_data(spatial_resolution: float) -> xr.DataArray:
-    """Returns available population density at a given spatial resolution."""
+    """Return available population density at a given spatial resolution."""
 
     assert spatial_resolution in [0.5, 1.0], \
         f"Error: Accepted resolution are 0.5 or 1.0, received {spatial_resolution}"

@@ -43,7 +43,7 @@ class SizingResults:
         return gens.capital_cost.mean(), gens.marginal_cost.mean()
 
     def get_generators_capacity(self):
-        """Returns the original, new and optimal generation capacities (in MW) for each type of generator."""
+        """Return the original, new and optimal generation capacities (in MW) for each type of generator."""
 
         gens = self.net.generators.groupby(["type"])
         init_capacities = gens.p_nom.sum()
@@ -58,7 +58,7 @@ class SizingResults:
         return self.net.generators.groupby("type").count().bus
 
     def get_generators_generation(self):
-        """Returns the total generation (in MWh) over the self.net.snapshots for each type of generator."""
+        """Return the total generation (in GWh) over the self.net.snapshots for each type of generator."""
 
         gens = self.net.generators
         types = sorted(list(set(gens.type.values)))
@@ -73,14 +73,14 @@ class SizingResults:
         return pd.DataFrame.from_dict(generation, orient="index", columns=["generation"]).generation
 
     def get_generators_average_usage(self):
-        """Returns the average generation capacity usage (i.e. mean(generation_t/capacity)) of each type of generator"""
+        """Return the average generation capacity usage (i.e. mean(generation_t/capacity)) of each type of generator"""
 
         _, _, opt_cap, _ = self.get_generators_capacity()
         tot_gen = self.get_generators_generation()
         return tot_gen/(opt_cap*len(self.net.snapshots))
 
     def get_generators_opex(self):
-        """Returns the operational expenses of running each type of generator over the self.net.snapshots"""
+        """Return the operational expenses of running each type of generator over the self.net.snapshots"""
 
         gens = self.net.generators
         types = sorted(list(set(gens.type.values)))
@@ -96,7 +96,7 @@ class SizingResults:
         return pd.DataFrame.from_dict(opex, orient="index", columns=["opex"]).opex
 
     def get_generators_capex(self):
-        """Returns the capital expenses for building the new capacity for each type of generator."""
+        """Return the capital expenses for building the new capacity for each type of generator."""
 
         gens = self.net.generators
         gens["p_nom_new"] = gens.p_nom_opt - gens.p_nom
@@ -132,7 +132,7 @@ class SizingResults:
             print(f"Links new cap*length:\n{self.get_links_new_cap_length()}\n")
 
     def get_lines_capacity(self):
-        """Returns the original, new and optimal transmission capacities (in MW) for each type of line."""
+        """Return the original, new and optimal transmission capacities (in MW) for each type of line."""
 
         lines = self.net.lines.groupby(["carrier"])
         init_capacities = lines.s_nom.sum()
@@ -142,14 +142,14 @@ class SizingResults:
         return init_capacities, new_capacities, opt_capacities
 
     def get_links_capacity(self):
-        """Returns the original, new and optimal transmission capacities (in MW) for links."""
+        """countries_url_area_types the original, new and optimal transmission capacities (in MW) for links."""
 
         links = self.net.links[["carrier", "p_nom", "p_nom_opt"]].groupby("carrier").sum()
         links["p_nom_new"] = links["p_nom_opt"] - links["p_nom"]
         return links["p_nom"], links["p_nom_new"], links["p_nom_opt"]
 
     def get_lines_power(self):
-        """Returns the total power (MW) (in either direction) that goes through each type of
+        """countries_url_area_types the total power (MW) (in either direction) that goes through each type of
         line over self.net.snapshots"""
 
         lines_t = self.net.lines_t
@@ -167,7 +167,7 @@ class SizingResults:
         return pd.DataFrame.from_dict(power_carrier, orient="index", columns=["lines_power"]).lines_power
 
     def get_links_power(self):
-        """Returns the total power (MW) (in either direction) that goes through all links over self.net.snapshots"""
+        """countries_url_area_types the total power (MW) (in either direction) that goes through all links over self.net.snapshots"""
 
         links_t = self.net.links_t
         links_t.p0[links_t.p0 < 0] = 0
@@ -177,21 +177,21 @@ class SizingResults:
         return power.to_numpy().sum()
 
     def get_lines_usage(self):
-        """Returns the average transmission capacity usage of each type of line"""
+        """countries_url_area_types the average transmission capacity usage of each type of line"""
 
         _, _, opt_cap = self.get_lines_capacity()
         tot_power = self.get_lines_power()
         return tot_power/(opt_cap*len(self.net.snapshots))
 
     def get_links_usage(self):
-        """Returns the average transmission capacity usage of all links"""
+        """countries_url_area_types the average transmission capacity usage of all links"""
 
         _, _, opt_cap = self.get_links_capacity()
         tot_power = self.get_links_power()
         return tot_power/(opt_cap*len(self.net.snapshots))
 
     def get_lines_capex(self):
-        """Returns the capital expenses for building the new capacity for each type of line."""
+        """countries_url_area_types the capital expenses for building the new capacity for each type of line."""
 
         lines = self.net.lines
         lines["s_nom_new"] = lines.s_nom_opt - lines.s_nom
@@ -200,7 +200,7 @@ class SizingResults:
         return lines.groupby(["carrier"]).capex.sum()
 
     def get_links_capex(self):
-        """Returns the capital expenses for building the new capacity for all links."""
+        """countries_url_area_types the capital expenses for building the new capacity for all links."""
 
         links = self.net.links
         links["p_nom_new"] = links.p_nom_opt - links.p_nom
@@ -249,7 +249,7 @@ class SizingResults:
         return su.capital_cost.mean(), su.marginal_cost.mean()
 
     def get_storage_power_capacity(self):
-        """Returns the original, new and optimal power capacities (in MW) for each type of storage unit."""
+        """countries_url_area_types the original, new and optimal power capacities (in MW) for each type of storage unit."""
 
         storage_units = self.net.storage_units.groupby(["type"])
         init_capacities = storage_units.p_nom.sum()
@@ -259,7 +259,7 @@ class SizingResults:
         return init_capacities, new_capacities, opt_capacities
 
     def get_storage_energy_capacity(self):
-        """Returns the original, new and optimal energy capacities (in MWh) for each type of storage unit."""
+        """countries_url_area_types the original, new and optimal energy capacities (in MWh) for each type of storage unit."""
 
         storage_units = self.net.storage_units
         storage_units["p_nom_energy"] = storage_units.p_nom*storage_units.max_hours
@@ -273,7 +273,7 @@ class SizingResults:
         return init_capacities, new_capacities, opt_capacities
 
     def get_storage_power(self):
-        """Returns the total power (MW) that goes out or in of the battery"""
+        """countries_url_area_types the total power (MW) that goes out or in of the battery."""
 
         storage_units = self.net.storage_units
         types = sorted(list(set(storage_units.type.values)))
@@ -294,7 +294,7 @@ class SizingResults:
         return pd.DataFrame.from_dict(power, orient="index", columns=["power"]).power
 
     def get_storage_energy(self):
-        """Returns the total energy (MWh) that is stored over self.net.snapshots"""
+        """countries_url_area_types the total energy (MWh) that is stored over self.net.snapshots."""
 
         storage_units = self.net.storage_units
         types = sorted(list(set(storage_units.type.values)))
@@ -309,7 +309,7 @@ class SizingResults:
         return pd.DataFrame.from_dict(energy, orient="index", columns=["energy"]).energy
 
     def get_storage_power_usage(self):
-        """Returns the average power capacity usage of each type of storage unit"""
+        """Return the average power capacity usage of each type of storage unit."""
 
         _, _, opt_cap = self.get_storage_power_capacity()
         tot_power = self.get_storage_power()

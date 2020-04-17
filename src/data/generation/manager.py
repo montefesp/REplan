@@ -13,8 +13,9 @@ def load_ppm():
 
 
 def get_gen_from_ppm(fuel_type: str = "", technology: str = "", countries: List[str] = None) -> pd.DataFrame:
-    """Returns information about generator using a certain fuel type and/or technology
-     as extracted from power plant matching tool
+    """
+    Return information about generator using a certain fuel type and/or technology
+     as extracted from power plant matching tool.
 
     Parameters
     ----------

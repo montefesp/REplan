@@ -13,7 +13,8 @@ logger = logging.getLogger()
 
 
 def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
-    """Adds conventional generators to a Network instance.
+    """
+    Add conventional generators to a Network instance.
 
     Parameters
     ----------

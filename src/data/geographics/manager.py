@@ -28,8 +28,9 @@ logger = logging.getLogger()
 
 def is_onshore(point: Point, onshore_shape: Polygon, dist_threshold: float = 20.0) -> bool:
     """
-    Determines if a point is onshore (considering that onshore means belonging to the onshore_shape or less than
-    dist_threshold km away from it)
+    Determine if a point is onshore.
+
+    Onshore means belonging to the onshore_shape or less than dist_threshold km away from it.
 
     Parameters
     ----------
@@ -69,7 +70,6 @@ def get_nuts_codes(nuts_level: int, year: int):
     assert nuts_level in available_nuts_levels, \
         f"Error: NUTS level must be one of {available_nuts_levels}, received {nuts_level}"
 
-
     nuts_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/NUTS2013-NUTS2016.xlsx")
     nuts_codes = pd.read_excel(nuts_fn, sheet_name="NUTS2013-NUTS2016", usecols=[1, 2], header=1)
     nuts_codes = nuts_codes[f"Code {year}"].dropna()
@@ -78,7 +78,7 @@ def get_nuts_codes(nuts_level: int, year: int):
 
 
 def get_nuts_area() -> pd.DataFrame:
-    """Returns in a pd.DataFrame for each NUTS region (2013 and 2016 version) its size in km2"""
+    """countries_url_area_types in a pd.DataFrame for each NUTS region (2013 and 2016 version) its size in km2"""
 
     area_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/reg_area3.xls")
     return pd.read_excel(area_fn, header=9, index_col=0)[:2193]
@@ -86,7 +86,8 @@ def get_nuts_area() -> pd.DataFrame:
 
 # TODO: document or maybe delete and just used directly pyc?
 def convert_country_codes(target, **keys):
-    """This function can be used to convert countries codes.
+    """
+    Convert countries codes.
 
     Parameters
     ----------
@@ -103,8 +104,10 @@ def convert_country_codes(target, **keys):
         return np.nan
 
 
+# TODO: check in more details
 def save_to_geojson(df, fn):
-    """This function creates a geojson file from a pandas geopandas dataframe. # TODO: check in more details
+    """
+    Create a geojson file from a pandas geopandas dataframe.
 
     Parameters
     ----------
@@ -133,7 +136,7 @@ def save_polygon(df: gpd.GeoDataFrame, fn: str) -> None:
 
 def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]]) -> None:
     """
-    Displays in different colours a set of polygons or multipolygons
+    Display in different colours a set of polygons or multipolygons.
 
     Parameters
     ----------
@@ -170,7 +173,8 @@ def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]]) -> None:
 def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Series,
                             keep_outside: bool = True) -> pd.Series:
     """
-    Matches a set of points to regions by identifying in which region each point falls.
+    Match a set of points to regions by identifying in which region each point falls.
+
     If keep_outside is True, points that don't fall in any shape but which are close enough to one shape are kept,
     otherwise those points are dumped.
 
@@ -241,7 +245,7 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
 
 def match_points_to_countries(points: List[Tuple[float, float]], countries: List[str]) -> pd.Series:
     """
-    Returns in which country's region (onshore + offshore) each points falls into
+    Return in which country's region (onshore + offshore) each points falls into.
 
     Parameters
     ----------
@@ -273,7 +277,7 @@ def match_points_to_countries(points: List[Tuple[float, float]], countries: List
 
 def get_subregions(region: str) -> List[str]:
     """
-    Returns the list of the subregions composing one of the region defined in data/region_definition.csv.
+    Return the list of the subregions composing one of the region defined in data/region_definition.csv.
 
     Parameters
     ----------
@@ -299,7 +303,7 @@ def get_subregions(region: str) -> List[str]:
 def return_region_shape(region_name: str, subregions: List[str], prepare: bool = False) \
         -> Dict[str, Union[Polygon, MultiPolygon]]:
     """
-    Returns union of onshore and union of offshore shapes of a series of geographical regions
+    Return union of onshore and union of offshore shapes of a series of geographical regions.
 
     Parameters
     ----------
@@ -339,7 +343,7 @@ def return_region_shape(region_name: str, subregions: List[str], prepare: bool =
 def return_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
                            points: List[Tuple[float, float]] = None) -> List[Tuple[float, float]]:
     """
-    Return list of coordinates (lon, lat) located inside a geographical shape at a certain resolution
+    Return list of coordinates (lon, lat) located inside a geographical shape at a certain resolution.
 
     Parameters
     ----------
@@ -376,7 +380,8 @@ def return_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: floa
 
 def filter_onshore_polys(polys: Union[Polygon, MultiPolygon], minarea: float = 0.1,
                          tolerance: float = 0.01, filterremote: bool = False):
-    """Filter onshore polygons based on distance to main land.
+    """
+    Filter onshore polygons based on distance to main land.
 
     Parameters
     ----------
@@ -406,7 +411,8 @@ def filter_onshore_polys(polys: Union[Polygon, MultiPolygon], minarea: float = 0
 # TODO: might need to do sth more intelligent in terms of distance
 def filter_offshore_polys(offshore_polys, onshore_polys_union, minarea: float = 0.1,
                           tolerance: float = 0.01, filterremote: bool = False):
-    """Filter offshore polygons based on distance to main land.
+    """
+    Filter offshore polygons based on distance to main land.
     
     Parameters
     ----------
@@ -451,7 +457,8 @@ def filter_offshore_polys(offshore_polys, onshore_polys_union, minarea: float = 
 
 def get_onshore_shapes(ids: List[str], minarea: float = 0.1, tolerance: float = 0.01,
                        filterremote: bool = False, save_file_name: str = None):
-    """Load the shapes of the onshore territories a specified set of countries into a GeoPandas Dataframe
+    """
+    Load the shapes of the onshore territories a specified set of countries into a GeoPandas Dataframe.
     
     Parameters
     ----------
@@ -504,7 +511,8 @@ def get_onshore_shapes(ids: List[str], minarea: float = 0.1, tolerance: float = 
 def get_offshore_shapes(ids: List[str], onshore_shape: Union[Polygon, MultiPolygon] = None,
                         minarea: float = 0.1, tolerance: float = 0.01,
                         filterremote: bool = False, save_file_name: str = None):
-    """Load the shapes of the offshore territories of a specified set of regions into a GeoPandas Dataframe
+    """
+    Load the shapes of the offshore territories of a specified set of regions into a GeoPandas Dataframe.
 
     Parameters
     ----------

@@ -11,7 +11,7 @@ logger = logging.getLogger()
 
 def get_co2_emission_level_for_country(country_code: str, year: int) -> float:
     """
-    Returns co2 emissions (in kT) from the electricity sector for a given country at a given year.
+    Return CO2 emissions (in kT) from the electricity sector for a given country at a given year.
 
     Parameters
     ----------
@@ -60,7 +60,7 @@ def get_co2_emission_level_for_country(country_code: str, year: int) -> float:
 
 def get_reference_emission_levels_for_region(region: str, ref_year: int) -> float:
     """
-    Returns the total CO2 emissions (in kT) emitted by a series of countries in a given region for a given year
+    Return the total CO2 emissions (in kT) emitted by a series of countries in a given region for a given year.
 
     Parameters
     ----------

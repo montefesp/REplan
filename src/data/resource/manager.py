@@ -20,7 +20,7 @@ import windpowerlib
 # TODO: add the filtering on coordinates and revise
 def read_resource_database(file_path, coords=None):
     """
-    Reads resource database from .nc files.
+    Read resource database from .nc files.
 
     Parameters
     ----------
@@ -71,7 +71,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
                              spatial_res: float, timestamps: pd.DatetimeIndex,
                              smooth_wind_power_curve: bool = True) -> pd.DataFrame:
     """
-    Computes capacity factors for a list of points associated to a list of technologies.
+    Compute capacity factors for a list of points associated to a list of technologies.
 
     Parameters
     ----------
@@ -144,14 +144,14 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
                     capacity_factor_references = np.asarray([i[1] for i in power_curve_array])
                     capacity_factor_references_pu = capacity_factor_references / max(capacity_factor_references)
 
-
                     wind_log = windpowerlib.wind_speed.logarithmic_profile(
                         wind_filtered.values, wind_speed_reference_height,
                         float(data_converter_wind.loc['Hub height [m]', converter]),
                         roughness_filtered.values)
                     wind_data = da.from_array(wind_log, chunks='auto', asarray=True)
 
-                    # The transfer function of wind assets replicates the one of a wind farm rather than one of a wind turbine.
+                    # The transfer function of wind assets replicates the one of a
+                    # wind farm rather than one of a wind turbine.
                     if smooth_wind_power_curve:
 
                         turbulence_intensity = wind_filtered.std(dim='time') / wind_filtered.mean(dim='time')
@@ -177,10 +177,10 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 
                     continue
 
-
         elif resource == 'pv':
 
-            converter = tech_config[tech]['converter']  # TODO: just pass the convrters as argument instead of tech_config?
+            # TODO: just pass the convrters as argument instead of tech_config?
+            converter = tech_config[tech]['converter']
 
             # Get irradiance in W from J
             irradiance = sub_dataset.ssrd / 3600.
@@ -211,7 +211,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 # --- Using atlite --- #
 def get_cap_factor_for_regions(regions: List[Polygon], start_month: int, end_month: int = None):
     """
-    Return the capacity factor series and generation capacity for pv and wind for a list of regions
+    Return the capacity factor series and generation capacity for pv and wind for a list of regions.
 
     Parameters
     ----------
@@ -266,7 +266,7 @@ def get_cap_factor_for_regions(regions: List[Polygon], start_month: int, end_mon
 
 def get_cap_factor_at_points(points: List[Point], start_month: int, end_month: int = None):
     """
-    Return the capacity factor series and generation capacity for pv and wind for a list of points
+    Return the capacity factor series and generation capacity for pv and wind for a list of points.
 
     Parameters
     ----------
@@ -296,7 +296,7 @@ def get_cap_factor_at_points(points: List[Point], start_month: int, end_month: i
 
 def get_cap_factor_for_countries(tech: str, countries: List[str], timestamps: pd.DatetimeIndex) -> pd.DataFrame:
     """
-    Returns capacity factors time-series for a set of countries over a given timestamps, for a given technology.
+    Return capacity factors time-series for a set of countries over a given timestamps, for a given technology.
 
     Parameters
     ----------

@@ -11,7 +11,8 @@ logger = logging.getLogger()
 
 def add_phs_plants(network: pypsa.Network, topology_type: str = "countries",
                    extendable: bool = False, cyclic_sof: bool = True) -> pypsa.Network:
-    """Adds pumped-hydro storage units to a PyPSA Network instance
+    """
+    Add pumped-hydro storage units to a PyPSA Network instance.
 
     Parameters
     ----------
@@ -89,7 +90,8 @@ def add_phs_plants(network: pypsa.Network, topology_type: str = "countries",
 
 def add_ror_plants(network: pypsa.Network, topology_type: str = "countries",
                    extendable: bool = False) -> pypsa.Network:
-    """Adds run-of-river generators to a Network instance.
+    """
+    Add run-of-river generators to a Network instance.
 
     Parameters
     ----------
@@ -159,7 +161,8 @@ def add_ror_plants(network: pypsa.Network, topology_type: str = "countries",
 
 def add_sto_plants(network: pypsa.Network, topology_type: str = "countries",
                    extendable: bool = False, cyclic_sof: bool = True) -> pypsa.Network:
-    """Adds run-of-river generators to a Network instance
+    """
+    Add run-of-river generators to a Network instance
 
     Parameters
     ----------

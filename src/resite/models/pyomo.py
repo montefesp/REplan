@@ -222,7 +222,7 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
 
 def solve_model(resite):
     """
-    Solve a model
+    Solve a model.
 
     Parameters
     ----------

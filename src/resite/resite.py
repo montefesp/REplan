@@ -79,7 +79,7 @@ class Resite:
 
     # TODO: this is pretty messy - find a way to clean it up
     def build_input_data(self, use_ex_cap: bool, filtering_layers: Dict[str, bool]):
-        """Data pre-processing.
+        """Preprocess data.
 
         Parameters:
         -----------

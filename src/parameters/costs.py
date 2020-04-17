@@ -43,7 +43,7 @@ def get_plant_type(tech: str) -> Tuple[str, str]:
 
 def get_cost(tech: str, nb_hours: float) -> Tuple[float, float]:
     """
-    Returns capital and marginal cost for a given generation technology
+    Return capital and marginal cost for a given generation technology.
 
     Parameters
     ----------

@@ -20,7 +20,7 @@ from src.data.geographics import return_points_in_shape
 
 def plot_topology(buses: pd.DataFrame, lines: pd.DataFrame = None) -> None:
     """
-    Plots a map with buses and lines.
+    Plot a map with buses and lines.
 
     Parameters
     ----------
@@ -77,9 +77,9 @@ def plot_topology(buses: pd.DataFrame, lines: pd.DataFrame = None) -> None:
 
 
 def voronoi_special(shape: Union[Polygon, MultiPolygon], centroids: List[List[float]], resolution: float = 0.5):
-    """This function applies a special Voronoi partition of a non-convex polygon based on
-    an approximation of the geodesic distance to a set of points which define the centroids
-    of each partition.
+    """
+    Apply a special Voronoi partition of a non-convex polygon based on an approximation of the
+    geodesic distance to a set of points which define the centroids of each partition.
 
     Parameters
     ----------
@@ -89,6 +89,7 @@ def voronoi_special(shape: Union[Polygon, MultiPolygon], centroids: List[List[fl
         List of coordinates
     resolution: float (default: 0.5)
         The smaller this value the more precise the geodesic approximation
+
     Returns
     -------
     List of N Polygons

@@ -16,7 +16,8 @@ logger = logging.getLogger()
 
 def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: bool, extendable: bool,
                    ppm_file_name: str = None) -> pypsa.Network:
-    """Adds nuclear generators to a PyPsa Network instance.
+    """
+    Add nuclear generators to a PyPsa Network instance.
 
     Parameters
     ----------

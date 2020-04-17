@@ -8,7 +8,7 @@ from src.data.geographics import get_subregions, get_nuts_area
 
 def get_yearly_country_load(country: str, year: int = 2016) -> int:
     """
-    Returns the yearly load of country for a specific year
+    Compute the yearly load of country for a specific year.
 
     Parameters
     ----------
@@ -29,7 +29,8 @@ def get_yearly_country_load(country: str, year: int = 2016) -> int:
 def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
              countries: List[str] = None, regions: List[str] = None, missing_data: str = "error") -> pd.DataFrame:
     """
-    Returns hourly load time series (in GWh) for given countries or regions.
+    Compute hourly load time series (in GWh) for given countries or regions.
+
     The desired time slice can be either given as as series of time stamps or
     as a range of years for which we want full data.
 
@@ -103,9 +104,11 @@ def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
 
 def get_load_from_source_country(target_countries: List[str], timestamps: pd.DatetimeIndex) -> pd.DataFrame:
     """
-    Returns load for a list of countries. The load is obtained by retrieving the load for another country (listed
-    in data/load/source_load_countries.csv and then resizing it proportionally to yearly load of the source
-    and target countries.
+    Compute load for a list of countries.
+
+    The load is obtained by retrieving the load for another country
+    (listed in data/load/source_load_countries.csv) and then resizing it
+    proportionally to yearly load of the source and target countries.
 
     Parameters
     ----------
@@ -170,7 +173,8 @@ def get_load_from_source_country(target_countries: List[str], timestamps: pd.Dat
 
 def get_load_from_nuts_codes(nuts_codes_lists: List[List[str]], timestamps: pd.DatetimeIndex) -> pd.DataFrame:
     """
-    Returns the aggregated load in GWh for groups of NUTS regions.
+    Compute the aggregated load in GWh for groups of NUTS regions.
+
     The load for each NUTS region is computed by downscaling the corresponding
     country load proportionally to population.
 
@@ -234,7 +238,7 @@ def get_load_from_nuts_codes(nuts_codes_lists: List[List[str]], timestamps: pd.D
 # def get_prepared_load(timestamps: pd.DatetimeIndex = None, countries: List[str] = None,
 #                       regions: List[str] = None) -> pd.DataFrame:
 #     """
-#     Returns hourly load time series (in GWh) for given regions and time horizon.
+#     Return hourly load time series (in GWh) for given regions and time horizon.
 #
 #     Parameters
 #     ----------
@@ -291,7 +295,7 @@ def get_load_from_nuts_codes(nuts_codes_lists: List[List[str]], timestamps: pd.D
 #                        days_range_end: datetime.date = datetime.date(1, 12, 31),
 #                        years: List[int] = None):
 #     """
-#     Returns a pd.Dataframe where the columns corresponds the load time-series (in MWh) for a series of countries.
+#     Return a pd.Dataframe where the columns corresponds the load time-series (in MWh) for a series of countries.
 #     The time period for which the load is returned can be specified in various ways. The default behavior is to
 #     return the most recent year of data available for each countries. The load for a specific set of years can
 #     also be asked for. Note that data for a given year can be absent for some countries and will therefore lead
