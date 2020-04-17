@@ -116,7 +116,7 @@ if __name__ == '__main__':
                                             topology_type='countries', offshore_buses=False)
             elif strategy == 'siting':
                 net = add_res(net, technologies, config['res'], pv_wind_tech_config, config["region"],
-                              output_dir=output_dir, offshore_buses=False, topology_type='countries')
+                              output_dir=f"{output_dir}resite/", offshore_buses=False, topology_type='countries')
 
     # Add conventional gen
     if config["dispatch"]["include"]:

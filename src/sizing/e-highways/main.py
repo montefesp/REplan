@@ -35,8 +35,6 @@ if __name__ == "__main__":
     params_dir = join(dirname(abspath(__file__)), "../../parameters/")
     output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/e-highways/{strftime('%Y%m%d_%H%M%S')}/")
 
-    exit()
-
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
@@ -123,7 +121,7 @@ if __name__ == "__main__":
                                             topology_type='ehighway')
             elif strategy == 'siting':
                 net = add_res(net, technologies, config['res'], pv_wind_tech_config, config["region"],
-                              topology_type='ehighway', output_dir=output_dir)
+                              topology_type='ehighway', output_dir=f"{output_dir}resite/")
             # elif config['res']['strategy'] == 'bus_test':
             #    net = add_generators_at_bus_test(net, config['res'], pv_wind_tech_config, config["region"], output_dir)
 

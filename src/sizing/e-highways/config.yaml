@@ -28,8 +28,8 @@ res:
     max: []
     comp: []
     no_siting: []
-    siting: []
-    bus: ['wind_offshore', 'wind_onshore', 'pv_utility']
+    siting: ['wind_offshore', 'wind_onshore', 'pv_utility']
+    bus: []
 
   # For strategy = max or comp
   path: '20200414_214108'

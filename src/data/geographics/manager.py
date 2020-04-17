@@ -678,6 +678,38 @@ def generate_offshore_shapes_geojson():
     save_to_geojson(unique_countries_shape, offshore_shapes_fn)
 
 
+# Function from PyPSA/geo.py
+# TODO: need to analyse
+def area_from_lon_lat_poly(geometry):
+    """
+    Compute the area in km^2 of a shapely geometry, whose points are in
+    longitude and latitude.
+    Parameters
+    ----------
+    geometry: shapely geometry
+        Points must be in longitude and latitude.
+    Returns
+    -------
+    area:  float
+        Area in km^2.
+    """
+
+    import pyproj
+    from shapely.ops import transform
+    from functools import partial
+
+
+    project = partial(
+        pyproj.transform,
+        pyproj.Proj(init='epsg:4326'), # Source: Lon-Lat
+        pyproj.Proj(proj='aea')) # Target: Albers Equal Area Conical https://en.wikipedia.org/wiki/Albers_projection
+
+    new_geometry = transform(project, geometry)
+
+    #default area is in m^2
+    return new_geometry.area/1e6
+
+
 if __name__ == "__main__":
 
     # Need to execute these lines only once

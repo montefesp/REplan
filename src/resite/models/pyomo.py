@@ -1,15 +1,18 @@
+from os.path import join
+from typing import List, Dict, Tuple
+
+
 from numpy import arange
+import pandas as pd
+
 from pyomo.environ import ConcreteModel, Var, Constraint, Objective, minimize, maximize, NonNegativeReals, value, \
     Binary
 from pyomo.opt import ProblemFormat, SolverFactory
-from typing import List, Dict, Tuple
-import pandas as pd
-from os.path import join
-import pickle
 
 
 # TODO: Some constraints are so similar shouldn't we create function for creating them?
-def build_model(resite, formulation: str, deployment_vector: List[float], write_lp: bool = False):
+def build_model(resite, formulation: str, deployment_vector: List[float],
+                write_lp: bool = False, output_folder: str = None):
     """
     Model build-up.
 
@@ -19,10 +22,10 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
         Formulation of the optimization problem to solve
     deployment_vector: List[float]
         # TODO: this is dependent on the formulation so maybe we should create a different function for each formulation
-    output_folder: str
-        Path towards output folder
     write_lp : bool (default: False)
         If True, the model is written to an .lp file.
+    output_folder: str
+        Place to save the .lp file.
     """
 
     accepted_formulations = ['meet_RES_targets_agg', 'meet_RES_targets_hourly', 'meet_demand_with_capacity',
@@ -213,7 +216,7 @@ def build_model(resite, formulation: str, deployment_vector: List[float], write_
             model.objective = Objective(rule=objective_rule, sense=maximize)
 
     if write_lp:
-        model.write(filename=join(resite.output_folder, 'model_resite_pyomo.lp'),
+        model.write(filename=join(output_folder, 'model_resite_pyomo.lp'),
                     format=ProblemFormat.cpxlp,
                     io_options={'symbolic_solver_labels': True})
 

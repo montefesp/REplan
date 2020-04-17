@@ -1,4 +1,4 @@
-from os.path import join, dirname, abspath
+from os.path import join, dirname, abspath, isdir
 from os import makedirs
 import yaml
 import pickle
@@ -23,11 +23,43 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
+def init_output_folder(output_folder: str = None):
+    """Initialize an output folder."""
+
+    if output_folder is None:
+        output_folder = join(dirname(abspath(__file__)), f"../../output/resite/{strftime('%Y%m%d_%H%M%S')}/")
+    assert output_folder[-1] == "/", "Error: Output folder name must end with '/'"
+    if not isdir(output_folder):
+        makedirs(output_folder)
+
+    logger.info(f"Output folder path is: {abspath(output_folder)}/")
+
+    return output_folder
+
+
 class Resite:
+    """
+    Tool allowing the selection of RES sites.
+
+    Methods
+    -------
+    __init__
+    __del__
+    build_input_data
+    build_model
+    solve_model
+    retrieve_solution
+    retrieve_sites_data
+    save
+
+
+
+    """
 
     def __init__(self, regions: List[str], technologies: List[str], tech_config: Dict[str, Any], timeslice: List[str],
-                 spatial_resolution: float, keep_files: bool = False):
+                 spatial_resolution: float):
         """
+        Constructor
 
         Parameters
         ----------
@@ -41,13 +73,7 @@ class Resite:
             List of 2 string containing starting and end date of the time horizon
         spatial_resolution: float
             Spatial resolution at which we want to site
-        keep_files: bool (default: False)
-            Whether to keep files at the end of the run
         """
-
-        # self.params = params
-        self.logger = logger
-        self.keep_files = keep_files
 
         self.technologies = technologies
         self.regions = regions
@@ -56,26 +82,6 @@ class Resite:
         self.spatial_res = spatial_resolution
 
         self.instance = None
-
-    def init_output_folder(self, dir_name: str = None):
-        """Initialize an output folder."""
-
-        if dir_name is None:
-            dir_name = join(dirname(abspath(__file__)), "../../output/resite/")
-            self.output_folder = abspath(f"{dir_name}{strftime('%Y%m%d_%H%M%S')}/")
-        else:
-            self.output_folder = f"{dir_name}resite/"
-        makedirs(self.output_folder)
-
-        self.logger.info(f"Folder path is: {self.output_folder}")
-
-        if not self.keep_files:
-            self.logger.info('WARNING! Files will be deleted at the end of the run.')
-
-    def __del__(self):
-        """If self.keep_files is false, remove all outputs created during the run."""
-        if not self.keep_files and hasattr(self, "output_folder"):
-            rmtree(self.output_folder)
 
     # TODO: this is pretty messy - find a way to clean it up
     def build_input_data(self, use_ex_cap: bool, filtering_layers: Dict[str, bool]):
@@ -172,8 +178,10 @@ class Resite:
                     else [(tech, (coords_in_region.x, coords_in_region.y))]
                 self.region_tech_points_dict[region] = self.region_tech_points_dict[region].union(set(coords_in_region))
 
-    def build_model(self, modelling: str, formulation: str, deployment_vector: List[float], write_lp: bool = False):
-        """Model build-up.
+    def build_model(self, modelling: str, formulation: str, deployment_vector: List[float],
+                    write_lp: bool = False, output_folder: str = None):
+        """
+        Model build-up.
 
         Parameters:
         ------------
@@ -185,10 +193,9 @@ class Resite:
             # TODO: this is dependent on the formulation so maybe we should create a different function for each formulation
         write_lp : bool (default: False)
             If True, the model is written to an .lp file.
+        dir_name: str (default: None)
+            Where to write the .lp file
         """
-
-        if write_lp:
-            self.init_output_folder()
 
         if formulation == 'meet_demand_with_capacity' and len(self.regions) != 1:
             raise ValueError('The selected formulation works for one region only!')
@@ -202,23 +209,26 @@ class Resite:
         assert modelling in accepted_modelling, f"Error: {modelling} is not available as modelling language. " \
                                                 f"Accepted languages are {accepted_modelling}"
 
+        if write_lp:
+            output_folder = init_output_folder(output_folder)
+
         self.modelling = modelling
         self.formulation = formulation
         self.deployment_vector = deployment_vector
         if self.modelling == 'pyomo':
             from src.resite.models.pyomo import build_model as build_pyomo_model
-            build_pyomo_model(self, formulation, deployment_vector, write_lp)
+            build_pyomo_model(self, formulation, deployment_vector, write_lp, output_folder)
         elif self.modelling == 'docplex':
             from src.resite.models.docplex import build_model as build_docplex_model
-            build_docplex_model(self, formulation, deployment_vector, write_lp)
+            build_docplex_model(self, formulation, deployment_vector, write_lp, output_folder)
         elif self.modelling == 'gurobipy':
             from src.resite.models.gurobipy import build_model as build_gurobipy_model
-            build_gurobipy_model(self, formulation, deployment_vector, write_lp)
+            build_gurobipy_model(self, formulation, deployment_vector, write_lp, output_folder)
 
     def solve_model(self):
         """
         # TODO: update comment
-        Solve a model
+        Solve a model.
         """
         if self.modelling == 'pyomo':
             from src.resite.models.pyomo import solve_model as solve_pyomo_model
@@ -232,7 +242,7 @@ class Resite:
 
     def retrieve_solution(self) -> Dict[str, List[Tuple[float, float]]]:
         """
-        Get points that were selected during the optimization
+        Get points that were selected during the optimization.
 
         Returns
         -------
@@ -254,7 +264,7 @@ class Resite:
 
     def retrieve_sites_data(self):
         """
-        This function returns the data for the optimal sites.
+        Return data for the optimal sites.
 
         Returns
         -------
@@ -280,15 +290,14 @@ class Resite:
         return self.selected_existing_capacity_ds, self.selected_capacity_potential_ds, self.selected_cap_factor_df
 
     def save(self, params, dir_name: str = None):
+        # TODO : comment
 
-        # TODO: shitty because model.lp or solver.log will be saved in a different file
-        if not hasattr(self, 'output_folder'):
-            self.init_output_folder(dir_name)
+        output_folder = init_output_folder(dir_name)
 
         # TODO: change this -> maybe we would need to have a function copying the parameters back to a file
-        yaml.dump(params, open(f"{self.output_folder}config.yaml", 'w'))
+        yaml.dump(params, open(f"{output_folder}config.yaml", 'w'))
 
-        yaml.dump(self.tech_config, open(f"{self.output_folder}pv_wind_tech_configs.yaml", 'w'))
+        yaml.dump(self.tech_config, open(f"{output_folder}pv_wind_tech_configs.yaml", 'w'))
 
         resite_output = [
             self.formulation,
@@ -310,7 +319,7 @@ class Resite:
             self.selected_cap_factor_df
         ]
 
-        pickle.dump(resite_output, open(join(self.output_folder, 'resite_model.p'), 'wb'))
+        pickle.dump(resite_output, open(join(output_folder, 'resite_model.p'), 'wb'))
 
 
 

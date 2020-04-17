@@ -189,13 +189,13 @@ def add_generators_using_siting(network: pypsa.Network, technologies: List[str],
         "Error: If you are not using a one-node-per-country topology, you must associate regions to buses."
 
     logger.info('Setting up resite.')
-    resite = Resite([region], technologies, tech_config, params["timeslice"], params["spatial_resolution"],
-                    params["keep_files"])
+    resite = Resite([region], technologies, tech_config, params["timeslice"], params["spatial_resolution"])
 
     resite.build_input_data(params['use_ex_cap'], params['filtering_layers'])
 
     logger.info('resite model being built.')
-    resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
+    resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'],
+                       params['write_lp'], output_dir)
 
     logger.info('Sending resite to solver.')
     resite.solve_model()
@@ -306,7 +306,7 @@ def add_generators_at_resolution(network: pypsa.Network, technologies: List[str]
 
     # Generate input data using resite
     resite = Resite(regions, technologies, tech_config, [network.snapshots[0], network.snapshots[-1]],
-                    spatial_resolution, False)
+                    spatial_resolution)
     resite.build_input_data(use_ex_cap, filtering_layers)
 
     for tech in technologies:
