@@ -205,7 +205,7 @@ def add_generators_using_siting(network: pypsa.Network, technologies: List[str],
     existing_cap_ds, cap_potential_ds, cap_factor_df = resite.retrieve_sites_data()
 
     logger.info("Saving resite results")
-    resite.save(params, output_dir)
+    resite.save(output_dir)
 
     if not resite.timestamps.equals(network.snapshots):
         # If network snapshots is a subset of resite snapshots just crop the data

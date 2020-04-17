@@ -3,7 +3,6 @@ from os import makedirs
 import yaml
 import pickle
 from typing import List, Dict, Tuple, Any
-from shutil import rmtree
 from time import strftime
 
 import pandas as pd
@@ -92,8 +91,9 @@ class Resite:
         use_ex_cap: bool
             Whether to compute or not existing capacity and use it in optimization
         filtering_layers: Dict[str, bool]
-            Dictionary indicating if a given filtering layers needs to be applied. If the layer name is present as key and
-            associated to a True boolean, then the corresponding is applied.
+            Dictionary indicating if a given filtering layers needs to be applied.
+            If the layer name is present as key and associated to a True boolean,
+            then the corresponding is applied.
         """
 
         self.use_ex_cap = use_ex_cap
@@ -226,10 +226,7 @@ class Resite:
             build_gurobipy_model(self, formulation, deployment_vector, write_lp, output_folder)
 
     def solve_model(self):
-        """
-        # TODO: update comment
-        Solve a model.
-        """
+        """Solve the model built with build_model"""
         if self.modelling == 'pyomo':
             from src.resite.models.pyomo import solve_model as solve_pyomo_model
             return solve_pyomo_model(self)
@@ -289,21 +286,34 @@ class Resite:
 
         return self.selected_existing_capacity_ds, self.selected_capacity_potential_ds, self.selected_cap_factor_df
 
-    def save(self, params, dir_name: str = None):
-        # TODO : comment
+    def save(self, dir_name: str = None):
+        """Save all results and parameters."""
 
         output_folder = init_output_folder(dir_name)
 
-        # TODO: change this -> maybe we would need to have a function copying the parameters back to a file
+        # Save some parameters to facilitate identification of run in directory
+        params = {'spatial_resolution': self.spatial_res,
+                  'filtering_layers': self.filtering_layers,
+                  'timeslice': [str(self.timestamps[0]), str(self.timestamps[-1])],
+                  'regions': self.regions,
+                  'technologies': self.technologies,
+                  'use_ex_cap': self.use_ex_cap,
+                  'modelling': self.modelling,
+                  'formulation': self.formulation,
+                  'deployment_vector': self.deployment_vector}
         yaml.dump(params, open(f"{output_folder}config.yaml", 'w'))
 
+        # Save the technology configurations
         yaml.dump(self.tech_config, open(f"{output_folder}pv_wind_tech_configs.yaml", 'w'))
 
+        # Save the attributes
         resite_output = [
             self.formulation,
             self.timestamps,
             self.regions,
             self.modelling,
+            self.use_ex_cap,
+            self.spatial_res,
             self.technologies,
             self.deployment_vector,
             self.tech_points_dict,

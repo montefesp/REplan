@@ -8,6 +8,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 params = yaml.load(open('config.yml'), Loader=yaml.FullLoader)
+
 tech_config_path = join(dirname(abspath(__file__)), '../parameters/pv_wind_tech_configs.yml')
 tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
 logger.info('Building class.')
@@ -34,4 +35,4 @@ for v in values:
         resite.retrieve_solution()
         resite.retrieve_sites_data()
 
-    resite.save(params, output_folder)
+    resite.save(output_folder)

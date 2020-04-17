@@ -18,13 +18,13 @@ technologies: ['wind_offshore', 'wind_onshore', 'pv_utility']
 use_ex_cap: True
 
 modelling: 'docplex' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
-solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
-solver_options:
-  gurobi:
-    Threads: 0
-    Crossover: 0
-  cplex: 0
-  cbc: 0
+# solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
+# solver_options:
+#  gurobi:
+#    Threads: 0
+#    Crossover: 0
+#  cplex: 0
+#  cbc: 0
 write_lp: False
 
 # Type of problem to be solved. Check resite.py for a full list.
