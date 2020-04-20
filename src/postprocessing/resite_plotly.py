@@ -29,7 +29,7 @@ class ResitePlotly:
             legend_orientation="h",
             title=f"Selected points for {techs}<br>"
                   f"Formulation: {self.resite.formulation}<br>"
-                  f"Deployment vector: {self.resite.deployment_vector}",
+                  f"Formulation parameters: {self.resite.formulation_params}",
             geo=dict(
                 fitbounds='locations',
                 showcountries=True,
@@ -46,8 +46,8 @@ class ResitePlotly:
 
             cap_potential_ds = self.resite.cap_potential_ds[tech]
             avg_cap_factor = self.resite.cap_factor_df[tech].mean(axis=0)
-            existing_capacity_ds = self.resite.existing_capacity_ds[tech]
-            optimal_capacity_ds = self.resite.optimal_capacity_ds[tech]
+            existing_cap_ds = self.resite.existing_cap_ds[tech]
+            optimal_cap_ds = self.resite.optimal_cap_ds[tech]
 
             # Original points
             fig.add_trace(
@@ -56,8 +56,8 @@ class ResitePlotly:
                     lat=ys,
                     lon=xs,
                     text=[f"Capacity potential: {cap_potential_ds[index]:.4f}<br>"
-                          f"Initial capacity: {existing_capacity_ds[index]:.4f}<br>"
-                          f"Optimal capacity: {optimal_capacity_ds[index]:.4f}<br>"
+                          f"Initial capacity: {existing_cap_ds[index]:.4f}<br>"
+                          f"Optimal capacity: {optimal_cap_ds[index]:.4f}<br>"
                           f"Average cap factor: {avg_cap_factor[index]:.4f}" for index in cap_potential_ds.index],
                     hoverinfo='text',
                     marker=dict(
@@ -74,15 +74,15 @@ class ResitePlotly:
 
                 selected_points = self.resite.selected_tech_points_dict[tech]
                 if color_variable == 'optimal_capacity':
-                    color_values = optimal_capacity_ds[selected_points]
+                    color_values = optimal_cap_ds[selected_points]
                     colorbar_title = "Optimal capacity"
                 elif color_variable == 'percentage_of_potential':
-                    color_values = optimal_capacity_ds[selected_points]/cap_potential_ds[selected_points]
+                    color_values = optimal_cap_ds[selected_points]/cap_potential_ds[selected_points]
                     colorbar_title = "Percentage of potential installed"
 
                 # Get points with existing capacity
-                pos_existing_capacity_ds = existing_capacity_ds[existing_capacity_ds > 0]
-                points_with_ex_cap = [point for point in selected_points if point in pos_existing_capacity_ds.index]
+                pos_existing_cap_ds = existing_cap_ds[existing_cap_ds > 0]
+                points_with_ex_cap = [point for point in selected_points if point in pos_existing_cap_ds.index]
                 if len(points_with_ex_cap):
                     fig.add_trace(go.Scattergeo(
                         mode="markers",
@@ -109,7 +109,7 @@ class ResitePlotly:
 
                 # Plotting points without existing cap
                 points_without_ex_cap = [point for point in selected_points
-                                         if point not in pos_existing_capacity_ds.index]
+                                         if point not in pos_existing_cap_ds.index]
                 if len(points_without_ex_cap):
                     fig.add_trace(go.Scattergeo(
                         mode="markers",
@@ -140,7 +140,6 @@ class ResitePlotly:
             fig.show()
 
     def show_initial_capacity_factors_heatmap(self, techs: List[str], func="mean"):
-
 
         all_points = []
         for tech in techs:
@@ -180,20 +179,20 @@ class ResitePlotly:
         for tech in techs:
             points = self.resite.tech_points_dict[tech]
             if func == "mean":
-                capacity_factors_agg = self.resite.cap_factor_df[tech][points].mean()
+                cap_factors_agg = self.resite.cap_factor_df[tech][points].mean()
             else:
-                capacity_factors_agg = self.resite.cap_factor_df[tech][points].median()
-            cap_factors_max = cap_factors_max if capacity_factors_agg.max() <= cap_factors_max else capacity_factors_agg.max()
-            cap_factors_min = cap_factors_min if capacity_factors_agg.min() >= cap_factors_min else capacity_factors_agg.min()
+                cap_factors_agg = self.resite.cap_factor_df[tech][points].median()
+            cap_factors_max = cap_factors_max if cap_factors_agg.max() <= cap_factors_max else cap_factors_agg.max()
+            cap_factors_min = cap_factors_min if cap_factors_agg.min() >= cap_factors_min else cap_factors_agg.min()
 
         for tech in techs:
 
             points = self.resite.tech_points_dict[tech]
 
             if func == "mean":
-                capacity_factors_agg = self.resite.cap_factor_df[tech][points].mean()
+                cap_factors_agg = self.resite.cap_factor_df[tech][points].mean()
             else:
-                capacity_factors_agg = self.resite.cap_factor_df[tech][points].median()
+                cap_factors_agg = self.resite.cap_factor_df[tech][points].median()
 
             fig.add_trace(go.Scattergeo(
                 mode="markers",
@@ -212,7 +211,7 @@ class ResitePlotly:
                     ),
                     colorscale='bluered',
                     cmin=cap_factors_min,
-                    color=capacity_factors_agg,
+                    color=cap_factors_agg,
                     cmax=cap_factors_max,
                     colorbar_title=f"Capacity factor {func}"
                 )))
@@ -227,14 +226,14 @@ class ResitePlotly:
 
         # Compute number of time-steps for which the constraint was not feasible
         print(sum(self.resite.generation_potential_df.sum(axis=1) >
-                  self.resite.deployment_vector[0]*self.resite.load_df.sum(axis=1)))
+                  self.resite.formulation_params[0]*self.resite.load_df.sum(axis=1)))
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=self.resite.timestamps,
                                  y=self.resite.generation_potential_df.sum(axis=1),
                                  name="Total Generation Potential (GWh)"))
         fig.add_trace(go.Scatter(x=self.resite.timestamps,
-                                 y=self.resite.load_df.sum(axis=1)*0.3, # *self.resite.deployment_vector[0],
+                                 y=self.resite.load_df.sum(axis=1)*0.3,  # *self.resite.formulation_params[0],
                                  name="Portion of the load to be served (GWh)"))
 
         return fig

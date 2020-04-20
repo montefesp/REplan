@@ -11,13 +11,13 @@ class ResiteResults:
 
     def __init__(self, resite: Resite):
         self.resite = resite
-        self.existing_nodes = self.resite.existing_capacity_ds[self.resite.existing_capacity_ds > 0].index
+        self.existing_nodes = self.resite.existing_cap_ds[self.resite.existing_cap_ds > 0].index
 
     def print_summary(self):
         print(f"\nRegion: {self.resite.regions}")
         print(f"Technologies: {self.resite.technologies}")
         print(f"Formulation: {self.resite.formulation}")
-        print(f"Deployement vector: {self.resite.deployment_vector}\n")
+        print(f"Formulation parameters: {self.resite.formulation_params}\n")
 
     def get_initial_points_number(self):
         count = pd.Series(0, index=sorted(list(self.resite.tech_points_dict.keys())), dtype=int)
@@ -50,44 +50,44 @@ class ResiteResults:
         return self.resite.cap_potential_ds.groupby(level=0).sum()
 
     def get_selected_capacity_potential_sum(self):
-        return self.resite.selected_capacity_potential_ds.groupby(level=0).sum()
+        return self.resite.selected_cap_potential_ds.groupby(level=0).sum()
 
     def get_initial_capacity_potential_mean(self):
         return self.resite.cap_potential_ds.groupby(level=0).mean()
 
     def get_selected_capacity_potential_mean(self):
-        return self.resite.selected_capacity_potential_ds.groupby(level=0).mean()
+        return self.resite.selected_cap_potential_ds.groupby(level=0).mean()
 
     def get_initial_capacity_potential_std(self):
         return self.resite.cap_potential_ds.groupby(level=0).std()
 
     def get_selected_capacity_potential_std(self):
-        return self.resite.selected_capacity_potential_ds.groupby(level=0).std()
+        return self.resite.selected_cap_potential_ds.groupby(level=0).std()
 
     def print_capacity_potential(self):
-        initial_cap_potential = self.get_initial_capacity_potential()
-        selected_cap_potential = self.get_selected_capacity_potential()
+        initial_cap_potential = self.get_initial_capacity_potential_sum()
+        selected_cap_potential = self.get_selected_capacity_potential_sum()
         cap_potential = pd.concat([initial_cap_potential, selected_cap_potential], axis=1, sort=True)
         cap_potential.columns = ["Initial", "Selected", "%"]
         print(f"Capacity potential (GW):\n{cap_potential}\n")
 
     def get_selected_capacity_potential_use(self):
-        potential_capacity_use = self.resite.optimal_capacity_ds/self.resite.selected_capacity_potential_ds
+        potential_capacity_use = self.resite.optimal_cap_ds/self.resite.selected_cap_potential_ds
         potential_capacity_use = potential_capacity_use.dropna()
         return potential_capacity_use.groupby(level=0).mean()
 
     def get_existing_capacity(self):
-        return self.resite.existing_capacity_ds.groupby(level=0).sum()
+        return self.resite.existing_cap_ds.groupby(level=0).sum()
 
     def get_optimal_capacity(self):
-        return self.resite.optimal_capacity_ds.groupby(level=0).sum()
+        return self.resite.optimal_cap_ds.groupby(level=0).sum()
 
     def get_new_capacity(self):
-        return self.resite.optimal_capacity_ds.groupby(level=0).sum() - \
-               self.resite.existing_capacity_ds.groupby(level=0).sum()
+        return self.resite.optimal_cap_ds.groupby(level=0).sum() - \
+               self.resite.existing_cap_ds.groupby(level=0).sum()
 
     def get_optimal_capacity_at_existing_nodes(self):
-        return self.resite.optimal_capacity_ds[self.existing_nodes].groupby(level=0).sum()
+        return self.resite.optimal_cap_ds[self.existing_nodes].groupby(level=0).sum()
 
     def print_capacity(self):
         existing_cap = self.get_existing_capacity()
@@ -98,11 +98,11 @@ class ResiteResults:
         print(f"Capacity (GW):\n{capacities}\n")
 
     def get_generation(self):
-        generation = self.resite.optimal_capacity_ds * self.resite.cap_factor_df
+        generation = self.resite.optimal_cap_ds * self.resite.cap_factor_df
         return generation.sum().groupby(level=0).sum()
 
     def print_generation(self):
-        generation = self.resite.optimal_capacity_ds*self.resite.cap_factor_df
+        generation = self.resite.optimal_cap_ds*self.resite.cap_factor_df
         generation_per_type = pd.DataFrame(generation.sum().groupby(level=0).sum(), columns=["GWh"])
         generation_per_type["% of Total"] = generation_per_type["GWh"]/generation_per_type["GWh"].sum()
         generation_per_type["At Existing Nodes"] = generation[self.existing_nodes].sum().groupby(level=0).sum()

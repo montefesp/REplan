@@ -1,6 +1,7 @@
 from pyomo.environ import Constraint, Objective, maximize, minimize
 
 import pandas as pd
+from numpy import arange
 
 
 def create_generation_y_dict(model, resite):
@@ -16,6 +17,21 @@ def create_generation_y_dict(model, resite):
         region_generation_y_dict[region] = region_generation.sum(axis=1).values
 
     return region_generation_y_dict
+
+
+def generation_bigger_than_load_proportion(model, region_generation_y_dict, load, regions, time_slices,
+                                           covered_load_perc_per_region):
+    def generation_check_rule(model, region, u):
+        return sum(region_generation_y_dict[region][t] for t in time_slices[u]) >= \
+               sum(load[t, regions.index(region)] for t in time_slices[u]) * \
+               covered_load_perc_per_region[region]
+    return Constraint(regions, arange(len(time_slices)), rule=generation_check_rule)
+
+
+def generation_bigger_than_load_x(model, region_generation_y_dict, load, regions, timestamps):
+    def generation_check_rule(model, region, t):
+        return region_generation_y_dict[region][t] >= load[t, regions.index(region)] * model.x[region, t]
+    return Constraint(regions, timestamps, rule=generation_check_rule)
 
 
 # Percentage of capacity installed must be bigger than existing percentage
@@ -38,9 +54,9 @@ def tech_cap_bigger_than_limit(model, cap_potential_ds, tech_points_dict, techno
     return Constraint(technologies, rule=constraint_rule)
 
 
-def maximize_load_proportion(model, regions, temp_constraint_set):
+def maximize_load_proportion(model, regions, timestamps):
     def objective_rule(model):
-        return sum(model.x[region, t] for region in regions for t in temp_constraint_set)
+        return sum(model.x[region, t] for region in regions for t in timestamps)
     return Objective(rule=objective_rule, sense=maximize)
 
 

@@ -68,8 +68,7 @@ res:
   write_log: False
   # Type of problem to be solved. Check resite.py for a full list.
   formulation: 'meet_RES_targets_agg' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
-  # List of deployments per region (ordered as the 'regions' list above)
-  deployment_vector: [0.1] # [0.5, 0.5, 0.5, 0.5]
+  formulation_params: [0.1] # [0.5, 0.5, 0.5, 0.5]
   # Keeping files at the end of the run.
   keep_files: True
 
