@@ -194,7 +194,7 @@ def add_generators_using_siting(network: pypsa.Network, technologies: List[str],
     resite.build_input_data(params['use_ex_cap'], params['filtering_layers'])
 
     logger.info('resite model being built.')
-    resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'],
+    resite.build_model(params["modelling"], params['formulation'], params['formulation_params'],
                        params['write_lp'], output_dir)
 
     logger.info('Sending resite to solver.')
@@ -500,7 +500,7 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
 #     resite.build_input_data(params['use_ex_cap'], params['filtering_layers'])
 #
 #     logger.info('resite model being built.')
-#     resite.build_model(params["modelling"], params['formulation'], params['deployment_vector'], params['write_lp'])
+#     resite.build_model(params["modelling"], params['formulation'], params['formulation_params'], params['write_lp'])
 #
 #     logger.info('Sending resite to solver.')
 #     resite.solve_model()

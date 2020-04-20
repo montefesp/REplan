@@ -25,8 +25,14 @@ def generation_bigger_than_load_proportion(model, region_generation_y_dict, load
         return sum(region_generation_y_dict[region][t] for t in time_slices[u]) >= \
                sum(load[t, regions.index(region)] for t in time_slices[u]) * \
                covered_load_perc_per_region[region]
-    # TODO: would it be possible to pass directly the sublists in time_slices?
     return Constraint(regions, arange(len(time_slices)), rule=generation_check_rule)
+
+
+def generation_bigger_than_load_x(model, region_generation_y_dict, load, regions, timestamps):
+    def generation_check_rule(model, region, t):
+        return region_generation_y_dict[region][t] >= load[t, regions.index(region)] * model.x[region, t]
+    return Constraint(regions, timestamps, rule=generation_check_rule)
+
 
 # Percentage of capacity installed must be bigger than existing percentage
 def capacity_bigger_than_existing(model, existing_cap_percentage_ds, tech_points_tuples):
@@ -48,9 +54,9 @@ def tech_cap_bigger_than_limit(model, cap_potential_ds, tech_points_dict, techno
     return Constraint(technologies, rule=constraint_rule)
 
 
-def maximize_load_proportion(model, regions, temp_constraint_set):
+def maximize_load_proportion(model, regions, timestamps):
     def objective_rule(model):
-        return sum(model.x[region, t] for region in regions for t in temp_constraint_set)
+        return sum(model.x[region, t] for region in regions for t in timestamps)
     return Objective(rule=objective_rule, sense=maximize)
 
 

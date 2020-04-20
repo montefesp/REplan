@@ -183,7 +183,7 @@ class Resite:
                     else [(tech, (points_in_region.x, points_in_region.y))]
                 self.region_tech_points_dict[region] = self.region_tech_points_dict[region].union(set(points_in_region))
 
-    def build_model(self, modelling: str, formulation: str, deployment_vector: List[float],
+    def build_model(self, modelling: str, formulation: str, formulation_params: List[float],
                     write_lp: bool = False, output_folder: str = None):
         """
         Model build-up.
@@ -194,8 +194,13 @@ class Resite:
             Choice of modelling language
         formulation: str
             Formulation of the optimization problem to solve
-        deployment_vector: List[float]
-            # TODO: this is dependent on the formulation so maybe we should create a different function for each formulation
+        formulation_params: List[float]
+            Each formulation requires a different set of parameters.
+            For 'meet_RES_targets' formulations, the list must contain the percentage of load that must be met
+            in each region.
+            For 'meet_demand_with_capacity' formulation, the list must contain the capacity (in GW) that is required
+            to be installed for each technology in the model.
+            For 'maximize' formulations, the list must contain the number of sites to be deployed per region.
         write_lp : bool (default: False)
             If True, the model is written to an .lp file.
         dir_name: str (default: None)
@@ -206,8 +211,8 @@ class Resite:
             raise ValueError('The selected formulation works for one region only!')
         elif formulation in ['meet_RES_targets_agg', 'meet_RES_targets_hourly', 'meet_RES_targets_daily',
                              'meet_RES_targets_weekly', 'meet_RES_targets_monthly', 'maximize_generation',
-                             'maximize_aggr_cap_factor'] and len(deployment_vector) != len(self.regions):
-            raise ValueError('For the selected formulation, the "regions" and "deployment_vector" '
+                             'maximize_aggr_cap_factor'] and len(formulation_params) != len(self.regions):
+            raise ValueError('For the selected formulation, the "regions" and "formulation_params" '
                              'lists must have the same cardinality!')
 
         accepted_modelling = ['pyomo', 'docplex', 'gurobipy']
@@ -219,16 +224,16 @@ class Resite:
 
         self.modelling = modelling
         self.formulation = formulation
-        self.deployment_vector = deployment_vector
+        self.formulation_params = formulation_params
         if self.modelling == 'pyomo':
             from src.resite.models.pyomo import build_model as build_pyomo_model
-            build_pyomo_model(self, formulation, deployment_vector, write_lp, output_folder)
+            build_pyomo_model(self, formulation, formulation_params, write_lp, output_folder)
         elif self.modelling == 'docplex':
             from src.resite.models.docplex import build_model as build_docplex_model
-            build_docplex_model(self, formulation, deployment_vector, write_lp, output_folder)
+            build_docplex_model(self, formulation, formulation_params, write_lp, output_folder)
         elif self.modelling == 'gurobipy':
             from src.resite.models.gurobipy import build_model as build_gurobipy_model
-            build_gurobipy_model(self, formulation, deployment_vector, write_lp, output_folder)
+            build_gurobipy_model(self, formulation, formulation_params, write_lp, output_folder)
 
     def solve_model(self):
         """Solve the model built with build_model"""
@@ -305,7 +310,7 @@ class Resite:
                   'use_ex_cap': self.use_ex_cap,
                   'modelling': self.modelling,
                   'formulation': self.formulation,
-                  'deployment_vector': self.deployment_vector}
+                  'formulation_params': self.formulation_params}
         yaml.dump(params, open(f"{output_folder}config.yaml", 'w'))
 
         # Save the technology configurations
@@ -320,7 +325,7 @@ class Resite:
             self.use_ex_cap,
             self.spatial_res,
             self.technologies,
-            self.deployment_vector,
+            self.formulation_params,
             self.tech_points_dict,
             self.cap_potential_ds,
             self.cap_factor_df,

@@ -29,7 +29,7 @@ class ResitePlotly:
             legend_orientation="h",
             title=f"Selected points for {techs}<br>"
                   f"Formulation: {self.resite.formulation}<br>"
-                  f"Deployment vector: {self.resite.deployment_vector}",
+                  f"Formulation parameters: {self.resite.formulation_params}",
             geo=dict(
                 fitbounds='locations',
                 showcountries=True,
@@ -227,14 +227,14 @@ class ResitePlotly:
 
         # Compute number of time-steps for which the constraint was not feasible
         print(sum(self.resite.generation_potential_df.sum(axis=1) >
-                  self.resite.deployment_vector[0]*self.resite.load_df.sum(axis=1)))
+                  self.resite.formulation_params[0]*self.resite.load_df.sum(axis=1)))
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=self.resite.timestamps,
                                  y=self.resite.generation_potential_df.sum(axis=1),
                                  name="Total Generation Potential (GWh)"))
         fig.add_trace(go.Scatter(x=self.resite.timestamps,
-                                 y=self.resite.load_df.sum(axis=1)*0.3, # *self.resite.deployment_vector[0],
+                                 y=self.resite.load_df.sum(axis=1)*0.3,  # *self.resite.formulation_params[0],
                                  name="Portion of the load to be served (GWh)"))
 
         return fig

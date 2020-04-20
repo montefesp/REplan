@@ -17,7 +17,7 @@ class ResiteResults:
         print(f"\nRegion: {self.resite.regions}")
         print(f"Technologies: {self.resite.technologies}")
         print(f"Formulation: {self.resite.formulation}")
-        print(f"Deployement vector: {self.resite.deployment_vector}\n")
+        print(f"Formulation parameters: {self.resite.formulation_params}\n")
 
     def get_initial_points_number(self):
         count = pd.Series(0, index=sorted(list(self.resite.tech_points_dict.keys())), dtype=int)
