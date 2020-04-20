@@ -116,7 +116,7 @@ def build_model(resite, formulation: str, formulation_params: List[float],
                           sum(load[t, resite.regions.index(region)] for t in temp_constraint_set[u]) *
                           covered_load_perc_per_region[region]
                           for region in resite.regions for u in arange(len(temp_constraint_set))),
-                         name='generation_check')
+                          name='generation_check')
 
         # Percentage of capacity installed must be bigger than existing percentage
         model.addConstrs(((y[tech, lon, lat] >= resite.existing_cap_percentage_ds[tech][(lon, lat)])
@@ -177,17 +177,17 @@ def retrieve_solution(resite) -> Tuple[float, Dict[str, List[Tuple[float, float]
         Objective value after optimization
     selected_tech_points_dict: Dict[str, List[Tuple[float, float]]]
         Lists of points for each technology used in the model
-    optimal_capacity_ds: pd.Series
+    optimal_cap_ds: pd.Series
         Gives for each pair of technology-location the optimal capacity obtained via the optimization
 
     """
-    optimal_capacity_ds = pd.Series(index=pd.MultiIndex.from_tuples(resite.tech_points_tuples))
+    optimal_cap_ds = pd.Series(index=pd.MultiIndex.from_tuples(resite.tech_points_tuples))
     selected_tech_points_dict = {tech: [] for tech in resite.technologies}
 
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in resite.tech_points_tuples]
     for tech, lon, lat in tech_points_tuples:
         y_value = resite.y[tech, lon, lat].X
-        optimal_capacity_ds[tech, (lon, lat)] = y_value*resite.cap_potential_ds[tech, (lon, lat)]
+        optimal_cap_ds[tech, (lon, lat)] = y_value*resite.cap_potential_ds[tech, (lon, lat)]
         if y_value > 0.:
             selected_tech_points_dict[tech] += [(lon, lat)]
 
@@ -197,4 +197,4 @@ def retrieve_solution(resite) -> Tuple[float, Dict[str, List[Tuple[float, float]
     # Save objective value
     objective = resite.obj.getValue()
 
-    return objective, selected_tech_points_dict, optimal_capacity_ds
+    return objective, selected_tech_points_dict, optimal_cap_ds

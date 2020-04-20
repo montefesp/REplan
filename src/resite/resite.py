@@ -126,13 +126,13 @@ class Resite:
             # Get existing capacity at initial points, for technologies for which we can compute legacy data
             tech_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore',
                                                                               'pv_utility', 'pv_residential']))
-            existing_capacity_ds = get_legacy_capacity_at_points(tech_with_legacy_data, self.tech_config,
+            existing_cap_ds = get_legacy_capacity_at_points(tech_with_legacy_data, self.tech_config,
                                                                  all_subregions, init_points, self.spatial_res)
 
             # If some initial points with existing capacity were filtered, add them back
             for tech in tech_with_legacy_data:
-                if tech in existing_capacity_ds.index.get_level_values(0):
-                    self.tech_points_dict[tech] += list(existing_capacity_ds[tech].index)
+                if tech in existing_cap_ds.index.get_level_values(0):
+                    self.tech_points_dict[tech] += list(existing_cap_ds[tech].index)
                 # Remove duplicates
                 self.tech_points_dict[tech] = list(set(self.tech_points_dict[tech]))
 
@@ -141,9 +141,9 @@ class Resite:
 
         # Create dataframe with existing capacity, for all points (not just the ones with existing capacity)
         self.tech_points_tuples = [(tech, point) for tech, points in self.tech_points_dict.items() for point in points]
-        self.existing_capacity_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(self.tech_points_tuples))
+        self.existing_cap_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(self.tech_points_tuples))
         if use_ex_cap:
-            self.existing_capacity_ds.loc[existing_capacity_ds.index] = existing_capacity_ds.values
+            self.existing_cap_ds.loc[existing_cap_ds.index] = existing_cap_ds.values
 
         # Compute capacity factors for each point
         self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.tech_config,
@@ -151,23 +151,23 @@ class Resite:
 
         # Compute capacity potential for each point (taking into account existing capacity)
         self.cap_potential_ds = get_capacity_potential_at_points(self.tech_points_dict, self.spatial_res,
-                                                                 all_subregions, self.existing_capacity_ds)
+                                                                 all_subregions, self.existing_cap_ds)
 
         # Compute the percentage of potential capacity that is covered by existing capacity
-        existing_cap_percentage_ds = self.existing_capacity_ds.divide(self.cap_potential_ds)
+        existing_cap_percentage_ds = self.existing_cap_ds.divide(self.cap_potential_ds)
 
         # Remove points which have zero potential capacity
         self.existing_cap_percentage_ds = existing_cap_percentage_ds.dropna()
         self.cap_potential_ds = self.cap_potential_ds[self.existing_cap_percentage_ds.index]
         self.cap_factor_df = self.cap_factor_df[self.existing_cap_percentage_ds.index]
-        self.existing_capacity_ds = self.existing_capacity_ds[self.existing_cap_percentage_ds.index]
+        self.existing_cap_ds = self.existing_cap_ds[self.existing_cap_percentage_ds.index]
 
         # Retrieve final points
         self.tech_points_tuples = self.existing_cap_percentage_ds.index.values
         self.tech_points_dict = {}
         techs = set(self.existing_cap_percentage_ds.index.get_level_values(0))
         for tech in techs:
-            self.tech_points_dict[tech] = list(self.existing_capacity_ds[tech].index)
+            self.tech_points_dict[tech] = list(self.existing_cap_ds[tech].index)
 
         # Maximum generation that can be produced if max capacity installed
         self.generation_potential_df = self.cap_factor_df * self.cap_potential_ds
@@ -259,13 +259,13 @@ class Resite:
         """
         if self.modelling == 'pyomo':
             from src.resite.models.pyomo import retrieve_solution as retrieve_pyomo_solution
-            self.objective, self.selected_tech_points_dict, self.optimal_capacity_ds = retrieve_pyomo_solution(self)
+            self.objective, self.selected_tech_points_dict, self.optimal_cap_ds = retrieve_pyomo_solution(self)
         elif self.modelling == 'docplex':
             from src.resite.models.docplex import retrieve_solution as retrieve_docplex_solution
-            self.objective, self.selected_tech_points_dict, self.optimal_capacity_ds = retrieve_docplex_solution(self)
+            self.objective, self.selected_tech_points_dict, self.optimal_cap_ds = retrieve_docplex_solution(self)
         elif self.modelling == 'gurobipy':
             from src.resite.models.gurobipy import retrieve_solution as retrieve_gurobipy_solution
-            self.objective, self.selected_tech_points_dict, self.optimal_capacity_ds = retrieve_gurobipy_solution(self)
+            self.objective, self.selected_tech_points_dict, self.optimal_cap_ds = retrieve_gurobipy_solution(self)
 
         return self.selected_tech_points_dict
 
@@ -277,24 +277,24 @@ class Resite:
         -------
         self.selected_existing_capacity_ds: pd.Series
             Pandas series giving for each (tech, coord) tuple in self.selected_tech_points_dict the existing
-            capacity at these positions
-        self.selected_capacity_potential_ds: pd.Series
+            cap at these positions
+        self.selected_cap_potential_ds: pd.Series
             Pandas series giving for each (tech, coord) tuple in self.selected_tech_points_dict the capacity
             potential at these positions .
         self.selected_cap_factor_df: pd.DataFrame
             Pandas series indexed by time giving for each (tech, coord) tuple in self.selected_tech_points_dict
-            its capacity factors time series
+            its cap factors time series
 
         """
 
         selected_tech_points_tuples = [(tech, point) for tech, points in self.selected_tech_points_dict.items()
                                        for point in points]
 
-        self.selected_existing_capacity_ds = self.existing_capacity_ds.loc[selected_tech_points_tuples]
-        self.selected_capacity_potential_ds = self.cap_potential_ds.loc[selected_tech_points_tuples]
+        self.selected_existing_cap_ds = self.existing_cap_ds.loc[selected_tech_points_tuples]
+        self.selected_cap_potential_ds = self.cap_potential_ds.loc[selected_tech_points_tuples]
         self.selected_cap_factor_df = self.cap_factor_df[selected_tech_points_tuples]
 
-        return self.selected_existing_capacity_ds, self.selected_capacity_potential_ds, self.selected_cap_factor_df
+        return self.selected_existing_cap_ds, self.selected_cap_potential_ds, self.selected_cap_factor_df
 
     def save(self, dir_name: str = None):
         """Save all results and parameters."""
@@ -329,13 +329,13 @@ class Resite:
             self.tech_points_dict,
             self.cap_potential_ds,
             self.cap_factor_df,
-            self.existing_capacity_ds,
-            self.optimal_capacity_ds,
+            self.existing_cap_ds,
+            self.optimal_cap_ds,
             self.selected_tech_points_dict,
             self.tech_points_dict,
             self.generation_potential_df,
             self.load_df,
-            self.selected_capacity_potential_ds,
+            self.selected_cap_potential_ds,
             self.selected_cap_factor_df
         ]
 

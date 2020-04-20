@@ -174,18 +174,18 @@ def retrieve_solution(resite) -> Tuple[float, Dict[str, List[Tuple[float, float]
         Objective value after optimization
     selected_tech_points_dict: Dict[str, List[Tuple[float, float]]]
         Lists of points for each technology used in the model
-    optimal_capacity_ds: pd.Series
+    optimal_cap_ds: pd.Series
         Gives for each pair of technology-location the optimal capacity obtained via the optimization
 
     """
 
-    optimal_capacity_ds = pd.Series(index=pd.MultiIndex.from_tuples(resite.tech_points_tuples))
+    optimal_cap_ds = pd.Series(index=pd.MultiIndex.from_tuples(resite.tech_points_tuples))
     selected_tech_points_dict = {tech: [] for tech in resite.technologies}
 
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in resite.tech_points_tuples]
     for tech, lon, lat in tech_points_tuples:
         y_value = resite.instance.y[tech, (lon, lat)].value
-        optimal_capacity_ds[tech, (lon, lat)] = y_value*resite.cap_potential_ds[tech, (lon, lat)]
+        optimal_cap_ds[tech, (lon, lat)] = y_value*resite.cap_potential_ds[tech, (lon, lat)]
         if y_value > 0.:
             selected_tech_points_dict[tech] += [(lon, lat)]
 
@@ -195,4 +195,4 @@ def retrieve_solution(resite) -> Tuple[float, Dict[str, List[Tuple[float, float]
     # Save objective value
     objective = value(resite.instance.objective)
 
-    return objective, selected_tech_points_dict, optimal_capacity_ds
+    return objective, selected_tech_points_dict, optimal_cap_ds
