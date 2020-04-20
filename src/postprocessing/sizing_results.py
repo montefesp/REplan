@@ -2,6 +2,7 @@ import sys
 import os
 
 import pandas as pd
+import numpy as np
 
 from pypsa import Network
 
@@ -23,19 +24,29 @@ class SizingResults:
     def display_generation(self):
         """Display information about generation"""
 
+        print('# --- GENERATION --- #')
+
+        print(f"CO2 limit (MT):\n{net.global_constraints.constant.values * (1e-3)}\n")
+        print(f"Total load (TWh):\n{round(net.loads_t.p.values.sum() * (1e-3),2)}\n")
+
         cap_cost, marg_cost = self.get_gen_capital_and_marginal_cost()
-        print(f"Capital cost:\n{cap_cost}\n")
-        print(f"Marginal cost:\n{marg_cost}\n")
-        init_capacities, new_capacities, opt_capacities, max_capacities = self.get_generators_capacity()
-        print(f"Generators capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n"
-              f"Max:\n{max_capacities}\n")
-        print(f"Generators generation:\n{self.get_generators_generation()}\n")
-        print(f"Total generation:\n{self.get_generators_generation().sum()}\n")
-        print(f"Number of generators:\n{self.get_generators_numbers()}\n")
-        print(f"Generators Average Use:\n{self.get_generators_average_usage()}\n")
-        print(f"Generators Opex:\n{self.get_generators_opex()}\n")
-        print(f"Generators Capex:\n{self.get_generators_capex()}\n")
-        print(f"Generators Cost:\n{self.get_generators_cost()}\n")
+        costs = pd.concat([cap_cost.rename('ccost'), marg_cost.rename('mcost'), self.get_generators_capex(), self.get_generators_opex()], axis=1)
+        costs = costs.round(2)
+        print(f"Costs (M$):\n{costs}\n")
+
+        capacities = self.get_generators_capacity()
+        print(f"Generators capacity (GW):\n{capacities}\n")
+
+        cf_df = self.get_generators_average_usage().rename('CF [%]')
+        curt_df = self.get_generators_curtailment().rename('Curt.')
+        curt_cf_df = pd.concat([cf_df, curt_df], axis=1)
+        gen_df = self.get_generators_generation().rename('Gen.').to_frame()
+        df_gen = pd.concat([gen_df, curt_cf_df], axis=1, sort=False)
+        print(f"Generators generation (TWh):\n{df_gen}\n")
+        # print(f"Total generation (TWh):\n{self.get_generators_generation().sum()}\n")
+        # print(f"Number of generators:\n{self.get_generators_numbers()}\n")
+        # print(f"Generators CFs (%):\n{self.get_generators_average_usage()}\n")
+        # print(f"Curtailment (TWh):\n{self.get_generators_curtailment()}\n")
 
     def get_gen_capital_and_marginal_cost(self):
 
@@ -51,7 +62,12 @@ class SizingResults:
         max_capacities = gens.p_nom_max.sum()
         new_capacities = opt_capacities - init_capacities
 
-        return init_capacities, new_capacities, opt_capacities, max_capacities
+        capacities = pd.concat([init_capacities.rename('init'), new_capacities.rename('new'),
+                   opt_capacities.rename('final'), max_capacities.rename('max')], axis=1)
+
+        capacities = capacities.drop(['load']).round(2)
+
+        return capacities
 
     def get_generators_numbers(self):
 
@@ -68,16 +84,63 @@ class SizingResults:
 
         for tech_type in types:
             gens_type = gens[gens.type == tech_type]
-            generation[tech_type] = gens_t.p[gens_type.index].to_numpy().sum()
+            generation[tech_type] = gens_t.p[gens_type.index].to_numpy().sum()*(1e-3)
 
-        return pd.DataFrame.from_dict(generation, orient="index", columns=["generation"]).generation
+        gen_df = pd.DataFrame.from_dict(generation, orient="index", columns=["generation"]).generation
+
+        return gen_df.round(2)
 
     def get_generators_average_usage(self):
         """Return the average generation capacity usage (i.e. mean(generation_t/capacity)) of each type of generator"""
 
-        _, _, opt_cap, _ = self.get_generators_capacity()
+        opt_cap = self.get_generators_capacity()['final']
         tot_gen = self.get_generators_generation()
-        return tot_gen/(opt_cap*len(self.net.snapshots))
+        df_capacities_all = self.net.generators
+        df_cf_per_generator_all = self.net.generators_t['p_max_pu']
+
+        df_cf = pd.Series(index=opt_cap.index)
+
+        for item in df_cf.index:
+
+            if item in ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_residential', 'pv_utility']:
+                df_capacities = df_capacities_all[df_capacities_all.index.str.contains(item)]['p_nom_opt']
+                df_cf_per_generator = df_cf_per_generator_all.loc[:,
+                                      df_cf_per_generator_all.columns.str.contains(item)].mean()
+                df_cf.loc[item] = np.average(df_cf_per_generator.values, weights=df_capacities.values)
+
+            else:
+                df_cf.loc[item] = tot_gen.loc[item]*1e3 / (opt_cap.loc[item]*len(self.net.snapshots))
+
+
+        return df_cf.round(3)
+
+
+
+    def get_generators_curtailment(self):
+
+        opt_cap = self.get_generators_capacity()['final']
+        tot_gen = self.get_generators_generation()
+        df_capacities_all = self.net.generators
+        df_cf_per_generator_all = self.net.generators_t['p_max_pu']
+
+        df_curtailment = pd.Series(index=opt_cap.index)
+
+        for item in df_curtailment.index:
+
+            if item in ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_residential', 'pv_utility', 'ror']:
+                df_capacities = df_capacities_all[df_capacities_all.index.str.contains(item)]['p_nom_opt']
+                df_cf_per_generator = df_cf_per_generator_all.loc[:,
+                                      df_cf_per_generator_all.columns.str.contains(item)].sum()
+
+                production_per_type = (df_capacities*df_cf_per_generator).sum()
+                df_curtailment.loc[item] = production_per_type*(1e-3) - tot_gen.loc[item]
+
+            else:
+                df_curtailment.loc[item] = np.nan
+
+        return df_curtailment.round(3)
+
+
 
     def get_generators_opex(self):
         """Return the operational expenses of running each type of generator over the self.net.snapshots"""
@@ -107,10 +170,20 @@ class SizingResults:
     def get_generators_cost(self):
         return self.get_generators_opex() + self.get_generators_capex()
 
+
+
+
+
+
+
+
+
     # --- Transmission --- #
 
     def display_transmission(self):
         """Display information about transmission"""
+
+        print('# --- TRANSMISSION --- #')
 
         print(f"AC cost (M€/GW/km):  {get_cost('AC', len(self.net.snapshots))}")
         print(f"DC cost (M€/GW/km): {get_cost('DC', len(self.net.snapshots))}\n")
@@ -355,11 +428,8 @@ if __name__ == "__main__":
     net = Network()
     net.import_from_csv_folder(output_dir)
 
-    print(f"CO2 limit (kT):\n{net.global_constraints.constant}\n")
-    print(f"Total load (GWh):\n{net.loads_t.p.values.sum()}\n")
-    print(f"Total ccgt capacity\n{net.generators[net.generators.type == 'ccgt'].p_nom_opt.sum()}")
-    print(f"Number of res sites\n"
-          f"{len(net.generators[net.generators.type.isin(['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential'])])}")
+    # print(f"Number of res sites\n"
+    #       f"{len(net.generators[net.generators.type.isin(['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential'])])}")
 
     pprp = SizingResults(net)
     pprp.display_generation()
