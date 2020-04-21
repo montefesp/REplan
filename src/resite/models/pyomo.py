@@ -60,7 +60,7 @@ def build_model(resite, formulation: str, formulation_params: List[float],
         elif formulation == 'meet_RES_targets_monthly':
             time_slices = [list(timestamps_idxs[timestamps.month == mon]) for mon in timestamps.month.unique()]
         elif formulation == 'meet_RES_targets_hourly':
-            time_slices = [[u] for u in timestamps_idxs]
+            time_slices = [[t] for t in timestamps_idxs]
         else:  # formulation == 'meet_RES_targets_agg':
             time_slices = [timestamps_idxs]
 

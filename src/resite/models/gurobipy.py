@@ -60,7 +60,7 @@ def build_model(resite, formulation: str, formulation_params: List[float],
         elif formulation == 'meet_RES_targets_monthly':
             time_slices = [list(timestamps_idxs[timestamps.month == mon]) for mon in timestamps.month.unique()]
         elif formulation == 'meet_RES_targets_hourly':
-            time_slices = [[u] for u in timestamps_idxs]
+            time_slices = [[t] for t in timestamps_idxs]
         else:  # formulation == 'meet_RES_targets_agg':
             time_slices = [timestamps_idxs]
 
@@ -74,7 +74,7 @@ def build_model(resite, formulation: str, formulation_params: List[float],
         region_generation_y_dict = create_generation_y_dict(y, resite)
 
         # - Constraints - #
-        # Generation must be greater than x percent of the load in each region for each time step
+        # Impose a certain percentage of the load to be covered over each time slice
         generation_bigger_than_load_proportion(model, region_generation_y_dict, load, regions, time_slices,
                                                load_perc_per_region)
         # Percentage of capacity installed must be bigger than existing percentage
