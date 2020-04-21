@@ -40,6 +40,9 @@ def build_model(resite, formulation: str, formulation_params: List[float],
 
     load = resite.load_df.values
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in resite.tech_points_tuples]
+    regions = resite.regions
+    technologies = resite.technologies
+    timestamps = resite.timestamps
 
     model = ConcreteModel()
 
@@ -48,8 +51,7 @@ def build_model(resite, formulation: str, formulation_params: List[float],
         from .pyomo_aux import capacity_bigger_than_existing, minimize_deployed_capacity, \
             generation_bigger_than_load_proportion
 
-        timestamps = resite.timestamps
-        timestamps_idxs = arange(len(resite.timestamps))
+        timestamps_idxs = arange(len(timestamps))
         if formulation == 'meet_RES_targets_daily':
             time_slices = [list(timestamps_idxs[timestamps.dayofyear == day]) for day in timestamps.dayofyear.unique()]
         elif formulation == 'meet_RES_targets_weekly':
@@ -63,19 +65,19 @@ def build_model(resite, formulation: str, formulation_params: List[float],
             time_slices = [timestamps_idxs]
 
         # - Parameters - #
-        covered_load_perc_per_region = dict(zip(resite.regions, formulation_params))
+        covered_load_perc_per_region = dict(zip(regions, formulation_params))
 
         # - Variables - #
-        # Variables for the portion of capacity at each location for each technology
+        # Portion of capacity at each location for each technology
         model.y = Var(tech_points_tuples, within=NonNegativeReals, bounds=(0, 1))
         # Create generation dictionary for building speed up
         region_generation_y_dict = create_generation_y_dict(model, resite)
 
         # - Constraints - #
-        # Impose a certain percentage of the load to be covered over the whole time slice
-        model.generation_check = generation_bigger_than_load_proportion(model, region_generation_y_dict, load,
-                                                                        resite.regions, time_slices,
-                                                                        covered_load_perc_per_region)
+        # Impose a certain percentage of the load to be covered over each time slice
+        model.generation_check =\
+            generation_bigger_than_load_proportion(model, region_generation_y_dict, load, regions, time_slices,
+                                                   covered_load_perc_per_region)
         # Percentage of capacity installed must be bigger than existing percentage
         model.potential_constraint = capacity_bigger_than_existing(model, resite.existing_cap_percentage_ds,
                                                                    tech_points_tuples)
@@ -89,15 +91,15 @@ def build_model(resite, formulation: str, formulation_params: List[float],
         from .pyomo_aux import tech_cap_bigger_than_limit, maximize_load_proportion, generation_bigger_than_load_x, \
             capacity_bigger_than_existing
 
-        timestamps_idxs = arange(len(resite.timestamps))
+        timestamps_idxs = arange(len(timestamps))
 
         # - Parameters - #
-        required_cap_per_tech = dict(zip(resite.technologies, formulation_params))
+        required_cap_per_tech = dict(zip(technologies, formulation_params))
 
         # - Variables - #
-        # Variables for the portion of demand that is met at each time-stamp for each region
-        model.x = Var(resite.regions, timestamps_idxs, within=NonNegativeReals, bounds=(0, 1))
-        # Variables for the portion of capacity at each location for each technology
+        # Portion of demand that is met at each time-stamp for each region
+        model.x = Var(regions, timestamps_idxs, within=NonNegativeReals, bounds=(0, 1))
+        # Portion of capacity at each location for each technology
         model.y = Var(tech_points_tuples, within=NonNegativeReals, bounds=(0, 1))
         # Create generation dictionary for building speed up
         region_generation_y_dict = create_generation_y_dict(model, resite)
@@ -105,24 +107,24 @@ def build_model(resite, formulation: str, formulation_params: List[float],
         # - Constraints - #
         # Generation must be greater than x percent of the load in each region for each time step
         model.generation_check = generation_bigger_than_load_x(model, region_generation_y_dict, load,
-                                                               resite.regions, timestamps_idxs)
+                                                               regions, timestamps_idxs)
         # Percentage of capacity installed must be bigger than existing percentage
         model.potential_constraint = capacity_bigger_than_existing(model, resite.existing_cap_percentage_ds,
                                                                    tech_points_tuples)
         # The capacity installed for each technology must be superior to a certain limit
         model.capacity_target = tech_cap_bigger_than_limit(model, resite.cap_potential_ds, resite.tech_points_dict,
-                                                           resite.technologies, required_cap_per_tech)
+                                                           technologies, required_cap_per_tech)
 
         # - Objective - #
         # Maximize the proportion of load that is satisfied
-        model.objective = maximize_load_proportion(model, resite.regions, timestamps_idxs)
+        model.objective = maximize_load_proportion(model, regions, timestamps_idxs)
 
     elif formulation in ['maximize_generation', 'maximize_aggr_cap_factor']:
 
         from .pyomo_aux import limit_number_of_sites_per_region, maximize_production
 
         # - Parameters - #
-        nb_sites_per_region = dict(zip(resite.regions, formulation_params))
+        nb_sites_per_region = dict(zip(regions, formulation_params))
 
         # - Variables - #
         # Variables for the portion of capacity at each location for each technology
@@ -132,7 +134,7 @@ def build_model(resite, formulation: str, formulation_params: List[float],
         if formulation == 'maximize_generation':
 
             # - Constraints - #
-            model.policy_target = limit_number_of_sites_per_region(model, resite.regions,
+            model.policy_target = limit_number_of_sites_per_region(model, regions,
                                                                    resite.region_tech_points_dict, nb_sites_per_region)
             # - Objective - #
             model.objective = maximize_production(model, resite.generation_potential_df, tech_points_tuples)
@@ -141,7 +143,7 @@ def build_model(resite, formulation: str, formulation_params: List[float],
         elif formulation == 'maximize_aggr_cap_factor':
 
             # - Constraints - #
-            model.policy_target = limit_number_of_sites_per_region(model, resite.regions,
+            model.policy_target = limit_number_of_sites_per_region(model, regions,
                                                                    resite.region_tech_points_dict, nb_sites_per_region)
             # - Objective - #
             model.objective = maximize_production(model, resite.cap_factor_df, tech_points_tuples)
