@@ -229,10 +229,12 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
     # TODO: check how we organize this file within the structure
     elif filter_name == 'population_density':
 
+        # TODO: can we not load this with poopulation_density.manager?
         degree_resolution = "30_min" if spatial_resolution == 0.5 else "1_deg"
         path_population_data = \
             join(dirname(abspath(__file__)),
-                 f"../../../data/population_density/source/gpw_v4_population_density_rev11_{degree_resolution}.nc")
+                 f"../../../data/population_density/source/"
+                 f"gpw_v4_population_density_adjusted_rev11_{degree_resolution}.nc")
         dataset = xr.open_dataset(path_population_data)
 
         varname = [item for item in dataset.data_vars][0]

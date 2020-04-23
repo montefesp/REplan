@@ -13,12 +13,13 @@ def load_population_density_data(spatial_resolution: float) -> xr.DataArray:
 
     # Load population density dataset
     pop_density_dir = join(dirname(abspath(__file__)), '../../../data/population_density/source/')
-    pop_density_dataset = xr.open_dataset(f"{pop_density_dir}gpw_v4_population_density_rev11_{degree_resolution}.nc")
-    print(pop_density_dataset)
+    pop_density_dataset = \
+        xr.open_dataset(f"{pop_density_dir}gpw_v4_population_density_adjusted_rev11_{degree_resolution}.nc")
     pop_density_dataset = pop_density_dataset.sel(raster=5)
 
     # Extract the variable of interest
-    pop_density_array = pop_density_dataset["Population Density, v4.11 (2000, 2005, 2010, 2015, 2020): 30 arc-minutes"]
+    pop_density_array = \
+        pop_density_dataset["UN WPP-Adjusted Population Density, v4.11 (2000, 2005, 2010, 2015, 2020): 30 arc-minutes"]
 
     # Compute population density at intermediate points
     pop_density_array = pop_density_array.interp(longitude=np.arange(-180, 180, float(spatial_resolution)),
