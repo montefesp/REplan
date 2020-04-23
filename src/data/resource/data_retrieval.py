@@ -5,19 +5,18 @@ import os
 import cdsapi
 
 
-def retrieve_resource_data(regions: Dict[str, str], spatial_resolution: float,
+def retrieve_with_cds_api(regions: Dict[str, str], spatial_resolution: float,
                            years: List[str], months: List[str]) -> None:
 
     directory = join(dirname(abspath(__file__)), f"../../../data/resource/source/era5-land/{spatial_resolution}/")
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+    c = cdsapi.Client()
     for region, area in regions.items():
-
         for year in years:
             for month in months:
 
-                c = cdsapi.Client()
                 c.retrieve(
                     'reanalysis-era5-single-levels',
                     {
@@ -52,4 +51,4 @@ if __name__ == '__main__':
 
     spatial_resolution = 0.5
 
-    retrieve_resource_data(regions, spatial_resolution, years, months)
+    retrieve_with_cds_api(regions, spatial_resolution, years, months)
