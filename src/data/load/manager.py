@@ -8,7 +8,7 @@ from src.data.geographics import get_subregions, get_nuts_area
 
 def get_yearly_country_load(country: str, year: int = 2016) -> int:
     """
-    Compute the yearly load of country for a specific year.
+    Compute the yearly load (in GWh) of country for a specific year.
 
     Parameters
     ----------
@@ -22,8 +22,8 @@ def get_yearly_country_load(country: str, year: int = 2016) -> int:
     Yearly load: int
     """
 
-    key_ind_fn = join(dirname(abspath(__file__)), f"../../../data/key_indicators/source/{country}.csv")
-    return pd.read_csv(key_ind_fn, index_col=0).loc[year, "Electricity consumption (TWh)"]
+    key_ind_fn = join(dirname(abspath(__file__)), f"../../../data/load/source/iea/{country}.csv")
+    return pd.read_csv(key_ind_fn, index_col=0, squeeze=True).loc[year]
 
 
 def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
@@ -408,5 +408,4 @@ def get_load_from_nuts_codes(nuts_codes_lists: List[List[str]], timestamps: pd.D
 
 if __name__ == '__main__':
     ts = pd.date_range('2015-01-01T00:00', '2016-12-31T23:00', freq='1H')
-    print(get_load(timestamps=ts, countries=["BE", "UA"], missing_data='interpolate'))
-    print(get_load(timestamps=ts, regions=["EU"], missing_data='interpolate'))
+    print(get_yearly_country_load("BE", 2017))

@@ -16,6 +16,29 @@ class DataScrapper:
         print(self.data_dir)
         self.countries_dict = pd.read_csv(f"{self.data_dir}countries-codes.csv", index_col="Code")
 
+    def iea_electricity_consumption(self, countries, start_year, end_year):
+
+        years = list(range(start_year, end_year+1))
+        for country in countries:
+            print(country)
+            iea_country = self.countries_dict.loc[country]['IAE']
+            production = pd.DataFrame(columns=["Electricity Consumption (GWh)"], index=years)
+            for year in range(start_year, end_year+1):
+                url = f"https://api.iea.org/stats/?year={year}&countries={iea_country}&series=ELECTRICITYANDHEAT"
+                print(url)
+                time.sleep(1)
+
+                # Get the html content of the page
+                table = requests.get(url).json()
+                for line in table:
+                    if line["flowLabel"] == "Final consumption" and line["productLabel"] == "Electricity":
+                        value = line['value']
+                        if value == 0:
+                            value = np.nan
+                        production.loc[year, "Electricity Consumption (GWh)"] = value
+                        break
+            production.to_csv(f"{self.data_dir}load/source/iea/{country}.csv")
+
     def iea_electricity_production(self, countries, start_year, end_year):
 
         years = list(range(start_year, end_year+1))
@@ -58,6 +81,7 @@ class DataScrapper:
 
             production.to_csv(f"{self.data_dir}emission/source/iea/{country}.csv")
 
+    # TODO: remove, does not work anymore
     def iea_key_indicators(self, country_code, start_year, end_year):
 
         data = pd.DataFrame()
@@ -96,38 +120,9 @@ class DataScrapper:
 if __name__ == '__main__':
 
     ds = DataScrapper()
-    cntrs_international_codes = ["BE", "FR", "DE", "NL"]
-    cntrs_url_codes = ["BE----------2", "FR-RTE------C", "1001A1001A83F", "NL----------L"]
-    cntrs_url_area_types = ['BZN', 'BZN', 'CTY', 'CTY']
-    '''
-    ds.entsoe_get_actual_generation_per_production_type([2015],
-                                                   cntrs_international_codes,
-                                                   cntrs_url_codes,
-                                                   cntrs_url_area_types)
-    '''
-
-    if 0:
-        cntry_codes = ["BA"]
-        for cntry_code in cntry_codes:
-            ds.entsoe_get_actual_total_load([cntry_code])
-
-    # ds.make_hourly("../input_data/load_data/total_load_UK_2016_UTC48.csv")
 
     countries = ["AL", "AT", "BA", "BE", "BG", "CH", "CZ", "DE", "DK", "EE", "GR", "ES", "FI", "FR", "HR",
                  "HU", "IE", "IT", "LT", "LU", "LV", "ME", "MK", "NL", "NO", "PL", "PT", "RO",
                  "RS", "SE", "SI", "SK", "GB"]
 
-    countries = ["NO", "CH", "BA", "RS", "MK", "ME", "AL"]
-    countries = ["AT", "BG", "CZ", "DK", "BE", "HR", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT",
-                 "LU", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "GB"]
-
-    for country in countries:
-        print(country)
-        production = pd.read_csv(f"{ds.data_dir}production/source/{country}.csv", index_col=0).dropna()
-        first_year = production.index[0]
-        co2 = pd.read_csv(f"{ds.data_dir}emission/source/iea/{country}.csv", index_col=0)
-        prod_1990 = production.loc[first_year, "Electricity Production (GWh)"]
-        co2_1990 = co2.loc[first_year, "CO2 from electricity and heat producers (MT)"]
-        print(prod_1990)
-        # print(co2_1990)
-        # print(co2_1990*1000000/prod_1990)
+    ds.iea_electricity_consumption(countries, 1990, 2017)

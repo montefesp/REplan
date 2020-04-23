@@ -1,23 +1,40 @@
+
 from os.path import join, dirname, abspath
 import cdsapi
 
-# TODO:
-#  - Ask David where the code for generating all these files actually is, including runoff
+
+"""
+Note
+----
+In the dataset:
+    'land_sea_mask' -> lsm
+    'model_bathymetry' -> wmb
+    'low_vegetation_cover' -> cvl
+    'high_vegetation_cover' -> cvh
+    'orography' -> 'z'
+    'slope_of_sub_gridscale_orography' -> 'slor'
+"""
+# TODO: change names
+categories = {
+    "land_sea_mask": ['land_sea_mask', 'model_bathymetry'],
+    "surface_characteristics": ['low_vegetation_cover', 'high_vegetation_cover'],
+    "orography_characteristics": ['orography', 'slope_of_sub_gridscale_orography']
+}
 
 
-def retrieve_surface_data(spatial_resolution: float) -> None:
+def retrieve_with_cds_api(category: str, spatial_resolution: float, year: int):
 
-    year = 2018
+    assert category in categories.keys(), f"Error: Category {category} is not part of {list(categories.keys())}"
+
     month = 12
     day = 31
 
-    data_dir = join(dirname(abspath(__file__)), "../../../data/land_data/ERA5/")
+    data_dir = join(dirname(abspath(__file__)), "../../../data/land_data/source/ERA5/")
     c = cdsapi.Client()
     c.retrieve(
         'reanalysis-era5-single-levels',
         {
-            'variable': ['low_vegetation_cover', 'high_vegetation_cover', 'land_sea_mask',
-                         'model_bathymetry', 'orography', 'sea_ice_cover'],
+            'variable': categories[category],
             'product_type': 'reanalysis',
             'grid': f"{spatial_resolution}/{spatial_resolution}",
             'year': f'{year}',
@@ -26,34 +43,9 @@ def retrieve_surface_data(spatial_resolution: float) -> None:
             'time': '00:00',
             'format': 'netcdf'
         },
-        f"{data_dir}ERA5_surface_characteristics_{year}{month}{day}_{spatial_resolution}.nc")
-
-
-def retrieve_orography_data(spatial_resolution: float):
-
-    year = 2018
-    month = 12
-    day = 31
-
-    data_dir = join(dirname(abspath(__file__)), "../../../data/land_data/ERA5/")
-    c = cdsapi.Client()
-    c.retrieve(
-        'reanalysis-era5-single-levels',
-        {
-            'product_type': 'reanalysis',
-            'variable': ['orography', 'slope_of_sub_gridscale_orography'],
-            'grid': f"{spatial_resolution}/{spatial_resolution}",
-            'year': f'{year}',
-            'month': f'{month}',
-            'day': f'{day}',
-            'time': '00:00',
-            'format': 'netcdf'
-        },
-        f"{data_dir}ERA5_orography_characteristics_{year}{month}{day}_{spatial_resolution}.nc")
+        f"{data_dir}ERA5_{category}_{year}{month}{day}_{spatial_resolution}.nc")
 
 
 if __name__ == '__main__':
 
-    resolution = 0.5
-    retrieve_surface_data(resolution)
-    retrieve_orography_data(resolution)
+    retrieve_with_cds_api("land_sea_mask", 1.0, 2018)

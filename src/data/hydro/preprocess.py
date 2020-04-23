@@ -168,7 +168,7 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
 
     # TODO: this (still) take ages, maybe still away to improve speed
     # Compute time-series of inflow for STO (in GWh) and ROR (per unit of capacity)
-    runoff_dir = join(dirname(abspath(__file__)), "../../../data/land_data/source/ERA5/runoff/")
+    runoff_dir = join(dirname(abspath(__file__)), "../../../data/hydro/source/ERA5/runoff/")
     runoff_files = [join(runoff_dir, fn) for fn in listdir(runoff_dir) if fn.endswith(".nc")]
     runoff_dataset = xr.open_mfdataset(runoff_files, combine='by_coords')
     runoff_dataset = runoff_dataset.stack(locations=('longitude', 'latitude'))

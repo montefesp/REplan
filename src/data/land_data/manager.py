@@ -351,8 +351,7 @@ def get_land_availability(shapes: List[Union[Polygon, MultiPolygon]], filters: D
     spatial_ref.ImportFromEPSG(4326)
 
     # Corine dataset
-    corine_fn = join(dirname(abspath(__file__)),
-                     "../../../data/land_data/source/clc2018_clc2018_v2018_20_raster100m/CLC2018_CLC2018_V2018_20.tif")
+    corine_fn = join(dirname(abspath(__file__)), "../../../data/land_data/source/CLC2018/CLC2018_CLC2018_V2018_20.tif")
     clc = gk.raster.loadRaster(corine_fn)
     clc.SetProjection(gk.srs.loadSRS(3035).ExportToWkt())
 
