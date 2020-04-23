@@ -1,14 +1,18 @@
-from typing import List
-import plotly.graph_objs as go
-from pypsa import Network
-import numpy as np
-import pandas as pd
 import sys
 import os
+from typing import List
+
+import numpy as np
+import pandas as pd
+
 from geojson import Polygon, FeatureCollection, MultiPolygon, Feature
 from shapely.ops import cascaded_union
 from shapely.geometry import Polygon as sPolygon, MultiPolygon as sMultiPolygon, Point
 import shapely.wkt
+
+import plotly.graph_objs as go
+
+from pypsa import Network
 
 from src.data.geographics import get_offshore_shapes
 from src.data.res_potential import get_capacity_potential_for_regions

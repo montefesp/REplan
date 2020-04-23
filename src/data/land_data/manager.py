@@ -1,5 +1,6 @@
 from os.path import join, dirname, abspath
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Union
+from copy import copy
 
 import xarray as xr
 import numpy as np
@@ -9,7 +10,7 @@ import geopandas as gpd
 import scipy.spatial
 import geopy.distance
 
-from copy import copy
+from shapely.geometry import Polygon, MultiPolygon
 
 from src.data.resource import read_resource_database
 
@@ -35,7 +36,7 @@ def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, floa
     """
 
     path_land_data = join(dirname(abspath(__file__)),
-                          f"../../../data/land_data/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
+                          f"../../../data/land_data/source/ERA5/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
     dataset = xr.open_dataset(path_land_data)
     dataset = dataset.sortby([dataset.longitude, dataset.latitude])
     dataset = dataset.assign_coords(longitude=(((dataset.longitude + 180) % 360) - 180)).sortby('longitude')
@@ -108,7 +109,8 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
         protected_areas_selection = tech_dict['protected_areas_selection']
         threshold_distance = tech_dict['protected_areas_distance_threshold']
 
-        path_land_data = join(dirname(abspath(__file__)), '../../../data/land_data/WDPA_Feb2019-shapefile-points.shp')
+        path_land_data = join(dirname(abspath(__file__)),
+                              '../../../data/land_data/source/WDPA/WDPA_Feb2019-shapefile-points.shp')
         dataset = gpd.read_file(path_land_data)
 
         # Retrieve the geopandas Point objects and their coordinates
@@ -155,7 +157,8 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
     elif filter_name == 'orography':
 
         dataset_name = join(dirname(abspath(__file__)),
-                            f"../../../data/land_data/ERA5_orography_characteristics_20181231_{spatial_resolution}.nc")
+                            f"../../../data/land_data/source/ERA5/"
+                            f"ERA5_orography_characteristics_20181231_{spatial_resolution}.nc")
         dataset = read_filter_database(dataset_name, points)
 
         altitude_threshold = tech_dict['altitude_threshold']
@@ -176,7 +179,8 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
     elif filter_name == 'forestry':
 
         dataset_name = join(dirname(abspath(__file__)),
-                            f"../../../data/land_data/ERA5_surface_characteristics_20181231_{spatial_resolution}.nc")
+                            f"../../../data/land_data/source/ERA5/"
+                            f"ERA5_surface_characteristics_20181231_{spatial_resolution}.nc")
         dataset = read_filter_database(dataset_name, points)
 
         forestry_threshold = tech_dict['forestry_ratio_threshold']
@@ -191,7 +195,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
     elif filter_name == 'water_mask':
 
         dataset_name = join(dirname(abspath(__file__)),
-                            f"../../../data/land_data/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
+                            f"../../../data/land_data/source/ERA5/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
         dataset = read_filter_database(dataset_name, points)
 
         array_watermask = dataset['lsm']
@@ -204,7 +208,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
     elif filter_name == 'bathymetry':
 
         dataset_name = join(dirname(abspath(__file__)),
-                            f"../../../data/land_data/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
+                            f"../../../data/land_data/source/ERA5/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
         dataset = read_filter_database(dataset_name, points)
 
         depth_threshold_low = tech_dict['depth_threshold_low']
@@ -331,3 +335,80 @@ def filter_points(technologies: List[str], tech_config: Dict[str, Any], init_poi
         tech_points_dict[tech] = points
 
     return tech_points_dict
+
+
+def get_land_availability(shapes: List[Union[Polygon, MultiPolygon]], filters: Dict):
+
+    from osgeo import ogr, osr
+    import glaes as gl
+    import geokit as gk
+    import shapely.wkt
+
+    spatial_ref = osr.SpatialReference()
+    spatial_ref.ImportFromEPSG(4326)
+
+    # Corine dataset
+    corine_fn = join(dirname(abspath(__file__)),
+                     "../../../data/land_data/source/clc2018_clc2018_v2018_20_raster100m/CLC2018_CLC2018_V2018_20.tif")
+    clc = gk.raster.loadRaster(corine_fn)
+    clc.SetProjection(gk.srs.loadSRS(3035).ExportToWkt())
+
+    # Natura dataset
+    natura_fn = join(dirname(abspath(__file__)), "../../../data/land_data/source/natura2000/pypsa-eur_natura.tiff")
+    natura = gk.raster.loadRaster(natura_fn)
+
+    # Filters
+    clc_filters = filters["clc"]
+    natura_filters = filters["natura"]
+
+    for shape in shapes:
+
+        poly_wkt = shapely.wkt.dumps(shape)
+        poly = ogr.CreateGeometryFromWkt(poly_wkt, spatial_ref)
+
+        ec = gl.ExclusionCalculator(poly, pixelRes=1000)
+        # ec.draw()
+        original_area = ec.areaAvailable / 10e5
+
+        # TODO: need to understand what this corresponds to...
+        if "clc_codes" in clc_filters:
+            # Invert True indicates code that need to be kept
+            ec.excludeRasterType(clc, value=clc_filters["keep_codes"], invert=True)
+        if clc_filters.get("distance", 0.) > 0.:
+            ec.excludeRasterType(clc, value=clc_filters["remove_codes"], buffer=clc_filters["distance"])
+        ec.excludeRasterType(natura, value=natura_filters["remove_codes"])
+        # ec.draw()
+        available = ec.areaAvailable / 10e5
+        print(f"Total: {original_area}, available: {available} km2")
+
+        plot = False
+        if plot:
+            import matplotlib.pyplot as plt
+            plt.show()
+
+
+if __name__ == '__main__':
+
+    filters = {
+        "clc": {
+            "keep_codes": [211, 212, 213, 221, 222, 223, 231, 241, 242, 243,
+                           244, 311, 312, 313, 321, 322, 323, 324, 332, 333],
+            "remove_codes": [111, 112, 121, 122, 123, 124],
+            "distance": 1000},
+        "natura":
+            {"remove_codes": 1}
+    }
+
+    # Define polys for which we want to get available area
+    from src.data.geographics import get_subregions, get_onshore_shapes, divide_shape_with_voronoi
+    from shapely.ops import cascaded_union
+    region = 'BENELUX'
+    subregions = get_subregions(region)
+
+    onshore_union = cascaded_union(get_onshore_shapes(subregions, filterremote=True)["geometry"].values)
+    spatial_res = 0.5
+    # TODO: this is quite shitty
+    divisions = divide_shape_with_voronoi(onshore_union, spatial_res)
+    print(divisions)
+
+    get_land_availability(divisions, filters)

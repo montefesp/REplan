@@ -1,0 +1,39 @@
+name: py_ggrid
+channels:
+  - defaults
+  - conda-forge
+  - ibmdecisionoptimization
+dependencies:
+  - python
+  - pip
+
+  - pypsa
+  - atlite
+
+  - pycountry
+
+  - xarray
+  - dask
+  - scikit-learn
+
+  - PyYAML
+
+  - shapely
+  - geopandas
+  - cartopy
+  - powerplantmatching
+  - geopy
+  - geojson
+  - libgdal
+
+  - gurobi==8.1.1
+
+  - pip:
+      - dash==1.7.0
+      - vresutils==0.3.1
+      - git+https://github.com/PyPSA/glaes.git#egg=glaes
+      - git+https://github.com/PyPSA/geokit.git#egg=geokit
+      - cdsapi
+      - docplex
+      - cplex
+      - windpowerlib

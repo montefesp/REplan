@@ -340,6 +340,19 @@ def return_region_shape(region_name: str, subregions: List[str], prepare: bool =
     return shape_dict
 
 
+def divide_shape_with_voronoi(shape: Union[Polygon, MultiPolygon], resolution: float) \
+        -> List[Union[Polygon, MultiPolygon]]:
+    """Divide a geographical shape by applying voronoi partition."""
+
+    from vresutils.graph import voronoi_partition_pts
+
+    points = return_points_in_shape(shape, resolution)
+    divisions = voronoi_partition_pts(points, shape)
+
+    return divisions
+
+
+# TODO: rename in 'get_points_in_shape'
 def return_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
                            points: List[Tuple[float, float]] = None) -> List[Tuple[float, float]]:
     """

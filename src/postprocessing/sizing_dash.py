@@ -1,6 +1,5 @@
 import os
 import yaml
-import pickle
 import numpy as np
 
 import dash

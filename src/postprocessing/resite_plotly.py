@@ -1,5 +1,3 @@
-import sys
-import os
 from typing import List
 from os.path import join
 import pickle
