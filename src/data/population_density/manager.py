@@ -9,10 +9,12 @@ def load_population_density_data(spatial_resolution: float) -> xr.DataArray:
 
     assert spatial_resolution in [0.5, 1.0], \
         f"Error: Accepted resolution are 0.5 or 1.0, received {spatial_resolution}"
+    degree_resolution = "30_min" if spatial_resolution == 0.5 else "1_deg"
 
     # Load population density dataset
-    pop_density_dir = join(dirname(abspath(__file__)), '../../../data/population_density/')
-    pop_density_dataset = xr.open_dataset(f"{pop_density_dir}gpw_v4_population_density_rev11_{spatial_resolution}.nc")
+    pop_density_dir = join(dirname(abspath(__file__)), '../../../data/population_density/source/')
+    pop_density_dataset = xr.open_dataset(f"{pop_density_dir}gpw_v4_population_density_rev11_{degree_resolution}.nc")
+    print(pop_density_dataset)
     pop_density_dataset = pop_density_dataset.sel(raster=5)
 
     # Extract the variable of interest
@@ -25,3 +27,7 @@ def load_population_density_data(spatial_resolution: float) -> xr.DataArray:
     pop_density_array = pop_density_array.stack(locations=('longitude', 'latitude'))
 
     return pop_density_array
+
+
+if __name__ == '__main__':
+    print(load_population_density_data(0.5))

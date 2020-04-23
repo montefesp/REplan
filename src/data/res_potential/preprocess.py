@@ -31,8 +31,8 @@ def get_non_eu28_potential(tech: str) -> pd.Series:
         # For onshore technologies, divide capacity among NUTS2 regions proportionally (for pv_residential)
         # or inversely proportional (for wind_onshore and pv_utility) to population
         # TODO: will need to use some more reliable data source or at least reference this one better
-        path_pop_dens_data = join(dirname(abspath(__file__)), '../../../data/population_density')
-        nuts2_pop_dens = pd.read_csv(join(path_pop_dens_data, 'pop_dens_nuts2.csv'), index_col=0, sep=';')
+        pop_dens_fn = join(dirname(abspath(__file__)),  "../../../data/population_density/generated/pop_dens_nuts2.csv")
+        nuts2_pop_dens = pd.read_csv(pop_dens_fn, index_col=0, sep=';')
 
         # Compute NUTS2 capacities country by country
         capacity_potential_ds = pd.Series()
