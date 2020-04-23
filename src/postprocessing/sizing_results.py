@@ -26,12 +26,9 @@ class SizingResults:
 
         print('# --- GENERATION --- #')
 
-        print(f"CO2 limit (MT):\n{net.global_constraints.constant.values * (1e-3)}\n")
-        print(f"Total load (TWh):\n{round(net.loads_t.p.values.sum() * (1e-3),2)}\n")
-
         cap_cost, marg_cost = self.get_gen_capital_and_marginal_cost()
         costs = pd.concat([cap_cost.rename('ccost'), marg_cost.rename('mcost'), self.get_generators_capex(), self.get_generators_opex()], axis=1)
-        costs = costs.round(2)
+        costs = costs.round(4)
         print(f"Costs (M$):\n{costs}\n")
 
         capacities = self.get_generators_capacity()
@@ -43,7 +40,9 @@ class SizingResults:
         gen_df = self.get_generators_generation().rename('Gen.').to_frame()
         df_gen = pd.concat([gen_df, curt_cf_df], axis=1, sort=False)
         print(f"Generators generation (TWh):\n{df_gen}\n")
-        # print(f"Total generation (TWh):\n{self.get_generators_generation().sum()}\n")
+
+        print(f"Total generation (TWh):\n{self.get_generators_generation().sum()}\n")
+        print(f"Total load (TWh):\n{round(self.net.loads_t.p.values.sum() * (1e-3),2)}\n")
         # print(f"Number of generators:\n{self.get_generators_numbers()}\n")
         # print(f"Generators CFs (%):\n{self.get_generators_average_usage()}\n")
         # print(f"Curtailment (TWh):\n{self.get_generators_curtailment()}\n")
@@ -85,6 +84,10 @@ class SizingResults:
         for tech_type in types:
             gens_type = gens[gens.type == tech_type]
             generation[tech_type] = gens_t.p[gens_type.index].to_numpy().sum()*(1e-3)
+
+        storage_units_t = self.net.storage_units_t.p
+        sto_t = storage_units_t.loc[:,storage_units_t.columns.str.contains("Storage reservoir")]
+        generation['sto'] = sto_t.to_numpy().sum()*(1e-3)
 
         gen_df = pd.DataFrame.from_dict(generation, orient="index", columns=["generation"]).generation
 
@@ -183,94 +186,134 @@ class SizingResults:
     def display_transmission(self):
         """Display information about transmission"""
 
-        print('# --- TRANSMISSION --- #')
+        print('\n\n\n# --- TRANSMISSION --- #')
 
-        print(f"AC cost (M€/GW/km):  {get_cost('AC', len(self.net.snapshots))}")
-        print(f"DC cost (M€/GW/km): {get_cost('DC', len(self.net.snapshots))}\n")
+        # if len(self.net.lines.index) != 0:
+        #     print('LINES:')
+        #     lines_capacities = self.get_lines_capacity()
+        #     print(f"Lines capacity:\n{lines_capacities}\n")
+        #     print(f"Lines power:\n{self.get_lines_power()}\n")
+        #     print(f"Lines use:\n{self.get_lines_usage()}\n")
+        #     print(f"Lines capex:\n{self.get_lines_capex()}\n")
 
-        if len(self.net.lines.index) != 0:
-            init_capacities, new_capacities, opt_capacities = self.get_lines_capacity()
-            print(f"Lines capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
-            print(f"Lines power:\n{self.get_lines_power()}\n")
-            print(f"Lines use:\n{self.get_lines_usage()}\n")
-            print(f"Lines capex:\n{self.get_lines_capex()}\n")
+
         if len(self.net.links.index) != 0:
-            init_capacities, new_capacities, opt_capacities = self.get_links_capacity()
-            print(f"Links capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
-            print(f"Links power:\n{self.get_links_power()}\n")
-            print(f"Links use:\n{self.get_links_usage()}\n")
-            print(f"Links capex:\n{self.get_links_capex()}\n")
+            links_capacities = self.get_links_capacity()
+            print(f"Links capacity:\n{links_capacities}\n")
+
+            df_power = self.get_links_power()
+            df_cf = self.get_links_usage()
+            df_capex = self.get_links_capex()
+
+            df_links = pd.concat([df_power.rename('Flows [TWh]'),
+                                  df_cf.rename('CF [%]'),
+                                  df_capex.rename('capex [M$]')], axis=1)
+            df_links.loc['AC', 'ccost [M€/GW/km]'] = get_cost('AC', len(self.net.snapshots))[0]
+            df_links.loc['DC', 'ccost [M€/GW/km]'] = get_cost('DC', len(self.net.snapshots))[0]
+
+            print(f"Links flows & costs:\n{df_links}\n")
+
             # print(f"Links length:\n{self.get_links_length()}\n")
-            print(f"Links init cap*length:\n{self.get_links_init_cap_length()}\n")
-            print(f"Links new cap*length:\n{self.get_links_new_cap_length()}\n")
+            # print(f"Links init cap*length:\n{self.get_links_init_cap_length()}\n")
+            # print(f"Links new cap*length:\n{self.get_links_new_cap_length()}\n")
 
-    def get_lines_capacity(self):
-        """Return the original, new and optimal transmission capacities (in MW) for each type of line."""
-
-        lines = self.net.lines.groupby(["carrier"])
-        init_capacities = lines.s_nom.sum()
-        opt_capacities = lines.s_nom_opt.sum()
-        new_capacities = opt_capacities - init_capacities
-
-        return init_capacities, new_capacities, opt_capacities
+    # def get_lines_capacity(self):
+    #     """Return the original, new and optimal transmission capacities (in MW) for each type of line."""
+    #
+    #     lines = self.net.lines.groupby(["carrier"])
+    #     init_capacities = lines.s_nom.sum()
+    #     opt_capacities = lines.s_nom_opt.sum()
+    #     new_capacities = opt_capacities - init_capacities
+    #
+    #     lines_capacities = pd.concat([init_capacities.rename('init [GW]'),
+    #                                   new_capacities.rename('new [GW]'),
+    #                                   opt_capacities.rename('final [GW]')], axis=1)
+    #
+    #     return lines_capacities.round(2)
 
     def get_links_capacity(self):
         """countries_url_area_types the original, new and optimal transmission capacities (in MW) for links."""
 
         links = self.net.links[["carrier", "p_nom", "p_nom_opt"]].groupby("carrier").sum()
         links["p_nom_new"] = links["p_nom_opt"] - links["p_nom"]
-        return links["p_nom"], links["p_nom_new"], links["p_nom_opt"]
 
-    def get_lines_power(self):
-        """countries_url_area_types the total power (MW) (in either direction) that goes through each type of
-        line over self.net.snapshots"""
+        init_cap_length = self.get_links_init_cap_length()
+        new_cap_length = self.get_links_new_cap_length()
 
-        lines_t = self.net.lines_t
-        lines_t.p0[lines_t.p0 < 0] = 0
-        lines_t.p1[lines_t.p1 < 0] = 0
-        power = lines_t.p0 + lines_t.p1
+        links_capacities = pd.concat([links["p_nom"].rename('init [GW]'),
+                                      links["p_nom_new"].rename('new [GW]'),
+                                      init_cap_length.rename(columns={'init_cap_length': 'init [TWkm]'}),
+                                      new_cap_length.rename(columns={'new_cap_length': 'new [TWkm]'})], axis=1)
+        return links_capacities.round(2)
 
-        lines = self.net.lines
-        carriers = sorted(list(set(lines.carrier.values)))
-        power_carrier = dict.fromkeys(carriers)
-        for carrier in carriers:
-            lines_carrier = lines[lines.carrier == carrier]
-            power_carrier[carrier] = power[lines_carrier.index].to_numpy().sum()
-
-        return pd.DataFrame.from_dict(power_carrier, orient="index", columns=["lines_power"]).lines_power
+    # def get_lines_power(self):
+    #     """countries_url_area_types the total power (MW) (in either direction) that goes through each type of
+    #     line over self.net.snapshots"""
+    #
+    #     lines_t = self.net.lines_t
+    #     lines_t.p0[lines_t.p0 < 0] = 0
+    #     lines_t.p1[lines_t.p1 < 0] = 0
+    #     power = lines_t.p0 + lines_t.p1
+    #
+    #     lines = self.net.lines
+    #     carriers = sorted(list(set(lines.carrier.values)))
+    #     power_carrier = dict.fromkeys(carriers)
+    #     for carrier in carriers:
+    #         lines_carrier = lines[lines.carrier == carrier]
+    #         power_carrier[carrier] = power[lines_carrier.index].to_numpy().sum()
+    #
+        # return pd.DataFrame.from_dict(power_carrier, orient="index", columns=["lines_power"]).lines_power
 
     def get_links_power(self):
         """countries_url_area_types the total power (MW) (in either direction) that goes through all links over self.net.snapshots"""
 
         links_t = self.net.links_t
-        links_t.p0[links_t.p0 < 0] = 0
-        links_t.p1[links_t.p1 < 0] = 0
-        power = links_t.p0 + links_t.p1
+        links_carriers = self.net.links['carrier']
 
-        return power.to_numpy().sum()
+        carriers = links_carriers.unique()
 
-    def get_lines_usage(self):
-        """countries_url_area_types the average transmission capacity usage of each type of line"""
+        df_power = pd.Series(index=carriers)
 
-        _, _, opt_cap = self.get_lines_capacity()
-        tot_power = self.get_lines_power()
-        return tot_power/(opt_cap*len(self.net.snapshots))
+        for carrier in carriers:
+
+            links_to_keep = links_carriers[links_carriers == carrier]
+            links_to_keep_t_p0 = links_t['p0'].loc[:, list(links_to_keep.index)]
+            links_to_keep_t_p1 = links_t['p1'].loc[:, list(links_to_keep.index)]
+
+            links_to_keep_t_p0[links_to_keep_t_p0 < 0] = 0
+            links_to_keep_t_p1[links_to_keep_t_p1 < 0] = 0
+            power = links_to_keep_t_p0 + links_to_keep_t_p0
+
+            power_total = power.to_numpy().sum()
+            df_power.loc[carrier] = power_total*(1e-3)
+
+        return df_power.round(2)
+
+    # def get_lines_usage(self):
+    #     """countries_url_area_types the average transmission capacity usage of each type of line"""
+    #
+    #     _, _, opt_cap = self.get_lines_capacity()
+    #     tot_power = self.get_lines_power()
+    #     return tot_power/(opt_cap*len(self.net.snapshots))
 
     def get_links_usage(self):
         """countries_url_area_types the average transmission capacity usage of all links"""
 
-        _, _, opt_cap = self.get_links_capacity()
-        tot_power = self.get_links_power()
-        return tot_power/(opt_cap*len(self.net.snapshots))
+        links_capacities = self.get_links_capacity()
+        opt_capacities_GW = links_capacities['init [GW]'] + links_capacities['new [GW]']
+        links_power = self.get_links_power()
+        df_cf = (links_power*1e3)/(opt_capacities_GW*len(self.net.snapshots))
 
-    def get_lines_capex(self):
-        """countries_url_area_types the capital expenses for building the new capacity for each type of line."""
+        return df_cf.round(3)
 
-        lines = self.net.lines
-        lines["s_nom_new"] = lines.s_nom_opt - lines.s_nom
-        lines["capex"] = lines.s_nom_new*lines.capital_cost
-
-        return lines.groupby(["carrier"]).capex.sum()
+    # def get_lines_capex(self):
+    #     """countries_url_area_types the capital expenses for building the new capacity for each type of line."""
+    #
+    #     lines = self.net.lines
+    #     lines["s_nom_new"] = lines.s_nom_opt - lines.s_nom
+    #     lines["capex"] = lines.s_nom_new*lines.capital_cost
+    #
+    #     return lines.groupby(["carrier"]).capex.sum()
 
     def get_links_capex(self):
         """countries_url_area_types the capital expenses for building the new capacity for all links."""
@@ -279,42 +322,56 @@ class SizingResults:
         links["p_nom_new"] = links.p_nom_opt - links.p_nom
         links["capex"] = links.p_nom_new*links.capital_cost
 
-        return links.groupby(["carrier"]).capex.sum()
+        df_capex = links.groupby(["carrier"]).capex.sum()
 
-    def get_lines_length(self):
-        return self.net.lines[["carrier", "length"]].groupby(["carrier"]).sum().length
+        return df_capex.round(2)
+
+    # def get_lines_length(self):
+    #     return self.net.lines[["carrier", "length"]].groupby(["carrier"]).sum().length
 
     def get_links_length(self):
         return self.net.links[["carrier", "length"]].groupby(["carrier"]).sum().length
 
     def get_links_init_cap_length(self):
-        print(len(self.net.links))
-        print(len(self.net.buses))
         self.net.links["init_cap_length"] = self.net.links.length*self.net.links.p_nom
-        return self.net.links[["init_cap_length", "carrier"]].groupby("carrier").sum()
+        init_cap_length = self.net.links[["init_cap_length", "carrier"]].groupby("carrier").sum()
+        return init_cap_length*(1e-3)
 
     def get_links_new_cap_length(self):
         self.net.links["new_cap_length"] = self.net.links.length*(self.net.links.p_nom_opt-self.net.links.p_nom)
-        return self.net.links[["new_cap_length", "carrier"]].groupby("carrier").sum()
+        new_cap_length = self.net.links[["new_cap_length", "carrier"]].groupby("carrier").sum()
+        return new_cap_length*(1e-3)
 
     # --- Storage --- #
 
     def display_storage(self):
         """Display information about storage"""
 
+        print('\n\n\n# --- STORAGE --- #')
+
         cap_cost, marg_cost = self.get_storage_capital_and_marginal_cost()
-        print(f"Capital cost:\n{cap_cost}\n")
-        print(f"Marginal cost:\n{marg_cost}\n")
-        init_capacities, new_capacities, opt_capacities = self.get_storage_power_capacity()
-        print(f"Storage power capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
-        init_capacities, new_capacities, opt_capacities = self.get_storage_energy_capacity()
-        print(f"Storage energy capacity:\nInit:\n{init_capacities}\nNew:\n{new_capacities}\nTotal:\n{opt_capacities}\n")
-        print(f"Storage power:\n{self.get_storage_power()}\n")
-        print(f"Storage energy:\n{self.get_storage_energy()}\n")
-        print(f"Storage power use:\n{self.get_storage_power_usage()}\n")
-        print(f"Storage energy use:\n{self.get_storage_energy_usage()}\n")
-        print(f"Storage opex:\n{self.get_storage_opex()}\n")
-        print(f"Storage capex:\n{self.get_storage_capex()}\n")
+        costs = pd.concat([cap_cost.rename('ccost'), marg_cost.rename('mcost'), self.get_storage_capex(), self.get_storage_opex()], axis=1)
+        costs = costs.round(4)
+        print(f"Costs (M$):\n{costs}\n")
+
+        capacities_p = self.get_storage_power_capacity()
+        capacities_e = self.get_storage_energy_capacity()
+        capacities = pd.concat([capacities_p, capacities_e], axis=1)
+        print(f"Storage capacities:\n{capacities}\n")
+
+        storage_f = self.get_storage_energy_in()
+        storage_e = capacities_e['init [GWh]'] + capacities_e['new [GWh]']
+        cycles = (storage_f / storage_e).round(0)
+        print(f"Storage cycles:\n{cycles}\n")
+
+        spillage = self.get_storage_spillage()
+        print(f"Storage spillage [GWh]:\n{spillage.round(2)}\n")
+
+
+        # print(f"Storage power:\n{self.get_storage_power()}\n")
+        # print(f"Storage energy:\n{self.get_storage_energy()}\n")
+        # print(f"Storage power use:\n{self.get_storage_power_usage()}\n")
+        # print(f"Storage energy use:\n{self.get_storage_energy_usage()}\n")
 
     def get_storage_capital_and_marginal_cost(self):
 
@@ -329,7 +386,10 @@ class SizingResults:
         opt_capacities = storage_units.p_nom_opt.sum()
         new_capacities = opt_capacities - init_capacities
 
-        return init_capacities, new_capacities, opt_capacities
+        capacities_p = pd.concat([init_capacities.rename('init [GW]'),
+                                new_capacities.rename('new [GW]')], axis=1)
+
+        return capacities_p.round(2)
 
     def get_storage_energy_capacity(self):
         """countries_url_area_types the original, new and optimal energy capacities (in MWh) for each type of storage unit."""
@@ -343,7 +403,10 @@ class SizingResults:
         opt_capacities = storage_units.p_nom_opt_energy.sum()
         new_capacities = opt_capacities - init_capacities
 
-        return init_capacities, new_capacities, opt_capacities
+        capacities_e = pd.concat([init_capacities.rename('init [GWh]'),
+                                new_capacities.rename('new [GWh]')], axis=1)
+
+        return capacities_e.round(2)
 
     def get_storage_power(self):
         """countries_url_area_types the total power (MW) that goes out or in of the battery."""
@@ -366,8 +429,25 @@ class SizingResults:
 
         return pd.DataFrame.from_dict(power, orient="index", columns=["power"]).power
 
-    def get_storage_energy(self):
+    def get_storage_energy_in(self):
         """countries_url_area_types the total energy (MWh) that is stored over self.net.snapshots."""
+
+        storage_units = self.net.storage_units
+        types = sorted(list(set(storage_units.type.values)))
+        storage_units_t = self.net.storage_units_t
+        storage_units_t.p[storage_units_t.p < 0.] = 0.
+
+        energy = dict.fromkeys(types)
+
+        for tech_type in types:
+            storage_units_type = storage_units[storage_units.type == tech_type]
+            energy[tech_type] = storage_units_t.p[storage_units_type.index].to_numpy().sum()
+
+        return pd.DataFrame.from_dict(energy, orient="index", columns=["energy"]).energy
+
+
+
+    def get_storage_spillage(self):
 
         storage_units = self.net.storage_units
         types = sorted(list(set(storage_units.type.values)))
@@ -377,32 +457,32 @@ class SizingResults:
 
         for tech_type in types:
             storage_units_type = storage_units[storage_units.type == tech_type]
-            energy[tech_type] = storage_units_t.state_of_charge[storage_units_type.index].to_numpy().sum()
+            energy[tech_type] = storage_units_t.spill[storage_units_type.index].to_numpy().sum()
 
         return pd.DataFrame.from_dict(energy, orient="index", columns=["energy"]).energy
 
-    def get_storage_power_usage(self):
-        """Return the average power capacity usage of each type of storage unit."""
+    # def get_storage_power_usage(self):
+    #     """Return the average power capacity usage of each type of storage unit."""
+    #
+    #     _, _, opt_cap = self.get_storage_power_capacity()
+    #     tot_power = self.get_storage_power()
+    #     return tot_power/(opt_cap*len(self.net.snapshots))
 
-        _, _, opt_cap = self.get_storage_power_capacity()
-        tot_power = self.get_storage_power()
-        return tot_power/(opt_cap*len(self.net.snapshots))
-
-    def get_storage_energy_usage(self):
-        """Returns the average energy capacity usage of each type of storage unit"""
-
-        _, _, opt_cap = self.get_storage_energy_capacity()
-        tot_power = self.get_storage_energy()
-        return tot_power/(opt_cap*len(self.net.snapshots))
+    # def get_storage_energy_usage(self):
+    #     """Returns the average energy capacity usage of each type of storage unit"""
+    #
+    #     _, _, opt_cap = self.get_storage_energy_capacity()
+    #     tot_power = self.get_storage_energy()
+    #     return tot_power/(opt_cap*len(self.net.snapshots))
 
     def get_storage_opex(self):
         """Returns the capital expenses for building the new capacity for each type of storage unit."""
 
         storage_units = self.net.storage_units
         total_power = self.net.storage_units_t.p.abs().sum(axis=0)
-        storage_units["capex"] = total_power * storage_units.marginal_cost
+        storage_units["opex"] = total_power * storage_units.marginal_cost
 
-        return storage_units.groupby(["type"]).capex.sum()
+        return storage_units.groupby(["type"]).opex.sum()
 
     def get_storage_capex(self):
         """Returns the capital expenses for building the new capacity for each type of storage unit."""
@@ -414,24 +494,52 @@ class SizingResults:
         return storage_units.groupby(["type"]).capex.sum()
 
 
+    def display_co2(self):
+
+        print('\n\n\n# --- CO2 --- #')
+
+        df_co2 = pd.DataFrame(index=['CO2'], columns=['budget [Mt]', 'use [Mt]', 'use [%]'])
+
+        generators_t = self.net.generators_t['p']
+        generators_t_year = generators_t.sum(axis=0)
+
+        generators_specs = self.net.generators[['carrier', 'efficiency']].copy()
+        generators_emissions = self.net.carriers
+        generators_specs['emissions'] = generators_specs['carrier'].map(generators_emissions['co2_emissions']).fillna(0.)
+        generators_specs['emissions_eff'] = generators_specs['emissions']/generators_specs['efficiency']
+
+        co2_emissions_per_gen = generators_t_year * generators_specs['emissions_eff'] * 1e-3
+        co2_emissions = co2_emissions_per_gen.sum()
+
+        co2_budget = self.net.global_constraints.constant.values[0] * (1e-3)
+
+        df_co2.loc['CO2', 'budget [Mt]'] = co2_budget
+        df_co2.loc['CO2', 'use [Mt]'] = co2_emissions
+        df_co2.loc['CO2', 'use [%]'] = co2_emissions / co2_budget
+
+        df_co2 = df_co2.round(2)
+
+        print(f"CO2 utilization:\n{df_co2}\n")
+
+
+
+
+
 if __name__ == "__main__":
 
-    assert (len(sys.argv) == 2) or (len(sys.argv) == 3), \
-        "You need to provide one or two argument: output_dir (and test_number)"
+    topology = 'tyndp2018'
 
-    main_output_dir = sys.argv[1]
-    test_number = sys.argv[2] if len(sys.argv) == 3 else None
-    if test_number is None:
-        test_number = sorted(os.listdir(main_output_dir))[-1]
-    output_dir = f"{main_output_dir}{test_number}/"
-    print(output_dir)
+    run_id = '20200422_184325'
+
+    main_output_dir = f'../../output/sizing/{topology}/'
+    output_dir = f"{main_output_dir}{run_id}/"
+
     net = Network()
     net.import_from_csv_folder(output_dir)
 
-    # print(f"Number of res sites\n"
-    #       f"{len(net.generators[net.generators.type.isin(['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential'])])}")
-
     pprp = SizingResults(net)
+
     pprp.display_generation()
     pprp.display_transmission()
     pprp.display_storage()
+    pprp.display_co2()

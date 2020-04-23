@@ -9,28 +9,66 @@ from datetime import datetime
 from src.data.geographics import match_points_to_regions
 
 
-# TODO: need to comment
-def compute_ror_series(dataset_runoff, region_points, flood_event_threshold):
+def compute_ror_series(dataset_runoff: xr.Dataset, region_points: list, flood_event_threshold: float) -> pd.DataFrame:
+    """
+    Computing ROR p.u. time series as directly proportional to runoff for a given grid cell/area.
 
+    Parameters
+    ----------
+    dataset_runoff: xarray.Dataset
+        Contains runoff data, in this case expressed in m.
+    region_points: list
+        List of points (lon, lat) within a region.
+    flood_event_threshold: float
+        Quantile clipping runoff timeseries (stems from the assumption that ROR plants are designed for a, e.g. p80 flow).
+
+    Returns
+    -------
+    ts_norm: pd.DataFrame
+        Timeseries of p.u. capacity factors for ROR plants.
+    """
+
+    # Summation of runoffs over all points within the NUTS region.
     ts = dataset_runoff.sel(locations=region_points).sum(dim='locations').ro.load()
+    # Clipping according to the flood_event_threshold
     ts_clip = ts.clip(max=ts.quantile(q=flood_event_threshold).values)
+    # Normalizing for p.u. representation.
     ts_norm = ts_clip / ts_clip.max()
 
     return ts_norm
 
 
-# TODO: need to comment
-def compute_sto_inflows(dataset_runoff, region_points, sto_multiplier):
+def compute_sto_inflows(dataset_runoff: xr.Dataset, region_points: list, unit_area: float = 1225,
+                        g: float = 9.81, rho: float = 1000.)-> pd.DataFrame:
+    """
+     Computing STO inflow time series (GWh).
 
-    unit_area = 1e10  # TODO: why is this not given as argument?
+     Parameters
+     ----------
+     dataset_runoff: xarray.Dataset
+         Contains runoff data, in this case expressed in m.
+     region_points: list
+         List of points (lon, lat) within a region.
+     unit_area: float
+         Area of one grid cell, in this case represented as a 0.5deg x 0.5deg square.
+         Assuming an average distance of 35km between points (at 50deg latitude), a square area equals 1225km2.
+     g: float
+        Gravitational constant [m/s2].
+     rho: float
+        Water density [kg/m3].
 
+     Returns
+     -------
+     ts_gwh: pd.DataFrame
+         Timeseries of STO inflows.
+     """
+
+    # Summation of runoffs over all points within the NUTS region.
     ts = dataset_runoff.sel(locations=region_points).sum(dim='locations').ro
-    # assume a grid box area of 10'000 km2
-    ts_cm = ts * unit_area
-    ts_gwh = ts_cm * 9.81 * 1000 * (1/3.6) * 1e-12 * sto_multiplier
-
-    # prod = ts_GWh.sum(dim='time').values*1e-3
-    # exp = hydro_production_dict[region[:2]]
+    # Convert from the runoff unit (m) to some equivalent water volume (m3).
+    ts_cm = ts * (unit_area * 1e6)
+    # Convert from J to WH and then to GWh.
+    ts_gwh = ts_cm * g * rho * (1/3600) * 1e-9
 
     return ts_gwh
 
@@ -116,7 +154,7 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
     capacities_df['PSP_EN_CAP [GWh]'] = php_nuts_capacity_df['Energy']
     capacities_df = capacities_df.round(3)
 
-    # TODO: comment
+    # Some NUTS2 regions are associated with, e.g., metropolitan areas, thus will be manually set to 0.
     if topology_unit == 'NUTS2':
 
         regions_ror = ['PT20', 'PT30', 'DE50', 'DE60', 'DE71', 'DE80', 'DEA4', 'DE24',
@@ -149,22 +187,53 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
         # TODO: if nuts_points is an empty list, what happens?
         df_ror[nuts] = compute_ror_series(runoff_dataset, nuts_points, flood_event_threshold)
 
-    # STO inflow (in GWh)
-    # Inflow multiplier (proportional to the water head) required to reach IEA production levels throughout the year.
-    sto_multiplier_fn = join(dirname(abspath(__file__)), "../../../data/hydro/source/sto_multipliers.csv")
-    sto_multipliers_ds = pd.read_csv(sto_multiplier_fn, squeeze=True, index_col=0)
-
     nuts_with_sto_index = capacities_df[capacities_df['STO_CAP [GW]'].notnull()].index
     df_sto = pd.DataFrame(index=timestamps, columns=nuts_with_sto_index)
     for nuts in nuts_with_sto_index:
         nuts_points = points_nuts_ds[points_nuts_ds == nuts].index.to_list()
-        df_sto[nuts] = compute_sto_inflows(runoff_dataset, nuts_points, sto_multipliers_ds[nuts[:2]])
+        df_sto[nuts] = compute_sto_inflows(runoff_dataset, nuts_points)
 
-    # Do some 'hand' correcting work
-    if topology_unit == 'NUTS2':
+    # STO inflow (in GWh)
+    if topology_unit == 'NUTS0':
+
+        hydro_production_fn = join(dirname(abspath(__file__)),
+                                   "../../../data/hydro/source/Eurostat_hydro_net_generation.xls")
+        hydro_production_ds = pd.read_excel(hydro_production_fn, skiprows=12, index_col=0)
+        hydro_production = hydro_production_ds[[str(y) for y in timestamps.year.unique()]].\
+                                                                                        fillna(method='bfill', axis=1)
+
+        ror_production = df_ror.groupby(df_ror.index.year).sum()\
+                                        .multiply(capacities_df['ROR_CAP [GW]'].dropna(), axis=1).transpose()
+        ror_production.index = ror_production.index.map(str)
+
+        sto_production = hydro_production.copy()
+        for nuts in ror_production.index:
+            sto_production.loc[nuts, :] = hydro_production.loc[nuts, :].values - \
+                                          ror_production.loc[nuts, :].values
+        # LV and IE seem to have more ROR potential than the Eurostat total hydro generation.
+        sto_production_sum = sto_production.clip(lower=0.).sum(axis=1)
+
+        sto_inflows_sum = df_sto.sum(axis=0)
+        sto_multipliers_ds = sto_inflows_sum.copy()
+        for nuts in sto_multipliers_ds.index:
+            sto_multipliers_ds.loc[nuts] = sto_production_sum.loc[nuts] / sto_inflows_sum.loc[nuts]
+        df_sto = df_sto.multiply(sto_multipliers_ds)
+
+        sto_multipliers_save_fn = "../../../data/hydro/source/hydro_sto_multipliers_NUTS0.csv"
+        sto_multipliers_ds.to_csv(sto_multipliers_save_fn)
+
+    # Quite a hack here that should work fine for the beginning. Basically, NUTS0 topology needs to be ran first to
+    # create the multipliers file that is read down below. TODO: look into computing multipliers for NUTS2 directly.
+    else: # topology_unit == 'NUTS2'
+
+        sto_multipliers_fn = join(dirname(abspath(__file__)),
+                                   "../../../data/hydro/source/hydro_sto_multipliers_NUTS0.csv")
+        sto_multipliers_ds = pd.read_csv(sto_multipliers_fn, index_col=0).squeeze()
+        for nuts in df_sto.columns:
+            df_sto[nuts] *= sto_multipliers_ds.loc[nuts[:2]]
+
         # For some reason, there is no point associated with ITC2. Fill with neighboring area.
         df_ror['ITC2'] = df_ror['ITC3']
-
         # Same situation here, some wild hacks for the moment to fill
         # them with data from regions with similar capacities.
         df_sto['ES52'] = df_sto['ES24']
@@ -187,7 +256,7 @@ if __name__ == '__main__':
     # hydro_production_fn = join(dirname(abspath(__file__)), "../../../data/hydro/source/hydro_production.csv")
     # hydro_production_ds = pd.read_csv(hydro_production_fn, squeeze=True, index_col=0)
 
-    nuts_type = 'NUTS0'
+    nuts_type = 'NUTS2'
     ror_flood_threshold = 0.8
     start = datetime(2014, 1, 1, 0, 0, 0)
     end = datetime(2018, 12, 31, 23, 0, 0)

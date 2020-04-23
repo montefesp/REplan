@@ -170,3 +170,4 @@ if __name__ == '__main__':
     results.display_generation()
     results.display_transmission()
     results.display_storage()
+    results.display_co2()
