@@ -22,20 +22,6 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
-def init_output_folder(output_folder: str = None) -> str:
-    """Initialize an output folder."""
-
-    if output_folder is None:
-        output_folder = join(dirname(abspath(__file__)), f"../../output/resite/{strftime('%Y%m%d_%H%M%S')}/")
-    assert output_folder[-1] == "/", "Error: Output folder name must end with '/'"
-    if not isdir(output_folder):
-        makedirs(output_folder)
-
-    logger.info(f"Output folder path is: {abspath(output_folder)}/")
-
-    return output_folder
-
-
 class Resite:
     """
     Tool allowing the selection of RES sites.
@@ -44,6 +30,7 @@ class Resite:
     -------
     __init__
     __del__
+    init_output_folder
     build_input_data
     build_model
     solve_model
@@ -81,6 +68,21 @@ class Resite:
         self.spatial_res = spatial_resolution
 
         self.instance = None
+
+        self.run_start = strftime('%Y%m%d_%H%M%S')
+
+    def init_output_folder(self, output_folder: str = None) -> str:
+        """Initialize an output folder."""
+
+        if output_folder is None:
+            output_folder = join(dirname(abspath(__file__)), f"../../output/resite/{self.run_start}/")
+        assert output_folder[-1] == "/", "Error: Output folder name must end with '/'"
+        if not isdir(output_folder):
+            makedirs(output_folder)
+
+        logger.info(f"Output folder path is: {abspath(output_folder)}/")
+
+        return output_folder
 
     def build_input_data(self, use_ex_cap: bool, filtering_layers: Dict[str, bool]):
         """Preprocess data.
@@ -220,7 +222,7 @@ class Resite:
                                                 f"Accepted languages are {accepted_modelling}"
 
         if write_lp:
-            output_folder = init_output_folder(output_folder)
+            output_folder = self.init_output_folder(output_folder)
 
         self.modelling = modelling
         self.formulation = formulation
@@ -299,7 +301,7 @@ class Resite:
     def save(self, dir_name: str = None):
         """Save all results and parameters."""
 
-        output_folder = init_output_folder(dir_name)
+        output_folder = self.init_output_folder(dir_name)
 
         # Save some parameters to facilitate identification of run in directory
         params = {'spatial_resolution': self.spatial_res,
