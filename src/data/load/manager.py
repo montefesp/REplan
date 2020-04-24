@@ -22,8 +22,8 @@ def get_yearly_country_load(country: str, year: int = 2016) -> int:
     Yearly load: int
     """
 
-    key_ind_fn = join(dirname(abspath(__file__)), f"../../../data/load/source/iea/{country}.csv")
-    return pd.read_csv(key_ind_fn, index_col=0, squeeze=True).loc[year]
+    yearly_load_fn = join(dirname(abspath(__file__)), f"../../../data/load/source/iea/{country}.csv")
+    return pd.read_csv(yearly_load_fn, index_col=0, squeeze=True).loc[year]
 
 
 def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,

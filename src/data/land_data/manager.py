@@ -110,14 +110,14 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
         threshold_distance = tech_dict['protected_areas_distance_threshold']
 
         path_land_data = join(dirname(abspath(__file__)),
-                              '../../../data/land_data/source/WDPA/WDPA_Feb2019-shapefile-points.shp')
+                              '../../../data/land_data/source/WDPA/WDPA_Apr2020-shapefile-points.shp')
         dataset = gpd.read_file(path_land_data)
 
         # Retrieve the geopandas Point objects and their coordinates
         dataset = dataset[dataset['IUCN_CAT'].isin(protected_areas_selection)]
         protected_points = dataset.geometry.apply(lambda p: (round(p[0].x, 2), round(p[0].y, 2))).values
 
-        # Compute closest protected point for each coordinae
+        # Compute closest protected point for each coordinate
         protected_points = np.array([[p[0], p[1]] for p in protected_points])
         points = np.array([[p[0], p[1]] for p in points])
         closest_points = \
@@ -211,8 +211,8 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
                             f"../../../data/land_data/source/ERA5/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
         dataset = read_filter_database(dataset_name, points)
 
-        depth_threshold_low = tech_dict['depth_threshold_low']
-        depth_threshold_high = tech_dict['depth_threshold_high']
+        depth_threshold_low = tech_dict['depth_thresholds']['low']
+        depth_threshold_high = tech_dict['depth_thresholds']['high']
 
         array_watermask = dataset['lsm']
         # Careful with this one because max depth is 999.
@@ -340,7 +340,9 @@ def filter_points(technologies: List[str], tech_config: Dict[str, Any], init_poi
     return tech_points_dict
 
 
-def get_land_availability(shapes: List[Union[Polygon, MultiPolygon]], filters: Dict):
+# TODO: maybe it doesn't make sense to pass tech as argument
+def get_land_availability_for_shapes(shapes: List[Union[Polygon, MultiPolygon]], tech: str,
+                                     tech_config: Dict, plot: bool = False):
 
     from osgeo import ogr, osr
     import glaes as gl
@@ -350,18 +352,19 @@ def get_land_availability(shapes: List[Union[Polygon, MultiPolygon]], filters: D
     spatial_ref = osr.SpatialReference()
     spatial_ref.ImportFromEPSG(4326)
 
-    # Corine dataset
-    corine_fn = join(dirname(abspath(__file__)), "../../../data/land_data/source/CLC2018/CLC2018_CLC2018_V2018_20.tif")
-    clc = gk.raster.loadRaster(corine_fn)
-    clc.SetProjection(gk.srs.loadSRS(3035).ExportToWkt())
+    land_data_dir = join(dirname(abspath(__file__)), "../../../data/land_data/")
 
-    # Natura dataset
-    natura_fn = join(dirname(abspath(__file__)), "../../../data/land_data/source/natura2000/pypsa-eur_natura.tiff")
-    natura = gk.raster.loadRaster(natura_fn)
+    # Natura dataset (protected areas in Europe)
+    natura = gk.raster.loadRaster(f"{land_data_dir}generated/natura2000.tif")
 
-    # Filters
-    clc_filters = filters["clc"]
-    natura_filters = filters["natura"]
+    # GEBCO dataset (altitude and depth)
+    gebco_fn = f"{land_data_dir}source/GEBCO/GEBCO_2019_24_Apr_2020/gebco_2019_n75.0_s30.0_w-15.0_e40.0.tif"
+    gebco = gk.raster.loadRaster(gebco_fn)
+
+    # Corine dataset (land use)
+    if 'clc' in tech_config:
+        clc = gk.raster.loadRaster(f"{land_data_dir}source/CLC2018/CLC2018_CLC2018_V2018_20.tif")
+        clc.SetProjection(gk.srs.loadSRS(3035).ExportToWkt())
 
     for shape in shapes:
 
@@ -369,48 +372,75 @@ def get_land_availability(shapes: List[Union[Polygon, MultiPolygon]], filters: D
         poly = ogr.CreateGeometryFromWkt(poly_wkt, spatial_ref)
 
         ec = gl.ExclusionCalculator(poly, pixelRes=1000)
-        # ec.draw()
         original_area = ec.areaAvailable / 10e5
 
-        # TODO: need to understand what this corresponds to...
-        if "clc_codes" in clc_filters:
-            # Invert True indicates code that need to be kept
-            ec.excludeRasterType(clc, value=clc_filters["keep_codes"], invert=True)
-        if clc_filters.get("distance", 0.) > 0.:
-            ec.excludeRasterType(clc, value=clc_filters["remove_codes"], buffer=clc_filters["distance"])
-        ec.excludeRasterType(natura, value=natura_filters["remove_codes"])
-        # ec.draw()
+        # Exclude protected areas
+        ec.excludeRasterType(natura, value=1)
+
+        # Depth and altitude filters
+        if 'depth_thresholds' in tech_config:
+            depth_thresholds = tech_config["depth_thresholds"]
+            ec.excludeRasterType(gebco, (-depth_thresholds["high"], -depth_thresholds["low"]), invert=True)
+        elif 'altitude_threshold' in tech_config and tech_config['altitude_threshold'] > 0.:
+            ec.excludeRasterType(gebco, (tech_config['altitude_threshold'], None))
+
+        # Corine filters
+        if 'clc' in tech_config:
+            clc_filters = tech_config["clc"]
+            if "keep_codes" in clc_filters:
+                # Invert True indicates code that need to be kept
+                ec.excludeRasterType(clc, value=clc_filters["keep_codes"], invert=True)
+            if clc_filters.get("distance", 0.) > 0.:
+                ec.excludeRasterType(clc, value=clc_filters["remove_codes"], buffer=clc_filters["remove_distance"])
+
+        # TODO: add distance from the shore filter
+        # TODO: filter on resource quality
+        # TODO: add slope?
+        # TODO: population density?
+
         available = ec.areaAvailable / 10e5
         print(f"Total: {original_area}, available: {available} km2")
-
-        plot = False
         if plot:
             import matplotlib.pyplot as plt
+            ec.draw()
             plt.show()
+
+
+def get_land_availability_at_resolution(shape: Union[Polygon, MultiPolygon], resolution: float, tech: str, tech_config: Dict):
+
+    divisions = divide_shape_with_voronoi(shape, resolution)
+    get_land_availability_for_shapes(divisions, tech, tech_config)
+
+
+def get_land_availability_for_countries(countries: List[str], tech: str, tech_config: Dict):
+
+    accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
+    assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
+
+    shapes = get_onshore_shapes(countries, filterremote=True)["geometry"].values
+    if tech in ["wind_offshore", "wind_floating"]:
+        onshore_union = cascaded_union(shapes)
+        shapes = get_offshore_shapes(countries, onshore_union, filterremote=True)["geometry"].values
+    get_land_availability_for_shapes(shapes, tech, tech_config, True)
 
 
 if __name__ == '__main__':
 
-    filters = {
-        "clc": {
-            "keep_codes": [211, 212, 213, 221, 222, 223, 231, 241, 242, 243,
-                           244, 311, 312, 313, 321, 322, 323, 324, 332, 333],
-            "remove_codes": [111, 112, 121, 122, 123, 124],
-            "distance": 1000},
-        "natura":
-            {"remove_codes": 1}
-    }
-
     # Define polys for which we want to get available area
-    from src.data.geographics import get_subregions, get_onshore_shapes, divide_shape_with_voronoi
+    from src.data.geographics import get_subregions, get_onshore_shapes, get_offshore_shapes, divide_shape_with_voronoi
     from shapely.ops import cascaded_union
-    region = 'BENELUX'
+    import yaml
+
+    tech_config = yaml.load(open("/home/utilisateur/Global_Grid/code/py_ggrid/src/parameters/pv_wind_tech_configs.yml", "r"))
+    tech = "pv_utility"
+    tech_config = tech_config[tech]
+    region = 'EU'
     subregions = get_subregions(region)
 
-    onshore_union = cascaded_union(get_onshore_shapes(subregions, filterremote=True)["geometry"].values)
-    spatial_res = 0.5
-    # TODO: this is quite shitty
-    divisions = divide_shape_with_voronoi(onshore_union, spatial_res)
-    print(divisions)
+    union = cascaded_union(get_onshore_shapes(subregions, filterremote=True)["geometry"].values)
+    if tech in ["wind_floating", "wind_offshore"]:
+        union = cascaded_union(get_offshore_shapes(subregions, union, filterremote=True)["geometry"].values)
+    get_land_availability_for_shapes([union], tech, tech_config, True)
 
-    get_land_availability(divisions, filters)
+    spatial_res = 0.5
+    get_land_availability_at_resolution(union, spatial_res, tech, tech_config)
