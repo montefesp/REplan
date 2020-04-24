@@ -21,6 +21,7 @@ from src.network_builder.nuclear import add_generators as add_nuclear
 from src.network_builder.hydro import add_phs_plants, add_ror_plants, add_sto_plants
 from src.network_builder.conventional import add_generators as add_conventional
 from src.network_builder.battery import add_batteries
+from src.network_builder.snsp import add_snsp_constraint_tyndp
 from src.postprocessing.sizing_results import SizingResults
 
 import logging
@@ -146,11 +147,18 @@ if __name__ == '__main__':
         net.snapshots) / NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
 
+    if config["snsp"]["include"]:
+        extra_functionality = add_snsp_constraint_tyndp
+    else:
+        extra_functionality = None
+
     # Compute and save results
     if not isdir(output_dir):
         makedirs(output_dir)
+
     net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}test.log",
-             solver_options=config["solver_options"][config["solver"]], pyomo=True)
+             solver_options=config["solver_options"][config["solver"]],
+             extra_functionality=extra_functionality, pyomo=True)
 
     # if True:
     #     net.model.write(filename=join(output_dir, 'model.lp'),

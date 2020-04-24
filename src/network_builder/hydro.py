@@ -152,6 +152,7 @@ def add_ror_plants(network: pypsa.Network, topology_type: str = "countries",
                  capital_cost=capital_cost,
                  marginal_cost=marginal_cost,
                  efficiency=efficiency,
+                 p_min_pu=0.,
                  p_max_pu=bus_inflows.values,
                  x=buses_onshore.loc[bus_pow_cap.index].x.values,
                  y=buses_onshore.loc[bus_pow_cap.index].y.values)
