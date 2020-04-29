@@ -12,8 +12,8 @@ filtering_layers:
   water_mask: True
 
 timeslice: ['2015-01-01T00:00', '2015-01-31T23:00']
-regions: ['BENELUX']
-technologies: ['wind_offshore', 'wind_onshore', 'pv_utility']
+regions: ['CWE']
+technologies: ['wind_onshore', 'wind_offshore']
 
 use_ex_cap: True
 

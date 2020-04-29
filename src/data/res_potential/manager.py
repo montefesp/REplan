@@ -1,3 +1,6 @@
+"""
+All these functions are computing potentials based on NUTS2 or NUTS0 aggregated potentials
+"""
 from os.path import join, dirname, abspath
 from typing import List, Dict, Tuple, Union
 
@@ -314,7 +317,3 @@ def get_capacity_potential_for_countries(tech: str, countries: List[str]) -> pd.
     capacity_potential_ds = capacity_potential_ds.loc[countries]
 
     return capacity_potential_ds
-
-
-if __name__ == '__main__':
-    print(get_capacity_potential_for_countries('wind_offshore', ["CH", "BE", "IE", "GB"]))

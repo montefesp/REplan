@@ -4,15 +4,25 @@ from copy import copy
 
 import xarray as xr
 import numpy as np
+import pandas as pd
 import xarray.ufuncs as xu
 import dask.array as da
 import geopandas as gpd
 import scipy.spatial
 import geopy.distance
 
+from osgeo import ogr, osr
+import geokit as gk
+import glaes as gl
+
+import multiprocessing as mp
+import progressbar as pgb
+
+import shapely.wkt
 from shapely.geometry import Polygon, MultiPolygon
 
 from src.data.resource import read_resource_database
+from src.data.geographics import divide_shape_with_voronoi
 
 
 def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, float]],
@@ -138,7 +148,8 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
         #  - does it make sense to reload this dataset?
         #  - should we slice on time, alredy here?
         path_resource_data = join(dirname(abspath(__file__)),
-                                  f"../../../data/resource/source/era5-land/{spatial_resolution}")
+                                  f"../../../data/resource/source/ERA5/{spatial_resolution}")
+        #                          f"../../../data/resource/source/era5-land/{spatial_resolution}")
         database = read_resource_database(path_resource_data)
         database = database.sel(locations=sorted(points))
 
@@ -340,107 +351,236 @@ def filter_points(technologies: List[str], tech_config: Dict[str, Any], init_poi
     return tech_points_dict
 
 
-# TODO: maybe it doesn't make sense to pass tech as argument
-def get_land_availability_for_shapes(shapes: List[Union[Polygon, MultiPolygon]], tech: str,
-                                     tech_config: Dict, plot: bool = False):
+def init_land_availability_globals(tech_config: Dict):
+    """
+    Initialize global variables to use in land availability computation
 
-    from osgeo import ogr, osr
-    import glaes as gl
-    import geokit as gk
-    import shapely.wkt
+    Parameters
+    ----------
+    tech_config: Dict
+        Dictionary containing a set of values describing the configuration of the technology for which we want
+        to obtain land availability.
+    """
 
-    spatial_ref = osr.SpatialReference()
-    spatial_ref.ImportFromEPSG(4326)
+    # global in each process of the multiprocessing.Pool
+    global gebco_, clc_, natura_, spatial_ref_, tech_config_
+
+    tech_config_ = tech_config
+
+    spatial_ref_ = osr.SpatialReference()
+    spatial_ref_.ImportFromEPSG(4326)
 
     land_data_dir = join(dirname(abspath(__file__)), "../../../data/land_data/")
 
     # Natura dataset (protected areas in Europe)
-    natura = gk.raster.loadRaster(f"{land_data_dir}generated/natura2000.tif")
+    natura_ = gk.raster.loadRaster(f"{land_data_dir}generated/natura2000.tif")
 
     # GEBCO dataset (altitude and depth)
-    gebco_fn = f"{land_data_dir}source/GEBCO/GEBCO_2019_24_Apr_2020/gebco_2019_n75.0_s30.0_w-15.0_e40.0.tif"
-    gebco = gk.raster.loadRaster(gebco_fn)
+    gebco_fn = f"{land_data_dir}source/GEBCO/GEBCO_2019/gebco_2019_n75.0_s30.0_w-20.0_e40.0.tif"
+    gebco_ = gk.raster.loadRaster(gebco_fn)
 
     # Corine dataset (land use)
     if 'clc' in tech_config:
-        clc = gk.raster.loadRaster(f"{land_data_dir}source/CLC2018/CLC2018_CLC2018_V2018_20.tif")
-        clc.SetProjection(gk.srs.loadSRS(3035).ExportToWkt())
-
-    for shape in shapes:
-
-        poly_wkt = shapely.wkt.dumps(shape)
-        poly = ogr.CreateGeometryFromWkt(poly_wkt, spatial_ref)
-
-        ec = gl.ExclusionCalculator(poly, pixelRes=1000)
-        original_area = ec.areaAvailable / 10e5
-
-        # Exclude protected areas
-        ec.excludeRasterType(natura, value=1)
-
-        # Depth and altitude filters
-        if 'depth_thresholds' in tech_config:
-            depth_thresholds = tech_config["depth_thresholds"]
-            ec.excludeRasterType(gebco, (-depth_thresholds["high"], -depth_thresholds["low"]), invert=True)
-        elif 'altitude_threshold' in tech_config and tech_config['altitude_threshold'] > 0.:
-            ec.excludeRasterType(gebco, (tech_config['altitude_threshold'], None))
-
-        # Corine filters
-        if 'clc' in tech_config:
-            clc_filters = tech_config["clc"]
-            if "keep_codes" in clc_filters:
-                # Invert True indicates code that need to be kept
-                ec.excludeRasterType(clc, value=clc_filters["keep_codes"], invert=True)
-            if clc_filters.get("distance", 0.) > 0.:
-                ec.excludeRasterType(clc, value=clc_filters["remove_codes"], buffer=clc_filters["remove_distance"])
-
-        # TODO: add distance from the shore filter
-        # TODO: filter on resource quality
-        # TODO: add slope?
-        # TODO: population density?
-
-        available = ec.areaAvailable / 10e5
-        print(f"Total: {original_area}, available: {available} km2")
-        if plot:
-            import matplotlib.pyplot as plt
-            ec.draw()
-            plt.show()
+        clc_ = gk.raster.loadRaster(f"{land_data_dir}source/CLC2018/CLC2018_CLC2018_V2018_20.tif")
+        clc_.SetProjection(gk.srs.loadSRS(3035).ExportToWkt())
 
 
-def get_land_availability_at_resolution(shape: Union[Polygon, MultiPolygon], resolution: float, tech: str, tech_config: Dict):
+def compute_land_availability(shape: Union[Polygon, MultiPolygon]):
+    """
+    Compute land availability in (km2) of a geographical shape.
 
-    divisions = divide_shape_with_voronoi(shape, resolution)
-    get_land_availability_for_shapes(divisions, tech, tech_config)
+    Parameters
+    ----------
+    shape: Union[Polygon, MultiPolygon]
+        Geographical shape
+    Returns
+    -------
+    float
+        Available area in (km2)
+    Notes
+    -----
+    spatial_ref, tech_config, natura, clc and gebco must have been previously initialized as global variables
+
+    """
+
+    poly_wkt = shapely.wkt.dumps(shape)
+    poly = ogr.CreateGeometryFromWkt(poly_wkt, spatial_ref_)
+    ec = gl.ExclusionCalculator(poly, pixelRes=1000)
+
+    # Exclude protected areas
+    ec.excludeRasterType(natura_, value=1)
+
+    # Depth and altitude filters
+    if 'depth_thresholds' in tech_config_:
+        depth_thresholds = tech_config_["depth_thresholds"]
+        ec.excludeRasterType(gebco_, (-depth_thresholds["high"], -depth_thresholds["low"]), invert=True)
+    elif 'altitude_threshold' in tech_config_ and tech_config_['altitude_threshold'] > 0.:
+        ec.excludeRasterType(gebco_, (tech_config_['altitude_threshold'], None))
+
+    # Corine filters
+    if 'clc' in tech_config_:
+        clc_filters = tech_config_["clc"]
+        if "keep_codes" in clc_filters:
+            # Invert True indicates code that need to be kept
+            ec.excludeRasterType(clc_, value=clc_filters["keep_codes"], invert=True)
+        if clc_filters.get("distance", 0.) > 0.:
+            ec.excludeRasterType(clc_, value=clc_filters["remove_codes"], buffer=clc_filters["remove_distance"])
+
+    # TODO: add distance from the shore filter
+    # TODO: filter on resource quality
+    # TODO: add slope?
+    # TODO: population density?
+
+    return ec.areaAvailable / 10e5
 
 
+def get_land_availability_for_shapes_mp(shapes: List[Union[Polygon, MultiPolygon]], tech_config: Dict, processes=None):
+    """Return land availability in a list of geographical region for a given technology using multiprocessing"""
+
+    with mp.Pool(initializer=init_land_availability_globals, initargs=(tech_config, ),
+                 maxtasksperchild=20, processes=processes) as pool:
+
+        widgets = [
+            pgb.widgets.Percentage(),
+            ' ', pgb.widgets.SimpleProgress(format='(%s)' % pgb.widgets.SimpleProgress.DEFAULT_FORMAT),
+            ' ', pgb.widgets.Bar(),
+            ' ', pgb.widgets.Timer(),
+            ' ', pgb.widgets.ETA()
+        ]
+        progressbar = pgb.ProgressBar(prefix='Compute GIS potentials: ', widgets=widgets, max_value=len(shapes))
+        available_areas = list(progressbar(pool.imap(compute_land_availability, shapes)))
+
+    return np.array(available_areas)
+
+
+def get_land_availability_for_shapes_non_mp(shapes: List[Union[Polygon, MultiPolygon]], tech_config: Dict):
+    """Return land availability in a list of geographical region for a given technology NOT using multiprocessing"""
+
+    init_land_availability_globals(tech_config)
+    available_areas = np.zeros((len(shapes), ))
+    for i, shape in enumerate(shapes):
+        available_areas[i] = compute_land_availability(shape)
+    return available_areas
+
+
+def get_land_availability_for_shapes(shapes: List[Union[Polygon, MultiPolygon]], tech_config: Dict,
+                                     processes: int = None):
+    """
+    Return land availability in a list of geographical region for a given technology.
+
+    Parameters
+    ----------
+    shapes: List[Union[Polygon, MultiPolygon]]
+        List of geographical regions
+    tech_config: Dict
+        Dictionary containing a set of values describing the configuration of the technology for which we want
+        to obtain land availability.
+    processes: int
+        Number of parallel processes
+
+    Returns
+    -------
+    np.array
+        Land availability (in km) for each shape
+
+    """
+    if processes == 1:
+        return get_land_availability_for_shapes_non_mp(shapes, tech_config)
+    else:
+        return get_land_availability_for_shapes_mp(shapes, tech_config, processes)
+
+
+def get_land_availability_in_grid_cells(technologies: List[str], tech_config: Dict,
+                                        shapes: List[Union[Polygon, MultiPolygon]], resolution: float,
+                                        processes: int = None) -> pd.DataFrame:
+    """
+    Compute land availability (in km2) for each grid cell in given shapes for a list of technologies.
+
+    Parameters
+    ----------
+    technologies: List[str]
+        List of technologies for which we want to obtain land availability.
+        Each technology must have an entry in 'tech_config'.
+    tech_config: Dict
+        Dictionary containing a set of values describing the configurations of technologies.
+    shapes: List[Union[Polygon, MultiPolygon]]
+        Must contain a geographical shape to be divided into grid cells for each value in 'technologies'
+    resolution: float
+        Spatial resolution at which the grid cells must be defined.
+    processes: int
+        Number of parallel processes to use
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame indicating for each technology and each grid cell defined for this technology the associated
+        grid cell shape and land availability (in km2)
+
+    """
+
+    assert len(shapes) == len(technologies), "Error: Number of shapes must be equal to number of technologies"
+    for tech in technologies:
+        assert tech in tech_config, f"Error: Configuration of technology {tech} was not provided in 'tech_config'"
+
+    tech_point_tuples = []
+    available_areas = np.array([])
+    grid_cells_shapes = np.array([])
+    for i, tech in enumerate(technologies):
+        # Compute grid celles
+        points, tech_grid_cells_shapes = divide_shape_with_voronoi(shapes[i], resolution)
+        grid_cells_shapes = np.append(grid_cells_shapes, tech_grid_cells_shapes)
+        # Compute available land
+        available_areas = np.append(available_areas,
+                                    get_land_availability_for_shapes(tech_grid_cells_shapes, tech_config[tech],
+                                                                     processes))
+        tech_point_tuples += [(tech, point) for point in points]
+
+    return pd.DataFrame({"Area": available_areas, "Shape": grid_cells_shapes},
+                        index=pd.MultiIndex.from_tuples(sorted(tech_point_tuples)))
+
+
+# TODO: finish this function when needed
 def get_land_availability_for_countries(countries: List[str], tech: str, tech_config: Dict):
+    """
+    Returns
 
-    accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
-    assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
+    Parameters
+    ----------
+    countries
+    tech
+    tech_config
+
+    Returns
+    -------
+
+    """
+
 
     shapes = get_onshore_shapes(countries, filterremote=True)["geometry"].values
     if tech in ["wind_offshore", "wind_floating"]:
         onshore_union = cascaded_union(shapes)
         shapes = get_offshore_shapes(countries, onshore_union, filterremote=True)["geometry"].values
-    get_land_availability_for_shapes(shapes, tech, tech_config, True)
+    land_availability = get_land_availability_for_shapes_mp(shapes, tech_config, True)
 
 
 if __name__ == '__main__':
 
     # Define polys for which we want to get available area
-    from src.data.geographics import get_subregions, get_onshore_shapes, get_offshore_shapes, divide_shape_with_voronoi
+    from src.data.geographics import get_subregions, get_onshore_shapes, get_offshore_shapes
     from shapely.ops import cascaded_union
     import yaml
 
-    tech_config = yaml.load(open("/home/utilisateur/Global_Grid/code/py_ggrid/src/parameters/pv_wind_tech_configs.yml", "r"))
-    tech = "pv_utility"
-    tech_config = tech_config[tech]
-    region = 'EU'
-    subregions = get_subregions(region)
+    tech_config_ = yaml.load(
+        open("/home/utilisateur/Global_Grid/code/py_ggrid/src/parameters/pv_wind_tech_configs.yml", "r"),
+        Loader=yaml.FullLoader)
 
-    union = cascaded_union(get_onshore_shapes(subregions, filterremote=True)["geometry"].values)
-    if tech in ["wind_floating", "wind_offshore"]:
-        union = cascaded_union(get_offshore_shapes(subregions, union, filterremote=True)["geometry"].values)
-    get_land_availability_for_shapes([union], tech, tech_config, True)
+    tech_ = "pv_utility"
+    region_ = 'BENELUX'
+    subregions_ = get_subregions(region_)
 
+    union = cascaded_union(get_onshore_shapes(subregions_, filterremote=True)["geometry"].values)
+    if tech_ in ["wind_floating", "wind_offshore"]:
+        union = cascaded_union(get_offshore_shapes(subregions_, union, filterremote=True)["geometry"].values)
     spatial_res = 0.5
-    get_land_availability_at_resolution(union, spatial_res, tech, tech_config)
+    land_availability = get_land_availability_for_shapes([union], tech_config_[tech_])
+    print(land_availability)

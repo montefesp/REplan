@@ -7,6 +7,7 @@ wind_onshore:
   converter_I: 'V164'
   resource: 'wind'
   deployment: 'onshore'
+  power_density: 10. # MW/km2
   resource_threshold: 5. #m/s
   population_density_threshold_low: 0.
   population_density_threshold_high: 100.
@@ -30,6 +31,7 @@ wind_offshore:
   converter_I: 'V164'
   resource: 'wind'
   deployment: 'offshore'
+  power_density: 5. # MW/km2
   resource_threshold: 7. #m/s
   protected_areas_selection: ['Ia', 'Ib', 'II', 'V']
   protected_areas_distance_threshold: 5.
@@ -42,6 +44,7 @@ wind_floating:
   converter: 'E-126'
   resource: 'wind'
   deployment: 'floating'
+  power_density: 15. # MW/km2
   resource_threshold: 9. #m/s
   protected_areas_selection: ['Ia', 'Ib', 'II', 'V']
   protected_areas_distance_threshold: 5.
@@ -53,6 +56,7 @@ pv_utility:
   converter: 'DEG15MC'
   resource: 'pv'
   deployment: 'utility'
+  power_density: 5. # MW/km2
   resource_threshold: 130. #W/m2
   population_density_threshold_low: 0.
   population_density_threshold_high: 100.
@@ -70,6 +74,7 @@ pv_residential:
   converter: 'DD06M'
   resource: 'pv'
   deployment: 'residential'
+  power_density: 5. # MW/km2
   resource_threshold: 100. #W/m2
   population_density_threshold_low: 10.
   population_density_threshold_high: 999999.

@@ -8,7 +8,7 @@ import cdsapi
 def retrieve_with_cds_api(regions: Dict[str, str], spatial_resolution: float,
                            years: List[str], months: List[str]) -> None:
 
-    directory = join(dirname(abspath(__file__)), f"../../../data/resource/source/era5-land/{spatial_resolution}/")
+    directory = join(dirname(abspath(__file__)), f"../../../data/resource/source/ERA5/{spatial_resolution}/")
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -20,8 +20,14 @@ def retrieve_with_cds_api(regions: Dict[str, str], spatial_resolution: float,
                 c.retrieve(
                     'reanalysis-era5-single-levels',
                     {
+                        # 100m_u_component_of_wind -> u100
+                        # 100m_v_component_of_wind -> v100
+                        # 2m_temperature -> t2m
+                        # surface_solar_radiation_downwards ->  ssrd
+                        # forecast_surface_roughness -> fsr
                         'variable': ['100m_u_component_of_wind', '100m_v_component_of_wind',
-                                     '2m_temperature', 'surface_solar_radiation_downwards'],
+                                     '2m_temperature', 'surface_solar_radiation_downwards',
+                                     'forecast_surface_roughness'],
                         'product_type': 'reanalysis',
                         'area': str(area),
                         'grid': f"{spatial_resolution}/{spatial_resolution}",
@@ -40,15 +46,15 @@ def retrieve_with_cds_api(regions: Dict[str, str], spatial_resolution: float,
 
 if __name__ == '__main__':
 
-    regions = {'EU': '70/-10/35/30',
-               'NA': '38/-14/28/25',
-               'IC': '66/-25/63/-14',
-               'GR': '62/-49/59/-42',
-               'US': '50/-125/25/-65'}
+    regions = {'EU': '75/-20/30/40'} #,
+               # 'NA': '38/-14/28/25',
+               # 'IC': '66/-25/63/-14',
+               # 'GR': '62/-49/59/-42',
+               # 'US': '50/-125/25/-65'}
 
-    years = ['2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017']
-    months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+    years = ['2018']
+    months = ['10', '11', '12']
 
-    spatial_resolution = 0.5
+    spatial_resolution = 1.0
 
     retrieve_with_cds_api(regions, spatial_resolution, years, months)

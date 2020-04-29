@@ -16,7 +16,8 @@ resite = Resite(params["regions"], params["technologies"], tech_config, params["
                 params["spatial_resolution"])
 
 logger.info('Reading input.')
-resite.build_input_data(params["use_ex_cap"], params['filtering_layers'])
+# resite.build_input_data(params["use_ex_cap"], params['filtering_layers'])
+resite.build_input_data_new(params["use_ex_cap"])
 
 values = [0.1]
 for v in values:

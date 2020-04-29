@@ -8,7 +8,7 @@ from typing import List, Union, Tuple, Dict
 import pandas as pd
 import geopandas as gpd
 import shapely
-from shapely.geometry import MultiPolygon, Polygon, Point, MultiPoint
+from shapely.geometry import MultiPolygon, Polygon, Point, MultiPoint, GeometryCollection
 from shapely.ops import cascaded_union
 import shapely.prepared
 from shapely.errors import TopologicalError
@@ -341,15 +341,21 @@ def return_region_shape(region_name: str, subregions: List[str], prepare: bool =
 
 
 def divide_shape_with_voronoi(shape: Union[Polygon, MultiPolygon], resolution: float) \
-        -> List[Union[Polygon, MultiPolygon]]:
+        -> (List[Tuple[float, float]], List[Union[Polygon, MultiPolygon]]):
     """Divide a geographical shape by applying voronoi partition."""
 
     from vresutils.graph import voronoi_partition_pts
 
     points = return_points_in_shape(shape, resolution)
-    divisions = voronoi_partition_pts(points, shape)
+    grid_cells = voronoi_partition_pts(points, shape)
 
-    return divisions
+    # Keep only Polygons and MultiPolygons
+    for i, shape in enumerate(grid_cells):
+        if isinstance(shape, GeometryCollection):
+            geos = [geo for geo in shape if isinstance(geo, Polygon) or isinstance(geo, MultiPolygon)]
+            grid_cells[i] = cascaded_union(geos)
+
+    return points, grid_cells
 
 
 # TODO: rename in 'get_points_in_shape'
