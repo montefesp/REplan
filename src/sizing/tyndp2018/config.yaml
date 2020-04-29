@@ -79,7 +79,7 @@ dispatch:
 
 # Nuclear
 nuclear:
-  include: True
+  include: False
   use_ex_cap: True # Whether to include existing cap
   extendable: False
 
