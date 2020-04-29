@@ -38,7 +38,10 @@ wind_offshore:
   legacy_min_capacity: 0.5
 
 wind_floating:
-  converter: 'E-126'
+  converter_IV: 'V110'
+  converter_III: 'V90'
+  converter_II: 'V117'
+  converter_I: 'V164'
   resource: 'wind'
   deployment: 'floating'
   resource_threshold: 9. #m/s
