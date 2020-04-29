@@ -16,8 +16,10 @@ In the dataset:
 """
 # TODO: change names
 categories = {
-    "land_sea_mask": ['land_sea_mask', 'model_bathymetry'],
+    "model_bathymetry": "model_bathymetry",
+    "land_sea_mask": ["land_sea_mask", "model_bathymetry"],
     "surface_characteristics": ['low_vegetation_cover', 'high_vegetation_cover'],
+    "slope": "slope_of_sub_gridscale_orography",
     "orography_characteristics": ['orography', 'slope_of_sub_gridscale_orography']
 }
 
@@ -48,4 +50,4 @@ def retrieve_with_cds_api(category: str, spatial_resolution: float, year: int):
 
 if __name__ == '__main__':
 
-    retrieve_with_cds_api("land_sea_mask", 1.0, 2018)
+    retrieve_with_cds_api("slope", 0.1, 2018)

@@ -10,9 +10,9 @@ import pandas as pd
 from shapely.ops import cascaded_union
 from shapely.geometry import MultiPoint
 
-from src.data.legacy import get_legacy_capacity_at_points
-from src.data.resource import read_resource_database, compute_capacity_factors
-from src.data.land_data import filter_points
+from src.data.legacy import get_legacy_capacity_at_points, get_legacy_capacity_in_regions
+from src.data.resource import compute_capacity_factors
+from src.data.land_data import filter_points, get_land_availability_in_grid_cells
 from src.data.res_potential import get_capacity_potential_at_points
 from src.data.load import get_load
 from src.data.geographics import return_region_shape, return_points_in_shape, get_subregions
@@ -20,6 +20,8 @@ from src.data.geographics import return_region_shape, return_points_in_shape, ge
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
+
+# TODO: maybe we should change the word point to 'cell'
 
 
 class Resite:
@@ -84,6 +86,7 @@ class Resite:
 
         return output_folder
 
+    # TODO: Once build_input_data_new works for David, remove this function
     def build_input_data(self, use_ex_cap: bool, filtering_layers: Dict[str, bool]):
         """Preprocess data.
 
@@ -114,11 +117,11 @@ class Resite:
 
         # Get all points situated in the given regions at the given spatial resolution
         # TODO: Need to remove the first init_points by downloading new data
-        path_resource_data = join(dirname(abspath(__file__)),
-                                  f"../../data/resource/source/era5-land/{self.spatial_res}")
-        database = read_resource_database(path_resource_data)
-        init_points = list(zip(database.longitude.values, database.latitude.values))
-        init_points = return_points_in_shape(cascaded_union(regions_shapes.values), self.spatial_res, init_points)
+        #path_resource_data = join(dirname(abspath(__file__)),
+        #                          f"../../data/resource/source/era5-land/{self.spatial_res}")
+        #database = read_resource_database(path_resource_data)
+        #init_points = list(zip(database.longitude.values, database.latitude.values))
+        init_points = return_points_in_shape(cascaded_union(regions_shapes.values), self.spatial_res) # , init_points)
 
         # Filter those points
         self.tech_points_dict = filter_points(self.technologies, self.tech_config, init_points, self.spatial_res,
@@ -170,6 +173,99 @@ class Resite:
         techs = set(self.existing_cap_percentage_ds.index.get_level_values(0))
         for tech in techs:
             self.tech_points_dict[tech] = list(self.existing_cap_ds[tech].index)
+
+        # Maximum generation that can be produced if max capacity installed
+        self.generation_potential_df = self.cap_factor_df * self.cap_potential_ds
+
+        # Associating coordinates to regions
+        self.region_tech_points_dict = {region: set() for region in self.regions}
+        for tech, points in self.tech_points_dict.items():
+            points = MultiPoint(points)
+            for region in self.regions:
+                points_in_region = points.intersection(regions_shapes[region])
+                points_in_region = [(tech, (point.x, point.y)) for point in points_in_region] \
+                    if isinstance(points_in_region, MultiPoint) \
+                    else [(tech, (points_in_region.x, points_in_region.y))]
+                self.region_tech_points_dict[region] = self.region_tech_points_dict[region].union(set(points_in_region))
+
+    def build_input_data_new(self, use_ex_cap: bool):
+        """Preprocess data.
+
+        Parameters:
+        -----------
+        use_ex_cap: bool
+            Whether to compute or not existing capacity and use it in optimization
+        """
+
+        self.use_ex_cap = use_ex_cap
+
+        # Compute total load (in GWh) for each region
+        self.load_df = get_load(timestamps=self.timestamps, regions=self.regions, missing_data='interpolate')
+
+        # Get shape of regions and list of subregions
+        regions_shapes = pd.Series(index=self.regions)
+        onshore_shape = []
+        offshore_shape = []
+        all_subregions = []
+        for region in self.regions:
+            subregions = get_subregions(region)
+            all_subregions += subregions
+            shapes = return_region_shape(region, subregions)
+            onshore_shape += [shapes['onshore']]
+            offshore_shape += [shapes['offshore']]
+            regions_shapes[region] = cascaded_union([shapes['onshore'], shapes['offshore']])
+        onshore_shape = cascaded_union(onshore_shape)
+        offshore_shape = cascaded_union(offshore_shape)
+
+        # Divide the union of all regions shapes into grid cells of a given spatial resolution
+        # and compute how much land is available in each cell for each technology
+        shapes = [offshore_shape if tech in ["wind_offshore", "wind_floating"] else onshore_shape
+                  for tech in self.technologies]
+        land_availability = \
+            get_land_availability_in_grid_cells(self.technologies, self.tech_config, shapes, self.spatial_res)
+
+        # Compute capacities potential
+        cap_potential_ds = \
+            land_availability.apply(lambda x: x["Area"]*self.tech_config[x.name[0]]["power_density"]/1e3, axis=1)
+
+        # Compute legacy capacity
+        existing_cap_ds = pd.Series(0., index=cap_potential_ds.index)
+        if use_ex_cap:
+            # Get existing capacity at initial points, for technologies for which we can compute legacy data
+            techs_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore',
+                                                                               'pv_utility', 'pv_residential']))
+            for tech in techs_with_legacy_data:
+                tech_existing_cap_ds = \
+                    get_legacy_capacity_in_regions(tech, land_availability.loc[tech]["Shape"].reset_index(drop=True),
+                                                   all_subregions)
+                existing_cap_ds[tech] = tech_existing_cap_ds.values
+
+
+        # Update capacity potential if existing capacity is bigger
+        underestimated_capacity_indexes = existing_cap_ds > cap_potential_ds
+        cap_potential_ds[underestimated_capacity_indexes] = existing_cap_ds[underestimated_capacity_indexes]
+
+        # Remove points that have a potential capacity under the desired value or equal to 0
+        # TODO: this should be passed as an argument
+        # TODO: if we do that though, shouldn't we put that also as a limit of minimum installable capacity per grid cell?
+        potential_cap_thresholds = {tech: 0.01 for tech in self.technologies}
+        points_to_drop = pd.DataFrame(cap_potential_ds).apply(lambda x:
+                                                              x[0] < potential_cap_thresholds[x.name[0]] or x[0] == 0,
+                                                              axis=1)
+        self.cap_potential_ds = cap_potential_ds[~points_to_drop]
+        self.existing_cap_ds = existing_cap_ds[~points_to_drop]
+
+        # Compute the percentage of potential capacity that is covered by existing capacity
+        self.existing_cap_percentage_ds = self.existing_cap_ds.divide(self.cap_potential_ds)
+
+        # Compute capacity factors for each point
+        self.tech_points_tuples = self.existing_cap_percentage_ds.index.values
+        self.tech_points_dict = {}
+        techs = set(self.existing_cap_percentage_ds.index.get_level_values(0))
+        for tech in techs:
+            self.tech_points_dict[tech] = list(self.existing_cap_ds[tech].index)
+        self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.tech_config,
+                                                      self.spatial_res, self.timestamps)
 
         # Maximum generation that can be produced if max capacity installed
         self.generation_potential_df = self.cap_factor_df * self.cap_potential_ds

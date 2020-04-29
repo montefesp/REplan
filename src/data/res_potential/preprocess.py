@@ -1,3 +1,6 @@
+"""
+All these functions are computing potentials based on NUTS2 or NUTS0 aggregated potentials
+"""
 from os.path import join, dirname, abspath
 
 import pandas as pd

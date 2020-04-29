@@ -1,9 +1,7 @@
 import requests
-from bs4 import BeautifulSoup
 import pandas as pd
 import logging
 import time
-import json
 import os
 import numpy as np
 
@@ -80,41 +78,6 @@ class DataScrapper:
             print(production)
 
             production.to_csv(f"{self.data_dir}emission/source/iea/{country}.csv")
-
-    # TODO: remove, does not work anymore
-    def iea_key_indicators(self, country_code, start_year, end_year):
-
-        data = pd.DataFrame()
-
-        for year in range(start_year, end_year+1):
-            url = f"https://www.iea.org/api/stats/getData.php?year={year}&countries=" \
-                  f"{self.countries_dict.loc[country_code]['IAE']}&series=INDICATORS"
-            print(url)
-            time.sleep(1)
-
-            # Get the html content of the page
-            response = requests.get(url)
-            j = json.loads(response.text)
-            if j['colData'] == {}:
-                print(f"Year {year} not available")
-                continue
-            dict = {}
-            for abbr, name in j['yAxis']:
-                dict[abbr] = name
-            values = []
-            new_row = pd.DataFrame(index=[year])
-            for dic in j['colData']:
-                value = dic['value']
-                name = dic['flow']
-                new_row[dict[name]] = value
-            data = data.append(new_row, sort=True)
-
-        if len(data.index) == 0:
-            print(f"There is no data for the countries {country_code}.")
-
-        csv_name = f"{self.data_dir}countries_data/{country_code}.csv"
-        print(csv_name)
-        # data.to_csv(csv_name)
 
 
 if __name__ == '__main__':

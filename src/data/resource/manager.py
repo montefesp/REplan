@@ -97,11 +97,12 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
     data_converter_wind = pd.read_csv(join(path_to_transfer_function, 'data_wind_turbines.csv'), sep=';', index_col=0)
     data_converter_pv = pd.read_csv(join(path_to_transfer_function, 'data_pv_modules.csv'), sep=';', index_col=0)
 
-    path_resource_data = join(dirname(abspath(__file__)), f"../../../data/resource/source/era5-land/{spatial_res}")
+    # path_resource_data = join(dirname(abspath(__file__)), f"../../../data/resource/source/era5-land/{spatial_res}")
+    path_resource_data = join(dirname(abspath(__file__)), f"../../../data/resource/source/ERA5/{spatial_res}")
     dataset = read_resource_database(path_resource_data).sel(time=timestamps)
 
     # Create output dataframe with MultiIndex (tech, coords)
-    tech_points_tuples = [(tech, point) for tech, points in tech_points_dict.items() for point in points]
+    tech_points_tuples = sorted([(tech, point) for tech, points in tech_points_dict.items() for point in points])
     cap_factor_df = pd.DataFrame(index=timestamps,
                                  columns=pd.MultiIndex.from_tuples(tech_points_tuples,
                                                                    names=['technologies', 'coordinates']))
