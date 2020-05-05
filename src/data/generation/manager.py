@@ -53,7 +53,7 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "", countries: List[
                                                      f"(possibly for fuel type you chose)."
         plants = plants[plants.Technology == technology]
 
-    # Convert country to code
+    # Convert country name to ISO code
     def correct_countries(c: str):
         if c == "Macedonia, Republic of":
             return "North Macedonia"

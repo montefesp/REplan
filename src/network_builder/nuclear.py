@@ -40,7 +40,7 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
 
     # Load existing nuclear plants
     if ppm_file_name is not None:
-        ppm_folder = join(dirname(abspath(__file__)), "../../data/ppm/")
+        ppm_folder = join(dirname(abspath(__file__)), "../../data/generation/source/ppm/")
         gens = pd.read_csv(f"{ppm_folder}/{ppm_file_name}", index_col=0, delimiter=";")
         gens["Country"] = gens["Country"].apply(lambda c: convert_country_codes('alpha_2', name=c))
         gens = gens[gens["Country"].isin(countries)]

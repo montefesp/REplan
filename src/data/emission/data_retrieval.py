@@ -9,6 +9,7 @@ import requests
 
 def download_iea_co2_by_electricity_and_heat(countries: List[str]):
 
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../data/")
     countries_dict = pd.read_csv(f"{data_dir}countries-codes.csv", index_col="Code")
 
     for country in countries:
@@ -31,6 +32,5 @@ def download_iea_co2_by_electricity_and_heat(countries: List[str]):
 
 if __name__ == '__main__':
 
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../data/")
     countries_ = ["CY", "MT"]
     download_iea_co2_by_electricity_and_heat(countries_)
