@@ -26,9 +26,12 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "", countries: List[
     technology: str
         One of the generator's technology contained in the power plant matching tool
         ['Pv', 'Reservoir', 'Offshore', 'OCGT', 'Storage Technologies', 'Run-Of-River',
-         'CCGT', 'CCGT, Thermal', 'Steam Turbine', 'Pumped Storage']
+         'CCGT, 'CCGT, Thermal', 'Steam Turbine', 'Pumped Storage']
     countries: List[str]
         List of ISO codes of countries for which we want to obtain plants
+        Available countries:
+        ['AT', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE',
+         'IT', 'LT', 'LU', 'LV', 'MK', 'NL', 'NO', 'PL', 'PT', 'RO', 'SI', 'SK', 'SE']
 
     Returns
     -------
@@ -37,13 +40,17 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "", countries: List[
         ['Volume_Mm3', 'YearCommissioned', 'Duration', 'Set', 'Name', 'projectID', 'Country', 'DamHeight_m',
          'Retrofit', 'Technology', 'Efficiency', 'Capacity' (in MW), 'lat', 'lon', 'Fueltype']
          Note that the Country field is converted to the associated country code
+
     """
 
     plants = pm.collection.matched_data()
 
     if fuel_type != "":
+        assert fuel_type in set(plants.Fueltype), f"Error: Fuel type {fuel_type} does not exist."
         plants = plants[plants.Fueltype == fuel_type]
     if technology != "":
+        assert technology in set(plants.Technology), f"Error: Technology {technology} does not exist " \
+                                                     f"(possibly for fuel type you chose)."
         plants = plants[plants.Technology == technology]
 
     # Convert country to code
@@ -61,11 +68,3 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "", countries: List[
         plants = plants[plants["Country"].isin(countries)]
 
     return plants
-
-
-if __name__ == "__main__":
-    all_plants = get_gen_from_ppm(fuel_type="Hydro")
-    print(all_plants)
-    print(all_plants[all_plants.Technology == 'Reservoir']["Country"])
-    print(all_plants[all_plants.Technology == 'Run-Of-River']["Country"])
-    print(all_plants[all_plants.Technology == 'Pumped Storage']["Country"])
