@@ -1,6 +1,6 @@
 import pypsa
 
-from src.data.technologies import get_cost, get_plant_type
+from src.data.technologies import get_costs, get_plant_type
 from src.data.hydro import *
 
 import logging
@@ -59,7 +59,7 @@ def add_phs_plants(network: pypsa.Network, topology_type: str = "countries",
 
     max_hours = bus_en_cap/bus_pow_cap
 
-    capital_cost, marginal_cost = get_cost('phs', len(network.snapshots))
+    capital_cost, marginal_cost = get_costs('phs', len(network.snapshots))
 
     # Get efficiencies
     tech_info_fn = join(dirname(abspath(__file__)), "../../data/technologies/tech_info.xlsx")
@@ -135,7 +135,7 @@ def add_ror_plants(network: pypsa.Network, topology_type: str = "countries",
 
     bus_inflows = bus_inflows.round(2)
 
-    capital_cost, marginal_cost = get_cost('ror', len(network.snapshots))
+    capital_cost, marginal_cost = get_costs('ror', len(network.snapshots))
 
     # Get efficiencies
     tech_info_fn = join(dirname(abspath(__file__)), "../../data/technologies/tech_info.xlsx")
@@ -213,7 +213,7 @@ def add_sto_plants(network: pypsa.Network, topology_type: str = "countries",
 
     max_hours = bus_en_cap/bus_pow_cap
 
-    capital_cost, marginal_cost = get_cost('sto', len(network.snapshots))
+    capital_cost, marginal_cost = get_costs('sto', len(network.snapshots))
 
     # Get efficiencies
     tech_info_fn = join(dirname(abspath(__file__)), "../../data/technologies/tech_info.xlsx")

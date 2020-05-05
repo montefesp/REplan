@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import pypsa
 
 from src.data.geographics import get_onshore_shapes, get_offshore_shapes
-from src.data.technologies import get_cost
+from src.data.technologies import get_costs
 from .manager import plot_topology, voronoi_special
 
 
@@ -260,7 +260,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     lines['capital_cost'] = pd.Series(index=lines.index)
     for idx in lines.index:
         carrier = lines.loc[idx].carrier
-        cap_cost, _ = get_cost(carrier, len(network.snapshots))
+        cap_cost, _ = get_costs(carrier, len(network.snapshots))
         lines.loc[idx, ('capital_cost', )] = cap_cost * lines.length.loc[idx]
     """
 
@@ -274,7 +274,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     lines['capital_cost'] = pd.Series(index=lines.index)
     for idx in lines.index:
         carrier = lines.loc[idx].carrier
-        cap_cost, _ = get_cost(carrier, len(network.snapshots))
+        cap_cost, _ = get_costs(carrier, len(network.snapshots))
         lines.loc[idx, ('capital_cost', )] = cap_cost * lines.length.loc[idx]
 
     network.import_components_from_dataframe(buses, "Bus")

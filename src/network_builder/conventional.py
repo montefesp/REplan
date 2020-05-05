@@ -4,7 +4,7 @@ import pandas as pd
 
 import pypsa
 
-from src.data.technologies import get_cost, get_plant_type
+from src.data.technologies import get_costs, get_plant_type
 
 import logging
 
@@ -33,7 +33,7 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
     # Filter to keep only onshore buses
     buses = network.buses[network.buses.onshore]
 
-    capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
+    capital_cost, marginal_cost = get_costs(tech, len(network.snapshots))
 
     # Get fuel type and efficiency
     tech_info_fn = join(dirname(abspath(__file__)), "../../data/technologies/tech_info.xlsx")

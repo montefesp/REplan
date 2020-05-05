@@ -4,7 +4,7 @@ import pandas as pd
 
 import pypsa
 
-from src.data.technologies import get_cost, get_plant_type
+from src.data.technologies import get_costs, get_plant_type
 
 import logging
 
@@ -36,7 +36,7 @@ def add_batteries(network: pypsa.Network, battery_type: str, max_hours: float) -
     onshore_bus_indexes = pd.Index([bus_id for bus_id in network.buses.index if network.buses.loc[bus_id].onshore])
 
     # Get costs
-    capital_cost, marginal_cost = get_cost(battery_type, len(network.snapshots))
+    capital_cost, marginal_cost = get_costs(battery_type, len(network.snapshots))
 
     # Get efficiencies
     tech_info_fn = join(dirname(abspath(__file__)), "../../data/technologies/tech_info.xlsx")

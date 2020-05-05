@@ -15,7 +15,7 @@ from src.data.res_potential import get_capacity_potential_for_countries, get_cap
     get_capacity_potential_for_regions
 from src.data.legacy import get_legacy_capacity_in_regions, get_legacy_capacity_in_countries
 from src.resite.resite import Resite
-from src.data.technologies import get_cost
+from src.data.technologies import get_costs
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -128,7 +128,7 @@ def add_generators_from_file(network: pypsa.Network, technologies: List[str], st
         # Get capacity factors
         cap_factor_series = tech_points_cap_factor_df.loc[network.snapshots][tech][points].values
 
-        capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
+        capital_cost, marginal_cost = get_costs(tech, len(network.snapshots))
 
         network.madd("Generator",
                      pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
@@ -240,7 +240,7 @@ def add_generators_using_siting(network: pypsa.Network, technologies: List[str],
         if params['limit_max_cap']:
             p_nom_max = cap_potential_ds[tech][points].values
 
-        capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
+        capital_cost, marginal_cost = get_costs(tech, len(network.snapshots))
 
         network.madd("Generator",
                      pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
@@ -334,7 +334,7 @@ def add_generators_at_resolution(network: pypsa.Network, technologies: List[str]
         if limit_max_cap:
             p_nom_max = resite.cap_potential_ds[tech][points].values
 
-        capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
+        capital_cost, marginal_cost = get_costs(tech, len(network.snapshots))
 
         network.madd("Generator",
                      pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
@@ -451,7 +451,7 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
                 cap_pot_ds.loc[bus] = legacy_capacities.loc[bus]
 
         # Get costs
-        capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
+        capital_cost, marginal_cost = get_costs(tech, len(network.snapshots))
 
         # Adding to the network
         network.madd("Generator",
@@ -550,7 +550,7 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
 #         if params['limit_max_cap']:
 #             p_nom_max = cap_potential_ds[tech][points].values
 #
-#         capital_cost, marginal_cost = get_cost(tech, len(network.snapshots))
+#         capital_cost, marginal_cost = get_costs(tech, len(network.snapshots))
 #
 #         network.madd("Generator",
 #                      pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),

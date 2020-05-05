@@ -3,45 +3,61 @@ from typing import Tuple
 
 import pandas as pd
 
+from .manager import get_plant_type
+
 NHoursPerYear = 8760.0
 
 
-# TODO: This function allows to do the conversion to David's file until we homogenize techs
-def get_plant_type(tech: str) -> Tuple[str, str]:
+def compute_capital_cost(fom: float, capex: float, lifetime: float, nb_hours: float = NHoursPerYear) -> float:
+    """
+    Compute the 'periodized' cost of building one unit of power of a certain technology.
 
-    if tech == "ccgt":
-        return "NGPP", "CCGT"
-    elif tech == "ocgt":
-        return "NGPP", "OCGT"
-    elif tech == "nuclear":
-        return "Nuclear", "Uranium"
-    elif tech == "sto":
-        return "Hydro", "Reservoir"
-    elif tech == "ror":
-        return "Hydro", "Run-of-river"
-    elif tech == "phs":
-        return "Storage", "Pumped-hydro"
-    elif tech == "Li-ion":
-        return "Storage", "Li-ion"
-    elif tech == "wind_onshore":
-        return "Wind", "Onshore"
-    elif tech == "wind_offshore":
-        return "Wind", "Offshore"
-    elif tech == "wind_floating":
-        return "Wind", "Floating"
-    elif tech == "pv_utility":
-        return "PV", "Utility"
-    elif tech == "pv_residential":
-        return "PV", "Residential"
-    # TODO: For now consider overhead lines for HVAC and undersea cables for HVDC
-    #  Would need to do sht much more clever
-    elif tech == "AC":
-        return "Transmission", "HVAC_OHL"
-    elif tech == "DC":
-        return "Transmission", "HVDC_SC"
+    Parameters
+    ----------
+    fom: float
+        Fixed operating costs (in currency/power unit*year or currency/power unit*year*length unit)
+    capex: float
+        Capital expenditure (in currency/power unit or currency/power unit*length unit)
+    lifetime: float
+        Lifetime (in years)
+    nb_hours: float
+        Number of hours over which the cost must be periodized
+
+    Returns
+    -------
+    float
+        Periodized cost (in currency/power unit or currency/power unit*length unit)
+    """
+    return (fom + capex/lifetime) * nb_hours/NHoursPerYear
 
 
-def get_cost(tech: str, nb_hours: float) -> Tuple[float, float]:
+def compute_marginal_cost(vom: float, fuel_cost: float = 0., efficiency: float = 1.,
+                          co2_content: float = 0., co2_cost: float = 0.) -> float:
+    """
+    Compute the cost of producing/transporting one unit of energy.
+
+    Parameters
+    ----------
+    vom: float
+        Variable operating costs (in currency/unit of electrical energy)
+    fuel_cost: float (default: 0.)
+        Cost of fuel (in currency/unit of thermal energy)
+    efficiency: float (default: 1.)
+        Percentage of electrical energy produced using one unit of thermal energy
+    co2_content: float (default: 0.)
+        Quantity of CO2 (in unit of mass) contained in one unit of thermal energy of fuel
+    co2_cost: float (default: 0.)
+        Cost of CO2 (in currency/unit of mass)
+
+    Returns
+    -------
+    float
+        Cost of one unit of electrical energy (in currency/unit of electrical energy)
+    """
+    return vom + (fuel_cost + co2_cost * co2_content) / efficiency
+
+
+def get_costs(tech: str, nb_hours: float) -> Tuple[float, float]:
     """
     Return capital and marginal cost for a given generation technology.
 
@@ -59,35 +75,19 @@ def get_cost(tech: str, nb_hours: float) -> Tuple[float, float]:
     """
     tech_info_fn = join(dirname(abspath(__file__)), "../../../data/technologies/tech_info.xlsx")
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
-
     plant, plant_type = get_plant_type(tech)
-    # assert tech in tech_info.index, f"Error: Cost for {tech} is not computable yet."
     tech_info = tech_info.loc[plant, plant_type]
-
-    # Capital cost is the sum of investment and FOM
-    capital_cost = (tech_info["FOM"] + tech_info["CAPEX"]/tech_info["lifetime"]) * nb_hours/NHoursPerYear
-
     fuel_info_fn = join(dirname(abspath(__file__)), "../../../data/technologies/fuel_info.xlsx")
     fuel_info = pd.read_excel(fuel_info_fn, sheet_name='values', index_col=0)
 
-    # Marginal cost is the sum of VOM, fuel cost and CO2 cost
-    if tech in ['AC', 'DC']:
-        marginal_cost = 0
+    capital_cost = compute_capital_cost(tech_info["FOM"], tech_info["CAPEX"], tech_info["lifetime"], nb_hours)
+
+    vom = tech_info['VOM']
+    fuel = tech_info['fuel']
+    if pd.isna(fuel):
+        marginal_cost = compute_marginal_cost(vom)
     else:
-        marginal_cost = tech_info['VOM']
-        fuel = tech_info['fuel']
-        if not pd.isna(fuel):
-            # Add fuel cost
-            marginal_cost += fuel_info.loc[fuel, 'cost'] / tech_info['efficiency_ds']
-            # Add CO2 cost
-            marginal_cost += fuel_info.loc['CO2', 'cost'] * fuel_info.loc[fuel, 'CO2'] / tech_info["efficiency_ds"]
+        marginal_cost = compute_marginal_cost(vom, fuel_info.loc[fuel, 'cost'], tech_info['efficiency_ds'],
+                                              fuel_info.loc[fuel, 'CO2'], fuel_info.loc['CO2', 'cost'])
 
     return round(capital_cost, 6), round(marginal_cost, 6)
-
-
-if __name__ == "__main__":
-    techs = ["ccgt", "ocgt", "nuclear", "sto", "ror", "phs", "wind_onshore", "wind_offshore", "wind_floating",
-             "pv_utility", "pv_residential", "Li-ion", "AC", "DC"]
-    for tech_ in techs:
-        print(tech_)
-        print(get_cost(tech_, 24))

@@ -7,7 +7,7 @@ import pypsa
 
 from src.data.geographics import convert_country_codes, match_points_to_regions
 from src.data.generation import get_gen_from_ppm
-from src.data.technologies import get_cost, get_plant_type
+from src.data.technologies import get_costs, get_plant_type
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -65,7 +65,7 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
         gens.Capacity = 0.
     gens.Capacity /= 1000.  # Convert MW to GW
 
-    capital_cost, marginal_cost = get_cost('nuclear', len(network.snapshots))
+    capital_cost, marginal_cost = get_costs('nuclear', len(network.snapshots))
 
     # Get fuel type, efficiency and ramp rates
     tech_info_fn = join(dirname(abspath(__file__)), "../../data/technologies/tech_info.xlsx")

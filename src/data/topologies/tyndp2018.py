@@ -10,7 +10,7 @@ import shapely.wkt
 import geopy.distance
 
 from src.data.geographics import get_onshore_shapes
-from src.data.technologies import get_cost
+from src.data.technologies import get_costs
 from .manager import plot_topology
 
 
@@ -142,7 +142,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     links['capital_cost'] = pd.Series(index=links.index)
     for idx in links.index:
         carrier = links.loc[idx].carrier
-        cap_cost, _ = get_cost(carrier, len(network.snapshots))
+        cap_cost, _ = get_costs(carrier, len(network.snapshots))
         links.loc[idx, ('capital_cost', )] = cap_cost * links.length.loc[idx]
 
     network.import_components_from_dataframe(buses, "Bus")

@@ -6,7 +6,7 @@ import numpy as np
 
 from pypsa import Network
 
-from src.data.technologies import get_cost
+from src.data.technologies import get_costs
 
 
 class SizingResults:
@@ -208,8 +208,8 @@ class SizingResults:
             df_links = pd.concat([df_power.rename('Flows [TWh]'),
                                   df_cf.rename('CF [%]'),
                                   df_capex.rename('capex [M$]')], axis=1)
-            df_links.loc['AC', 'ccost [M€/GW/km]'] = get_cost('AC', len(self.net.snapshots))[0]
-            df_links.loc['DC', 'ccost [M€/GW/km]'] = get_cost('DC', len(self.net.snapshots))[0]
+            df_links.loc['AC', 'ccost [M€/GW/km]'] = get_costs('AC', len(self.net.snapshots))[0]
+            df_links.loc['DC', 'ccost [M€/GW/km]'] = get_costs('DC', len(self.net.snapshots))[0]
 
             print(f"Links flows & costs:\n{df_links}\n")
 
