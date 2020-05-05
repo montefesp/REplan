@@ -6,7 +6,7 @@ import numpy as np
 
 from pypsa import Network
 
-from src.data.technologies.costs import get_cost
+from src.data.technologies import get_cost
 
 
 class SizingResults:

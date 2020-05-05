@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import pypsa
 
 from src.data.geographics import get_onshore_shapes, get_offshore_shapes
-from src.data.technologies.costs import get_cost
+from src.data.technologies import get_cost
 from .manager import plot_topology, voronoi_special
 
 

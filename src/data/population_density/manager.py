@@ -29,7 +29,3 @@ def load_population_density_data(spatial_resolution: float) -> xr.DataArray:
     pop_density_array = pop_density_array.stack(locations=('longitude', 'latitude'))
 
     return pop_density_array
-
-
-if __name__ == '__main__':
-    print(load_population_density_data(1.0))

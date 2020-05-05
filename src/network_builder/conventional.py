@@ -4,7 +4,7 @@ import pandas as pd
 
 import pypsa
 
-from src.data.technologies.costs import get_cost, get_plant_type
+from src.data.technologies import get_cost, get_plant_type
 
 import logging
 

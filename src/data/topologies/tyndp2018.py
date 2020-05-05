@@ -10,7 +10,7 @@ import shapely.wkt
 import geopy.distance
 
 from src.data.geographics import get_onshore_shapes
-from src.data.technologies.costs import get_cost
+from src.data.technologies import get_cost
 from .manager import plot_topology
 
 
