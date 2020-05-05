@@ -20,12 +20,13 @@ def compute_ror_series(dataset_runoff: xr.Dataset, region_points: list, flood_ev
     region_points: list
         List of points (lon, lat) within a region.
     flood_event_threshold: float
-        Quantile clipping runoff timeseries (stems from the assumption that ROR plants are designed for a, e.g. p80 flow).
+        Quantile clipping runoff time series (stems from the assumption that ROR plants
+        are designed for a, e.g. p80 flow).
 
     Returns
     -------
     ts_norm: pd.DataFrame
-        Timeseries of p.u. capacity factors for ROR plants.
+        Time series of p.u. capacity factors for ROR plants.
     """
 
     # Summation of runoffs over all points within the NUTS region.
@@ -39,7 +40,7 @@ def compute_ror_series(dataset_runoff: xr.Dataset, region_points: list, flood_ev
 
 
 def compute_sto_inflows(dataset_runoff: xr.Dataset, region_points: list, unit_area: float = 1225,
-                        g: float = 9.81, rho: float = 1000.)-> pd.DataFrame:
+                        g: float = 9.81, rho: float = 1000.) -> pd.DataFrame:
     """
      Computing STO inflow time series (GWh).
 
@@ -60,7 +61,7 @@ def compute_sto_inflows(dataset_runoff: xr.Dataset, region_points: list, unit_ar
      Returns
      -------
      ts_gwh: pd.DataFrame
-         Timeseries of STO inflows.
+         Time series of STO inflows.
      """
 
     # Summation of runoffs over all points within the NUTS region.
@@ -199,11 +200,11 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
         hydro_production_fn = join(dirname(abspath(__file__)),
                                    "../../../data/hydro/source/Eurostat_hydro_net_generation.xls")
         hydro_production_ds = pd.read_excel(hydro_production_fn, skiprows=12, index_col=0)
-        hydro_production = hydro_production_ds[[str(y) for y in timestamps.year.unique()]].\
-                                                                                        fillna(method='bfill', axis=1)
+        hydro_production = \
+            hydro_production_ds[[str(y) for y in timestamps.year.unique()]].fillna(method='bfill', axis=1)
 
-        ror_production = df_ror.groupby(df_ror.index.year).sum()\
-                                        .multiply(capacities_df['ROR_CAP [GW]'].dropna(), axis=1).transpose()
+        ror_production = \
+            df_ror.groupby(df_ror.index.year).sum().multiply(capacities_df['ROR_CAP [GW]'].dropna(), axis=1).transpose()
         ror_production.index = ror_production.index.map(str)
 
         sto_production = hydro_production.copy()
@@ -224,10 +225,10 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
 
     # Quite a hack here that should work fine for the beginning. Basically, NUTS0 topology needs to be ran first to
     # create the multipliers file that is read down below. TODO: look into computing multipliers for NUTS2 directly.
-    else: # topology_unit == 'NUTS2'
+    else:  # topology_unit == 'NUTS2'
 
         sto_multipliers_fn = join(dirname(abspath(__file__)),
-                                   "../../../data/hydro/source/hydro_sto_multipliers_NUTS0.csv")
+                                  "../../../data/hydro/source/hydro_sto_multipliers_NUTS0.csv")
         sto_multipliers_ds = pd.read_csv(sto_multipliers_fn, index_col=0).squeeze()
         for nuts in df_sto.columns:
             df_sto[nuts] *= sto_multipliers_ds.loc[nuts[:2]]
@@ -260,6 +261,6 @@ if __name__ == '__main__':
     ror_flood_threshold = 0.8
     start = datetime(2014, 1, 1, 0, 0, 0)
     end = datetime(2018, 12, 31, 23, 0, 0)
-    ts = pd.date_range(start, end, freq='H')
+    timestamps_ = pd.date_range(start, end, freq='H')
 
-    generate_eu_hydro_files(nuts_type, ts, ror_flood_threshold)
+    generate_eu_hydro_files(nuts_type, timestamps_, ror_flood_threshold)
