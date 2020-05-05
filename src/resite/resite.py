@@ -116,12 +116,7 @@ class Resite:
             regions_shapes[region] = cascaded_union([shapes['onshore'], shapes['offshore']])
 
         # Get all points situated in the given regions at the given spatial resolution
-        # TODO: Need to remove the first init_points by downloading new data
-        #path_resource_data = join(dirname(abspath(__file__)),
-        #                          f"../../data/resource/source/era5-land/{self.spatial_res}")
-        #database = read_resource_database(path_resource_data)
-        #init_points = list(zip(database.longitude.values, database.latitude.values))
-        init_points = return_points_in_shape(cascaded_union(regions_shapes.values), self.spatial_res) # , init_points)
+        init_points = return_points_in_shape(cascaded_union(regions_shapes.values), self.spatial_res)
 
         # Filter those points
         self.tech_points_dict = filter_points(self.technologies, self.tech_config, init_points, self.spatial_res,
@@ -239,7 +234,6 @@ class Resite:
                     get_legacy_capacity_in_regions(tech, land_availability.loc[tech]["Shape"].reset_index(drop=True),
                                                    all_subregions)
                 existing_cap_ds[tech] = tech_existing_cap_ds.values
-
 
         # Update capacity potential if existing capacity is bigger
         underestimated_capacity_indexes = existing_cap_ds > cap_potential_ds

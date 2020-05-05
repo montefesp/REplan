@@ -58,34 +58,14 @@ class DataScrapper:
                             value = np.nan
                         production.loc[year, "Electricity Production (GWh)"] = value
                         break
+            print(f"{self.data_dir}production/source/iea/{country}.csv")
             production.to_csv(f"{self.data_dir}production/source/iea/{country}.csv")
-
-    def iea_co2_by_electricity_and_heat(self, countries):
-
-        for country in countries:
-            production = pd.DataFrame(columns=["CO2 from electricity and heat producers (MT)"])
-            iea_country = self.countries_dict.loc[country]['IAE']
-            url = f"https://api.iea.org/stats/indicator/CO2BySector?countries={iea_country}"
-            print(url)
-            time.sleep(1)
-
-            # Get the html content of the page
-            table = requests.get(url).json()
-            for line in table:
-                if line['flowLabel'] == 'Electricity and heat producers':
-                    production.loc[int(line['year']), "CO2 from electricity and heat producers (MT)"] = line['value']
-
-            print(production)
-
-            production.to_csv(f"{self.data_dir}emission/source/iea/{country}.csv")
 
 
 if __name__ == '__main__':
 
     ds = DataScrapper()
 
-    countries = ["AL", "AT", "BA", "BE", "BG", "CH", "CZ", "DE", "DK", "EE", "GR", "ES", "FI", "FR", "HR",
-                 "HU", "IE", "IT", "LT", "LU", "LV", "ME", "MK", "NL", "NO", "PL", "PT", "RO",
-                 "RS", "SE", "SI", "SK", "GB"]
+    countries = ["CY", "MT"]
 
-    ds.iea_electricity_consumption(countries, 1990, 2017)
+    ds.iea_electricity_production(countries, 1990, 2017)

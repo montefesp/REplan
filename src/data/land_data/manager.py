@@ -526,7 +526,7 @@ def get_land_availability_in_grid_cells(technologies: List[str], tech_config: Di
     available_areas = np.array([])
     grid_cells_shapes = np.array([])
     for i, tech in enumerate(technologies):
-        # Compute grid celles
+        # Compute grid cells
         points, tech_grid_cells_shapes = divide_shape_with_voronoi(shapes[i], resolution)
         grid_cells_shapes = np.append(grid_cells_shapes, tech_grid_cells_shapes)
         # Compute available land
@@ -570,6 +570,7 @@ if __name__ == '__main__':
     from shapely.ops import cascaded_union
     import yaml
 
+    # TODO: need to change
     tech_config_ = yaml.load(
         open("/home/utilisateur/Global_Grid/code/py_ggrid/src/parameters/pv_wind_tech_configs.yml", "r"),
         Loader=yaml.FullLoader)
