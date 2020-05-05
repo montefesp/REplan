@@ -9,11 +9,12 @@ solver_options:
     BarConvTol: 0.0001
   cplex:
     solutiontype: 1
+  cbc: 0
 
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-12-31T23:00']
+  slice: ['2015-01-01T00:00', '2015-01-31T23:00']
   resolution: 1
 
 # Space
@@ -32,7 +33,7 @@ res:
     bus: ['wind_onshore', 'pv_utility', 'pv_residential']
 
   # For strategy = max or comp
-  path: 'EU_wide_off_2015_08'
+  path: 'EU_country_off_2015_08'
   resite_nb: 0 # can be multiples of 25
   area_per_site: 2500 #km2
   cap_dens:
@@ -79,7 +80,7 @@ dispatch:
 
 # Nuclear
 nuclear:
-  include: False
+  include: True
   use_ex_cap: True # Whether to include existing cap
   extendable: False
 

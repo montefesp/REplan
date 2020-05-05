@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
     # Main directories
     data_dir = join(dirname(abspath(__file__)), "../../../data/")
-    params_dir = join(dirname(abspath(__file__)), "../../parameters/")
+    params_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
     output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/tyndp2018/{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config
@@ -169,7 +169,7 @@ if __name__ == '__main__':
     yaml.dump(config, open(f"{output_dir}config.yaml", 'w'))
     yaml.dump(tech_info, open(f"{output_dir}tech_info.yaml", 'w'))
     yaml.dump(fuel_info, open(f"{output_dir}fuel_info.yaml", 'w'))
-    yaml.dump(pv_wind_tech_config, open(f"{output_dir}'pv_wind_tech_config.yaml", 'w'))
+    yaml.dump(pv_wind_tech_config, open(f"{output_dir}pv_wind_tech_config.yaml", 'w'))
 
     net.export_to_csv_folder(output_dir)
 

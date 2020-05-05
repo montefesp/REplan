@@ -7,7 +7,7 @@ import pypsa
 
 from src.data.geographics import convert_country_codes, match_points_to_regions
 from src.data.generation import get_gen_from_ppm
-from src.parameters.costs import get_cost, get_plant_type
+from src.data.technologies.costs import get_cost, get_plant_type
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -68,7 +68,7 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
     capital_cost, marginal_cost = get_cost('nuclear', len(network.snapshots))
 
     # Get fuel type, efficiency and ramp rates
-    tech_info_fn = join(dirname(abspath(__file__)), "../parameters/tech_info.xlsx")
+    tech_info_fn = join(dirname(abspath(__file__)), "../../data/technologies/tech_info.xlsx")
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
     fuel, efficiency, ramp_rate, base_level = \
         tech_info.loc[get_plant_type('nuclear')][["fuel", "efficiency_ds", "ramp_rate", "base_level"]]

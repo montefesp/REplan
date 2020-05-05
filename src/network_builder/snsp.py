@@ -1,5 +1,4 @@
 import pypsa
-from pypsa.opt import LExpression
 import pandas as pd
 from pyomo.environ import Constraint
 from os.path import join, abspath, dirname

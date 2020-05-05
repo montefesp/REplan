@@ -1,6 +1,6 @@
 import pypsa
 
-from src.parameters.costs import get_cost, get_plant_type
+from src.data.technologies.costs import get_cost, get_plant_type
 from src.data.hydro import *
 
 import logging
@@ -62,7 +62,7 @@ def add_phs_plants(network: pypsa.Network, topology_type: str = "countries",
     capital_cost, marginal_cost = get_cost('phs', len(network.snapshots))
 
     # Get efficiencies
-    tech_info_fn = join(dirname(abspath(__file__)), "../parameters/tech_info.xlsx")
+    tech_info_fn = join(dirname(abspath(__file__)), "../../data/technologies/tech_info.xlsx")
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
     efficiency_dispatch, efficiency_store, self_discharge = \
         tech_info.loc[get_plant_type('phs')][["efficiency_ds", "efficiency_ch", "efficiency_sd"]]
@@ -138,7 +138,7 @@ def add_ror_plants(network: pypsa.Network, topology_type: str = "countries",
     capital_cost, marginal_cost = get_cost('ror', len(network.snapshots))
 
     # Get efficiencies
-    tech_info_fn = join(dirname(abspath(__file__)), "../parameters/tech_info.xlsx")
+    tech_info_fn = join(dirname(abspath(__file__)), "../../data/technologies/tech_info.xlsx")
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
     efficiency = tech_info.loc[get_plant_type('ror')]["efficiency_ds"]
 
@@ -216,7 +216,7 @@ def add_sto_plants(network: pypsa.Network, topology_type: str = "countries",
     capital_cost, marginal_cost = get_cost('sto', len(network.snapshots))
 
     # Get efficiencies
-    tech_info_fn = join(dirname(abspath(__file__)), "../parameters/tech_info.xlsx")
+    tech_info_fn = join(dirname(abspath(__file__)), "../../data/technologies/tech_info.xlsx")
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
     efficiency_dispatch = tech_info.loc[get_plant_type('sto')]["efficiency_ds"]
 

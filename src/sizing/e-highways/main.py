@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     # Main directories
     data_dir = join(dirname(abspath(__file__)), "../../../data/")
-    params_dir = join(dirname(abspath(__file__)), "../../parameters/")
+    params_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
     output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/e-highways/{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config

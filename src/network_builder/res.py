@@ -15,7 +15,7 @@ from src.data.res_potential import get_capacity_potential_for_countries, get_cap
     get_capacity_potential_for_regions
 from src.data.legacy import get_legacy_capacity_in_regions, get_legacy_capacity_in_countries
 from src.resite.resite import Resite
-from src.parameters.costs import get_cost
+from src.data.technologies.costs import get_cost
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
