@@ -6,7 +6,7 @@ import cdsapi
 
 
 def retrieve_with_cds_api(regions: Dict[str, str], spatial_resolution: float,
-                           years: List[str], months: List[str]) -> None:
+                          years: List[str], months: List[str]) -> None:
 
     directory = join(dirname(abspath(__file__)), f"../../../data/resource/source/ERA5/{spatial_resolution}/")
     if not os.path.exists(directory):
