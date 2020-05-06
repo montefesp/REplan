@@ -9,20 +9,19 @@ import matplotlib.pyplot as plt
 from src.data.load import get_load
 
 
-def filter_outliers(time_series: pd.DataFrame) -> pd.DataFrame:
+def filter_outliers(time_series: pd.Series) -> pd.Series:
     """
     Remove outliers from a time series by looking at monthly patterns.
 
     Parameters
     ----------
-    time_series: pd.DataFrame
-        Dataframe with datetime index and one column containing a time-series with a value for each time-stamp (which
-        can be NaN)
+    time_series: pd.Series
+        Time-series of load (can be NaNs) indexed with datetime indexes.
 
     Returns
     -------
-    time_series: pd.DataFrame
-        Corrected dataframe
+    time_series: pd.Series
+        Corrected time series
     """
 
     # Removing outliers using monthly patterns
@@ -35,21 +34,20 @@ def filter_outliers(time_series: pd.DataFrame) -> pd.DataFrame:
     return time_series
 
 
-def fill_gaps(time_series):
+def fill_gaps(time_series: pd.Series) -> pd.Series:
     """
     Fill gaps in a time series (i.e. value equals to NaN) inside the time-series (leading and ending missing
     values are untouched).
 
     Parameters
     ----------
-    time_series: pd.DataFrame
-        Dataframe with datetime index and one column containing a time-series with a value for each time-stamp (which
-        can be NaN)
+    time_series: pd.Series
+        Time-series of load (can be NaNs) indexed with datetime indexes.
 
     Returns
     -------
-    time_series: pd.DataFrame
-        Corrected dataframe
+    time_series: pd.Series
+        Corrected time series
     """
 
     # First remove starting and ending nans
@@ -73,23 +71,21 @@ def fill_gaps(time_series):
     return time_series
 
 
-def correct_time_series(time_series: pd.DataFrame, plot: bool = False) \
-        -> pd.DataFrame:
+def correct_time_series(time_series: pd.Series, plot: bool = False) -> pd.Series:
     """
     Remove a time series outliers and fill gaps via interpolation.
 
     Parameters
     ----------
-    time_series: pd.DataFrame
-        Dataframe with datetime index and one column containing a time-series with a value for each time-stamp (which
-        can be NaN)
+    time_series: pd.Series
+        Time-series of load (can be NaNs) indexed with datetime indexes
     plot: bool (default: False)
         Whether to plot or not
 
     Returns
     -------
-    time_series: pd.DataFrame
-        Corrected time-series
+    time_series: pd.Series
+        Corrected time series
     """
 
     if plot:
@@ -109,7 +105,9 @@ def correct_time_series(time_series: pd.DataFrame, plot: bool = False) \
 
 def preprocess():
     """
-    This function builds a complete and easy to use database of load by formatting and
+    Preprocess load data.
+
+    Build a complete and easy to use database of load by formatting and
     correcting some open-source data contained in the folder data/load/source.
     The results are saved in the folder data/load/generated.
     """
@@ -159,20 +157,20 @@ def preprocess():
 
 def get_load_full_years_range(save: bool = False) -> pd.DataFrame:
     """
-    Compute (and optionally save) for each region for which we have load data in data/load/opsd_load.csv, the first
-    and last year for which we have hourly data for everyday of the year.
-    Note that data/load/opsd_load.csv is supposed to contain only contiguous time series (i.e. no NaN values in the
-    middle of it).
+    Compute (and optionally save) for each region for which we have load data in data/load/opsd_load.csv,
+     the first and last year for which we have hourly data for everyday of the year.
+    Note that data/load/opsd_load.csv is supposed to contain only contiguous time series
+    (i.e. no NaN values in the middle of it).
 
     Parameters
     ----------
     save: bool (default: False)
-        Whether to save the output data to a file
+        Whether to save the output data to a file.
 
     Returns
     -------
     load_full_years_range: pd.DataFrame
-        Contains for each region the first and last year for which we have data for every hour
+        Contains for each region the first and last year for which we have data for every hour.
 
     """
 
@@ -201,8 +199,9 @@ def get_load_full_years_range(save: bool = False) -> pd.DataFrame:
 
 def create_countries_load_files():
     """
-    This function creates two files: one containing hourly load data from 2015 to 2018 for countries for which we have
-    data for each hour of those years and the other one created the same way but for years 2016 to 2018.
+    Create two files: one containing hourly load data from 2015 to 2018
+    for countries for which we have data for each hour of those years and
+    the other one created the same way but for years 2016 to 2018.
 
     """
     available_years = get_load_full_years_range()
