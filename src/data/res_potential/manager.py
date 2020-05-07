@@ -32,18 +32,18 @@ def get_available_regions(region_type: str) -> List[str]:
         return list(pd.read_csv(f"{path_potential_data}{region_type}_capacity_potentials_GW.csv", index_col=0).index)
     # Offshore, return EEZ capacity potentials
     else:
-        return list(pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0))
+        return list(pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0).index)
 
 
-def read_capacity_potential(tech: str, nuts_type: str) -> pd.Series:
+def read_capacity_potential(tech: str, nuts_type: str = "nuts0") -> pd.Series:
     """
-    Return for each NUTS2 (or NUTS0) region or EEZ (depending on technology) its capacity potential in GW.
+    Return for each NUTS2 or NUTS0 (version 2016) region or EEZ (depending on technology) its capacity potential in GW.
 
     Parameters
     ----------
     tech: str
         Technology name among 'wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility' and 'pv_residential'
-    nuts_type: str
+    nuts_type: str (default: nuts0)
         If equal to 'nuts0', returns capacity per NUTS0 region, if 'nuts2', returns per NUTS2 region.
 
     Returns
@@ -55,19 +55,20 @@ def read_capacity_potential(tech: str, nuts_type: str) -> pd.Series:
 
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
-    accepted_nuts = ["nuts2", "nuts0"]
-    assert nuts_type in accepted_nuts, f"Error: nuts_type {nuts_type} is not in {accepted_nuts}"
 
     path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/generated/')
 
     # Onshore, return NUTS (0 or 2) capacity potentials
     if tech in ['wind_onshore', 'pv_utility', 'pv_residential']:
+        accepted_nuts = ["nuts2", "nuts0"]
+        assert nuts_type in accepted_nuts, f"Error: nuts_type {nuts_type} is not in {accepted_nuts}"
         return pd.read_csv(f"{path_potential_data}{nuts_type}_capacity_potentials_GW.csv", index_col=0)[tech]
     # Offshore, return EEZ capacity potentials
     else:
         return pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0)[tech]
 
 
+# TODO: maybe this function is going to disappear?
 def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[float, float]]],
                                      spatial_resolution: float, countries: List[str],
                                      existing_capacity_ds: pd.Series = None) -> pd.Series:
@@ -92,21 +93,24 @@ def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[floa
     """
 
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
-    for tech in tech_points_dict.keys():
+    for tech, points in tech_points_dict.items():
         assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
+        print(points)
+        assert len(points) != 0, f"Error: List of points for tech {tech} is empty."
+        assert all(map(lambda point: int(point[0]/spatial_resolution) == point[0]/spatial_resolution
+                   and int(point[1]/spatial_resolution) == point[1]/spatial_resolution, points)), \
+            f"Error: Some points do not have the correct resolution {spatial_resolution}"
 
-    assert spatial_resolution in [0.5, 1.0], \
-        f"Error: Accepted resolution are 0.5 or 1.0, received {spatial_resolution}"
+    pop_density_array = load_population_density_data(spatial_resolution)
 
     # Create a modified copy of regions to deal with UK and EL
     iso_to_nuts0 = {"GB": "UK", "GR": "EL"}
     nuts0_regions = [iso_to_nuts0[c] if c in iso_to_nuts0 else c for c in countries]
 
-    pop_density_array = load_population_density_data(spatial_resolution)
-
     # Get EEZ shapes
     region_shapes_dict = {"nuts2": None, "eez": None}
     onshore_shapes = get_onshore_shapes(countries, filterremote=True,
+                                        # TODO: save file with date?
                                         save_file_name=f"{''.join(sorted(countries))}_regions_on.geojson")
     onshore_shapes_union = cascaded_union(onshore_shapes["geometry"].values)
     region_shapes_dict["eez"] = \
@@ -130,11 +134,6 @@ def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[floa
             f"Error: Missing following points in existing capacity series: {missing_existing_points}"
 
     for tech, points in tech_points_dict.items():
-
-        # Check that points are at the right resolution
-        assert all(map(lambda point: int(point[0]/spatial_resolution) == point[0]/spatial_resolution
-                   and int(point[1]/spatial_resolution) == point[1]/spatial_resolution, points)), \
-                f"Error: Some points do not have the correct resolution {spatial_resolution}"
 
         # Compute potential for each NUTS2 or EEZ
         potential_per_region_ds = read_capacity_potential(tech, nuts_type='nuts2')
@@ -217,6 +216,7 @@ def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[floa
     return capacity_potential_ds
 
 
+# TODO: to be replace with computation using GLAES?
 def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[Polygon, MultiPolygon]]]) -> pd.Series:
     """
     Get capacity potential (in GW) for a series of technology for associated geographical regions.
@@ -284,6 +284,7 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
 def get_capacity_potential_for_countries(tech: str, countries: List[str]) -> pd.Series:
     """
     Get capacity potential (in GW) for a given technology for all countries for which it is available.
+
     If data is not available for one of the given countries, there will be no entry for that country
      in the returned series.
 
@@ -300,9 +301,8 @@ def get_capacity_potential_for_countries(tech: str, countries: List[str]) -> pd.
         Gives for each pair of technology and region the associated potential capacity in GW
 
     """
-    accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
-    assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
+    # Get capacity at NUTS0 level (or EEZ)
     capacity_potential_ds = read_capacity_potential(tech, nuts_type='nuts0')
 
     # Convert EEZ names to country names

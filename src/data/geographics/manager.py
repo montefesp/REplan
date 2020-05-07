@@ -511,8 +511,8 @@ def get_onshore_shapes(ids: List[str], minarea: float = 0.1, tolerance: float = 
 
     # Keep only the required regions for which we have the data
     filtered_ids = [idx for idx in ids if idx in onshore_shapes.index]
-    if len(filtered_ids) != len(ids):
-        print(f"WARNING: Some regions that you asked for are not present: {sorted(list(set(ids)-set(filtered_ids)))}")
+    missing_ids = set(ids)-set(filtered_ids)
+    assert not missing_ids, f"Some regions that you asked for are not present: {sorted(list(missing_ids))}"
 
     # Keep only needed countries
     onshore_shapes = onshore_shapes.loc[filtered_ids]
