@@ -9,7 +9,7 @@ def built_cap_factor_for_countries_files():
     Create files containing capacity factors for each country
     """
 
-    ninja_dir = join(dirname(abspath(__file__)), "../../../data/resource/source/ninja_europe_2019/")
+    ninja_dir = join(dirname(abspath(__file__)), "../../../data/vres_profiles/source/ninja_europe_2019/")
     all_files = listdir(ninja_dir)
 
     # Wind
@@ -65,7 +65,7 @@ def built_cap_factor_for_countries_files():
         pv_capacity_factors_df[country] = capacity_factors_ds[ts]
 
     # Save all files
-    resource_dir = join(dirname(abspath(__file__)), "../../../data/resource/generated/")
+    resource_dir = join(dirname(abspath(__file__)), "../../../data/vres_profiles/generated/")
     onshore_capacity_factors_df.to_csv(f"{resource_dir}onshore_wind_cap_factors.csv")
     offshore_capacity_factors_df.to_csv(f"{resource_dir}offshore_wind_cap_factors.csv")
     pv_capacity_factors_df.to_csv(f"{resource_dir}pv_cap_factors.csv")

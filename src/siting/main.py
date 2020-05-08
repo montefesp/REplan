@@ -9,7 +9,7 @@ logger = logging.getLogger()
 
 params = yaml.load(open('config.yaml'), Loader=yaml.FullLoader)
 
-tech_config_path = join(dirname(abspath(__file__)), '../parameters/pv_wind_tech_configs.yml')
+tech_config_path = join(dirname(abspath(__file__)), '../parameters/vres_tech_config.yml')
 tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
 
 if __name__ == '__main__':

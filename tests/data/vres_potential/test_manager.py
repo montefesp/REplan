@@ -1,6 +1,6 @@
 import pytest
 
-from src.data.res_potential.manager import *
+from src.data.vres_potential.manager import *
 
 
 def test_get_available_regions_wrong_type():

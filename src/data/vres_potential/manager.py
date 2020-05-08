@@ -25,7 +25,7 @@ def get_available_regions(region_type: str) -> List[str]:
     accepted_types = ["nuts2", "nuts0", "eez"]
     assert region_type in accepted_types, f"Error: region_type {region_type} is not in {accepted_types}"
 
-    path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/generated/')
+    path_potential_data = join(dirname(abspath(__file__)), '../../../data/vres_potential/generated/')
 
     # Onshore, return NUTS (0 or 2) capacity potentials
     if region_type in ["nuts2", "nuts0"]:
@@ -56,7 +56,7 @@ def read_capacity_potential(tech: str, nuts_type: str = "nuts0") -> pd.Series:
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
-    path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/generated/')
+    path_potential_data = join(dirname(abspath(__file__)), '../../../data/vres_potential/generated/')
 
     # Onshore, return NUTS (0 or 2) capacity potentials
     if tech in ['wind_onshore', 'pv_utility', 'pv_residential']:

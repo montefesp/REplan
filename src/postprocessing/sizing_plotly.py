@@ -15,7 +15,7 @@ import plotly.graph_objs as go
 from pypsa import Network
 
 from src.data.geographics import get_offshore_shapes
-from src.data.res_potential import get_capacity_potential_for_regions
+from src.data.vres_potential import get_capacity_potential_for_regions
 
 
 def get_map_layout(title: str, map_coords: List[float] = None, showcountries=True):

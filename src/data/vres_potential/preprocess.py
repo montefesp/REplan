@@ -25,7 +25,7 @@ def get_non_eu28_potential(tech: str) -> pd.Series:
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     # Load capacity potential per non-EU28 country (GW)
-    path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/source')
+    path_potential_data = join(dirname(abspath(__file__)), '../../../data/vres_potential/source')
     capacity_potential_non_eu28 = pd.read_excel(join(path_potential_data, 'RES_potential_non_EU.xlsx'), index_col=0)
     capacity_potential_non_eu28 = capacity_potential_non_eu28[tech].dropna()
 
@@ -199,7 +199,7 @@ def get_capacity_potential_from_enspreso(tech: str) -> pd.Series:
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
-    path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/source/ENSPRESO')
+    path_potential_data = join(dirname(abspath(__file__)), '../../../data/vres_potential/source/ENSPRESO')
     # For wind, summing over all wind conditions is similar to considering taking all available land and a capacity per
     #  area of 5MW/km2
     if tech == 'wind_onshore':
@@ -277,7 +277,7 @@ def get_capacity_potential_from_enspreso(tech: str) -> pd.Series:
 def built_capacity_potential_files():
     """Saves capacity potentials (in GW) for NUTS2 and NUTS0 (2016 version) and EEZ regions."""
 
-    path_potential_data = join(dirname(abspath(__file__)), '../../../data/res_potential/generated/')
+    path_potential_data = join(dirname(abspath(__file__)), '../../../data/vres_potential/generated/')
 
     # Offshore potential capacity (per EEZ)
     techs_offshore = ['wind_offshore', 'wind_floating']

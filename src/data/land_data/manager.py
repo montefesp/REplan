@@ -22,7 +22,7 @@ import progressbar as pgb
 import shapely.wkt
 from shapely.geometry import Polygon, MultiPolygon
 
-from src.data.resource import read_resource_database
+from src.data.vres_profiles import read_resource_database
 from src.data.geographics import divide_shape_with_voronoi
 
 
@@ -96,7 +96,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
                            tech_dict: Dict[str, Any]) -> List[Tuple[float, float]]:
     """
     Compute locations to remove from the initial set following various
-    land-, resource-, population-based criteria.
+    land-, vres_profiles-, population-based criteria.
 
     Parameters
     ----------
@@ -146,17 +146,12 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
 
         # TODO:
         #  - still fucking slow, make no sense to be so slow
-        #  - does it make sense to reload this dataset?
-        #  - should we slice on time, alredy here?
-        path_resource_data = join(dirname(abspath(__file__)),
-                                  f"../../../data/resource/source/ERA5/{spatial_resolution}")
-        #                          f"../../../data/resource/source/era5-land/{spatial_resolution}")
-        database = read_resource_database(path_resource_data)
+        database = read_resource_database(spatial_resolution)
         database = database.sel(locations=sorted(points))
 
-        if tech_dict['resource'] == 'wind':
+        if tech_dict['vres_profiles'] == 'wind':
             array_resource = xu.sqrt(database.u100 ** 2 + database.v100 ** 2)
-        elif tech_dict['resource'] == 'pv':
+        elif tech_dict['vres_profiles'] == 'pv':
             array_resource = database.ssrd / 3600.
         else:
             raise ValueError("Error: Resource must be wind or pv")
@@ -297,7 +292,7 @@ def filter_points(technologies: List[str], tech_config: Dict[str, Any], init_poi
         List of possible filter names:
 
         resource_quality:
-            If taken into account, discard points whose average resource quality over
+            If taken into account, discard points whose average vres_profiles quality over
             the available time horizon are below a threshold defined in the config_tech.yaml file.
         population_density:
             If taken into account, discard points whose population density is below a
@@ -428,7 +423,7 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]):
             ec.excludeRasterType(clc_, value=clc_filters["remove_codes"], buffer=clc_filters["remove_distance"])
 
     # TODO: add distance from the shore filter
-    # TODO: filter on resource quality
+    # TODO: filter on vres_profiles quality
     # TODO: add slope?
     # TODO: population density?
 
@@ -573,7 +568,7 @@ if __name__ == '__main__':
 
     # TODO: need to change
     tech_config_ = yaml.load(
-        open("/home/utilisateur/Global_Grid/code/py_ggrid/src/parameters/pv_wind_tech_configs.yml", "r"),
+        open("/home/utilisateur/Global_Grid/code/py_ggrid/src/parameters/vres_tech_config.yml", "r"),
         Loader=yaml.FullLoader)
 
     tech_ = "pv_utility"

@@ -32,7 +32,8 @@ if __name__ == "__main__":
 
     # Main directories
     data_dir = join(dirname(abspath(__file__)), "../../../data/")
-    params_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
+    # TODO: change name to tech_dir?
+    tech_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
     output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/e-highways/{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config
@@ -40,9 +41,9 @@ if __name__ == "__main__":
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
 
     # Parameters
-    tech_info = pd.read_excel(join(params_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
-    fuel_info = pd.read_excel(join(params_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
-    pv_wind_tech_config = yaml.load(open(join(params_dir, 'pv_wind_tech_configs.yml')), Loader=yaml.FullLoader)
+    tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
+    fuel_info = pd.read_excel(join(tech_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
+    vres_tech_config = yaml.load(open(join(tech_dir, 'vres_tech_config.yml')), Loader=yaml.FullLoader)
 
     # E-highway clusters information
     eh_clusters_file_name = join(data_dir, "topologies/e-highways/source/clusters_2016.csv")
@@ -112,18 +113,19 @@ if __name__ == "__main__":
                                         config["res"]["spatial_resolution"], countries,
                                         topology_type='ehighway', cap_dens_dict=config["res"]["cap_dens"])
             elif strategy == "bus":
-                net = add_res_per_bus(net, technologies, countries, pv_wind_tech_config,
+                converters = {tech: vres_tech_config[tech]["converter"] for tech in technologies}
+                net = add_res_per_bus(net, technologies, converters, countries,
                                       config["res"]["use_ex_cap"], topology_type='ehighway')
             elif strategy == "no_siting":
                 net = add_res_at_resolution(net, technologies, [config["region"]],
-                                            pv_wind_tech_config, config["res"]["spatial_resolution"],
+                                            vres_tech_config, config["res"]["spatial_resolution"],
                                             config['res']['filtering_layers'], config["res"]["use_ex_cap"],
                                             topology_type='ehighway')
             elif strategy == 'siting':
-                net = add_res(net, technologies, config['res'], pv_wind_tech_config, config["region"],
+                net = add_res(net, technologies, config['res'], vres_tech_config, config["region"],
                               topology_type='ehighway', output_dir=f"{output_dir}resite/")
             # elif config['res']['strategy'] == 'bus_test':
-            #    net = add_generators_at_bus_test(net, config['res'], pv_wind_tech_config, config["region"], output_dir)
+            #    net = add_generators_at_bus_test(net, config['res'], vres_tech_config, config["region"], output_dir)
 
     # Remove offshore locations that have no RES generators associated to them
     for bus_id in net.buses.index:
@@ -177,7 +179,7 @@ if __name__ == "__main__":
     yaml.dump(config, open(f"{output_dir}config.yaml", 'w'))
     yaml.dump(tech_info, open(f"{output_dir}tech_info.yaml", 'w'))
     yaml.dump(fuel_info, open(f"{output_dir}fuel_info.yaml", 'w'))
-    yaml.dump(pv_wind_tech_config, open(f"{output_dir}pv_wind_tech_config.yaml", 'w'))
+    yaml.dump(vres_tech_config, open(f"{output_dir}vres_tech_config.yaml", 'w'))
 
     net.export_to_csv_folder(output_dir)
 

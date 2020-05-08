@@ -2,7 +2,7 @@ from os.path import join, dirname, abspath, isfile
 from os import listdir
 import glob
 from ast import literal_eval
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple, Union
 
 import xarray as xr
 import xarray.ufuncs as xu
@@ -14,39 +14,41 @@ from shapely.geometry import Point, Polygon
 import atlite
 import windpowerlib
 
-# TODO: revise the functions in this file
 
-
-# TODO: add the filtering on coordinates and revise
-def read_resource_database(file_path, coords=None):
+def read_resource_database(spatial_resolution: float) -> xr.Dataset:
     """
     Read resource database from .nc files.
 
     Parameters
     ----------
-    file_path : str
-        Relative path to resource data.
+    spatial_resolution: float
+        Spatial resolution of the datasets.
 
     Returns
     -------
     dataset: xarray.Dataset
 
     """
+
+    main_resource_dir = join(dirname(abspath(__file__)), f"../../../data/vres_profiles/source/ERA5/")
+    available_res = listdir(main_resource_dir)
+    assert str(spatial_resolution) in available_res, f"Error: Available resolutions are {available_res}," \
+                                                     f" given {spatial_resolution} "
+
+    resource_dir = f"{main_resource_dir}{spatial_resolution}"
+
     # Read through all files, extract the first 2 characters (giving the
     # macro-region) and append in a list that will keep the unique elements.
-    files = [f for f in listdir(file_path) if isfile(join(file_path, f))]
-    areas = []
-    datasets = []
-    for item in files:
-        areas.append(item[:2])
-    areas_unique = list(set(areas))
+    files = [f for f in listdir(resource_dir) if isfile(join(resource_dir, f))]
+    areas = list(set([item[:2] for item in files]))
 
     # For each available area use the open_mfdataset method to open
     # all associated datasets, while directly concatenating on time dimension
     # and also aggregating (longitude, latitude) into one single 'location'. As
     # well, data is read as float32 (memory concerns).
-    for area in areas_unique:
-        file_list = [file for file in glob.glob(f"{file_path}/*.nc") if area in file]
+    datasets = []
+    for area in areas:
+        file_list = [file for file in glob.glob(f"{resource_dir}/*.nc") if area in file]
         ds = xr.open_mfdataset(file_list,
                                combine='by_coords',
                                chunks={'latitude': 20, 'longitude': 20})\
@@ -67,8 +69,9 @@ def read_resource_database(file_path, coords=None):
     return dataset
 
 
-def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float]]], tech_config: Dict[str, Any],
+def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float]]],
                              spatial_res: float, timestamps: pd.DatetimeIndex,
+                             converters: Dict[str, Union[Dict[str, str], str]],
                              smooth_wind_power_curve: bool = True) -> pd.DataFrame:
     """
     Compute capacity factors for a list of points associated to a list of technologies.
@@ -77,13 +80,17 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
     ----------
     tech_points_dict : Dict[str, List[Tuple[float, float]]]
         Dictionary associating to each tech a list of points.
-    tech_config: Dict[str, Any]
-        Todo: comment
     spatial_res: float
         Spatial resolution of coordinates
     timestamps: pd.DatetimeIndex
         Time stamps for which we want capacity factors
-    smooth_wind_power_curve : boolean
+    converters: Dict[str, Union[Dict[str, str], str]]
+        Dictionary indicating for each technology which converter(s) to use.
+        For each technology in the dictionary:
+            - if it is pv-based, the name of the converter must be specified as a string
+            - if it is wind, a dictionary must be defined associated for the four wind regimes
+            defined below (I, II, III, IV), the name of the converter as a string
+    smooth_wind_power_curve : boolean (default True)
         If "True", the transfer function of wind assets replicates the one of a wind farm,
         rather than one of a wind turbine.
 
@@ -93,13 +100,22 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
          DataFrame storing capacity factors for each technology and each point
 
     """
-    path_to_transfer_function = join(dirname(abspath(__file__)), '../../../data/transfer_functions/')
-    data_converter_wind = pd.read_csv(join(path_to_transfer_function, 'data_wind_turbines.csv'), sep=';', index_col=0)
-    data_converter_pv = pd.read_csv(join(path_to_transfer_function, 'data_pv_modules.csv'), sep=';', index_col=0)
 
-    # path_resource_data = join(dirname(abspath(__file__)), f"../../../data/resource/source/era5-land/{spatial_res}")
-    path_resource_data = join(dirname(abspath(__file__)), f"../../../data/resource/source/ERA5/{spatial_res}")
-    dataset = read_resource_database(path_resource_data).sel(time=timestamps)
+    missing_converters = set(tech_points_dict.keys()) - set(converters.keys())
+    assert not missing_converters, f"Error: No converter was provided for the following" \
+                                   f" techs: {sorted(list(missing_converters))}"
+
+    for tech, points in tech_points_dict.items():
+        assert len(points) != 0, f"Error: No points were defined for tech {tech}"
+
+    assert len(timestamps) != 0, f"Error: No timestamps were defined."
+
+    vres_profiles_dir = join(dirname(abspath(__file__)), "../../../data/vres_profiles/source/")
+    transfer_function_dir = f"{vres_profiles_dir}transfer_functions/"
+    data_converter_wind = pd.read_csv(f"{transfer_function_dir}data_wind_turbines.csv", sep=';', index_col=0)
+    data_converter_pv = pd.read_csv(f"{transfer_function_dir}data_pv_modules.csv", sep=';', index_col=0)
+
+    dataset = read_resource_database(spatial_res).sel(time=timestamps)
 
     # Create output dataframe with MultiIndex (tech, coords)
     tech_points_tuples = sorted([(tech, point) for tech, points in tech_points_dict.items() for point in points])
@@ -139,7 +155,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 
                     # Get the transfer function curve
                     # literal_eval converts a string to an array (in this case)
-                    converter = tech_config[tech]['converter_'+str(cls)]
+                    converter = converters[tech][cls]
                     power_curve_array = literal_eval(data_converter_wind.loc['Power curve', converter])
                     wind_speed_references = np.asarray([i[0] for i in power_curve_array])
                     capacity_factor_references = np.asarray([i[1] for i in power_curve_array])
@@ -180,8 +196,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 
         elif resource == 'pv':
 
-            # TODO: just pass the convrters as argument instead of tech_config?
-            converter = tech_config[tech]['converter']
+            converter = converters[tech]
 
             # Get irradiance in W from J
             irradiance = sub_dataset.ssrd / 3600.
@@ -201,7 +216,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
             cap_factor_df[tech] = power_output
 
         else:
-            raise ValueError(' The resource specified is not available yet.')
+            raise ValueError(' Profiles for the specified resource is not available yet.')
 
     # Decrease precision of capacity factors
     cap_factor_df = cap_factor_df.round(3)
@@ -209,92 +224,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
     return cap_factor_df
 
 
-# --- Using atlite --- #
-def get_cap_factor_for_regions(regions: List[Polygon], start_month: int, end_month: int = None):
-    """
-    Return the capacity factor series and generation capacity for pv and wind for a list of regions.
-
-    Parameters
-    ----------
-    regions: List[Polygon]
-        List of geographical regions for which we want a capacity factor series
-    start_month: int
-        Number of the first month
-    end_month: int
-        Number of the last month. If equal to start_month, data will be returned only for one month.
-        Another way to get this behavior is just no setting end_month and leaving it to None.
-
-    Returns
-    -------
-    wind_cap_factors: xr.DataArray with coordinates id (i.e. regions) and time
-        Wind capacity factors for each region in regions
-    wind_capacities:
-        Wind generation capacities for each region in regions
-    pv_cap_factors:
-        PV capacity factors for each region in regions
-    pv_capacities:
-        PV generation capacity for each region in regions
-    """
-
-    if end_month is None:
-        end_month = start_month
-
-    assert start_month <= end_month, \
-        "ERROR: The number of the end month must be superior to the number of the start month"
-
-    cutout_dir = join(dirname(abspath(__file__)), "../../../data/cutouts/")
-
-    cutout_params = dict(years=[2013], months=list(range(start_month, end_month+1)))
-    cutout = atlite.Cutout("europe-2013-era5", cutout_dir=cutout_dir, **cutout_params)
-
-    # Wind
-    wind_cap_factors, wind_capacities = cutout.wind(shapes=regions, turbine="Vestas_V112_3MW", per_unit=True,
-                                                    return_capacity=True)
-
-    # PV
-    pv_params = {"panel": "CSi",
-                 "orientation": {
-                     "slope": 35.,
-                     "azimuth": 180.}}
-    pv_cap_factors, pv_capacities = cutout.pv(shapes=regions, **pv_params, per_unit=True, return_capacity=True)
-
-    # Change precision
-    wind_cap_factors = xr.apply_ufunc(lambda x: np.round(x, 3), wind_cap_factors)
-    pv_cap_factors = xr.apply_ufunc(lambda x: np.round(x, 3), pv_cap_factors)
-
-    return wind_cap_factors, wind_capacities, pv_cap_factors, pv_capacities
-
-
-def get_cap_factor_at_points(points: List[Point], start_month: int, end_month: int = None):
-    """
-    Return the capacity factor series and generation capacity for pv and wind for a list of points.
-
-    Parameters
-    ----------
-    points: List[Point]
-        Point for which we want a capacity factor series
-    start_month: int
-        Number of the first month
-    end_month: int
-        Number of the last month. If equal to start_month, data will be returned only for one month.
-        Another way to get this behavior is just no setting end_month and leaving it to None.
-
-    Returns
-    -------
-    See 'get_cap_factor_for_regions'
-
-    """
-
-    resolution = 0.5
-    # Create a polygon around the point
-    polygon_df = pd.DataFrame([Polygon([(point.x-resolution, point.y-resolution),
-                                        (point.x-resolution, point.y+resolution),
-                                        (point.x+resolution, point.y+resolution),
-                                        (point.x+resolution, point.y-resolution)]) for point in points],
-                              index=[(point.x, point.y) for point in points], columns=["region"]).region
-    return get_cap_factor_for_regions(polygon_df, start_month, end_month)
-
-
+# Using Renewables.ninja
 def get_cap_factor_for_countries(tech: str, countries: List[str], timestamps: pd.DatetimeIndex) -> pd.DataFrame:
     """
     Return capacity factors time-series for a set of countries over a given timestamps, for a given technology.
@@ -302,7 +232,7 @@ def get_cap_factor_for_countries(tech: str, countries: List[str], timestamps: pd
     Parameters
     ----------
     tech: str
-        One of the technology among 'pv_residential', 'pv_utility', 'wind_onshore', 'wind_offshore', 'wind_floating'
+        One of the technology among: 'pv_residential', 'pv_utility', 'wind_onshore', 'wind_offshore', 'wind_floating'.
     countries: List[str]
         List of ISO codes of countries
     timestamps: pd.DatetimeIndex
@@ -315,13 +245,13 @@ def get_cap_factor_for_countries(tech: str, countries: List[str], timestamps: pd
     accepted_techs = ['pv_residential', 'pv_utility', 'wind_onshore', 'wind_offshore', 'wind_floating']
     assert tech in accepted_techs, f"Error: Technology {tech} is not part of {accepted_techs}"
 
-    resource_dir = join(dirname(abspath(__file__)), "../../../data/resource/generated/")
+    profiles_dir = join(dirname(abspath(__file__)), "../../../data/vres_profiles/generated/")
     if tech in ['pv_residential', 'pv_utility']:
-        capacity_factors = pd.read_csv(f"{resource_dir}pv_cap_factors.csv", index_col=0)
+        capacity_factors = pd.read_csv(f"{profiles_dir}pv_cap_factors.csv", index_col=0)
     elif tech == "wind_onshore":
-        capacity_factors = pd.read_csv(f"{resource_dir}onshore_wind_cap_factors.csv", index_col=0)
+        capacity_factors = pd.read_csv(f"{profiles_dir}onshore_wind_cap_factors.csv", index_col=0)
     else:  # tech in ["wind_offshore", "wind_floating"]
-        capacity_factors = pd.read_csv(f"{resource_dir}offshore_wind_cap_factors.csv", index_col=0)
+        capacity_factors = pd.read_csv(f"{profiles_dir}offshore_wind_cap_factors.csv", index_col=0)
 
     capacity_factors.index = pd.DatetimeIndex(capacity_factors.index)
 
@@ -332,21 +262,87 @@ def get_cap_factor_for_countries(tech: str, countries: List[str], timestamps: pd
 
     return capacity_factors.loc[timestamps, countries]
 
-
-if __name__ == '__main__':
-
-    ts = pd.date_range('2015-01-01T00:00', '2016-01-31T23:00', freq='1H')
-
-    if 0:
-        import yaml
-        tech_config_path = join(dirname(abspath(__file__)), '../../parameters/pv_wind_tech_configs.yml')
-        tech_conf = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
-        tech_points_d = {"wind_onshore": [(0, 50)], "pv_utility": [(0, 50)]}
-        compute_capacity_factors(tech_points_d, tech_conf, 0.5, ts)
-
-    if 0:
-        countries_ = "AL;AT;BA;BE;BG;CH;CZ;DE;DK;EE;ES;FI;FR;GB;GR;" \
-                    "HR;HU;IE;IT;LT;LU;LV;ME;MK;NL;NO;PL;PT;RO;RS;SE;SI;SK".split(";")
-        print(get_cap_factor_for_countries(countries_, ts, "pv_utility"))
-        print(get_cap_factor_for_countries(list(set(countries_)-{'RS', 'AL', 'BA', 'ME'}), ts, "wind_onshore"))
-        print(get_cap_factor_for_countries(countries_, ts, "wind_offshore"))
+# --- Using atlite --- #
+# def get_cap_factor_for_regions(regions: List[Polygon], start_month: int, end_month: int = None):
+#     """
+#     Return the capacity factor series and generation capacity for pv and wind for a list of regions.
+#
+#     Parameters
+#     ----------
+#     regions: List[Polygon]
+#         List of geographical regions for which we want a capacity factor series
+#     start_month: int
+#         Number of the first month
+#     end_month: int
+#         Number of the last month. If equal to start_month, data will be returned only for one month.
+#         Another way to get this behavior is just no setting end_month and leaving it to None.
+#
+#     Returns
+#     -------
+#     wind_cap_factors: xr.DataArray with coordinates id (i.e. regions) and time
+#         Wind capacity factors for each region in regions
+#     wind_capacities:
+#         Wind generation capacities for each region in regions
+#     pv_cap_factors:
+#         PV capacity factors for each region in regions
+#     pv_capacities:
+#         PV generation capacity for each region in regions
+#     """
+#
+#     if end_month is None:
+#         end_month = start_month
+#
+#     assert start_month <= end_month, \
+#         "ERROR: The number of the end month must be superior to the number of the start month"
+#
+#     cutout_dir = join(dirname(abspath(__file__)), "../../../data/cutouts/")
+#
+#     cutout_params = dict(years=[2013], months=list(range(start_month, end_month+1)))
+#     cutout = atlite.Cutout("europe-2013-era5", cutout_dir=cutout_dir, **cutout_params)
+#
+#     # Wind
+#     wind_cap_factors, wind_capacities = cutout.wind(shapes=regions, turbine="Vestas_V112_3MW", per_unit=True,
+#                                                     return_capacity=True)
+#
+#     # PV
+#     pv_params = {"panel": "CSi",
+#                  "orientation": {
+#                      "slope": 35.,
+#                      "azimuth": 180.}}
+#     pv_cap_factors, pv_capacities = cutout.pv(shapes=regions, **pv_params, per_unit=True, return_capacity=True)
+#
+#     # Change precision
+#     wind_cap_factors = xr.apply_ufunc(lambda x: np.round(x, 3), wind_cap_factors)
+#     pv_cap_factors = xr.apply_ufunc(lambda x: np.round(x, 3), pv_cap_factors)
+#
+#     return wind_cap_factors, wind_capacities, pv_cap_factors, pv_capacities
+#
+#
+# def get_cap_factor_at_points(points: List[Point], start_month: int, end_month: int = None):
+#     """
+#     Return the capacity factor series and generation capacity for pv and wind for a list of points.
+#
+#     Parameters
+#     ----------
+#     points: List[Point]
+#         Point for which we want a capacity factor series
+#     start_month: int
+#         Number of the first month
+#     end_month: int
+#         Number of the last month. If equal to start_month, data will be returned only for one month.
+#         Another way to get this behavior is just no setting end_month and leaving it to None.
+#
+#     Returns
+#     -------
+#     See 'get_cap_factor_for_regions'
+#
+#     """
+#
+#     resolution = 0.5
+#     # Create a polygon around the point
+#     polygon_df = pd.DataFrame([Polygon([(point.x-resolution, point.y-resolution),
+#                                         (point.x-resolution, point.y+resolution),
+#                                         (point.x+resolution, point.y+resolution),
+#                                         (point.x+resolution, point.y-resolution)]) for point in points],
+#                               index=[(point.x, point.y) for point in points], columns=["region"]).region
+#     return get_cap_factor_for_regions(polygon_df, start_month, end_month)

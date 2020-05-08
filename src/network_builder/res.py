@@ -1,6 +1,6 @@
 from os.path import join, dirname, abspath
 import pickle
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 import pandas as pd
 
@@ -8,10 +8,10 @@ import pypsa
 
 from shapely.ops import cascaded_union
 
-from src.data.resource import compute_capacity_factors, get_cap_factor_for_countries
+from src.data.vres_profiles import compute_capacity_factors, get_cap_factor_for_countries
 from src.data.geographics import match_points_to_regions, match_points_to_countries, get_onshore_shapes, \
     get_offshore_shapes
-from src.data.res_potential import get_capacity_potential_for_countries, get_capacity_potential_at_points, \
+from src.data.vres_potential import get_capacity_potential_for_countries, get_capacity_potential_at_points, \
     get_capacity_potential_for_regions
 from src.data.legacy import get_legacy_capacity_in_regions, get_legacy_capacity_in_countries
 from src.resite.resite import Resite
@@ -354,8 +354,9 @@ def add_generators_at_resolution(network: pypsa.Network, technologies: List[str]
     return network
 
 
-def add_generators_per_bus(network: pypsa.Network, technologies: List[str], countries: List[str],
-                           tech_config: Dict[str, Any], use_ex_cap: bool = True,
+def add_generators_per_bus(network: pypsa.Network, technologies: List[str],
+                           converters: Dict[str, Union[Dict[str, str], str]],
+                           countries: List[str], use_ex_cap: bool = True,
                            topology_type: str = 'countries', offshore_buses: bool = True) -> pypsa.Network:
     """
     Add PV and wind generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
@@ -366,10 +367,14 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
         A PyPSA Network instance with buses associated to regions
     technologies: List[str]
         Technologies to each bus
+    converters: Dict[str, Union[Dict[str, str], str]]
+        Dictionary indicating for each technology which converter(s) to use.
+        For each technology in the dictionary:
+            - if it is pv-based, the name of the converter must be specified as a string
+            - if it is wind, a dictionary must be defined associated for the four wind regimes
+            defined below (I, II, III, IV), the name of the converter as a string
     countries: List[str]
       List of ISO codes of countries over which the network is defined
-    tech_config:
-        # TODO: comment
     use_ex_cap: bool (default: True)
         Whether to take into account existing capacity
     topology_type: str
@@ -434,7 +439,7 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str], coun
                 points = [(round(x/spatial_res)*spatial_res,
                            round(y/spatial_res)*spatial_res)
                           for x, y in buses[["x", "y"]].values]
-            cap_factor_df = compute_capacity_factors({tech: points}, tech_config, spatial_res, network.snapshots)[tech]
+            cap_factor_df = compute_capacity_factors({tech: points}, spatial_res, network.snapshots, converters)[tech]
             cap_factor_df.columns = buses.index
 
         legacy_capacities = pd.Series(0., index=buses.index)

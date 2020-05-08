@@ -11,9 +11,9 @@ from shapely.ops import cascaded_union
 from shapely.geometry import MultiPoint
 
 from src.data.legacy import get_legacy_capacity_at_points, get_legacy_capacity_in_regions
-from src.data.resource import compute_capacity_factors
+from src.data.vres_profiles import compute_capacity_factors
 from src.data.land_data import filter_points, get_land_availability_in_grid_cells
-from src.data.res_potential import get_capacity_potential_at_points
+from src.data.vres_potential import get_capacity_potential_at_points
 from src.data.load import get_load
 from src.data.geographics import return_region_shape, return_points_in_shape, get_subregions
 
@@ -146,8 +146,9 @@ class Resite:
             self.existing_cap_ds.loc[existing_cap_ds.index] = existing_cap_ds.values
 
         # Compute capacity factors for each point
-        self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.tech_config,
-                                                      self.spatial_res, self.timestamps)
+        converters = {tech: self.tech_config[tech]["converter"] for tech in self.technologies}
+        self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.spatial_res,
+                                                      self.timestamps, converters)
 
         # Compute capacity potential for each point (taking into account existing capacity)
         self.cap_potential_ds = get_capacity_potential_at_points(self.tech_points_dict, self.spatial_res,
@@ -258,8 +259,9 @@ class Resite:
         techs = set(self.existing_cap_percentage_ds.index.get_level_values(0))
         for tech in techs:
             self.tech_points_dict[tech] = list(self.existing_cap_ds[tech].index)
-        self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.tech_config,
-                                                      self.spatial_res, self.timestamps)
+        converters = {tech: self.tech_config[tech]["converter"] for tech in techs}
+        self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.spatial_res,
+                                                      self.timestamps, converters)
 
         # Maximum generation that can be produced if max capacity installed
         self.generation_potential_df = self.cap_factor_df * self.cap_potential_ds
@@ -406,7 +408,7 @@ class Resite:
         yaml.dump(params, open(f"{output_folder}config.yaml", 'w'))
 
         # Save the technology configurations
-        yaml.dump(self.tech_config, open(f"{output_folder}pv_wind_tech_configs.yaml", 'w'))
+        yaml.dump(self.tech_config, open(f"{output_folder}vres_tech_config.yaml", 'w'))
 
         # Save the attributes
         resite_output = [
