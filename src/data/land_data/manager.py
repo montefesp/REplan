@@ -11,6 +11,7 @@ import geopandas as gpd
 import scipy.spatial
 import geopy.distance
 
+# TODO: will probably need to use original versions and not PyPSAs
 from osgeo import ogr, osr
 import geokit as gk
 import glaes as gl
