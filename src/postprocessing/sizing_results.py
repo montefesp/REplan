@@ -529,7 +529,7 @@ if __name__ == "__main__":
 
     topology = 'tyndp2018'
 
-    run_id = '20200429_150213'
+    run_id = '20200507_123405'
 
     main_output_dir = f'../../output/sizing/{topology}/'
     output_dir = f"{main_output_dir}{run_id}/"

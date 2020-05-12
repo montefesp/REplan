@@ -1,137 +1,38 @@
+import logging
+from itertools import product
 from os.path import join, dirname, abspath, isfile
-import numpy as np
-from operator import attrgetter
-from six.moves import reduce
-from itertools import takewhile, product
-from typing import List, Union, Tuple, Dict
+from random import random
+from typing import List, Union, Tuple
 
-import pandas as pd
+import cartopy.crs as ccrs
 import geopandas as gpd
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pycountry as pyc
 import shapely
-from shapely.geometry import MultiPolygon, Polygon, Point, MultiPoint, GeometryCollection
-from shapely.ops import cascaded_union
 import shapely.prepared
 from shapely.errors import TopologicalError
-import geopy
-
-import pycountry as pyc
-
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-from random import random
-
-import logging
+from shapely.geometry import MultiPolygon, Polygon, Point, MultiPoint, GeometryCollection
+from shapely.ops import unary_union
+from six.moves import reduce
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
 
 
-def is_onshore(point: Point, onshore_shape: Polygon, dist_threshold: float = 20.0) -> bool:
-    """
-    Determine if a point is onshore.
-
-    Onshore means belonging to the onshore_shape or less than dist_threshold km away from it.
-
-    Parameters
-    ----------
-    point: shapely.geometry.Point
-        Point corresponding to a coordinate
-    onshore_shape: shapely.geometry.Polygon
-        Polygon representing a geographical shape
-    dist_threshold: float (default: 20.0)
-        Distance in kms
-
-    Returns
-    -------
-    True if the point is considered onshore, False otherwise
-    """
-
-    if onshore_shape.contains(point):
-        return True
-
-    closest_p = shapely.ops.nearest_points(onshore_shape, point)
-    dist_to_closest_p = geopy.distance.geodesic((point.y, point.x), (closest_p[0].y, closest_p[0].x)).km
-    if dist_to_closest_p < dist_threshold:
-        return True
-
-    return False
-
-
-# TODO: comment
-def nuts3_to_nuts2(nuts3_codes: List[str]):
-    return [code[:4] if code[:4] != "UKN1" else "UKN0" for code in nuts3_codes]
-
-
-def get_nuts_codes(nuts_level: int, year: int):
-
-    available_years = [2013, 2016]
-    assert year in available_years, f"Error: Year must be one of {available_years}, received {year}"
-    available_nuts_levels = [0, 1, 2, 3]
-    assert nuts_level in available_nuts_levels, \
-        f"Error: NUTS level must be one of {available_nuts_levels}, received {nuts_level}"
-
-    nuts_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/NUTS2013-NUTS2016.xlsx")
-    nuts_codes = pd.read_excel(nuts_fn, sheet_name="NUTS2013-NUTS2016", usecols=[1, 2], header=1)
-    nuts_codes = nuts_codes[f"Code {year}"].dropna()
-
-    return [code for code in nuts_codes if len(code) == nuts_level + 2]
-
-
-def get_nuts_area() -> pd.DataFrame:
-    """countries_url_area_types in a pd.DataFrame for each NUTS region (2013 and 2016 version) its size in km2"""
-
-    area_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/reg_area3.xls")
-    return pd.read_excel(area_fn, header=9, index_col=0)[:2193]
-
-
-# TODO: document or maybe delete and just used directly pyc?
-def convert_country_codes(target, **keys):
-    """
-    Convert countries codes.
-
-    Parameters
-    ----------
-    target:
-    keys:
-
-    Returns
-    -------
-    """
-    assert len(keys) == 1
-    try:
-        return getattr(pyc.countries.get(**keys), target)
-    except (KeyError, AttributeError):
-        return np.nan
-
-
-# TODO: check in more details
-def save_to_geojson(df, fn):
-    """
-    Create a geojson file from a pandas geopandas dataframe.
-
-    Parameters
-    ----------
-    df:
-    fn:
-
-    Returns
-    -------
-    """
-    pass
-    # if exists(fn):
-    #     unlink(fn)
-    # if not isinstance(df, gpd.GeoDataFrame):
-    #     df = gpd.GeoDataFrame(dict(geometry=df))
-    # df = df.reset_index()
-    # schema = {**gpd.io.file.infer_schema(df), 'geometry': 'Unknown'}
-    # df.to_file(fn, driver='GeoJSON', schema=schema)
-
-
-def save_polygon(df: gpd.GeoDataFrame, fn: str) -> None:
-
-    assert isinstance(df, gpd.GeoDataFrame), \
-        "Error: The first argument of this function should be a geopandas.GeoDataFrame"
-    df.to_file(fn, driver='GeoJSON')
+# def get_nuts_codes(nuts_level: int, year: int):
+#     available_years = [2013, 2016]
+#     assert year in available_years, f"Error: Year must be one of {available_years}, received {year}"
+#     available_nuts_levels = [0, 1, 2, 3]
+#     assert nuts_level in available_nuts_levels, \
+#         f"Error: NUTS level must be one of {available_nuts_levels}, received {nuts_level}"
+#
+#     nuts_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/NUTS2013-NUTS2016.xlsx")
+#     nuts_codes = pd.read_excel(nuts_fn, sheet_name="NUTS2013-NUTS2016", usecols=[1, 2], header=1)
+#     nuts_codes = nuts_codes[f"Code {year}"].dropna()
+#
+#     return [code for code in nuts_codes if len(code) == nuts_level + 2]
 
 
 def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]]) -> None:
@@ -145,7 +46,7 @@ def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]]) -> None:
     """
 
     assert isinstance(polygons_list, list) or isinstance(polygons_list, np.ndarray) \
-        or isinstance(polygons_list, gpd.array.GeometryArray), \
+           or isinstance(polygons_list, gpd.array.GeometryArray), \
         f'The argument must be a list of polygons or multipolygons, got {type(polygons_list)}'
 
     fig = plt.figure(figsize=(13, 13))
@@ -260,84 +161,15 @@ def match_points_to_countries(points: List[Tuple[float, float]], countries: List
         Series giving for each point the associated region or NA if the point didn't fall into any region
     """
 
-    # Get offshore and onshore regions for each country and combine them
-    onshore_shapes = get_onshore_shapes(countries)["geometry"]
-    onshore_shapes_union = cascaded_union(onshore_shapes.values)
-    offshore_shapes = get_offshore_shapes(countries, onshore_shapes_union, filterremote=True)["geometry"]
-    total_shapes = pd.Series(index=countries)
+    shapes = get_shapes(countries, which='onshore_offshore', save_file_str='countries')
+
+    union_shapes = pd.Series(index=countries)
     for country in countries:
-        if country in offshore_shapes.index:
-            total_shapes[country] = cascaded_union([onshore_shapes[country], offshore_shapes.loc[country]])
-        else:
-            total_shapes[country] = onshore_shapes[country]
+        union_shapes[country] = unary_union(shapes.loc[country, 'geometry'])
 
     # Assign points to each country based on region
-    return match_points_to_regions(points, total_shapes)
+    return match_points_to_regions(points, union_shapes)
 
-
-def get_subregions(region: str) -> List[str]:
-    """
-    Return the list of the subregions composing one of the region defined in data/region_definition.csv.
-
-    Parameters
-    ----------
-    region: str
-        Code of a geographical region defined in data/region_definition.csv.
-
-    Returns
-    -------
-    subregions: List[str]
-        List of subregion codes, if no subregions, returns list[region]
-    """
-
-    region_definition_fn = join(dirname(abspath(__file__)), '../../../data/region_definition.csv')
-    region_definition = pd.read_csv(region_definition_fn, index_col=0, keep_default_na=False)
-    if region in region_definition.index:
-        subregions = region_definition.loc[region].subregions.split(";")
-    else:
-        subregions = [region]
-
-    return subregions
-
-
-def return_region_shape(region_name: str, subregions: List[str], prepare: bool = False) \
-        -> Dict[str, Union[Polygon, MultiPolygon]]:
-    """
-    Return union of onshore and union of offshore shapes of a series of geographical regions.
-
-    Parameters
-    ----------
-    region_name: str
-        Name of the region, used to store the result
-    subregions : List[str]
-        Codes of a geographical subregions composing the region
-    prepare: bool
-        Whether to apply shapely.prepared to final shapes or not
-
-    Returns
-    -------
-    shape_dict : Dict[str, Union[Polygon, MultiPolygon]]
-        Dictionary containing onshore and offshore shapes
-
-    """
-    # Get onshore shape
-    filename = f"{region_name}_on.geojson"
-    onshore_union = cascaded_union(get_onshore_shapes(subregions, save_file_name=filename,
-                                                      filterremote=True)["geometry"].values)
-
-    # Get offshore shape
-    filename = f"{region_name}_off.geojson"
-    offshore_union = \
-        cascaded_union(get_offshore_shapes(subregions, onshore_shape=onshore_union, save_file_name=filename,
-                                           filterremote=True)["geometry"].values)
-
-    if prepare:
-        onshore_union = shapely.prepared.prep(onshore_union)
-        offshore_union = shapely.prepared.prep(offshore_union)
-
-    shape_dict = {'onshore': onshore_union, 'offshore': offshore_union}
-
-    return shape_dict
 
 
 def divide_shape_with_voronoi(shape: Union[Polygon, MultiPolygon], resolution: float) \
@@ -346,21 +178,20 @@ def divide_shape_with_voronoi(shape: Union[Polygon, MultiPolygon], resolution: f
 
     from vresutils.graph import voronoi_partition_pts
 
-    points = return_points_in_shape(shape, resolution)
+    points = get_points_in_shape(shape, resolution)
     grid_cells = voronoi_partition_pts(points, shape)
 
     # Keep only Polygons and MultiPolygons
     for i, shape in enumerate(grid_cells):
         if isinstance(shape, GeometryCollection):
             geos = [geo for geo in shape if isinstance(geo, Polygon) or isinstance(geo, MultiPolygon)]
-            grid_cells[i] = cascaded_union(geos)
+            grid_cells[i] = unary_union(geos)
 
     return points, grid_cells
 
 
-# TODO: rename in 'get_points_in_shape'
-def return_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
-                           points: List[Tuple[float, float]] = None) -> List[Tuple[float, float]]:
+def get_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
+                        points: List[Tuple[float, float]] = None) -> List[Tuple[float, float]]:
     """
     Return list of coordinates (lon, lat) located inside a geographical shape at a certain resolution.
 
@@ -395,358 +226,517 @@ def return_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: floa
     return points
 
 
-# -- Filter polygons functions -- #
-
-def filter_onshore_polys(polys: Union[Polygon, MultiPolygon], minarea: float = 0.1,
-                         tolerance: float = 0.01, filterremote: bool = False):
+def get_shapes(region_list: List[str], which: str = 'onshore_offshore', save_file_str: str = None) -> gpd.GeoDataFrame:
     """
-    Filter onshore polygons based on distance to main land.
+    Retrieve shapes associated to a given region list.
 
     Parameters
     ----------
-    polys: Polygon or MultiPolygon
-        associated to one countries
-    minarea: float
-        Area under which we do not keep countries parts
-    tolerance: float
-        ?
-    filterremote: boolean
-        If we filter or not # TODO: does it make sense to have this argument
-    """
+    region_list: List[str]
+        List of regions for which to retrieve shapes.
+        This is either a list of i) ISO_2 (tyndp), ii) NUTS2 or iii) NUTS3 codes (ehighway).
+    which : str
+        Optional argument used to choose which shapes to retrieve.
+    save_file_str: str
+        Optional argument used to define the name under which the file is saved.
 
-    if isinstance(polys, MultiPolygon):
-        polys = sorted(polys, key=attrgetter('area'), reverse=True)
-        mainpoly = polys[0]
-        mainlength = np.sqrt(mainpoly.area/(2.*np.pi))
-        if mainpoly.area > minarea:
-            polys = MultiPolygon([p
-                                  for p in takewhile(lambda p: p.area > minarea, polys)
-                                  if not filterremote or (mainpoly.distance(p) < mainlength)])
-        else:
-            polys = mainpoly
-    return polys  # .simplify(tolerance=tolerance)
-
-
-# TODO: might need to do sth more intelligent in terms of distance
-def filter_offshore_polys(offshore_polys, onshore_polys_union, minarea: float = 0.1,
-                          tolerance: float = 0.01, filterremote: bool = False):
-    """
-    Filter offshore polygons based on distance to main land.
-    
-    Parameters
-    ----------
-    offshore_polys: Polygon or MultiPolygon
-        associated to one countries
-    onshore_polys_union: Polygon or MultiPolygon
-        of a set of countries
-    minarea: float
-        Area under which we do not keep countries parts
-    tolerance: float
-        ?
-    filterremote: bool
-        If we filter or not # TODO: does it make sense to have this argument
-    """
-
-    if isinstance(offshore_polys, MultiPolygon):
-        offshore_polys = sorted(offshore_polys, key=attrgetter('area'), reverse=True)
-    else:
-        offshore_polys = [offshore_polys]
-    mainpoly = offshore_polys[0]
-    mainlength = np.sqrt(mainpoly.area/(2.*np.pi))
-    polys = []
-    if mainpoly.area > minarea:
-        for offshore_poly in offshore_polys:
-
-            if offshore_poly.area < minarea:
-                break
-
-            if isinstance(onshore_polys_union, Polygon):
-                onshore_polys_union = [onshore_polys_union]
-            for onshore_poly in onshore_polys_union:
-                if not filterremote or offshore_poly.distance(onshore_poly) < mainlength:
-                    polys.append(offshore_poly)
-                    break
-        polys = MultiPolygon(polys)
-    else:
-        polys = mainpoly
-    return polys  # .simplify(tolerance=tolerance)
-
-
-# -- Get specific shapes functions -- #
-
-def get_onshore_shapes(ids: List[str], minarea: float = 0.1, tolerance: float = 0.01,
-                       filterremote: bool = False, save_file_name: str = None):
-    """
-    Load the shapes of the onshore territories a specified set of countries into a GeoPandas Dataframe.
-    
-    Parameters
-    ----------
-    ids: List[str]
-        names of the regions for which we want associated shapes
-    minarea: float
-        defines the minimal area a region of a region (that is not the main one) must have to be kept
-    tolerance: float
-        ?
-    filterremote: bool
-        if we filter remote places or not
-    save_file_name: str
-        file name to which the Dataframe must be saved, if the file already exists, the Dataframe
-        is recovered from there
-    
     Returns
     -------
-    onshore_shapes: geopandas dataframe
-        indexed by the id of the region and containing the shape of each region
+    shapes : gpd.GeoDataFrame
+        DataFrame containing desired shapes.
     """
 
-    if save_file_name is not None:
-        save_file_name = join(dirname(abspath(__file__)), f"../../../output/geographics/{save_file_name}")
-        if isfile(save_file_name):
-            return gpd.read_file(save_file_name).set_index('name')
+    fn = join(dirname(abspath(__file__)), f"../../../data/geographics/generated/shapes_{save_file_str}.geojson")
 
-    # TODO: take ages to load file... --> need to do sth about this
-    onshore_shapes_file_name = join(dirname(abspath(__file__)),
-                                    '../../../data/geographics/generated/onshore_shapes.geojson')
-    onshore_shapes = gpd.read_file(onshore_shapes_file_name).set_index("name")
+    # If file exists, output is returned directly from file.
+    if isfile(fn):
 
-    # Keep only the required regions for which we have the data
-    filtered_ids = [idx for idx in ids if idx in onshore_shapes.index]
-    missing_ids = set(ids)-set(filtered_ids)
-    # TODO: need to solve the problem with BA00
-    # assert not missing_ids, f"Some regions that you asked for are not present: {sorted(list(missing_ids))}"
+        shapefile = gpd.read_file(fn).set_index('name')
+        # Selection of the offshore subset associated with the region_list.
+        region_list_offshore = remove_landlocked_countries(
+                                                update_ehighway_codes(list(set([item[:2] for item in region_list]))))
+        # Union of region_list and the associated offshore codes.
+        all_codes = list(set(region_list).union(set(region_list_offshore)))
 
-    # Keep only needed countries
-    onshore_shapes = onshore_shapes.loc[filtered_ids]
+        if which == 'onshore':
+            return shapefile[shapefile['offshore'] == False].reindex(region_list).dropna()
+        elif which == 'offshore':
+            return shapefile[shapefile['offshore'] == True].reindex(region_list_offshore).dropna()
+        else: # which == 'onshore_offshore'
+            # .loc required as .reindex does not work with duplicate indexing (which could occur for ISO_2 codes)
+            return shapefile.loc[all_codes].dropna()
 
-    onshore_shapes['geometry'] = onshore_shapes['geometry']\
-        .map(lambda x: filter_onshore_polys(x, minarea, tolerance, filterremote))
+    if which == 'onshore':
+        # Generating file including only onshore shapes.
+        shapes = get_onshore_shapes(region_list)
 
-    if save_file_name is not None:
-        save_to_geojson(onshore_shapes, save_file_name)
+    elif which == 'offshore':
+        # Generating file including only offshore shapes.
+        shapes = get_offshore_shapes(region_list)
+
+    elif which == 'onshore_offshore':
+
+        onshore_shapes = get_onshore_shapes(region_list)
+        offshore_shapes = get_offshore_shapes(region_list)
+
+        shapes = pd.concat([onshore_shapes, offshore_shapes])
+
+    shapes['name'] = shapes.index
+    # Filtering remote shapes (onshore/offshore).
+    shapes['geometry'] = \
+        shapes.apply(lambda x: filter_shapes_from_contour(x['geometry'], get_region_contour([x['name']]))
+        if not isinstance(x['geometry'], Polygon) else x['geometry'], axis=1)
+
+    if save_file_str is not None:
+        shapes.to_file(fn, driver='GeoJSON', encoding='utf-8')
+
+    return shapes
+
+
+def get_natural_earth_shapes(region_list: List[str] = None) -> gpd.GeoDataFrame:
+    """
+    Retrieve onshore shapes from naturalearth data (ISO_2 codes).
+
+    Parameters
+    ----------
+    region_list: List[str]
+        List of regions for which to retrieve shapes. If None, the full dataset is retrieved.
+
+    Returns
+    -------
+    onshore_shapes : gpd.GeoDataFrame
+        DataFrame containing desired shapes.
+    """
+
+    natearth_fn = join(dirname(abspath(__file__)),
+                       "../../../data/geographics/source/naturalearth/countries/ne_10m_admin_0_countries.shp")
+    natearth_shapes = gpd.read_file(natearth_fn)
+
+    # Names are a hassle in naturalearth, several fields are combined.
+    fieldnames = [natearth_shapes[x].where(lambda s: s != "-99") for x in ("ADM0_A3", "WB_A2", "ISO_A2")]
+    fieldnames[0] = fieldnames[0].apply(lambda c: convert_country_codes("alpha_2", alpha_3=c))
+
+    # Fill in NA values by using the other cods
+    natearth_shapes["name"] = reduce(lambda x, y: x.fillna(y), [fieldnames[0], fieldnames[1], fieldnames[2]])
+    # if still nans remove them
+    natearth_shapes = natearth_shapes[pd.notnull(natearth_shapes["name"])]
+
+    if region_list is not None:
+
+        logger.debug(f"Warning: Shapes for ({set(region_list).difference(set(natearth_shapes.index))}) not available!")
+        onshore_shapes = natearth_shapes[natearth_shapes["name"].isin(region_list)].set_index("name")
+
+    else:
+
+        onshore_shapes = natearth_shapes[['name', 'geometry']].set_index("name")
 
     return onshore_shapes
 
 
-# TODO: might need to revise this function
-def get_offshore_shapes(ids: List[str], onshore_shape: Union[Polygon, MultiPolygon] = None,
-                        minarea: float = 0.1, tolerance: float = 0.01,
-                        filterremote: bool = False, save_file_name: str = None):
+def get_nuts3_shapes(region_list: List[str] = None) -> gpd.GeoDataFrame:
     """
-    Load the shapes of the offshore territories of a specified set of regions into a GeoPandas Dataframe.
+    Retrieve onshore shapes from eurostat data (NUTS3 codes).
 
     Parameters
     ----------
-    ids: List[str]
-        ids of the onshore region for which we want associated offshore shape
-    onshore_shape:
-        # TODO comment
-    minarea: float
-        defines the minimal area a region of a countries (that is not the main one) must have to be kept
-    tolerance: float, 
-        ?
-    filterremote: bool
-        if we filter remote places or not
-    save_file_name: str
-        file name to which the Dataframe must be saved, if the file already exists, the Dataframe
-        is recovered from there
-    
+    region_list: List[str]
+        List of regions for which to retrieve shapes. If None, the full dataset is retrieved.
+
     Returns
     -------
-    offshore_shapes: geopandas dataframe
-        indexed by the name of the region and containing the shape of each offshore territory
+    onshore_shapes : gpd.GeoDataFrame
+        DataFrame containing desired shapes.
     """
 
-    uk_el_to_gb_gr = {'UK': 'GB', 'EL': 'GR'}
-    ids = [uk_el_to_gb_gr[c] if c in uk_el_to_gb_gr else c for c in ids]
+    fn_nuts = join(dirname(abspath(__file__)),
+                   f"../../../data/geographics/source/eurostat/NUTS_RG_01M_2016_4326_LEVL_3.geojson")
+    onshore_shapes = gpd.read_file(fn_nuts)
 
-    if save_file_name is not None:
-        save_file_name = join(dirname(abspath(__file__)), f"../../../output/geographics/{save_file_name}")
-        if isfile(save_file_name):
-            return gpd.read_file(save_file_name).set_index('name')
+    if region_list is not None:
 
-    all_offshore_shapes_fn = join(dirname(abspath(__file__)),
-                                  '../../../data/geographics/generated/offshore_shapes.geojson')
-    offshore_shapes = gpd.read_file(all_offshore_shapes_fn).set_index("name")
+        onshore_shapes_list = []
+        # Put together all NUTS3 codes.
+        split_regions = [code for code in region_list if len(code) == 5]
+        # If ISO_2 codes among them (e.g., TN, MA), keep ISO_2 code.
+        whole_regions = list(set(region_list).difference(set(split_regions)))
 
-    # Keep only the required regions for which we have the data
-    filtered_ids = [idx for idx in ids if idx in offshore_shapes.index]
-    if len(filtered_ids) != len(ids):
-        landlocked = ['AT', 'HU', 'CZ', 'SK', 'MK', 'CH', 'LU', 'RS']
-        difference = sorted(list(set(ids)-set(filtered_ids)))
-        diff = set(difference) - set(landlocked)
-        if len(diff) != 0:
-            logger.info(f"WARNING: Some regions that you asked for are not present: {list(diff)}")
-    region_names = [idx.split('-')[0] for idx in filtered_ids]  # Allows to consider states and provinces
-    offshore_shapes = offshore_shapes.loc[region_names]
+        # Append all shapes for NUTS3 and ISO2 codes.
+        onshore_shapes_list.append(onshore_shapes[onshore_shapes['id'].isin(split_regions)])
+        onshore_shapes_list.append(onshore_shapes[onshore_shapes['CNTR_CODE'].isin(whole_regions)])
 
-    # TODO: bug if none of the country in the list has an offshore shape
+        # If (ISO_2) code is not in NUTS file, retrieve shape from naturalearth dataset.
+        nan_shapes = set(whole_regions).difference(set(onshore_shapes['CNTR_CODE']))
+        if len(nan_shapes):
+            missing_shapes = get_natural_earth_shapes(nan_shapes)
+            missing_shapes['id'] = [item for item in missing_shapes.index]
+            onshore_shapes_list.append(missing_shapes)
 
-    # Keep only offshore 'close' to onshore
-    if onshore_shape is not None:
-        offshore_shapes['geometry'] = offshore_shapes['geometry']\
-            .map(lambda x: filter_offshore_polys(x, onshore_shape, minarea, tolerance, filterremote))
+        onshore_shapes = pd.concat(onshore_shapes_list).set_index("id")
 
-    # Remove lines for which whole polygons as been removed
-    empty_shapes_index = offshore_shapes[offshore_shapes['geometry'].is_empty].index
-    if len(empty_shapes_index) != 0:
-        print(f"Warning: Shapes for following codes have been totally removed: {empty_shapes_index.values}")
-        offshore_shapes = offshore_shapes.drop(empty_shapes_index)
+    else:
 
-    if save_file_name is not None:
-        save_to_geojson(offshore_shapes, save_file_name)
+        onshore_shapes = onshore_shapes[['id', 'geometry']].set_index("id")
+
+    return onshore_shapes
+
+
+def get_nuts2_shapes(region_list: List[str] = None) -> gpd.GeoDataFrame:
+    """
+    Retrieve onshore shapes from eurostat data (NUTS2 codes).
+
+    Parameters
+    ----------
+    region_list: List[str]
+        List of regions for which to retrieve shapes. If None, the full dataset is retrieved.
+
+    Returns
+    -------
+    onshore_shapes : gpd.GeoDataFrame
+        DataFrame containing desired shapes.
+    """
+
+    fn_nuts = join(dirname(abspath(__file__)),
+                   f"../../../data/geographics/source/eurostat/NUTS_RG_01M_2016_4326_LEVL_2.geojson")
+    onshore_shapes = gpd.read_file(fn_nuts)
+
+    if region_list is not None:
+
+        onshore_shapes_list = []
+        # Put together all NUTS2 codes.
+        split_regions = [code for code in region_list if len(code) == 4]
+        # If ISO_2 codes among them (e.g., TN, MA), keep ISO_2 code.
+        whole_regions = list(set(region_list).difference(set(split_regions)))
+
+        # Append all shapes for NUTS2 and ISO2 codes.
+        onshore_shapes_list.append(onshore_shapes[onshore_shapes['id'].isin(split_regions)])
+        onshore_shapes_list.append(onshore_shapes[onshore_shapes['CNTR_CODE'].isin(whole_regions)])
+
+        # If (ISO_2) code is not in NUTS file, retrieve shape from naturalearth dataset.
+        nan_shapes = set(whole_regions).difference(set(onshore_shapes['CNTR_CODE']))
+        if len(nan_shapes):
+            missing_shapes = get_natural_earth_shapes(nan_shapes)
+            # Add suffix to entry (still of use for ENSPRESO processing).
+            missing_shapes['id'] = [item+'00' for item in missing_shapes.index]
+            onshore_shapes_list.append(missing_shapes)
+
+        onshore_shapes = pd.concat(onshore_shapes_list).set_index("id")
+
+    else:
+
+        onshore_shapes = onshore_shapes[['id', 'geometry']].set_index("id")
+
+    return onshore_shapes
+
+
+def get_ehighway_shapes(fill_nans: bool = True) -> gpd.GeoDataFrame:
+    """
+    Retrieve ehighway shapes from NUTS3 data.
+
+    Parameters
+    ----------
+    fill_nans: bool
+        Parameter indicating whether to fill replace NUTS3 shapes with naturalearth data.
+
+    Returns
+    -------
+    ehighway_shapes : gpd.GeoDataFrame
+        DataFrame containing desired shapes.
+    """
+
+    fn_clusters = join(dirname(abspath(__file__)),
+                       f"../../../data/topologies/e-highways/source/clusters_2016.csv")
+    clusters = pd.read_csv(fn_clusters, delimiter=";", index_col=0)
+
+    fn_nuts = join(dirname(abspath(__file__)),
+                   f"../../../data/geographics/source/eurostat/NUTS_RG_01M_2016_4326_LEVL_3.geojson")
+    nuts_shapes = gpd.read_file(fn_nuts).set_index('id')
+
+    ehighway_shapes = gpd.GeoDataFrame(index=clusters.index, columns=['geometry'])
+
+    for node in clusters.index:
+        codes = clusters.loc[node, 'codes'].split(',')
+        # If cluster codes are all NUTS3, union of all.
+        if len(codes[0]) > 2:
+            ehighway_shapes.loc[node, 'geometry'] = unary_union(nuts_shapes.loc[codes]['geometry'])
+        # If cluster code is ISO_2 code, union of all shapes with the same ISO_2 code.
+        else:
+            ehighway_shapes.loc[node, 'geometry'] = \
+                unary_union(nuts_shapes[nuts_shapes['CNTR_CODE'] == codes[0]]['geometry'])
+
+    # For countries not in NUTS3 database (e.g., MA, TN) data is taken from naturalearth
+    if fill_nans:
+
+        for code in ehighway_shapes.index:
+
+            if ehighway_shapes.loc[code]['geometry'].is_empty:
+                ehighway_shapes.loc[code, 'geometry'] = get_natural_earth_shapes([code[2:]])['geometry'].values[0]
+
+    return ehighway_shapes
+
+
+# TODO: condition below does not seem very stable, to check in depth.
+def get_onshore_shapes(region_list: List[str]) -> gpd.GeoDataFrame:
+    """
+
+    Retrieving data for the region_list (based on code format) and processing output.
+
+    Parameters
+    ----------
+    region_list: List[str]
+        List of regions for which to retrieve shapes. If None, the full dataset is retrieved.
+
+    Returns
+    -------
+    onshore_shapes : gpd.GeoDataFrame
+        DataFrame containing desired shapes.
+    """
+    # Length 5 for NUTS3 (ehighway) codes
+    if any([len(item) == 5 for item in region_list]):
+
+        onshore_shapes = get_nuts3_shapes(region_list)
+
+    # Length 4 for NUTS2 codes
+    elif any([len(item) == 4 for item in region_list]):
+
+        onshore_shapes = get_nuts2_shapes(region_list)
+
+    # Length 2 for ISO_2 (tyndp) codes
+    elif all([len(item) == 2 for item in region_list]):
+
+        onshore_shapes = get_natural_earth_shapes(region_list)
+
+    else:
+        # TODO: raise some exceptions here.
+        raise ValueError('Check input codes format.')
+
+    onshore_shapes["offshore"] = False
+    onshore_shapes = onshore_shapes[['geometry', 'offshore']]
+
+    return onshore_shapes
+
+
+def get_offshore_shapes(region_list: List[str]) -> gpd.GeoDataFrame:
+    """
+
+    Retrieving offshore shapes for region_list (from marineregions.org) and processing output.
+
+    Parameters
+    ----------
+    region_list: List[str]
+        List of regions for which to retrieve shapes. If None, the full dataset is retrieved.
+
+    Returns
+    -------
+    offshore_shapes : gpd.GeoDataFrame
+        DataFrame containing desired shapes.
+    """
+
+    eez_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eez/World_EEZ_v8_2014.shp")
+    eez_shapes = gpd.read_file(eez_fn)
+
+    eez_shapes = eez_shapes[pd.notnull(eez_shapes['ISO_3digit'])]
+    # Create column with ISO_A2 code.
+    eez_shapes['ISO_A2'] = eez_shapes['ISO_3digit'].map(lambda code: convert_country_codes('alpha_2', alpha_3=code))
+
+    # Updating UK and EL.
+    region_list_eez = update_ehighway_codes(list(set([item[:2] for item in region_list])))
+    eez_shapes = eez_shapes[eez_shapes['ISO_A2'].isin(region_list_eez)].set_index('ISO_A2')
+
+    # Combine polygons corresponding to the same countries.
+    unique_codes = set(eez_shapes.index)
+    offshore_shapes = gpd.GeoDataFrame(index=unique_codes, columns=['geometry'])
+    for c in unique_codes:
+        offshore_shapes.loc[c, 'geometry'] = unary_union(eez_shapes.loc[c, 'geometry'])
+
+    offshore_shapes["offshore"] = True
+    offshore_shapes = offshore_shapes[['geometry', 'offshore']]
 
     return offshore_shapes
 
 
-# -- Generate all shapes and files functions -- #
-
-def generate_onshore_shapes_geojson():
-    """Computes the coordinates-based (long, lat) shape of the onshore part of a set of regions and save them
-    in a GeoJSON file
+def get_subregions(region: str) -> List[str]:
     """
+    Return the list of the subregions composing one of the region defined in data/region_definition.csv.
 
-    onshore_shapes_fn = join(dirname(abspath(__file__)), '../../../data/geographics/generated/onshore_shapes.geojson')
-
-    nuts0123_shapes = generate_nuts0123_shapes()
-    countries_shapes = generate_countries_shapes()
-    # Remove countries that were already in the NUTS shapes
-    countries_shapes = countries_shapes.drop(nuts0123_shapes.index, errors="ignore")
-    us_states_shapes = generate_us_states_shapes()
-
-    df = pd.concat([nuts0123_shapes, countries_shapes, us_states_shapes])
-    save_to_geojson(df, onshore_shapes_fn)
-
-
-def generate_us_states_shapes():
-    """Computes the coordinates-based (long, lat) shape of all US states"""
-
-    provinces_shapes_fn = join(dirname(abspath(__file__)),
-                               '../../../data/geographics/source/naturalearth/states-provinces/'
-                               'ne_10m_admin_1_states_provinces.shp')
-    df = gpd.read_file(provinces_shapes_fn)
-    us_states_shapes = df.loc[df['iso_a2'] == 'US'][['iso_3166_2', 'geometry']]
-    us_states_shapes.columns = ['name', 'geometry']
-
-    df = us_states_shapes.set_index('name')['geometry']
-
-    return df
-
-
-def generate_countries_shapes():
-    """Computes the coordinates-based (long, lat) shape of all countries"""
-
-    # Computes the coordinates-based (long, lat) shape of each countries
-    natural_earth_fn = join(dirname(abspath(__file__)),
-                            "../../../data/geographics/source/naturalearth/countries/ne_10m_admin_0_countries.shp")
-
-    # Read original file
-    df = gpd.read_file(natural_earth_fn)
-
-    # Names are a hassle in naturalearth, try several fields
-    fieldnames = [df[x].where(lambda s: s != '-99') for x in ('ADM0_A3', 'WB_A2', 'ISO_A2')]
-
-    # Convert 3 letter codes to 2
-    fieldnames[0] = fieldnames[0].apply(lambda c: convert_country_codes('alpha_2', alpha_3=c))
-
-    # Fill in NA values by using the other cods
-    df['name'] = reduce(lambda x, y: x.fillna(y), [fieldnames[0], fieldnames[1], fieldnames[2]])
-    # if still nans remove them
-    df = df[pd.notnull(df['name'])]
-
-    df = df.set_index('name')['geometry']
-
-    return df
-
-
-def generate_nuts0123_shapes():
-    """Computes the coordinates-based (long, lat) shape of each NUTS region of europe"""
-    nuts_shapes_fn = join(dirname(abspath(__file__)),
-                          '../../../data/geographics/source/eurostat/NUTS_RG_60M_2016_4326.geojson')
-    df = gpd.read_file(nuts_shapes_fn)
-    df = df.rename(columns={'NUTS_ID': 'name'})[['name', 'geometry']].set_index('name')['geometry']
-
-    return df.sort_index()
-
-
-def generate_offshore_shapes_geojson():
-    """Computes the coordinates-based (long, lat) shape of all offshore territories
-        and saves them in a geojson file
-    """
-
-    # Computes the coordinates-based (long, lat) shape for offshore territory
-    eez_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eez/World_EEZ_v8_2014.shp")
-    # eez_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/World_EEZ_v11_20191118/eez_v11.shp")
-
-    df = gpd.read_file(eez_fn)
-    df['name'] = df['ISO_3digit'].map(lambda code: convert_country_codes('alpha_2', alpha_3=code))
-    # df['name'] = df['ISO_SOV1'].map(lambda code: convert_country_codes('alpha_2', alpha_3=code))
-    # if still nans remove them TODO: might need to check other codes
-    df = df[pd.notnull(df['name'])]
-    df = df[['name', 'geometry']].set_index('name')
-
-    # Combine lines corresponding to the same countries
-    unique_countries = set(df.index)
-    unique_countries_shape = pd.DataFrame(index=unique_countries, columns=['geometry'])
-    for c in unique_countries:
-        unique_countries_shape.loc[c]['geometry'] = cascaded_union(df.loc[c]['geometry'])
-
-    unique_countries_shape = unique_countries_shape['geometry']
-    unique_countries_shape.index.names = ['name']
-
-    offshore_shapes_fn = join(dirname(abspath(__file__)),
-                              '../../../data/geographics/generated/offshore_shapes.geojson')
-    save_to_geojson(unique_countries_shape, offshore_shapes_fn)
-
-
-# Function from PyPSA/geo.py
-# TODO: need to analyse
-def area_from_lon_lat_poly(geometry):
-    """
-    Compute the area in km^2 of a shapely geometry, whose points are in
-    longitude and latitude.
     Parameters
     ----------
-    geometry: shapely geometry
-        Points must be in longitude and latitude.
+    region: str
+        Code of a geographical region defined in data/region_definition.csv.
+
     Returns
     -------
-    area:  float
-        Area in km^2.
+    subregions: List[str]
+        List of subregion codes, if no subregions, returns list[region]
     """
 
-    import pyproj
-    from shapely.ops import transform
-    from functools import partial
+    region_definition_fn = join(dirname(abspath(__file__)), '../../../data/region_definition.csv')
+    region_definition = pd.read_csv(region_definition_fn, index_col=0, keep_default_na=False)
+
+    if region in region_definition.index:
+        subregions = region_definition.loc[region].subregions.split(";")
+    else:
+        subregions = [region]
+
+    return subregions
 
 
-    project = partial(
-        pyproj.transform,
-        pyproj.Proj(init='epsg:4326'), # Source: Lon-Lat
-        pyproj.Proj(proj='aea')) # Target: Albers Equal Area Conical https://en.wikipedia.org/wiki/Albers_projection
+# TODO: document or maybe delete and just used directly pyc?
+def convert_country_codes(target, **keys):
+    """
+    Convert country codes, e.g., from ISO_2 to full name.
 
-    new_geometry = transform(project, geometry)
+    Parameters
+    ----------
+    target:
+    keys:
 
-    #default area is in m^2
-    return new_geometry.area/1e6
+    Returns
+    -------
+    """
+    assert len(keys) == 1
+    try:
+        return getattr(pyc.countries.get(**keys), target)
+    except (KeyError, AttributeError):
+        return np.nan
+
+
+def update_ehighway_codes(region_list_countries: List[str]) -> List[str]:
+    """
+    Updating ISO_2 code for UK and EL (not uniform across datasets).
+
+    Parameters
+    ----------
+    region_list_countries: List[str]
+        Initial list of ISO_2 codes.
+
+    Returns
+    -------
+    updated_codes: List[str]
+        Updated ISO_2 codes.
+    """
+
+    country_names_issues = {'UK': 'GB', 'EL': 'GR'}
+    updated_codes = [country_names_issues[c] if c in country_names_issues else c for c in region_list_countries]
+
+    return updated_codes
+
+
+def get_region_contour(region_list: List[str]) -> Polygon:
+    """
+    Retrieving the (union) contour of a given set of regions.
+    Based on marineregions.org data providing EEZ & land shapes union disregaring overseas territories.
+
+    Parameters
+    ----------
+    region_list: List[str]
+        List of regions for which to retrieve the contour
+
+    Returns
+    -------
+    contour: Polygon
+        Resulting contour.
+    """
+
+    shape_fn = join(dirname(abspath(__file__)),
+                    "../../../data/geographics/source/EEZ_land_union/EEZ_Land_v3_202030.shp")
+    shape_union = gpd.read_file(shape_fn)
+
+    region_list_countries = list(set([item[:2] for item in region_list]))
+    region_list_countries_updated = update_ehighway_codes(region_list_countries)
+
+    # Convert country ISO_2 codes in full names and update a couple mismatched entries between datasets.
+    regions = list(map(lambda x: convert_country_codes('name', alpha_2=x), region_list_countries_updated))
+    regions_to_replace = {'Czechia': 'Czech Republic', 'North Macedonia': 'Macedonia'}
+    regions = [regions_to_replace[c] if c in regions_to_replace else c for c in regions]
+
+    # Generate union of polygons for regions in region_list.
+    contour = unary_union(shape_union[shape_union['UNION'].isin(regions)].set_index('UNION')['geometry'].values)
+
+    return contour
+
+
+def filter_shapes_from_contour(unit_region_geometry: gpd.GeoSeries, contour: MultiPolygon) -> Polygon:
+    """
+    Filtering out shapes which do not intersect with the given contour, e.g., French Guyana in France.
+
+    Parameters
+    ----------
+    unit_region_geometry: gpd.GeoSeries
+        Complete MultiPolygon (parsed as GeoDataFrame) to be filtered.
+
+    contour: MultiPolygon
+        Contour used to filter remote shapes.
+
+    Returns
+    -------
+    polygon: Polygon
+        Filtered shape.
+    """
+
+    # Parsing the MultiPolygon as a multi-entry GeoDataFrame whose rows (polygons) are parsed individually.
+    region_df = gpd.GeoDataFrame(unit_region_geometry)
+    region_df.columns = ["geometry"]
+
+    region_df_filter = region_df[region_df.intersects(contour)].copy()
+
+    polygon = unary_union(region_df_filter["geometry"].values)
+
+    return polygon
+
+
+def get_nuts_area() -> pd.DataFrame:
+    """countries_url_area_types in a pd.DataFrame for each NUTS region (2013 and 2016 version) its size in km2"""
+
+    area_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/reg_area3.xls")
+    return pd.read_excel(area_fn, header=9, index_col=0)[:2193]
+
+
+def remove_landlocked_countries(country_list: List[str]) -> List[str]:
+    """
+    Filtering out landlocked countries from an input list of regions.
+
+    Parameters
+    ----------
+    country_list: List[str]
+        Initial list of regions.
+
+    Returns
+    -------
+    updated_codes: List[str]
+        Updated list of regions.
+    """
+
+    landlocked_codes = ['LU', 'AT', 'CZ', 'HU', 'MK', 'MD', 'RS', 'SK', 'CH', 'LI']
+
+    updated_codes = [c for c in country_list if c not in landlocked_codes]
+
+    return updated_codes
 
 
 if __name__ == "__main__":
 
-    # Need to execute these lines only once
-    # generate_onshore_shapes_geojson()
-    # generate_offshore_shapes_geojson()
+    # EU and North-Africa shapes to be pre-defined on a country basis. No GR, no Middle East.
+    region_list_country_level = ['AT', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR',
+                                 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'NL', 'NO', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK',
+                                 'BA', 'RS', 'AL', 'MK', 'ME', 'IS', 'CY', 'TR', 'UA', 'TN', 'MA', 'DZ', 'LY', 'EG']
+    # All e-highway nodes to be included in a pre-defined shapefile also.
+    fn_clusters = join(dirname(abspath(__file__)),
+                       f"../../../data/topologies/e-highways/source/clusters_2016.csv")
+    clusters = pd.read_csv(fn_clusters, delimiter=";", index_col=0)
+    all_codes = []
+    for idx in clusters.index:
+        all_codes += clusters.loc[idx].codes.split(',')
+    region_list_ehighway_level = all_codes
 
-    # onshore_shapes_save_fn = 'on_test.geojson'
-    # onshore_shapes_ = get_onshore_shapes(['BE'], minarea=10000, filterremote=True)
-    # print(onshore_shapes_)
-    # onshore_shapes_union = cascaded_union(onshore_shapes_['geometry'].values)
-    # offshore_shapes_save_fn = 'off_test.geojson'
-    # offshore_shapes_ = get_offshore_shapes(['BE'], onshore_shape=onshore_shapes_union, filterremote=True)
-    # print(len(offshore_shapes_) == 0)
-    #
-    # us_off_shape = offshore_shapes_['geometry'].values
-    # us_on_shape = onshore_shapes_['geometry'].values
-    #
+    fn_nuts = join(dirname(abspath(__file__)),
+                   f"../../../data/geographics/source/eurostat/NUTS_RG_01M_2016_4326_LEVL_2.geojson")
+    nuts2_shapes = gpd.read_file(fn_nuts)
+    region_list_nuts2_level = nuts2_shapes.set_index('id').index.to_list() + ['BA']
+
+    # countries_all = get_shapes(region_list_country_level, save_file_str='countries')
+
+    # nuts3_all = get_shapes(region_list_ehighway_level, save_file_str='ehighway')
+
+    nuts2_all = get_shapes(region_list_nuts2_level, save_file_str='NUTS2')
+
     # display_polygons(np.append(us_off_shape, us_on_shape))
-
-    print(get_nuts_codes(0, 2016))

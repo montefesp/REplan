@@ -15,7 +15,7 @@ from vresutils.graph import voronoi_partition_pts
 import networkx as nx
 import numpy as np
 
-from src.data.geographics import return_points_in_shape
+from src.data.geographics import get_points_in_shape
 
 
 def plot_topology(buses: pd.DataFrame, lines: pd.DataFrame = None) -> None:
@@ -96,7 +96,7 @@ def voronoi_special(shape: Union[Polygon, MultiPolygon], centroids: List[List[fl
     """
 
     # Get all the points in the shape at a certain resolution
-    points = return_points_in_shape(shape, resolution)
+    points = get_points_in_shape(shape, resolution)
 
     # Build a network from these points where each points correspond to a node
     #   and each points is connected to its adjacent points

@@ -144,14 +144,13 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
 
     elif filter_name == 'resource_quality':
 
-        # TODO:
-        #  - still fucking slow, make no sense to be so slow
+        #TODO: kinda slow (again a problem of xarray in-memory computations, as for hydro runoff)
         database = read_resource_database(spatial_resolution)
         database = database.sel(locations=sorted(points))
 
-        if tech_dict['vres_profiles'] == 'wind':
+        if tech_dict['resource'] == 'wind':
             array_resource = xu.sqrt(database.u100 ** 2 + database.v100 ** 2)
-        elif tech_dict['vres_profiles'] == 'pv':
+        elif tech_dict['resource'] == 'pv':
             array_resource = database.ssrd / 3600.
         else:
             raise ValueError("Error: Resource must be wind or pv")
@@ -236,7 +235,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
     # TODO: check how we organize this file within the structure
     elif filter_name == 'population_density':
 
-        # TODO: can we not load this with poopulation_density.manager?
+        # TODO: can we not load this with population_density.manager?
         degree_resolution = "30_min" if spatial_resolution == 0.5 else "1_deg"
         path_population_data = \
             join(dirname(abspath(__file__)),
@@ -551,19 +550,18 @@ def get_land_availability_for_countries(countries: List[str], tech: str, tech_co
 
     """
 
-
-    shapes = get_onshore_shapes(countries, filterremote=True)["geometry"].values
+    all_shapes = get_shapes(countries, which='onshore_offshore', save_file_str='countries')
+    shapes = all_shapes[all_shapes['offshore'] == False]["geometry"].values
     if tech in ["wind_offshore", "wind_floating"]:
-        onshore_union = cascaded_union(shapes)
-        shapes = get_offshore_shapes(countries, onshore_union, filterremote=True)["geometry"].values
+        shapes = all_shapes[all_shapes['offshore'] == True]["geometry"].values
     land_availability = get_land_availability_for_shapes_mp(shapes, tech_config, True)
 
 
 if __name__ == '__main__':
 
     # Define polys for which we want to get available area
-    from src.data.geographics import get_subregions, get_onshore_shapes, get_offshore_shapes
-    from shapely.ops import cascaded_union
+    from src.data.geographics import get_subregions, get_shapes
+    from shapely.ops import unary_union
     import yaml
 
     # TODO: need to change
@@ -575,9 +573,9 @@ if __name__ == '__main__':
     region_ = 'BENELUX'
     subregions_ = get_subregions(region_)
 
-    union = cascaded_union(get_onshore_shapes(subregions_, filterremote=True)["geometry"].values)
+    all_shapes = get_shapes(subregions_, which='onshore_offshore', save_file_str='countries')
     if tech_ in ["wind_floating", "wind_offshore"]:
-        union = cascaded_union(get_offshore_shapes(subregions_, union, filterremote=True)["geometry"].values)
+        union = unary_union(all_shapes[all_shapes['offshore'] == True]["geometry"].values)
     spatial_res = 0.5
     land_availability = get_land_availability_for_shapes([union], tech_config_[tech_])
     print(land_availability)

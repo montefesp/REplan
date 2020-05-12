@@ -6,7 +6,7 @@ import pandas as pd
 import scipy.spatial
 from shapely.geometry import MultiPoint
 
-from src.data.geographics import convert_country_codes, match_points_to_regions, get_onshore_shapes
+from src.data.geographics import convert_country_codes, match_points_to_regions, get_shapes
 from src.data.land_data import filter_onshore_offshore_points
 from src.data.population_density import load_population_density_data
 
@@ -105,15 +105,14 @@ def associated_legacy_to_points(tech: str, points: List[Tuple[float, float]], sp
         pop_density_array = load_population_density_data(spatial_resolution)
 
         codes = [item for item in data.index]
-        filter_shape_data = get_onshore_shapes(codes, filterremote=True)
-        # , save_file_name=f"{''.join(sorted(codes))}_nuts2_on.geojson")
+        onshore_shapes = get_shapes(codes, which='onshore', save_file_str='countries')
 
         coords_multipoint = MultiPoint(points)
         df = pd.DataFrame([])
 
         for country in data.index:
 
-            points_in_country = coords_multipoint.intersection(filter_shape_data.loc[country, 'geometry'])
+            points_in_country = coords_multipoint.intersection(onshore_shapes.loc[country, 'geometry'])
             points_in_country = [(point.x, point.y) for point in points_in_country]
 
             unit_capacity = data.loc[country] / pop_density_array.sel(locations=points_in_country).values.sum()
@@ -334,8 +333,9 @@ def get_legacy_capacity_in_regions(tech: str, regions_shapes: pd.Series, countri
             return capacities
 
         # Get countries shapes
-        countries_shapes = get_onshore_shapes(data.index)["geometry"]
+        countries_shapes = get_shapes(data.index, which='onshore', save_file_str='countries')['geometry']
 
+        #TODO: some other scaling factor should be used here, e.g., GDP data, rooftop area, etc.
         for region_id, region_shape in regions_shapes.items():
             for country_id, country_shape in countries_shapes.items():
                 capacities[region_id] += \

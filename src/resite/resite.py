@@ -7,7 +7,7 @@ from time import strftime
 
 import pandas as pd
 
-from shapely.ops import cascaded_union
+from shapely.ops import unary_union
 from shapely.geometry import MultiPoint
 
 from src.data.legacy import get_legacy_capacity_at_points, get_legacy_capacity_in_regions
@@ -15,7 +15,7 @@ from src.data.vres_profiles import compute_capacity_factors
 from src.data.land_data import filter_points, get_land_availability_in_grid_cells
 from src.data.vres_potential import get_capacity_potential_at_points
 from src.data.load import get_load
-from src.data.geographics import return_region_shape, return_points_in_shape, get_subregions
+from src.data.geographics import get_shapes, get_points_in_shape, get_subregions
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -111,12 +111,12 @@ class Resite:
         all_subregions = []
         for region in self.regions:
             subregions = get_subregions(region)
-            all_subregions += subregions
-            shapes = return_region_shape(region, subregions)
-            regions_shapes[region] = cascaded_union([shapes['onshore'], shapes['offshore']])
+            all_subregions.extend(subregions)
+            shapes_subregion = get_shapes(subregions, which='onshore_offshore', save_file_str='countries')
+            regions_shapes[region] = unary_union(shapes_subregion['geometry'])
 
         # Get all points situated in the given regions at the given spatial resolution
-        init_points = return_points_in_shape(cascaded_union(regions_shapes.values), self.spatial_res)
+        init_points = get_points_in_shape(unary_union(regions_shapes.values), self.spatial_res)
 
         # Filter those points
         self.tech_points_dict = filter_points(self.technologies, self.tech_config, init_points, self.spatial_res,
@@ -205,13 +205,13 @@ class Resite:
         all_subregions = []
         for region in self.regions:
             subregions = get_subregions(region)
-            all_subregions += subregions
-            shapes = return_region_shape(region, subregions)
-            onshore_shape += [shapes['onshore']]
-            offshore_shape += [shapes['offshore']]
-            regions_shapes[region] = cascaded_union([shapes['onshore'], shapes['offshore']])
-        onshore_shape = cascaded_union(onshore_shape)
-        offshore_shape = cascaded_union(offshore_shape)
+            all_subregions.extend(subregions)
+            shapes = get_shapes(subregions, which='onshore_offshore', save_file_str='countries')
+            onshore_shape.extend(shapes[shapes['offshore'] == False]['geometry'].values)
+            offshore_shape.extend(shapes[shapes['offshore'] == True]['geometry'].values)
+            regions_shapes[region] = unary_union(shapes['geometry'])
+        onshore_shape = unary_union(onshore_shape)
+        offshore_shape = unary_union(offshore_shape)
 
         # Divide the union of all regions shapes into grid cells of a given spatial resolution
         # and compute how much land is available in each cell for each technology

@@ -7,11 +7,10 @@ from typing import List, Dict, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from shapely.ops import cascaded_union
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.errors import TopologicalError
 
-from src.data.geographics import get_onshore_shapes, get_offshore_shapes, match_points_to_regions
+from src.data.geographics import get_shapes, match_points_to_regions
 from src.data.population_density import load_population_density_data
 
 import logging
@@ -95,7 +94,6 @@ def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[floa
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
     for tech, points in tech_points_dict.items():
         assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
-        print(points)
         assert len(points) != 0, f"Error: List of points for tech {tech} is empty."
         assert all(map(lambda point: int(point[0]/spatial_resolution) == point[0]/spatial_resolution
                    and int(point[1]/spatial_resolution) == point[1]/spatial_resolution, points)), \
@@ -107,22 +105,17 @@ def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[floa
     iso_to_nuts0 = {"GB": "UK", "GR": "EL"}
     nuts0_regions = [iso_to_nuts0[c] if c in iso_to_nuts0 else c for c in countries]
 
-    # Get EEZ shapes
-    region_shapes_dict = {"nuts2": None, "eez": None}
-    onshore_shapes = get_onshore_shapes(countries, filterremote=True,
-                                        # TODO: save file with date?
-                                        save_file_name=f"{''.join(sorted(countries))}_regions_on.geojson")
-    onshore_shapes_union = cascaded_union(onshore_shapes["geometry"].values)
-    region_shapes_dict["eez"] = \
-        get_offshore_shapes(countries, onshore_shape=onshore_shapes_union, filterremote=True,
-                            save_file_name=f"{''.join(sorted(countries))}_regions_off.geojson")
-    region_shapes_dict["eez"].index = [f"EZ{code}" for code in region_shapes_dict["eez"].index]
-
     # Get NUTS2 shapes
     nuts2_regions_list = get_available_regions("nuts2")
     codes = [code for code in nuts2_regions_list if code[:2] in nuts0_regions]
-    region_shapes_dict["nuts2"] = get_onshore_shapes(codes, filterremote=True,
-                                                     save_file_name=f"{''.join(sorted(countries))}_nuts2_on.geojson")
+
+    # Get EEZ shapes
+    region_shapes_dict = {"nuts2": None, "eez": None}
+    region_shapes = get_shapes(codes, which='onshore_offshore', save_file_str='NUTS2')
+
+    region_shapes_dict["nuts2"] = region_shapes.loc[region_shapes['offshore'] == False]
+    region_shapes_dict["eez"] = region_shapes.loc[region_shapes['offshore'] == True]
+    region_shapes_dict["eez"].index = [f"EZ{code}" for code in region_shapes_dict["eez"].index]
 
     tech_points_tuples = sorted([(tech, point) for tech, points in tech_points_dict.items() for point in points])
     capacity_potential_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(tech_points_tuples))
@@ -138,30 +131,12 @@ def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[floa
         # Compute potential for each NUTS2 or EEZ
         potential_per_region_ds = read_capacity_potential(tech, nuts_type='nuts2')
 
-        # TODO: delete when we are sure everything works
-        """
-        # Get NUTS2 and EEZ shapes
-        # TODO: this is shit -> not generic enough, e.g.: would probably not work for us states
-        #  would need to get this out of the loop
-        if tech in ['wind_offshore', 'wind_floating']:
-            onshore_shapes = get_onshore_shapes(countries, filterremote=True,
-                                                save_file_name=f"{''.join(sorted(countries))}_regions_on.geojson")
-            onshore_shapes_union = cascaded_union(onshore_shapes["geometry"].values)
-            filter_shape_data = get_offshore_shapes(countries, onshore_shape=onshore_shapes_union,
-                                                    filterremote=True,
-                                                    save_file_name=f"{''.join(sorted(countries))}_regions_off.geojson")
-            filter_shape_data.index = [f"EZ{code}" for code in filter_shape_data.index]
-        else:
-            codes = [code for code in potential_per_region_ds.index if code[:2] in nuts0_regions]
-            filter_shape_data = get_onshore_shapes(codes, filterremote=True,
-                                                   save_file_name=f"{''.join(sorted(countries))}_nuts2_on.geojson")
-        """
-
         # Find the geographical region code associated to each point
         if tech in ['wind_offshore', 'wind_floating']:
             region_shapes = region_shapes_dict["eez"]
         else:
             region_shapes = region_shapes_dict["nuts2"]
+
         point_regions_ds = match_points_to_regions(points, region_shapes["geometry"]).dropna()
         points = list(point_regions_ds.index)
         points_info_df = pd.DataFrame(point_regions_ds.values, point_regions_ds.index, columns=["region"])
@@ -243,20 +218,16 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
 
         # Compute potential for each NUTS2 or EEZ
         potential_per_subregion_ds = read_capacity_potential(tech, nuts_type='nuts2')
+        all_shapes = get_shapes(potential_per_subregion_ds.index.values,
+                                which='onshore_offshore', save_file_str='NUTS2')
 
         # Get NUTS2 or EEZ shapes
         #  TODO: would need to get this out of the loop
         if tech in ['wind_offshore', 'wind_floating']:
-            codes = [code[2:4] for code in potential_per_subregion_ds.index.values]
-            onshore_shapes_union = cascaded_union(get_onshore_shapes(codes, filterremote=True)["geometry"].values)
-                                                  #, save_file_name="cap_potential_regions_on.geojson"
-            shapes = get_offshore_shapes(codes, onshore_shape=onshore_shapes_union,
-                                         filterremote=True)#, save_file_name="cap_potential_regions_off.geojson")
+            shapes = all_shapes.loc[all_shapes['offshore'] == True]
             shapes.index = [f"EZ{code}" for code in shapes.index]
         else:
-            shapes = get_onshore_shapes(potential_per_subregion_ds.index.values, filterremote=True)
-                                        # save_file_name="cap_potential_regions_on.geojson")
-            # TODO: problem BA00 does not exists in shapes -> rename by BA?
+            shapes = all_shapes.loc[all_shapes['offshore'] == False]
 
         # Compute capacity potential for the regions given as argument
         for i, region in enumerate(regions):

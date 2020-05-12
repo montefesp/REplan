@@ -5,16 +5,16 @@ import pandas as pd
 import geopy.distance
 import shapely
 from shapely import wkt
-from shapely.ops import cascaded_union
+from shapely.ops import unary_union
 from shapely.geometry import Point
 
 import matplotlib.pyplot as plt
 
 import pypsa
 
-from src.data.geographics import get_onshore_shapes, get_offshore_shapes
+from src.data.geographics import get_shapes, remove_landlocked_countries
 from src.data.technologies import get_costs
-from .manager import plot_topology, voronoi_special
+from src.data.topologies.manager import plot_topology, voronoi_special
 
 
 def get_ehighway_clusters() -> pd.DataFrame:
@@ -60,15 +60,16 @@ def preprocess(plotting: bool = False):
     # Assemble the clusters define in e-highways in order to compute for each bus its region, x and y
     all_codes = []
     for idx in eh_clusters.index:
-        all_codes += eh_clusters.loc[idx].codes.split(',')
-    all_shapes = get_onshore_shapes(all_codes)
+        all_codes.extend(eh_clusters.loc[idx, 'codes'].split(','))
+    onshore_shapes = get_shapes(all_codes, which='onshore', save_file_str='ehighway')
 
     for idx in eh_clusters.index:
 
         # Get the shapes associated to each code and assemble them
-        code_list = eh_clusters.loc[idx].codes
-        codes = code_list.strip('[]').split(',')
-        total_shape = cascaded_union(all_shapes.loc[codes].values.flatten())
+        code_list = eh_clusters.loc[idx, 'codes'].split(',')
+        if len(code_list[0]) == 2:
+            code_list = onshore_shapes.index[onshore_shapes.index.str.contains(code_list[0])]
+        total_shape = unary_union(onshore_shapes.loc[code_list]['geometry'])
 
         # Compute centroid of shape
         # Some special points are not the centroid of their region
@@ -234,18 +235,11 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
 
     # Add offshore polygons to remaining offshore buses
     if add_offshore:
-        # TODO: this is shitty no?
-        # Get list of countries which have offshore territories and are in the considered countries
-        offshore_zones_codes = ["AL", "BE", "BG", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GE",
-                                "GR", "HR", "IE", "IR", "IS", "IT", "LT", "LV", "ME", "NL", "NO",
-                                "PL", "PT", "RO", "RU", "SE", "TR", "UA"]
-        offshore_zones_codes = sorted(list(set(offshore_zones_codes).intersection(set(countries))))
+        offshore_countries = remove_landlocked_countries(countries)
+        offshore_shapes = get_shapes(offshore_countries, which='offshore', save_file_str='countries')
+        offshore_zones_codes = sorted(list(set(offshore_shapes.index.values).intersection(set(offshore_countries))))
         if len(offshore_zones_codes) != 0:
-            onshore_buses = buses[buses.onshore]
-            onshore_buses_regions_union = cascaded_union(onshore_buses.region.values)
-            offshore_shapes = get_offshore_shapes(offshore_zones_codes, onshore_shape=onshore_buses_regions_union,
-                                                  filterremote=True)
-            offshore_zones_shape = cascaded_union(offshore_shapes["geometry"].values)
+            offshore_zones_shape = unary_union(offshore_shapes["geometry"].values)
             offshore_buses = buses[~buses.onshore]
             # Use a home-made 'voronoi' partition to assign a region to each offshore bus
             buses.loc[~buses.onshore, "region"] = voronoi_special(offshore_zones_shape, offshore_buses[["x", "y"]])

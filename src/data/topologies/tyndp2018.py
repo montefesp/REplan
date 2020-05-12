@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 import shapely.wkt
 import geopy.distance
 
-from src.data.geographics import get_onshore_shapes
+from src.data.geographics import get_shapes
 from src.data.technologies import get_costs
-from .manager import plot_topology
+from src.data.topologies.manager import plot_topology
 
 
 def preprocess(plotting=True) -> None:
@@ -46,7 +46,7 @@ def preprocess(plotting=True) -> None:
     buses.onshore = True
 
     # Get shape of each country
-    buses.region = get_onshore_shapes(buses.index.values, minarea=1.0, filterremote=True)
+    buses.region = get_shapes(buses.index.values, which='onshore', save_file_str='countries')['geometry']
     centroids = [region.centroid for region in buses.region]
     buses.x = [c.x for c in centroids]
     buses.y = [c.y for c in centroids]

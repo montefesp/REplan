@@ -1,9 +1,9 @@
+import logging
+
 import pypsa
 
-from src.data.technologies import get_costs, get_plant_type
 from src.data.hydro import *
-
-import logging
+from src.data.technologies import get_costs, get_plant_type
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
@@ -38,26 +38,18 @@ def add_phs_plants(network: pypsa.Network, topology_type: str = "countries",
     buses_onshore = network.buses[network.buses.onshore]
 
     # Load capacities
-    aggr_level = "country" if topology_type == "countries" else "NUTS2"
+    aggr_level = "countries" if topology_type == "countries" else "ehighway"
     pow_cap, en_cap = get_phs_capacities(aggr_level)
 
-    # Convert them to bus capacities
-    if topology_type == "ehighway":
-
-        bus_pow_cap, bus_en_cap = phs_inputs_nuts_to_ehighway(buses_onshore.index, pow_cap, en_cap)
-        countries = list(set([i[2:] for i in bus_pow_cap.index]))
-
-    else:  # topology_type == "countries":
-
-        # Extract only countries for which data is available
-        countries = sorted(list(set(buses_onshore.index) & set(pow_cap.index)))
-        bus_pow_cap = pow_cap.loc[countries]
-        bus_en_cap = en_cap.loc[countries]
+    # Extract only countries for which data is available
+    nodes_with_capacity = sorted(list(set(buses_onshore.index) & set(pow_cap.index)))
+    bus_pow_cap = pow_cap.loc[nodes_with_capacity]
+    bus_en_cap = en_cap.loc[nodes_with_capacity]
 
     logger.info(f"Adding {bus_pow_cap.sum():.2f} GW of PHS hydro "
-                f"with {bus_en_cap.sum():.2f} GWh of storage in {countries}.")
+                f"with {bus_en_cap.sum():.2f} GWh of storage in {nodes_with_capacity}.")
 
-    max_hours = bus_en_cap/bus_pow_cap
+    max_hours = bus_en_cap / bus_pow_cap
 
     capital_cost, marginal_cost = get_costs('phs', len(network.snapshots))
 
@@ -115,25 +107,18 @@ def add_ror_plants(network: pypsa.Network, topology_type: str = "countries",
     buses_onshore = network.buses[network.buses.onshore]
 
     # Load capacities and inflows
-    aggr_level = "country" if topology_type == "countries" else "NUTS2"
+    aggr_level = "countries" if topology_type == "countries" else "ehighway"
     pow_cap = get_ror_capacities(aggr_level)
     inflows = get_ror_inflows(aggr_level, network.snapshots)
 
-    if topology_type == "ehighway":
+    # Extract only countries for which data is available
+    nodes_with_capacity = sorted(list(set(buses_onshore.index) & set(pow_cap.index)))
+    bus_pow_cap = pow_cap.loc[nodes_with_capacity]
+    bus_inflows = inflows[nodes_with_capacity]
 
-        bus_pow_cap, bus_inflows = ror_inputs_nuts_to_ehighway(buses_onshore.index, pow_cap, inflows)
-        countries = list(set([i[2:] for i in bus_pow_cap.index]))
+    logger.info(f"Adding {bus_pow_cap.sum():.2f} GW of ROR hydro in {nodes_with_capacity}.")
 
-    else:  # topology_type == "countries"
-
-        # Extract only countries for which data is available
-        countries = sorted(list(set(buses_onshore.index) & set(pow_cap.index)))
-        bus_pow_cap = pow_cap.loc[countries]
-        bus_inflows = inflows[countries]
-
-    logger.info(f"Adding {bus_pow_cap.sum():.2f} GW of ROR hydro in {countries}.")
-
-    bus_inflows = bus_inflows.round(2)
+    bus_inflows = bus_inflows.round(3)
 
     capital_cost, marginal_cost = get_costs('ror', len(network.snapshots))
 
@@ -189,29 +174,21 @@ def add_sto_plants(network: pypsa.Network, topology_type: str = "countries",
     buses_onshore = network.buses[network.buses.onshore]
 
     # Load capacities and inflows
-    aggr_level = "country" if topology_type == "countries" else "NUTS2"
+    aggr_level = "countries" if topology_type == "countries" else "ehighway"
     pow_cap, en_cap = get_sto_capacities(aggr_level)
     inflows = get_sto_inflows(aggr_level, network.snapshots)
 
-    if topology_type == "ehighway":
-
-        bus_pow_cap, bus_en_cap, bus_inflows = \
-            sto_inputs_nuts_to_ehighway(buses_onshore.index, pow_cap, en_cap, inflows)
-        countries = list(set([i[2:] for i in bus_pow_cap.index]))
-
-    else:  # topology_type == countries
-
-        # Extract only countries for which data is available
-        countries = sorted(list(set(buses_onshore.index) & set(pow_cap.index)))
-        bus_pow_cap = pow_cap.loc[countries]
-        bus_en_cap = en_cap.loc[countries]
-        bus_inflows = inflows[countries]
+    # Extract only countries for which data is available
+    nodes_with_capacity = sorted(list(set(buses_onshore.index) & set(pow_cap.index)))
+    bus_pow_cap = pow_cap.loc[nodes_with_capacity]
+    bus_en_cap = en_cap.loc[nodes_with_capacity]
+    bus_inflows = inflows[nodes_with_capacity]
 
     logger.info(f"Adding {bus_pow_cap.sum():.2f} GW of STO hydro "
-                f"with {bus_en_cap.sum()*1e-3:.2f} TWh of storage in {countries}.")
+                f"with {bus_en_cap.sum() * 1e-3:.2f} TWh of storage in {nodes_with_capacity}.")
     bus_inflows = bus_inflows.round(3)
 
-    max_hours = bus_en_cap/bus_pow_cap
+    max_hours = bus_en_cap / bus_pow_cap
 
     capital_cost, marginal_cost = get_costs('sto', len(network.snapshots))
 

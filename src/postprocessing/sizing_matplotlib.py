@@ -49,11 +49,20 @@ class SizingResultsSingleNet:
         ccgt_t_total = ccgt_t.sum(axis=1)
         ccgt_t_slice = ccgt_t_total[start:end]
 
+        print(ccgt_t_slice.sort_values(ascending=False).head(10))
+
         ens_t = timeseries.loc[:, timeseries.columns.str.contains('Load shed')].resample(resolution).sum()
         ens_t_total = ens_t.sum(axis=1)
         ens_t_slice = ens_t_total[start:end]
 
-        generation_total = pd.Series(0., index=demand_t_slice.index)
+
+        storage_t = self.net.storage_units_t.p.clip(lower=0.)
+        storage_t = storage_t.resample(resolution).sum()
+        reservoir_total = storage_t.sum(axis=1)
+        reservoir_t_slice = reservoir_total[start:end]
+
+        # generation_total = pd.Series(0., index=demand_t_slice.index)
+        generation_total = reservoir_t_slice
 
         fig, ax1 = plt.subplots()
 
@@ -67,16 +76,18 @@ class SizingResultsSingleNet:
 
                 generation_total += generation_t_slice
 
-        ax1.plot(generation_total.index, generation_total.values, color=colors['res'], label='total res', alpha=0.5)
-        ax1.plot(demand_t_slice.index, demand_t_slice.values, color=colors['demand'], label='demand', alpha=0.5)
+        diff = generation_total - demand_t_slice
+        # ax1.plot(generation_total.index, generation_total.values, color=colors['res'], label='total res', alpha=0.5)
+        # ax1.plot(demand_t_slice.index, demand_t_slice.values, color=colors['demand'], label='demand', alpha=0.5)
+        ax1.plot(demand_t_slice.index, diff.values, color=colors['demand'], label='demand', alpha=0.5)
         ax1.set_ylabel('Demand and RES [GW]')
-        ax1.set_ylim([0, 600])
+        ax1.set_ylim([-300, 0])
 
         ax2 = ax1.twinx()
         ax2.plot(ccgt_t_slice.index, ccgt_t_slice.values, color=colors['ccgt'], label='ccgt', alpha=0.9)
         ax2.plot(ens_t_slice.index, ens_t_slice.values, color=colors['load'], label='ens', alpha=0.9)
         ax2.set_ylabel('CCGT and ENS [GW]')
-        ax2.set_ylim([0, 400])
+        ax2.set_ylim([0, 300])
 
 
         fig.autofmt_xdate()
@@ -117,7 +128,8 @@ class SizingResultsCompare:
                       'ror': 'forestgreen',
                       'sto': 'darkgreen',
                       'demand': 'black',
-                      'res': 'blue'}
+                      'res': 'blue',
+                      'nuclear': 'grey'}
 
         self.plot_res_profiles(start, end, resolution, color_dict)
 
@@ -133,60 +145,100 @@ class SizingResultsCompare:
 
         fig, ax1 = plt.subplots()
 
-        generation_total = pd.Series(0., index=first_generation_t.index)
+        storage_t = self.first_net.storage_units_t.p.clip(lower=0.)
+        storage_t = storage_t.resample(resolution).sum()
+        reservoir_total = storage_t.sum(axis=1)
+        reservoir_t_slice = reservoir_total[start:end]
+
+        generation_total = pd.Series(0., index=second_generation_t.index)
+
         for item in techs:
 
-            if item in ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_residential', 'pv_utility']:
+            if item in ['wind_onshore', 'wind_offshore']:
 
                 generation_t = timeseries_first.loc[:, timeseries_first.columns.str.contains(item)].resample(resolution).sum()
                 generation_t_per_tech = generation_t.sum(axis=1)
                 generation_t_slice = generation_t_per_tech[start:end]
 
-                generation_total += generation_t_slice
+                # ax1.plot(generation_t_slice.index, generation_t_slice.values, color=colors[item], alpha=0.3, linestyle='-')
 
-        ax1.plot(generation_total.index, generation_total.values, color='red', alpha=0.3)
+                generation_total += generation_t_slice
+                generation_total = generation_total[start:end]
+
+                # ax1.plot(generation_total.index, generation_total.values, color='teal', alpha=0.3, linestyle='-')
+
+        generation_total_first = generation_total
+
+        ccgt_t = timeseries_first.loc[:, timeseries_first.columns.str.contains('ccgt')].resample(resolution).sum()
+        ccgt_t_total = ccgt_t.sum(axis=1)
+        ccgt_t_slice = ccgt_t_total[start:end]
+
+        ax1.plot(ccgt_t_slice.index, ccgt_t_slice.values, color='red', alpha=1.0, linestyle='-')
+        # ax1.plot(generation_total.index, generation_total.values, color='red', alpha=0.3)
+
+        storage_t = self.second_net.storage_units_t.p.clip(lower=0.)
+        storage_t = storage_t.resample(resolution).sum()
+        reservoir_total = storage_t.sum(axis=1)
+        reservoir_t_slice = reservoir_total[start:end]
+
+        # generation_total = reservoir_t_slice
+        # ax1.plot(reservoir_t_slice.index, reservoir_t_slice.values, color='teal', alpha=0.3, linestyle='--')
 
         generation_total = pd.Series(0., index=second_generation_t.index)
         for item in techs:
 
-            if item in ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_residential', 'pv_utility']:
+            if item in ['wind_onshore', 'wind_offshore']:
 
                 generation_t = timeseries_second.loc[:, timeseries_second.columns.str.contains(item)].resample(resolution).sum()
                 generation_t_per_tech = generation_t.sum(axis=1)
                 generation_t_slice = generation_t_per_tech[start:end]
 
-                generation_total += generation_t_slice
+                # ax1.plot(generation_t_slice.index, generation_t_slice.values, color=colors[item], alpha=0.3, linestyle='--', label=str(item))
 
-        ax1.plot(generation_total.index, generation_total.values, color='blue', alpha=0.3)
+                generation_total += generation_t_slice
+                generation_total = generation_total[start:end]
+
+                # ax1.plot(generation_total.index, generation_total.values, color='teal', alpha=0.3, label='wind', linestyle='--')
+
+        generation_total_second = generation_total
+
+        generation_total_diff = generation_total_first - generation_total_second
+        ax1.plot(generation_total_diff.index, generation_total_diff.values, color='grey')
+
+        ccgt_t = timeseries_second.loc[:, timeseries_second.columns.str.contains('ccgt')].resample(resolution).sum()
+        ccgt_t_total = ccgt_t.sum(axis=1)
+        ccgt_t_slice = ccgt_t_total[start:end]
+
+        ax1.plot(ccgt_t_slice.index, ccgt_t_slice.values, color='red', alpha=1.0, linestyle='--')
 
         ax1.set_ylabel('RES [GW]')
-        ax1.set_ylim([0, 600])
+        ax1.set_ylim([-50, 100])
 
-        ax2 = ax1.twinx()
-
-        for item in ['wind_offshore']:
-
-            if item in ['wind_offshore']:
-
-                generation_t = first_generation_t.loc[:, first_generation_t.columns.str.contains(item)].resample(resolution).sum()
-                generation_t_per_tech = generation_t.sum(axis=1)
-                generation_t_slice = generation_t_per_tech[start:end]
-
-                ax2.plot(generation_t_slice.index, generation_t_slice.values,
-                         color='red', label=item+'_'+str(first_strategy), alpha=0.6, linestyle='--')
-
-                generation_t = second_generation_t.loc[:, second_generation_t.columns.str.contains(item)].resample(resolution).sum()
-                generation_t_per_tech = generation_t.sum(axis=1)
-                generation_t_slice = generation_t_per_tech[start:end]
-
-                ax2.plot(generation_t_slice.index, generation_t_slice.values,
-                         color='blue', label=item+'_'+str(second_strategy), alpha=0.6, linestyle='--')
-
-        ax2.set_ylabel('RES in-feed [sum of p.u.]')
+        # ax2 = ax1.twinx()
+        #
+        # for item in ['wind_offshore']:
+        #
+        #     if item in ['wind_offshore']:
+        #
+        #         generation_t = first_generation_t.loc[:, first_generation_t.columns.str.contains(item)].resample(resolution).sum()
+        #         generation_t_per_tech = generation_t.sum(axis=1)
+        #         generation_t_slice = generation_t_per_tech[start:end]
+        #
+        #         # ax2.plot(generation_t_slice.index, generation_t_slice.values,
+        #         #          color='red', label=item+'_'+str(first_strategy), alpha=0.6, linestyle='--')
+        #
+        #         generation_t = second_generation_t.loc[:, second_generation_t.columns.str.contains(item)].resample(resolution).sum()
+        #         generation_t_per_tech = generation_t.sum(axis=1)
+        #         generation_t_slice = generation_t_per_tech[start:end]
+        #
+        #         # ax2.plot(generation_t_slice.index, generation_t_slice.values,
+        #         #          color='blue', label=item+'_'+str(second_strategy), alpha=0.6, linestyle='--')
+        #
+        # ax2.set_ylabel('RES in-feed [sum of p.u.]')
 
         fig.autofmt_xdate()
 
-        ax2.legend(loc='upper right')
+        ax1.legend(loc='upper right')
         plt.show()
 
 
@@ -199,12 +251,12 @@ if __name__ == "__main__":
     results = 'compare' # 'compare', 'single'
 
     resolution = 'H'
-    start = datetime(2015, 12, 1, 0, 0, 0)
-    end = datetime(2015, 12, 30, 23, 0, 0)
+    start = datetime(2015, 12, 13, 0, 0, 0)
+    end = datetime(2015, 12, 19, 23, 0, 0)
 
     if results == 'single':
 
-        run_id = '20200428_162317'
+        run_id = '20200429_123543'
 
         output_dir = f"{main_output_dir}{run_id}/"
 
@@ -217,8 +269,10 @@ if __name__ == "__main__":
 
     else:
 
-        first_run_id = '20200428_160902'
-        second_run_id = '20200428_162317'
+        # first_run_id = '20200429_123543'
+        # second_run_id = '20200429_132039'
+        first_run_id = '20200429_123543'
+        second_run_id = '20200429_154728'
 
         first_output_dir = f"{main_output_dir}{first_run_id}/"
         second_output_dir = f"{main_output_dir}{second_run_id}/"

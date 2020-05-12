@@ -1,7 +1,7 @@
 import pytest
 
 from src.data.legacy.manager import *
-from src.data.geographics.manager import get_onshore_shapes, get_offshore_shapes, cascaded_union
+from src.data.geographics.manager import get_shapes
 
 
 # TODO: add tests for 'associated_legacy_to_points' and
@@ -63,20 +63,22 @@ def test_get_legacy_capacity_in_regions_missing_countries():
 
 
 def test_get_legacy_capacity_in_regions_region_country_mismatch():
+    all_shapes = get_shapes(["PT"], which='onshore_offshore', save_file_str='countries')
     # onshore
-    onshore_shape = get_onshore_shapes(["PT"])["geometry"]
+    onshore_shape = all_shapes.loc[all_shapes['offshore'] == False]["geometry"]
     for tech in ["pv_residential", "pv_utility", "wind_onshore"]:
         df = get_legacy_capacity_in_regions(tech, onshore_shape, ["FR"])
         assert df["PT"] == 0.0
     # offshore
-    offshore_shape = get_offshore_shapes(["PT"], onshore_shape)["geometry"]
+    offshore_shape = all_shapes.loc[all_shapes['offshore'] == True]["geometry"]
     df = get_legacy_capacity_in_regions('wind_offshore', offshore_shape, ["FR"])
     assert df["PT"] == 0.0
 
 
 def test_get_legacy_capacity_in_regions_vs_countries():
+    all_shapes = get_shapes(["BE", "NL"], which='onshore_offshore', save_file_str='countries')
     # onshore
-    onshore_shapes = get_onshore_shapes(["BE", "NL"])["geometry"]
+    onshore_shapes = all_shapes.loc[all_shapes['offshore'] == False]["geometry"]
     for tech in ["pv_residential", "pv_utility", "wind_onshore"]:
         df1 = get_legacy_capacity_in_regions(tech, onshore_shapes, ["BE", "NL"])
         df2 = get_legacy_capacity_in_countries(tech, ["BE", "NL"])
@@ -84,8 +86,7 @@ def test_get_legacy_capacity_in_regions_vs_countries():
         assert abs(df1["NL"]-df2["NL"])/max(df1["NL"], df2["NL"]) < 0.1
 
     # offshore
-    onshore_shapes_union = cascaded_union(onshore_shapes.values)
-    offshore_shapes = get_offshore_shapes(["BE", "NL"], onshore_shapes_union)["geometry"]
+    offshore_shapes = all_shapes.loc[all_shapes['offshore'] == True]["geometry"]
     df1 = get_legacy_capacity_in_regions('wind_offshore', offshore_shapes, ["BE", "NL"])
     df2 = get_legacy_capacity_in_countries('wind_offshore', ["BE", "NL"])
     assert abs(df1["BE"] - df2["BE"]) / max(df1["BE"], df2["BE"]) < 0.1

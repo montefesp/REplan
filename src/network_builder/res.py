@@ -6,11 +6,8 @@ import pandas as pd
 
 import pypsa
 
-from shapely.ops import cascaded_union
-
 from src.data.vres_profiles import compute_capacity_factors, get_cap_factor_for_countries
-from src.data.geographics import match_points_to_regions, match_points_to_countries, get_onshore_shapes, \
-    get_offshore_shapes
+from src.data.geographics import match_points_to_regions, match_points_to_countries, get_shapes
 from src.data.vres_potential import get_capacity_potential_for_countries, get_capacity_potential_at_points, \
     get_capacity_potential_for_regions
 from src.data.legacy import get_legacy_capacity_in_regions, get_legacy_capacity_in_countries
@@ -411,9 +408,7 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str],
         # Get the shapes of regions associated to each bus
         # TODO: maybe add a condition where we check if regions are defined per bus
         if not offshore_buses and tech in ['wind_offshore', 'wind_floating']:
-            onshore_shapes = get_onshore_shapes(list(buses.index))
-            onshore_shapes_union = cascaded_union(onshore_shapes["geometry"].values)
-            offshore_shapes = get_offshore_shapes(list(buses.index), onshore_shapes_union, filterremote=True)
+            offshore_shapes = get_shapes(list(buses.index), which='offshore', save_file_str='countries')
             buses = buses.loc[offshore_shapes.index]
             buses_regions_shapes_ds = offshore_shapes["geometry"]
         else:

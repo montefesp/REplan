@@ -1,12 +1,12 @@
-from os.path import join, abspath, dirname
+from datetime import datetime
 from os import listdir
+from os.path import join, abspath, dirname
 
 import pandas as pd
 import xarray as xr
-import geopandas as gpd
-from datetime import datetime
 
-from src.data.geographics import match_points_to_regions
+from src.data.geographics import match_points_to_regions, get_nuts2_shapes, \
+    get_ehighway_shapes, get_natural_earth_shapes
 
 
 def compute_ror_series(dataset_runoff: xr.Dataset, region_points: list, flood_event_threshold: float) -> pd.DataFrame:
@@ -69,83 +69,107 @@ def compute_sto_inflows(dataset_runoff: xr.Dataset, region_points: list, unit_ar
     # Convert from the runoff unit (m) to some equivalent water volume (m3).
     ts_cm = ts * (unit_area * 1e6)
     # Convert from J to WH and then to GWh.
-    ts_gwh = ts_cm * g * rho * (1/3600) * 1e-9
+    ts_gwh = ts_cm * g * rho * (1 / 3600) * 1e-9
 
     return ts_gwh
 
 
-# TODO comment
 def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, flood_event_threshold: float):
+    """
+     Generating hydro files, i.e., capacities and inflows.
 
-    assert topology_unit in ["NUTS0", "NUTS2"], "Error: topology_unit must be NUTS2 or NUTS0"
+     Parameters
+     ----------
+     topology_unit: str
+         Topology in use ('countries', 'NUTS2', 'ehighway').
+     timestamps: pd.DatetimeIndex
+         Time horizon for which inflows are computed.
+     flood_event_threshold: float
+         Quantile clipping runoff time series (see compute_ror_series for usage).
 
-    # Read region shapes
-    # TODO: can we not use geographics manager? probably yes
-    geographics_dir = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/")
-    if topology_unit == 'NUTS2':
-        # TODO: need to change that (i.e. need to add BA in a better way)
-        nuts_shapes_fn = f"{geographics_dir}NUTS_RG_01M_2016_4326_LEVL_2_incl_BA.geojson"
-        # nuts_shapes_fn = f"{geographics_dir}NUTS_RG_01M_2016_4326_LEVL_2.geojson"
-    else:  # topology_unit == 'NUTS0':
-        nuts_shapes_fn = f"{geographics_dir}NUTS_RG_01M_2016_4326_LEVL_0_incl_BA.geojson"
-    nuts_shapes = gpd.read_file(nuts_shapes_fn).set_index('NUTS_ID')
+     """
+
+    assert topology_unit in ["countries", "NUTS2", "ehighway"], "Error: requested topology_unit not available."
+
+    # Load shapes based on topology
+    if topology_unit == 'ehighway':
+        shapes = get_ehighway_shapes()
+        shapes.index = shapes.index.str.replace('GR', 'EL', regex=True)
+    elif topology_unit == 'countries':
+        shapes = get_natural_earth_shapes()
+        shapes.rename(index={'GR': 'EL', 'GB': 'UK'}, inplace=True)
+    else:  # topology == 'NUTS2'
+        shapes = get_nuts2_shapes()
 
     # Read hydro plants data from powerplantmatching tool from which we can retrieve capacity (in MW)
     hydro_plants_fn = join(dirname(abspath(__file__)), "../../../data/hydro/source/pp_fresna_hydro_updated.csv")
     hydro_plants_df = pd.read_csv(hydro_plants_fn, sep=';', usecols=[0, 1, 3, 5, 6, 8, 13, 14], index_col=0)
 
-    # Find to which NUTS region each plant belongs
-    # TODO: maybe we should first check countries
+    # Find to which region each plant belongs
     hydro_plants_locs = hydro_plants_df[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values
-    points_nuts_ds = match_points_to_regions(hydro_plants_locs, nuts_shapes["geometry"]).dropna()
+    points_nuts_ds = match_points_to_regions(hydro_plants_locs, shapes["geometry"]).dropna()
 
     def add_region(lon, lat):
-        nuts_ = points_nuts_ds[lon, lat]
-        # Need the if because some points are exactly at the same position
-        return nuts_ if isinstance(nuts_, str) else nuts_.iloc[0]
+        try:
+            nuts_ = points_nuts_ds[lon, lat]
+            # Need the if because some points are exactly at the same position
+            return nuts_ if isinstance(nuts_, str) else nuts_.iloc[0]
+        except KeyError:
+            return None
+
     hydro_plants_df["NUTS"] = hydro_plants_df[["lon", "lat"]].apply(lambda x: add_region(x[0], x[1]), axis=1)
     hydro_plants_df = hydro_plants_df[~hydro_plants_df['NUTS'].isnull()]
 
     # ROR plants
     # Get ROR plants and aggregate capacity (to GW) per NUTS region
     ror_plants_df = hydro_plants_df[hydro_plants_df['Technology'] == 'Run-Of-River']
-    ror_nuts_capacity_ds = ror_plants_df.groupby(ror_plants_df['NUTS'])['Capacity'].sum()*1e-3
+    ror_nuts_capacity_ds = ror_plants_df.groupby(ror_plants_df['NUTS'])['Capacity'].sum() * 1e-3
 
     # STO plants
     # Get STO plants and aggregate capacity (to GW) per NUTS region
     hydro_sto = hydro_plants_df[hydro_plants_df['Technology'] == 'Reservoir']
-    sto_nuts_capacity_df = hydro_sto.groupby(hydro_sto['NUTS'])['Capacity'].sum().to_frame()*1e-3
+    sto_nuts_capacity_df = hydro_sto.groupby(hydro_sto['NUTS'])['Capacity'].sum().to_frame() * 1e-3
 
     # Get energy capacity per country (in GWh)
     nuts_hydro_storage_capacities_fn = join(dirname(abspath(__file__)),
                                             "../../../data/hydro/source/hydro_storage_capacities_updated.csv")
     nuts_hydro_storage_energy_cap_ds = pd.read_csv(nuts_hydro_storage_capacities_fn, sep=';',
                                                    usecols=['Country', 'E_store[TWh]'], index_col='Country',
-                                                   squeeze=True)*1e3
+                                                   squeeze=True) * 1e3
 
     # Divide this energy capacity between NUTS regions proportionally to power capacity
     for nuts in sto_nuts_capacity_df.index:
-        nuts0 = nuts[:2]
-        country_storage_potential = nuts_hydro_storage_energy_cap_ds[nuts0]
-        country_capacity_potential = \
-            sto_nuts_capacity_df.loc[sto_nuts_capacity_df.index.str.startswith(nuts0), "Capacity"].sum()
+        if topology_unit == 'ehighway':
+            nuts0 = nuts[2:]
+            country_storage_potential = nuts_hydro_storage_energy_cap_ds[nuts0]
+            country_capacity_potential = \
+                sto_nuts_capacity_df.loc[sto_nuts_capacity_df.index.str.endswith(nuts0), "Capacity"].sum()
+        else:
+            nuts0 = nuts[:2]
+            country_storage_potential = nuts_hydro_storage_energy_cap_ds[nuts0]
+            country_capacity_potential = \
+                sto_nuts_capacity_df.loc[sto_nuts_capacity_df.index.str.startswith(nuts0), "Capacity"].sum()
         sto_nuts_capacity_df.loc[nuts, "Energy"] = \
             (sto_nuts_capacity_df.loc[nuts, "Capacity"] / country_capacity_potential) * country_storage_potential
 
     # PHS plants
     # Get PHS plants and aggregate capacity (to GW) per NUTS region
     php_plants_df = hydro_plants_df[hydro_plants_df['Technology'] == 'Pumped Storage']
-    php_nuts_capacity_df = php_plants_df.groupby(php_plants_df['NUTS'])['Capacity'].sum().to_frame()*1e-3
+    php_nuts_capacity_df = php_plants_df.groupby(php_plants_df['NUTS'])['Capacity'].sum().to_frame() * 1e-3
 
     # Compute PHS energy capacity
-    # Eurelectric 2011 study. Assumed 12h for the rest. Optimistic from a existing storage perspective.
+    # Eurelectric 2011 study. Assumed 12h for the rest. Optimistic from an existing storage perspective.
     php_duration_fn = join(dirname(abspath(__file__)), "../../../data/hydro/source/php_duration.csv")
     php_durations_ds = pd.read_csv(php_duration_fn, squeeze=True, index_col=0)
-    countries = [item[:2] for item in php_nuts_capacity_df.index]
-    php_nuts_capacity_df["Energy"] = php_nuts_capacity_df["Capacity"]*php_durations_ds.loc[countries].values
+    if topology_unit == 'ehighway':
+        countries = [item[2:] for item in php_nuts_capacity_df.index]
+    else:
+        countries = [item[:2] for item in php_nuts_capacity_df.index]
+
+    php_nuts_capacity_df["Energy"] = php_nuts_capacity_df["Capacity"] * php_durations_ds.loc[countries].values
 
     # Group all capacities in one dataframe (+ round to MWh)
-    capacities_df = pd.DataFrame(index=sorted(nuts_shapes.index),
+    capacities_df = pd.DataFrame(index=sorted(shapes.index),
                                  columns=['ROR_CAP [GW]', 'STO_CAP [GW]', 'STO_EN_CAP [GWh]',
                                           'PSP_CAP [GW]', 'PSP_EN_CAP [GWh]'])
     capacities_df['ROR_CAP [GW]'] = ror_nuts_capacity_ds
@@ -153,11 +177,14 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
     capacities_df['STO_EN_CAP [GWh]'] = sto_nuts_capacity_df['Energy']
     capacities_df['PSP_CAP [GW]'] = php_nuts_capacity_df['Capacity']
     capacities_df['PSP_EN_CAP [GWh]'] = php_nuts_capacity_df['Energy']
-    capacities_df = capacities_df.round(3)
+    capacities_df = capacities_df.dropna(how='all').round(3)
+
+    # Temporary hack to ensure "lost" points are not accounted for. KeyErrors raised otherwise.
+    non_eu_regions = ['TR', 'UA', 'TN', 'MA']
+    capacities_df = capacities_df[~capacities_df.index.str.contains('|'.join(non_eu_regions))]
 
     # Some NUTS2 regions are associated with, e.g., metropolitan areas, thus will be manually set to 0.
     if topology_unit == 'NUTS2':
-
         regions_ror = ['PT20', 'PT30', 'DE50', 'DE60', 'DE71', 'DE80', 'DEA4', 'DE24',
                        'DE72', 'DE92', 'DEA1', 'DEB3', 'HU22', 'DED2', 'DED5', 'NO02',
                        'NO03', 'PL61', 'PL62', 'PL71', 'UKC1', 'UKF1', 'UKC2', 'AT13']
@@ -167,9 +194,9 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
         capacities_df.loc[regions_sto, 'STO_CAP [GW]'] = None
         capacities_df.loc[regions_sto, 'STO_EN_CAP [GWh]'] = None
 
-    # TODO: this (still) take ages, maybe still away to improve speed
+    # TODO: this (still) take ages, maybe still a way to improve speed (problem comes from xarray in-memory operations)
     # Compute time-series of inflow for STO (in GWh) and ROR (per unit of capacity)
-    runoff_dir = join(dirname(abspath(__file__)), "../../../data/hydro/source/ERA5/runoff/")
+    runoff_dir = join(dirname(abspath(__file__)), "../../../data/hydro/source/ERA5/")
     runoff_files = [join(runoff_dir, fn) for fn in listdir(runoff_dir) if fn.endswith(".nc")]
     runoff_dataset = xr.open_mfdataset(runoff_files, combine='by_coords')
     runoff_dataset = runoff_dataset.stack(locations=('longitude', 'latitude'))
@@ -178,14 +205,14 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
     # Find to which nuts region each of the runoff points belong
     # TODO: instead of doing that here, we could apply it twice with shapes filtered on nuts_with_ror_index
     #  and nuts_with_sto_index, but I want first to refactor match_points_to_region
-    points_nuts_ds = match_points_to_regions(runoff_dataset.locations.values, nuts_shapes["geometry"]).dropna()
+    points_nuts_ds = match_points_to_regions(runoff_dataset.locations.values, shapes["geometry"]).dropna()
 
     # ROR inflow (per unit of capacity)
     nuts_with_ror_index = capacities_df[capacities_df['ROR_CAP [GW]'].notnull()].index
     df_ror = pd.DataFrame(index=timestamps, columns=nuts_with_ror_index)
     for nuts in nuts_with_ror_index:
         nuts_points = points_nuts_ds[points_nuts_ds == nuts].index.to_list()
-        # TODO: if nuts_points is an empty list, what happens?
+        # TODO: Q: If nuts_points is an empty list, what happens? A: It returns a NaN filled array.
         df_ror[nuts] = compute_ror_series(runoff_dataset, nuts_points, flood_event_threshold)
 
     nuts_with_sto_index = capacities_df[capacities_df['STO_CAP [GW]'].notnull()].index
@@ -195,7 +222,7 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
         df_sto[nuts] = compute_sto_inflows(runoff_dataset, nuts_points)
 
     # STO inflow (in GWh)
-    if topology_unit == 'NUTS0':
+    if topology_unit == 'countries':
 
         hydro_production_fn = join(dirname(abspath(__file__)),
                                    "../../../data/hydro/source/Eurostat_hydro_net_generation.xls")
@@ -220,26 +247,34 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
             sto_multipliers_ds.loc[nuts] = sto_production_sum.loc[nuts] / sto_inflows_sum.loc[nuts]
         df_sto = df_sto.multiply(sto_multipliers_ds)
 
-        sto_multipliers_save_fn = "../../../data/hydro/source/hydro_sto_multipliers_NUTS0.csv"
+        sto_multipliers_save_fn = "../../../data/hydro/source/hydro_sto_multipliers_countries.csv"
         sto_multipliers_ds.to_csv(sto_multipliers_save_fn)
 
     # Quite a hack here that should work fine for the beginning. Basically, NUTS0 topology needs to be ran first to
     # create the multipliers file that is read down below. TODO: look into computing multipliers for NUTS2 directly.
-    else:  # topology_unit == 'NUTS2'
+    else:  # topology_unit in ['ehighway', 'NUTS2']
 
         sto_multipliers_fn = join(dirname(abspath(__file__)),
-                                  "../../../data/hydro/source/hydro_sto_multipliers_NUTS0.csv")
+                                  "../../../data/hydro/source/hydro_sto_multipliers_countries.csv")
         sto_multipliers_ds = pd.read_csv(sto_multipliers_fn, index_col=0).squeeze()
-        for nuts in df_sto.columns:
-            df_sto[nuts] *= sto_multipliers_ds.loc[nuts[:2]]
 
-        # For some reason, there is no point associated with ITC2. Fill with neighboring area.
-        df_ror['ITC2'] = df_ror['ITC3']
-        # Same situation here, some wild hacks for the moment to fill
-        # them with data from regions with similar capacities.
-        df_sto['ES52'] = df_sto['ES24']
-        df_sto['EL42'] = df_sto['EL61']
-        df_sto['ITC2'] = df_sto['ITC4'] / 2.
+        if topology_unit == 'ehighway':
+
+            for nuts in df_sto.columns:
+                df_sto[nuts] *= sto_multipliers_ds.loc[nuts[2:]]
+
+        else:
+
+            for nuts in df_sto.columns:
+                df_sto[nuts] *= sto_multipliers_ds.loc[nuts[:2]]
+
+            # For some reason, there is no point associated with ITC2. Fill with neighboring area.
+            df_ror['ITC2'] = df_ror['ITC3']
+            # Same situation here, some wild hacks for the moment to fill
+            # them with data from regions with similar capacities.
+            df_sto['ES52'] = df_sto['ES24']
+            df_sto['EL42'] = df_sto['EL61']
+            df_sto['ITC2'] = df_sto['ITC4'] / 2.
 
     # Saving files
     save_dir = join(dirname(abspath(__file__)), "../../../data/hydro/generated/")
@@ -252,12 +287,7 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
 
 
 if __name__ == '__main__':
-
-    # IEA validation data in 2016 (TWh produced per year)
-    # hydro_production_fn = join(dirname(abspath(__file__)), "../../../data/hydro/source/hydro_production.csv")
-    # hydro_production_ds = pd.read_csv(hydro_production_fn, squeeze=True, index_col=0)
-
-    nuts_type = 'NUTS2'
+    nuts_type = 'ehighway'
     ror_flood_threshold = 0.8
     start = datetime(2014, 1, 1, 0, 0, 0)
     end = datetime(2018, 12, 31, 23, 0, 0)

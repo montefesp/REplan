@@ -17,7 +17,7 @@ time:
   resolution: 1
 
 # Space
-region: "CWE"
+region: "EU"
 add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
@@ -76,7 +76,7 @@ dispatch:
 
 # Nuclear
 nuclear:
-  include: True
+  include: False
   use_ex_cap: True # Whether to include existing cap
   extendable: False
 
