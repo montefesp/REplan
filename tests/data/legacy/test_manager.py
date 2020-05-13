@@ -1,7 +1,7 @@
 import pytest
 
 from src.data.legacy.manager import *
-from src.data.geographics.manager import get_shapes
+from src.data.geographics.shapes import get_shapes
 
 
 # TODO: add tests for 'associated_legacy_to_points' and

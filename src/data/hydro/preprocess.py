@@ -74,6 +74,7 @@ def compute_sto_inflows(dataset_runoff: xr.Dataset, region_points: list, unit_ar
     return ts_gwh
 
 
+# TODO: this function should not take ehighway as 'topology_unit'
 def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, flood_event_threshold: float):
     """
      Generating hydro files, i.e., capacities and inflows.
@@ -139,6 +140,7 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
 
     # Divide this energy capacity between NUTS regions proportionally to power capacity
     for nuts in sto_nuts_capacity_df.index:
+        # TODO: is there a difference between those two conditions except for .startswith and .endswith ?
         if topology_unit == 'ehighway':
             nuts0 = nuts[2:]
             country_storage_potential = nuts_hydro_storage_energy_cap_ds[nuts0]
