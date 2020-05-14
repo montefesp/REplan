@@ -5,8 +5,9 @@ from os.path import join, abspath, dirname
 import pandas as pd
 import xarray as xr
 
-from src.data.geographics import match_points_to_regions, get_nuts2_shapes, \
-    get_ehighway_shapes, get_natural_earth_shapes
+from src.data.geographics import match_points_to_regions, get_nuts_shapes, \
+    get_natural_earth_shapes
+from src.data.topologies.ehighways import get_ehighway_shapes
 
 
 def compute_ror_series(dataset_runoff: xr.Dataset, region_points: list, flood_event_threshold: float) -> pd.DataFrame:
@@ -100,7 +101,7 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
         shapes = get_natural_earth_shapes()
         shapes.rename(index={'GR': 'EL', 'GB': 'UK'}, inplace=True)
     else:  # topology == 'NUTS2'
-        shapes = get_nuts2_shapes()
+        shapes = get_nuts_shapes("2")
 
     # Read hydro plants data from powerplantmatching tool from which we can retrieve capacity (in MW)
     hydro_plants_fn = join(dirname(abspath(__file__)), "../../../data/hydro/source/pp_fresna_hydro_updated.csv")
@@ -108,7 +109,7 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
 
     # Find to which region each plant belongs
     hydro_plants_locs = hydro_plants_df[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values
-    points_nuts_ds = match_points_to_regions(hydro_plants_locs, shapes["geometry"]).dropna()
+    points_nuts_ds = match_points_to_regions(hydro_plants_locs, shapes).dropna()
 
     def add_region(lon, lat):
         try:
@@ -207,7 +208,7 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
     # Find to which nuts region each of the runoff points belong
     # TODO: instead of doing that here, we could apply it twice with shapes filtered on nuts_with_ror_index
     #  and nuts_with_sto_index, but I want first to refactor match_points_to_region
-    points_nuts_ds = match_points_to_regions(runoff_dataset.locations.values, shapes["geometry"]).dropna()
+    points_nuts_ds = match_points_to_regions(runoff_dataset.locations.values, shapes).dropna()
 
     # ROR inflow (per unit of capacity)
     nuts_with_ror_index = capacities_df[capacities_df['ROR_CAP [GW]'].notnull()].index
@@ -258,13 +259,11 @@ def generate_eu_hydro_files(topology_unit: str, timestamps: pd.DatetimeIndex, fl
 
         sto_multipliers_fn = join(dirname(abspath(__file__)),
                                   "../../../data/hydro/source/hydro_sto_multipliers_countries.csv")
-        sto_multipliers_ds = pd.read_csv(sto_multipliers_fn, index_col=0).squeeze()
+        sto_multipliers_ds = pd.read_csv(sto_multipliers_fn, index_col=0, squeeze=True)
 
         if topology_unit == 'ehighway':
-
             for nuts in df_sto.columns:
                 df_sto[nuts] *= sto_multipliers_ds.loc[nuts[2:]]
-
         else:
 
             for nuts in df_sto.columns:

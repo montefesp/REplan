@@ -112,8 +112,8 @@ class Resite:
         for region in self.regions:
             subregions = get_subregions(region)
             all_subregions.extend(subregions)
-            shapes_subregion = get_shapes(subregions, which='onshore_offshore', save_file_str='countries')
-            regions_shapes[region] = unary_union(shapes_subregion['geometry'])
+            shapes_subregion = get_shapes(subregions, which='onshore_offshore', save=True)['geometry']
+            regions_shapes[region] = unary_union(shapes_subregion)
 
         # Get all points situated in the given regions at the given spatial resolution
         init_points = get_points_in_shape(unary_union(regions_shapes.values), self.spatial_res)
@@ -206,9 +206,9 @@ class Resite:
         for region in self.regions:
             subregions = get_subregions(region)
             all_subregions.extend(subregions)
-            shapes = get_shapes(subregions, which='onshore_offshore', save_file_str='countries')
-            onshore_shape.extend(shapes[shapes['offshore'] == False]['geometry'].values)
-            offshore_shape.extend(shapes[shapes['offshore'] == True]['geometry'].values)
+            shapes = get_shapes(subregions, which='onshore_offshore', save=True)
+            onshore_shape.extend(shapes[~shapes['offshore']]['geometry'].values)
+            offshore_shape.extend(shapes[shapes['offshore']]['geometry'].values)
             regions_shapes[region] = unary_union(shapes['geometry'])
         onshore_shape = unary_union(onshore_shape)
         offshore_shape = unary_union(offshore_shape)

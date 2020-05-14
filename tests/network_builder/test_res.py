@@ -11,9 +11,9 @@ def define_simple_network() -> pypsa.Network:
     buses_id = ["BE", "NL", "OFF1"]
 
     # Geographical info
-    all_shapes = get_shapes(["BE", "NL"], which='both', save_file_str='BE_NL')
-    onshore_shapes = all_shapes.loc[all_shapes['offshore'] == False]
-    offshore_shape = all_shapes.loc[(all_shapes['offshore'] == False) & (all_shapes.index == 'BE')]
+    all_shapes = get_shapes(["BE", "NL"], which='both')
+    onshore_shapes = all_shapes.loc[~all_shapes['offshore']]
+    offshore_shape = all_shapes.loc[(~all_shapes['offshore']) & (all_shapes.index == 'BE')]
     centroids = [onshore_shapes["BE"].centroid, onshore_shapes["NL"].centroid,
                  offshore_shape["BE"].centroid]
     x, y = zip(*[(point.x, point.y) for point in centroids])

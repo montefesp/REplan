@@ -402,6 +402,8 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]):
     poly = ogr.CreateGeometryFromWkt(poly_wkt, spatial_ref_)
     ec = gl.ExclusionCalculator(poly, pixelRes=1000)
 
+    import matplotlib.pyplot as plt
+
     # Exclude protected areas
     ec.excludeRasterType(natura_, value=1)
 
@@ -415,11 +417,27 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]):
     # Corine filters
     if 'clc' in tech_config_:
         clc_filters = tech_config_["clc"]
+
+        if "remove_codes" in clc_filters and "remove_distance" in clc_filters and clc_filters["remove_distance"] > 0.:
+            for remove_code in clc_filters["remove_codes"]:
+                ec.excludeRasterType(clc_, value=remove_code, buffer=clc_filters["remove_distance"])
+            #ec.excludeRasterType(clc_, value=clc_filters["remove_codes"], buffer=clc_filters["remove_distance"])
+
         if "keep_codes" in clc_filters:
             # Invert True indicates code that need to be kept
-            ec.excludeRasterType(clc_, value=clc_filters["keep_codes"], invert=True)
-        if clc_filters.get("distance", 0.) > 0.:
-            ec.excludeRasterType(clc_, value=clc_filters["remove_codes"], buffer=clc_filters["remove_distance"])
+            for keep_code in clc_filters["keep_codes"]:
+                ec.excludeRasterType(clc_, value=keep_code, mode='include')
+            #ec.excludeRasterType(clc_, value=clc_filters["keep_codes"], mode='include')
+
+    ec.draw()
+    plt.show()
+
+    # GLAES priors
+    # TODO: this was just a test, change and parametrize
+    if 0:
+        ec.excludePrior("agriculture_proximity", value=(None, 0))
+        ec.excludePrior("settlement_proximity", value=(None, 1000))
+        ec.excludePrior("roads_main_proximity", value=(None, 200))
 
     # TODO: add distance from the shore filter
     # TODO: filter on vres_profiles quality
@@ -550,10 +568,10 @@ def get_land_availability_for_countries(countries: List[str], tech: str, tech_co
 
     """
 
-    all_shapes = get_shapes(countries, which='onshore_offshore', save_file_str='countries')
-    shapes = all_shapes[all_shapes['offshore'] == False]["geometry"].values
+    all_shapes = get_shapes(countries, which='onshore_offshore', save=True)
+    shapes = all_shapes[~all_shapes['offshore']]["geometry"].values
     if tech in ["wind_offshore", "wind_floating"]:
-        shapes = all_shapes[all_shapes['offshore'] == True]["geometry"].values
+        shapes = all_shapes[all_shapes['offshore']]["geometry"].values
     land_availability = get_land_availability_for_shapes_mp(shapes, tech_config, True)
 
 
@@ -563,19 +581,18 @@ if __name__ == '__main__':
     from src.data.geographics import get_subregions, get_shapes
     from shapely.ops import unary_union
     import yaml
-
     # TODO: need to change
-    tech_config_ = yaml.load(
-        open("/home/utilisateur/Global_Grid/code/py_ggrid/src/parameters/vres_tech_config.yml", "r"),
-        Loader=yaml.FullLoader)
-
-    tech_ = "pv_utility"
-    region_ = 'BENELUX'
+    config_fn = join(dirname(abspath(__file__)), f"../../../data/technologies/vres_tech_config.yml")
+    tech_config_ = yaml.load(open(config_fn, "r"), Loader=yaml.FullLoader)
+    tech_ = "wind_onshore"
+    region_ = 'BE'
     subregions_ = get_subregions(region_)
-
-    all_shapes = get_shapes(subregions_, which='onshore_offshore', save_file_str='countries')
+    all_shapes = get_shapes(subregions_, which='onshore_offshore')
+    print(all_shapes)
     if tech_ in ["wind_floating", "wind_offshore"]:
-        union = unary_union(all_shapes[all_shapes['offshore'] == True]["geometry"].values)
+        union = unary_union(all_shapes[all_shapes['offshore']]["geometry"].values)
+    else:
+        union = unary_union(all_shapes[~all_shapes['offshore']]["geometry"].values)
+
     spatial_res = 0.5
-    land_availability = get_land_availability_for_shapes([union], tech_config_[tech_])
-    print(land_availability)
+    land_availability = get_land_availability_for_shapes([union], tech_config_[tech_], processes=4)

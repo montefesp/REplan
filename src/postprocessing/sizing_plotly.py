@@ -423,6 +423,7 @@ class SizingPlotly:
         all_countries = sorted(reduce(lambda x, y: x + y, list(regions_dict.values())))
         onshore_shape_union = \
             cascaded_union([shapely.wkt.loads(region) for region in self.net.buses[self.net.buses.onshore].region.values])
+        # TODO: refactor
         offshore_shapes = get_offshore_shapes(all_countries, onshore_shape_union, filterremote=True)
         offshore_shapes.index = ['UK' if idx == "GB" else idx for idx in offshore_shapes.index]
 

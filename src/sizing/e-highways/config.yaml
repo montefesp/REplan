@@ -17,7 +17,7 @@ time:
   resolution: 1
 
 # Space
-region: "CWE"
+region: "EU"
 add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
@@ -55,8 +55,8 @@ res:
     water_mask: True
 
   # For strategy = siting
-  modelling: 'docplex' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
-  solver: 'cplex' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
+  modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
+  solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
   solver_options:
     gurobi:
       Threads: 0

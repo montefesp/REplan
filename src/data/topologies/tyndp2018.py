@@ -46,7 +46,7 @@ def preprocess(plotting=True) -> None:
     buses.onshore = True
 
     # Get shape of each country
-    buses.region = get_shapes(buses.index.values, which='onshore', save_file_str='countries')['geometry']
+    buses.region = get_shapes(buses.index.values, which='onshore', save=True)['geometry']
     centroids = [region.centroid for region in buses.region]
     buses.x = [c.x for c in centroids]
     buses.y = [c.y for c in centroids]

@@ -105,16 +105,13 @@ def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[floa
     iso_to_nuts0 = {"GB": "UK", "GR": "EL"}
     nuts0_regions = [iso_to_nuts0[c] if c in iso_to_nuts0 else c for c in countries]
 
-    # Get NUTS2 shapes
+    # Get NUTS2 and EEZ shapes
     nuts2_regions_list = get_available_regions("nuts2")
     codes = [code for code in nuts2_regions_list if code[:2] in nuts0_regions]
+    region_shapes = get_shapes(codes, which='onshore_offshore', save=True)
 
-    # Get EEZ shapes
-    region_shapes_dict = {"nuts2": None, "eez": None}
-    region_shapes = get_shapes(codes, which='onshore_offshore', save_file_str='NUTS2')
-
-    region_shapes_dict["nuts2"] = region_shapes.loc[region_shapes['offshore'] == False]
-    region_shapes_dict["eez"] = region_shapes.loc[region_shapes['offshore'] == True]
+    region_shapes_dict = {"nuts2": region_shapes.loc[~region_shapes['offshore']],
+                          "eez": region_shapes.loc[region_shapes['offshore']]}
     region_shapes_dict["eez"].index = [f"EZ{code}" for code in region_shapes_dict["eez"].index]
 
     tech_points_tuples = sorted([(tech, point) for tech, points in tech_points_dict.items() for point in points])
@@ -219,15 +216,15 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
         # Compute potential for each NUTS2 or EEZ
         potential_per_subregion_ds = read_capacity_potential(tech, nuts_type='nuts2')
         all_shapes = get_shapes(potential_per_subregion_ds.index.values,
-                                which='onshore_offshore', save_file_str='NUTS2')
+                                which='onshore_offshore', save=True)
 
         # Get NUTS2 or EEZ shapes
         #  TODO: would need to get this out of the loop
         if tech in ['wind_offshore', 'wind_floating']:
-            shapes = all_shapes.loc[all_shapes['offshore'] == True]
+            shapes = all_shapes.loc[all_shapes['offshore']]
             shapes.index = [f"EZ{code}" for code in shapes.index]
         else:
-            shapes = all_shapes.loc[all_shapes['offshore'] == False]
+            shapes = all_shapes.loc[~all_shapes['offshore']]
 
         # Compute capacity potential for the regions given as argument
         for i, region in enumerate(regions):

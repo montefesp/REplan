@@ -26,11 +26,11 @@ res:
   include: True
   # Give which technology should be installed using each strategy
   strategies:
-    max: ['wind_offshore']
+    max: []
     comp: []
     no_siting: []
-    siting: []
-    bus: ['wind_onshore', 'pv_utility', 'pv_residential']
+    siting: ['wind_onshore', 'pv_utility', 'pv_residential']
+    bus: []
 
   # For strategy = max or comp
   path: 'EU_wide_off_2015_08'
@@ -56,8 +56,8 @@ res:
     water_mask: True
 
   # For strategy = siting
-  modelling: 'docplex' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
-  solver: 'cplex' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
+  modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
+  solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
   solver_options:
     gurobi:
       Threads: 0

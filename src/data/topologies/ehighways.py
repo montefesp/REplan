@@ -2,6 +2,8 @@ from os.path import dirname, join, abspath
 from typing import List
 
 import pandas as pd
+import geopandas as gpd
+
 import geopy.distance
 import shapely
 from shapely import wkt
@@ -13,6 +15,7 @@ import matplotlib.pyplot as plt
 import pypsa
 
 from src.data.geographics import get_shapes, remove_landlocked_countries
+from src.data.geographics import get_natural_earth_shapes, get_nuts_shapes
 from src.data.technologies import get_costs
 from src.data.topologies.manager import plot_topology, voronoi_special
 
@@ -23,6 +26,43 @@ def get_ehighway_clusters() -> pd.DataFrame:
      is not specified one can obtain it by taking the centroid of the shapes)."""
     eh_clusters_fn = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/source/clusters_2016.csv")
     return pd.read_csv(eh_clusters_fn, delimiter=";", index_col="name")
+
+
+def get_ehighway_shapes() -> pd.Series:
+    """
+    Return e-Highways cluster shapes.
+
+    Returns
+    -------
+    shapes : gpd.GeoDataFrame
+        DataFrame containing desired shapes.
+    """
+
+    clusters_fn = join(dirname(abspath(__file__)),
+                       f"../../../data/topologies/e-highways/source/clusters_2016.csv")
+    clusters = pd.read_csv(clusters_fn, delimiter=";", index_col=0)
+
+    # TODO: if get_shapes could take different code types at the same time, we could simplify even more this function
+    all_codes = []
+    for idx in clusters.index:
+        all_codes.extend(clusters.loc[idx, 'codes'].split(','))
+    nuts_codes = [code for code in all_codes if len(code) == 5]
+    iso_codes = [code for code in all_codes if len(code) != 5]
+    nuts3_shapes = get_nuts_shapes("3", nuts_codes)
+    iso_shapes = get_natural_earth_shapes(iso_codes)
+
+    shapes = pd.Series(index=clusters.index)
+
+    for node in clusters.index:
+        codes = clusters.loc[node, 'codes'].split(',')
+        # If cluster codes are all NUTS3, union of all.
+        if len(codes[0]) > 2:
+            shapes.loc[node] = unary_union(nuts3_shapes.loc[codes].values)
+        # If cluster is specified by country ISO2 code, data is taken from naturalearth
+        else:
+            shapes.loc[node] = iso_shapes.loc[codes].values[0]
+
+    return shapes
 
 
 def preprocess(plotting: bool = False):
@@ -58,29 +98,22 @@ def preprocess(plotting: bool = False):
     buses.index.names = ["id"]
 
     # Assemble the clusters define in e-highways in order to compute for each bus its region, x and y
-    all_codes = []
-    for idx in eh_clusters.index:
-        all_codes.extend(eh_clusters.loc[idx, 'codes'].split(','))
-    onshore_shapes = get_shapes(all_codes, which='onshore', save_file_str='ehighway')
+    cluster_shapes = get_ehighway_shapes()
 
-    for idx in eh_clusters.index:
+    for idx in cluster_shapes.index:
 
-        # Get the shapes associated to each code and assemble them
-        code_list = eh_clusters.loc[idx, 'codes'].split(',')
-        if len(code_list[0]) == 2:
-            code_list = onshore_shapes.index[onshore_shapes.index.str.contains(code_list[0])]
-        total_shape = unary_union(onshore_shapes.loc[code_list]['geometry'])
+        cluster_shape = cluster_shapes[idx]
 
         # Compute centroid of shape
         # Some special points are not the centroid of their region
         centroid = eh_clusters.loc[idx].centroid
         if centroid == 'None':
-            centroid = total_shape.centroid
+            centroid = cluster_shape.centroid
         else:
             x = float(centroid.strip("(").strip(")").split(",")[0])
             y = float(centroid.strip("(").strip(")").split(",")[1])
             centroid = shapely.geometry.Point(x, y)
-        buses.loc[idx].region = total_shape
+        buses.loc[idx].region = cluster_shape
         buses.loc[idx].x = centroid.x
         buses.loc[idx].y = centroid.y
         buses.loc[idx].onshore = True
@@ -235,8 +268,10 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
 
     # Add offshore polygons to remaining offshore buses
     if add_offshore:
+        # TODO: considering the new get_shapes function we probably don't need this anymore
+        #  or do we need to raise an error in get_shapes when we don't have certain offshore shapes?
         offshore_countries = remove_landlocked_countries(countries)
-        offshore_shapes = get_shapes(offshore_countries, which='offshore', save_file_str='countries')
+        offshore_shapes = get_shapes(offshore_countries, which='offshore', save=True)
         offshore_zones_codes = sorted(list(set(offshore_shapes.index.values).intersection(set(offshore_countries))))
         if len(offshore_zones_codes) != 0:
             offshore_zones_shape = unary_union(offshore_shapes["geometry"].values)
