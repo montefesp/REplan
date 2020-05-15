@@ -10,6 +10,7 @@ import shapely.prepared
 from shapely.ops import unary_union
 from shapely.errors import TopologicalError
 from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon, GeometryCollection
+import geopy.distance
 
 from src.data.geographics.shapes import get_shapes
 
@@ -20,7 +21,7 @@ logger = logging.getLogger()
 
 # TODO: need to check if it is not removing to much points
 def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Series,
-                            keep_outside: bool = True) -> pd.Series:
+                            keep_outside: bool = True, distance_threshold: float = 1.) -> pd.Series:
     """
     Match a set of points to regions by identifying in which region each point falls.
 
@@ -35,6 +36,8 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
         Dataframe storing geometries of NUTS regions.
     keep_outside: bool (default: True)
         Whether to keep points that fall outside of shapes
+    distance_threshold: float (default: 1)
+        Maximal distance (km) from one shape for points outside of all shapes to be accepted
 
     Returns
     -------
@@ -45,6 +48,7 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
     points_region_ds = pd.Series(index=pd.MultiIndex.from_tuples(points)).sort_index()
     points = MultiPoint(points)
 
+    # Loop through all shapes and assign points intersect with them
     for index, subregion in shapes_ds.items():
 
         try:
@@ -52,42 +56,50 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
         except shapely.errors.TopologicalError:
             print(f"Warning: Problem with shape {index}")
             continue
+
+        # After intersection, we can end up into 4 case:
+        #  1 - No points were in the intersection and we obtain an empty geometry
         if points_in_region.is_empty:
             continue
+        # 2 - Only one point is in the intersection
         elif isinstance(points_in_region, Point):
             points = points.difference(points_in_region)
             points_in_region = (points_in_region.x, points_in_region.y)
+        #  3 - No points were in the intersection and we obtain a MultiPoint of length 0
         elif len(points_in_region) == 0:
             continue
+        # 4 - A set of points are in the intersection and we obtained a MultiPoint of length > 0
         else:
             points = points.difference(points_in_region)
             points_in_region = [(point.x, point.y) for point in points_in_region]
         points_region_ds.loc[points_in_region] = index
 
+        # If all points have been assigned to shapes, return
         if points.is_empty:
             return points_region_ds
 
-    logger.debug(f"Warning: Some points ({points}) are not contained in any shape.")
-
+    # Because of the resolution of the shapes or the accuracy of some points coordinates, some points
+    #  might not fall into any shapes but close to their border.
+    # If one desires, those points can be added assigned to shapes to which they are close enough.
     if not keep_outside:
         return points_region_ds
 
-    min_distance = 1.
-    logger.debug(f"These points will be assigned to closest one if distance is less than {min_distance}.")
     if isinstance(points, Point):
         points = [points]
 
-    not_added_points = []
+    # Loop through all points, compute the distance to every shape and add to the closest shape
+    #  if the distance is inferior to a maximal distance.
+    remaining_points = []
     for point in points:
         distances = [point.distance(shapes_ds.loc[subregion]) for subregion in shapes_ds.index]
-        if min(distances) < min_distance:
+        if min(distances) < distance_threshold:
             closest_index = np.argmin(distances)
             points_region_ds.loc[(point.x, point.y)] = shapes_ds.index.values[closest_index]
         else:
-            not_added_points += [point]
-    if len(not_added_points) != 0:
+            remaining_points += [point]
+    if len(remaining_points) != 0:
         logger.info(f"Warning: These points were not assigned to any shape: "
-                    f"{[(point.x, point.y) for point in not_added_points]}.")
+                    f"{[(point.x, point.y) for point in remaining_points]}.")
 
     return points_region_ds
 
@@ -130,7 +142,7 @@ def get_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
         Geographical shape made of points (lon, lat)
     resolution: float
         Longitudinal and latitudinal spatial resolution of points
-    points: List[(float, float)]
+    points: List[(float, float)] (default: None)
         Points from which to start
 
     Returns
@@ -155,7 +167,7 @@ def get_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
     return points
 
 
-def divide_shape_with_voronoi(shape: Union[Polygon, MultiPolygon], resolution: float) \
+def create_grid_cells(shape: Union[Polygon, MultiPolygon], resolution: float) \
         -> (List[Tuple[float, float]], List[Union[Polygon, MultiPolygon]]):
     """Divide a geographical shape by applying voronoi partition."""
 

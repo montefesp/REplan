@@ -21,7 +21,7 @@ def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]]) -> None:
     """
 
     assert isinstance(polygons_list, list) or isinstance(polygons_list, np.ndarray) \
-           or isinstance(polygons_list, gpd.array.GeometryArray), \
+        or isinstance(polygons_list, gpd.array.GeometryArray), \
         f'The argument must be a list of polygons or multipolygons, got {type(polygons_list)}'
 
     fig = plt.figure(figsize=(13, 13))

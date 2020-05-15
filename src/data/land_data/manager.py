@@ -23,7 +23,7 @@ import shapely.wkt
 from shapely.geometry import Polygon, MultiPolygon
 
 from src.data.vres_profiles import read_resource_database
-from src.data.geographics import divide_shape_with_voronoi
+from src.data.geographics import create_grid_cells
 
 
 def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, float]],
@@ -503,6 +503,7 @@ def get_land_availability_for_shapes(shapes: List[Union[Polygon, MultiPolygon]],
         return get_land_availability_for_shapes_mp(shapes, tech_config, processes)
 
 
+# TODO: maybe grid cells shouldn't be created here but send as argument
 def get_land_availability_in_grid_cells(technologies: List[str], tech_config: Dict,
                                         shapes: List[Union[Polygon, MultiPolygon]], resolution: float,
                                         processes: int = None) -> pd.DataFrame:
@@ -540,7 +541,7 @@ def get_land_availability_in_grid_cells(technologies: List[str], tech_config: Di
     grid_cells_shapes = np.array([])
     for i, tech in enumerate(technologies):
         # Compute grid cells
-        points, tech_grid_cells_shapes = divide_shape_with_voronoi(shapes[i], resolution)
+        points, tech_grid_cells_shapes = create_grid_cells(shapes[i], resolution)
         grid_cells_shapes = np.append(grid_cells_shapes, tech_grid_cells_shapes)
         # Compute available land
         available_areas = np.append(available_areas,

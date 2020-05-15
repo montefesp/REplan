@@ -50,7 +50,6 @@ def remove_landlocked_countries(country_list: List[str]) -> List[str]:
     return updated_codes
 
 
-
 def get_subregions(region: str) -> List[str]:
     """
     Return the list of the subregions composing one of the region defined in data/region_definition.csv.

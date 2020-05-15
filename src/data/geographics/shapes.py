@@ -51,11 +51,11 @@ def get_natural_earth_shapes(iso_codes: List[str] = None) -> gpd.GeoSeries:
     shapes = gpd.read_file(natearth_fn)
 
     # Names are a hassle in naturalearth, several fields are combined.
-    fieldnames = [shapes[x].where(lambda s: s != "-99") for x in ("ADM0_A3", "WB_A2", "ISO_A2")]
-    fieldnames[0] = fieldnames[0].apply(lambda c: convert_country_codes("alpha_2", alpha_3=c))
+    field_names = [shapes[x].where(lambda s: s != "-99") for x in ("ADM0_A3", "WB_A2", "ISO_A2")]
+    field_names[0] = field_names[0].apply(lambda c: convert_country_codes("alpha_2", alpha_3=c))
 
     # Fill in NA values by using the other cods
-    shapes["name"] = reduce(lambda x, y: x.fillna(y), [fieldnames[0], fieldnames[1], fieldnames[2]])
+    shapes["name"] = reduce(lambda x, y: x.fillna(y), [field_names[0], field_names[1], field_names[2]])
     # Remove remaining NA
     shapes = shapes[pd.notnull(shapes["name"])]
 
@@ -226,7 +226,7 @@ def get_onshore_shapes(region_list: List[str]) -> gpd.GeoSeries:
     shapes : gpd.GeoSeries
         Series containing desired shapes.
     """
-    # Length 5 for NUTS3 (ehighway) codes
+    # Length 5 for NUTS3 codes
     if all([len(item) == 5 for item in region_list]):
         return get_nuts_shapes("3", region_list)
 
@@ -234,7 +234,7 @@ def get_onshore_shapes(region_list: List[str]) -> gpd.GeoSeries:
     elif all([len(item) == 4 for item in region_list]):
         return get_nuts_shapes("2", region_list)
 
-    # Length 2 for ISO_2 (tyndp) codes
+    # Length 2 for ISO_2 codes
     elif all([len(item) == 2 for item in region_list]):
         return get_natural_earth_shapes(region_list)
 
@@ -377,7 +377,7 @@ def get_shapes(region_list: List[str], which: str = 'onshore_offshore', save: bo
     # If shapes for those codes were previously computed, output is returned directly from file.
     sorted_name = "".join(sorted(region_list))
     hash_name = hashlib.sha224(bytes(sorted_name, 'utf-8')).hexdigest()[:10]
-    fn = join(dirname(abspath(__file__)), f"../../../output/geographics/{hash_name}.geojson")
+    fn = join(dirname(abspath(__file__)), f"../../../data/geographics/generated/{hash_name}.geojson")
     if isfile(fn):
 
         shapefile = gpd.read_file(fn).set_index('name')
@@ -423,6 +423,7 @@ def get_shapes(region_list: List[str], which: str = 'onshore_offshore', save: bo
     shapes['geometry'] = shapes.apply(lambda x: filter_shape(x), axis=1)
 
     if save:
+        shapes["name"] = shapes.index
         shapes.to_file(fn, driver='GeoJSON', encoding='utf-8')
 
     # If which was overwritten for saving purposes, retrieve only what the user required
