@@ -134,11 +134,11 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
         closest_points = \
             protected_points[np.argmin(scipy.spatial.distance.cdist(protected_points, points, 'euclidean'), axis=0)]
 
-        # Remove coordinates that are too close to protected areas
+        # Remove points that are too close to protected areas
         points_to_remove = []
-        for coord1, coord2 in zip(points, closest_points):
-            if geopy.distance.geodesic((coord1[1], coord1[0]), (coord2[1], coord2[0])).km < threshold_distance:
-                points_to_remove.append(tuple(coord1))
+        for point1, point2 in zip(points, closest_points):
+            if geopy.distance.geodesic((point1[1], point1[0]), (point2[1], point2[0])).km < threshold_distance:
+                points_to_remove.append(tuple(point1))
 
         points = list(set(points) - set(points_to_remove))
 

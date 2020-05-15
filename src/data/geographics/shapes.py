@@ -10,7 +10,7 @@ from shapely.ops import unary_union
 
 import hashlib
 
-from src.data.geographics.codes import convert_country_codes, update_ehighway_codes, remove_landlocked_countries
+from src.data.geographics.codes import convert_country_codes, replace_uk_el_codes, remove_landlocked_countries
 
 
 def get_nuts_area() -> pd.DataFrame:
@@ -52,7 +52,7 @@ def get_natural_earth_shapes(iso_codes: List[str] = None) -> gpd.GeoSeries:
 
     # Names are a hassle in naturalearth, several fields are combined.
     field_names = [shapes[x].where(lambda s: s != "-99") for x in ("ADM0_A3", "WB_A2", "ISO_A2")]
-    field_names[0] = field_names[0].apply(lambda c: convert_country_codes("alpha_2", alpha_3=c))
+    field_names[0] = pd.Series(convert_country_codes(field_names[0].values, "alpha_3", "alpha_2"))
 
     # Fill in NA values by using the other cods
     shapes["name"] = reduce(lambda x, y: x.fillna(y), [field_names[0], field_names[1], field_names[2]])
@@ -265,10 +265,10 @@ def get_offshore_shapes(region_list: List[str]) -> gpd.GeoSeries:
 
     eez_shapes = eez_shapes[pd.notnull(eez_shapes['ISO_3digit'])]
     # Create column with ISO_A2 code.
-    eez_shapes['ISO_A2'] = eez_shapes['ISO_3digit'].map(lambda code: convert_country_codes('alpha_2', alpha_3=code))
+    eez_shapes['ISO_A2'] = convert_country_codes(eez_shapes['ISO_3digit'].values, 'alpha_3', 'alpha_2')
 
     # Updating UK and EL.
-    region_list_eez = update_ehighway_codes(list(set([item[:2] for item in region_list])))
+    region_list_eez = replace_uk_el_codes(list(set([item[:2] for item in region_list])))
     eez_shapes = eez_shapes[eez_shapes['ISO_A2'].isin(region_list_eez)].set_index('ISO_A2')
 
     # Combine polygons corresponding to the same countries.
@@ -303,10 +303,10 @@ def get_region_contour(region_list: List[str]) -> Union[Polygon, MultiPolygon]:
     shape_union = gpd.read_file(shape_fn)
 
     region_list_countries = list(set([item[:2] for item in region_list]))
-    region_list_countries_updated = update_ehighway_codes(region_list_countries)
+    region_list_countries_updated = replace_uk_el_codes(region_list_countries)
 
     # Convert country ISO_2 codes in full names and update a couple mismatched entries between datasets.
-    regions = list(map(lambda x: convert_country_codes('name', alpha_2=x), region_list_countries_updated))
+    regions = convert_country_codes(region_list_countries_updated, 'alpha_2', 'name')
     regions_to_replace = {'Czechia': 'Czech Republic', 'North Macedonia': 'Macedonia'}
     regions = [regions_to_replace[c] if c in regions_to_replace else c for c in regions]
 
@@ -373,7 +373,6 @@ def get_shapes(region_list: List[str], which: str = 'onshore_offshore', save: bo
     assert which in accepted_which, f"Error: 'which' must be one of {accepted_which}, received {which}"
     assert len(region_list) != 0, f"Error: Empty list of codes."
 
-    print(region_list)
     # If shapes for those codes were previously computed, output is returned directly from file.
     sorted_name = "".join(sorted(region_list))
     hash_name = hashlib.sha224(bytes(sorted_name, 'utf-8')).hexdigest()[:10]
@@ -383,7 +382,7 @@ def get_shapes(region_list: List[str], which: str = 'onshore_offshore', save: bo
         shapefile = gpd.read_file(fn).set_index('name')
         # Selection of the offshore subset associated with the region_list.
         region_list_offshore = remove_landlocked_countries(
-                                                update_ehighway_codes(list(set([item[:2] for item in region_list]))))
+                                                replace_uk_el_codes(list(set([item[:2] for item in region_list]))))
         # Union of region_list and the associated offshore codes.
         all_codes = list(set(region_list).union(set(region_list_offshore)))
 

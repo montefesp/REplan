@@ -7,49 +7,47 @@ import pandas as pd
 import pycountry as pyc
 
 
-# TODO: document or maybe delete and just used directly pyc?
-def convert_country_codes(target, **keys):
+def convert_country_codes(source_codes: List[str], source_format: str, target_format: str,
+                          throw_error: bool = False) -> List[str]:
     """
     Convert country codes, e.g., from ISO_2 to full name.
 
     Parameters
     ----------
-    target:
-    keys:
+    source_codes: List[str]
+        List of codes to convert.
+    source_format: str
+        Format of the source codes (alpha_2, alpha_3, name, ...)
+    target_format: str
+        Format to which code must be converted (alpha_2, alpha_3, name, ...)
+    throw_error: bool (default: False)
+        Whether to throw an error if an attribute does not exist.
 
     Returns
     -------
+    target_codes: List[str]
+        List of converted codes.
     """
-    assert len(keys) == 1
-    try:
-        return getattr(pyc.countries.get(**keys), target)
-    except (KeyError, AttributeError):
-        return np.nan
+    target_codes = []
+    for code in source_codes:
+        try:
+            target_code = getattr(pyc.countries.get(**{source_format: code}), target_format)
+        except (KeyError, AttributeError) as e:
+            if throw_error:
+                raise e
+            target_code = np.nan
+        target_codes += [target_code]
+    return target_codes
 
 
 def remove_landlocked_countries(country_list: List[str]) -> List[str]:
-    """
-    Filtering out landlocked countries from an input list of regions.
-
-    Parameters
-    ----------
-    country_list: List[str]
-        Initial list of regions.
-
-    Returns
-    -------
-    updated_codes: List[str]
-        Updated list of regions.
-    """
-
+    """Filtering out landlocked countries."""
     # TODO: maybe we should move this list in a file?
-    landlocked_codes = ['LU', 'AT', 'CZ', 'HU', 'MK', 'MD', 'RS', 'SK', 'CH', 'LI']
-
-    updated_codes = [c for c in country_list if c not in landlocked_codes]
-
-    return updated_codes
+    landlocked_countries = {'LU', 'AT', 'CZ', 'HU', 'MK', 'MD', 'RS', 'SK', 'CH', 'LI'}
+    return sorted(list(set(country_list) - landlocked_countries))
 
 
+# TODO: do sth with this
 def get_subregions(region: str) -> List[str]:
     """
     Return the list of the subregions composing one of the region defined in data/region_definition.csv.
@@ -76,14 +74,13 @@ def get_subregions(region: str) -> List[str]:
     return subregions
 
 
-# TODO: I would call that nuts_to_iso rather than referring to ehighway
-def update_ehighway_codes(region_list_countries: List[str]) -> List[str]:
+def replace_uk_el_codes(countries_list: List[str]) -> List[str]:
     """
     Updating ISO_2 code for UK and EL (not uniform across datasets).
 
     Parameters
     ----------
-    region_list_countries: List[str]
+    countries_list: List[str]
         Initial list of ISO_2 codes.
 
     Returns
@@ -93,7 +90,7 @@ def update_ehighway_codes(region_list_countries: List[str]) -> List[str]:
     """
 
     country_names_issues = {'UK': 'GB', 'EL': 'GR'}
-    updated_codes = [country_names_issues[c] if c in country_names_issues else c for c in region_list_countries]
+    updated_codes = [country_names_issues[c] if c in country_names_issues else c for c in countries_list]
 
     return updated_codes
 

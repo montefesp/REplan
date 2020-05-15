@@ -249,7 +249,7 @@ if __name__ == "__main__":
         test_number = sorted(os.listdir(main_output_dir))[-1]
     output_dir = f"{main_output_dir}{test_number}/"
     """
-    output_dir = "/home/utilisateur/Global_Grid/code/py_ggrid/output/resite_EU_meet_res_agg_use_ex_cap/0.1/"
+    output_dir = "/output/resite_EU_meet_res_agg_use_ex_cap/0.1/"
     print(output_dir)
 
     resite = pickle.load(open(f"{output_dir}resite_model.p", 'rb'))

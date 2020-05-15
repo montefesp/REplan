@@ -11,7 +11,7 @@ import geopy.distance
 
 from src.data.geographics import get_shapes
 from src.data.technologies import get_costs
-from src.data.topologies.manager import plot_topology
+from src.data.topologies.core import plot_topology
 
 
 def preprocess(plotting=True) -> None:

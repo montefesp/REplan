@@ -61,7 +61,7 @@ def get_gen_from_ppm(fuel_type: str = "", technology: str = "", countries: List[
             return "Czechia"
         return c
     plants["Country"] = plants["Country"].apply(lambda c: correct_countries(c))
-    plants["Country"] = plants["Country"].apply(lambda c: convert_country_codes('alpha_2', name=c))
+    plants["Country"] = convert_country_codes(plants["Country"].values, 'name', 'alpha_2', True)
 
     # Get only plants in countries over which the network is defined
     if countries is not None:

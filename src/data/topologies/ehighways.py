@@ -17,7 +17,7 @@ import pypsa
 from src.data.geographics import get_shapes, remove_landlocked_countries
 from src.data.geographics import get_natural_earth_shapes, get_nuts_shapes
 from src.data.technologies import get_costs
-from src.data.topologies.manager import plot_topology, voronoi_special
+from src.data.topologies.core import plot_topology, voronoi_special
 
 
 def get_ehighway_clusters() -> pd.DataFrame:

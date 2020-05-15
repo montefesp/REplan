@@ -42,10 +42,22 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
     if ppm_file_name is not None:
         ppm_folder = join(dirname(abspath(__file__)), "../../data/generation/source/ppm/")
         gens = pd.read_csv(f"{ppm_folder}/{ppm_file_name}", index_col=0, delimiter=";")
-        gens["Country"] = gens["Country"].apply(lambda c: convert_country_codes('alpha_2', name=c))
+        # TODO: this is shit, anyway need to deal with this ppm from file thing
+        def correct_countries(c: str):
+            if c == "Macedonia, Republic of":
+                return "North Macedonia"
+            if c == "Czech Republic":
+                return "Czechia"
+            return c
+        gens["Country"] = gens["Country"].apply(lambda c: correct_countries(c))
+        gens["Country"] = convert_country_codes(gens["Country"].values, 'name', 'alpha_2', True)
         gens = gens[gens["Country"].isin(countries)]
     else:
         gens = get_gen_from_ppm(fuel_type="Nuclear", countries=countries)
+
+    # If not plants in the chosen countries, return directly the network
+    if len(gens) == 0:
+        return network
 
     onshore_buses = network.buses[network.buses.onshore]
     gens_bus_ds = match_points_to_regions(gens[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values,

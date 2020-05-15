@@ -78,7 +78,7 @@ def associated_legacy_to_points(tech: str, points: List[Tuple[float, float]], sp
         data = data[pd.notnull(data['Coords'])]
 
         data["Location"] = data["Coords"].apply(lambda x: (float(x.split(',')[1]), float(x.split(',')[0])))
-        data['Country'] = data['Country'].apply(lambda c: convert_country_codes('alpha_2', name=c))
+        data['Country'] = convert_country_codes(data['Country'].values, 'name', 'alpha_2')
         data = data[data['Country'].isin(countries)]
         # Converting from MW to GW
         data['MWac'] *= 1e-3
@@ -229,7 +229,7 @@ def get_legacy_capacity_in_countries(tech: str, countries: List[str]) -> pd.Seri
         data = pd.read_excel(f"{path_legacy_data}Solarfarms_Europe_20200208.xlsx", sheet_name='ProjReg_rpt',
                              header=0, usecols=[0, 4, 8])
         if countries is not None:
-            data['Country'] = data['Country'].apply(lambda c: convert_country_codes('alpha_2', name=c))
+            data['Country'] = convert_country_codes(data['Country'].values, 'name', 'alpha_2')
             data = data[data['Country'].isin(countries)]
         # Converting from MW to GW
         data['Total power'] = data['MWac']*1e-3
@@ -306,7 +306,7 @@ def get_legacy_capacity_in_regions(tech: str, regions_shapes: pd.Series, countri
             data = data[pd.notnull(data['Coords'])]
             data["Location"] = data["Coords"].apply(lambda x: (float(x.split(',')[1]), float(x.split(',')[0])))
             if countries is not None:
-                data['Country'] = data['Country'].apply(lambda c: convert_country_codes('alpha_2', name=c))
+                data['Country'] = convert_country_codes(data['Country'].values, 'name', 'alpha_2')
                 data = data[data['Country'].isin(countries)]
 
             if len(data) == 0:
@@ -335,7 +335,7 @@ def get_legacy_capacity_in_regions(tech: str, regions_shapes: pd.Series, countri
         # Get countries shapes
         countries_shapes = get_shapes(data.index.values, which='onshore', save=True)['geometry']
 
-        #TODO: some other scaling factor should be used here, e.g., GDP data, rooftop area, etc.
+        # TODO: some other scaling factor should be used here, e.g., GDP data, rooftop area, etc.
         for region_id, region_shape in regions_shapes.items():
             for country_id, country_shape in countries_shapes.items():
                 capacities[region_id] += \

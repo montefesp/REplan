@@ -35,7 +35,7 @@ def get_co2_emission_level_for_country(country_code: str, year: int) -> float:
     eea_emission_fn = f"{emission_src_dir}eea/co2-emission-intensity-5.csv"
     eea_emission_df = pd.read_csv(eea_emission_fn, index_col=0, usecols=[0, 1, 4])
     eea_emission_df.columns = ["Country", "co2 (g/kWh)"]
-    country_name = convert_country_codes('name', alpha_2=country_code)
+    country_name = convert_country_codes([country_code], 'alpha_2', 'name', True)[0]
 
     if country_name in set(eea_emission_df["Country"].values) and \
             year in eea_emission_df[eea_emission_df["Country"] == country_name].index:

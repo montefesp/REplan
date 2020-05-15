@@ -23,7 +23,7 @@ def plot_capacity_per_country(tech: str, countries: List[str],
 
     ds = get_legacy_capacity_in_countries(tech, countries)
     df = pd.DataFrame({"ISO": ds.index, "Capacity": ds.values})
-    df["ISO_3"] = [convert_country_codes('alpha_3', alpha_2=c) for c in df["ISO"]]
+    df["ISO_3"] = convert_country_codes(df["ISO"].values, 'alpha_2', 'alpha_3')
 
     fig = go.Figure(data=go.Choropleth(
         locations=df['ISO_3'],  # Spatial coordinates

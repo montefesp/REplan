@@ -1,37 +1,9 @@
 import pytest
 
-import pypsa
-
 from src.network_builder.res import *
-from src.data.geographics import get_shapes
+from .utils import define_simple_network
 
-
-def define_simple_network() -> pypsa.Network:
-    net = pypsa.Network()
-    buses_id = ["BE", "NL", "OFF1"]
-
-    # Geographical info
-    all_shapes = get_shapes(["BE", "NL"], which='both')
-    onshore_shapes = all_shapes.loc[~all_shapes['offshore']]
-    offshore_shape = all_shapes.loc[(~all_shapes['offshore']) & (all_shapes.index == 'BE')]
-    centroids = [onshore_shapes["BE"].centroid, onshore_shapes["NL"].centroid,
-                 offshore_shape["BE"].centroid]
-    x, y = zip(*[(point.x, point.y) for point in centroids])
-
-    # Add buses
-    buses = pd.DataFrame(index=buses_id, columns=["x", "y", "region", "onshore"])
-    buses["x"] = x
-    buses["y"] = y
-    buses["region"] = [onshore_shapes["BE"], onshore_shapes["NL"], offshore_shape["BE"]]
-    buses["onshore"] = [True, True, False]
-    net.import_components_from_dataframe(buses, "Bus")
-
-    # Time
-    ts = pd.date_range('2015-01-01T00:00', '2015-01-01T23:00', freq='1H')
-    net.set_snapshots(ts)
-
-    return net
-
+# TODO: complete
 
 def test_add_generators_per_bus_ehighway_topology():
     import yaml

@@ -7,7 +7,7 @@ from itertools import product
 
 import shapely
 import shapely.prepared
-from shapely.ops import unary_union
+from shapely.ops import unary_union, nearest_points
 from shapely.errors import TopologicalError
 from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon, GeometryCollection
 import geopy.distance
@@ -19,9 +19,8 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
-# TODO: need to check if it is not removing to much points
 def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Series,
-                            keep_outside: bool = True, distance_threshold: float = 1.) -> pd.Series:
+                            keep_outside: bool = True, distance_threshold: float = 5.) -> pd.Series:
     """
     Match a set of points to regions by identifying in which region each point falls.
 
@@ -36,7 +35,7 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
         Dataframe storing geometries of NUTS regions.
     keep_outside: bool (default: True)
         Whether to keep points that fall outside of shapes
-    distance_threshold: float (default: 1)
+    distance_threshold: float (default: 5.)
         Maximal distance (km) from one shape for points outside of all shapes to be accepted
 
     Returns
@@ -44,6 +43,9 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
     points_region_ds : pd.Series
         Series giving for each point the associated region or NA
     """
+
+    assert len(points) != 0, "Error: List of points is empty."
+    assert len(shapes_ds) != 0, "Error Series of shapes is empty."
 
     points_region_ds = pd.Series(index=pd.MultiIndex.from_tuples(points)).sort_index()
     points = MultiPoint(points)
@@ -54,7 +56,7 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
         try:
             points_in_region = points.intersection(subregion)
         except shapely.errors.TopologicalError:
-            print(f"Warning: Problem with shape {index}")
+            logger.warning(f"WARNING: TopologicalError with shape {index}")
             continue
 
         # After intersection, we can end up into 4 case:
@@ -91,14 +93,17 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
     #  if the distance is inferior to a maximal distance.
     remaining_points = []
     for point in points:
-        distances = [point.distance(shapes_ds.loc[subregion]) for subregion in shapes_ds.index]
+        closest_points_in_shapes = [nearest_points(point, shapes_ds.loc[subregion])[1] for subregion in shapes_ds.index]
+        distances = [geopy.distance.geodesic((point.y, point.x), (c_point.y, c_point.x)).km
+                     for c_point in closest_points_in_shapes]
         if min(distances) < distance_threshold:
             closest_index = np.argmin(distances)
             points_region_ds.loc[(point.x, point.y)] = shapes_ds.index.values[closest_index]
         else:
             remaining_points += [point]
+
     if len(remaining_points) != 0:
-        logger.info(f"Warning: These points were not assigned to any shape: "
+        logger.info(f"INFO: These points were not assigned to any shape: "
                     f"{[(point.x, point.y) for point in remaining_points]}.")
 
     return points_region_ds
@@ -150,9 +155,9 @@ def get_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
     points: List[(float, float)]
 
     """
-    # Generate all points at the given resolution inside a rectangle whose bounds are the
-    #  based on the outermost points of the shape.
     if points is None:
+        # Generate all points at the given resolution inside a rectangle whose bounds are the
+        #  based on the outermost points of the shape.
         minx, miny, maxx, maxy = shape.bounds
         minx = round(minx / resolution) * resolution
         maxx = round(maxx / resolution) * resolution
@@ -174,6 +179,9 @@ def create_grid_cells(shape: Union[Polygon, MultiPolygon], resolution: float) \
     from vresutils.graph import voronoi_partition_pts
 
     points = get_points_in_shape(shape, resolution)
+    if len(points) == 0:
+        logger.warning("WARNING: No points at given resolution falls into shape.")
+        return points, []
     grid_cells = voronoi_partition_pts(points, shape)
 
     # Keep only Polygons and MultiPolygons

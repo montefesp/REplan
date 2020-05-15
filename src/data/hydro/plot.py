@@ -21,13 +21,13 @@ def plot_capacity_per_country(tech: str, countries: List[str],
 
     """
 
-    series = get_hydro_capacities("country", tech)
+    series = get_hydro_capacities("countries", tech)
     if not isinstance(series, tuple):
         series = (series, )
     for ds in series:
         df = pd.DataFrame(index=countries, columns=["ISO", "Capacity"])
         df.loc[ds.index, "Capacity"] = ds.values
-        df["ISO_3"] = [convert_country_codes('alpha_3', alpha_2=c) for c in df.index]
+        df["ISO_3"] = convert_country_codes(df.index.values, 'alpha_2', 'alpha_3')
 
         unit = ds.name.split(" ")[1]
         fig = go.Figure(data=go.Choropleth(
