@@ -61,14 +61,16 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
 
     onshore_buses = network.buses[network.buses.onshore]
     gens_bus_ds = match_points_to_regions(gens[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values,
-                                          onshore_buses.region)
+                                          onshore_buses.region, distance_threshold=50)
     points = list(gens_bus_ds.index)
     gens = gens[gens[["lon", "lat"]].apply(lambda x: (x[0], x[1]) in points, axis=1)]
 
     def add_region(lon, lat):
         bus = gens_bus_ds[lon, lat]
+        print(bus)
         # Need the if because some points are exactly at the same position
         return bus if isinstance(bus, str) else bus.iloc[0]
+    print(gens)
     gens["bus_id"] = gens[["lon", "lat"]].apply(lambda x: add_region(x[0], x[1]), axis=1)
 
     logger.info(f"Adding {gens['Capacity'].sum()*1e-3:.2f} GW of nuclear capacity in {gens['Country'].unique()}.")

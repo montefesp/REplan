@@ -4,14 +4,14 @@ from src.data.geographics.codes import *
 
 
 def test_convert_country_codes_wrong_country():
-    with pytest.raises(AttributeError):
+    with pytest.raises(KeyError):
         convert_country_codes(["ZZ"], 'alpha_2', 'alpha_3', throw_error=True)
     code = convert_country_codes(["ZZ"], 'alpha_2', 'alpha_3')[0]
     assert np.isnan(code)
 
 
 def test_convert_country_codes_wrong_source_format():
-    with pytest.raises(AttributeError):
+    with pytest.raises(KeyError):
         convert_country_codes(["BE"], 'alpha_3', 'alpha_3', throw_error=True)
     code = convert_country_codes(["BE"], 'alpha_3', 'alpha_3')[0]
     assert np.isnan(code)

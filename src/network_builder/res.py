@@ -408,9 +408,8 @@ def add_generators_per_bus(network: pypsa.Network, technologies: List[str],
         # Get the shapes of regions associated to each bus
         # TODO: maybe add a condition where we check if regions are defined per bus
         if not offshore_buses and tech in ['wind_offshore', 'wind_floating']:
-            offshore_shapes = get_shapes(list(buses.index), which='offshore', save=True)
-            buses = buses.loc[offshore_shapes.index]
-            buses_regions_shapes_ds = offshore_shapes["geometry"]
+            buses_regions_shapes_ds = get_shapes(list(buses.index), which='offshore', save=True)["geometry"]
+            buses = buses.loc[buses_regions_shapes_ds.index]
         else:
             buses_regions_shapes_ds = buses.region
 

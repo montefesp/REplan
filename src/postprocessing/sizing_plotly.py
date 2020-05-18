@@ -14,7 +14,7 @@ import plotly.graph_objs as go
 
 from pypsa import Network
 
-from src.data.geographics import get_offshore_shapes
+from src.data.geographics import get_shapes
 from src.data.vres_potential import get_capacity_potential_for_regions
 
 
@@ -421,15 +421,12 @@ class SizingPlotly:
 
         from functools import reduce
         all_countries = sorted(reduce(lambda x, y: x + y, list(regions_dict.values())))
-        onshore_shape_union = \
-            cascaded_union([shapely.wkt.loads(region) for region in self.net.buses[self.net.buses.onshore].region.values])
-        # TODO: refactor
-        offshore_shapes = get_offshore_shapes(all_countries, onshore_shape_union, filterremote=True)
+        offshore_shapes = get_shapes(all_countries, 'offshore')["geometry"]
         offshore_shapes.index = ['UK' if idx == "GB" else idx for idx in offshore_shapes.index]
 
         if strategy == "bus":
             # Compute capacity potential per eez
-            tech_regions_dict = {"wind_offshore": offshore_shapes["geometry"].values}
+            tech_regions_dict = {"wind_offshore": offshore_shapes.values}
             wind_capacity_potential_per_country = get_capacity_potential_for_regions(tech_regions_dict)['wind_offshore']
             wind_capacity_potential_per_country.index = offshore_shapes.index
 

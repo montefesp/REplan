@@ -31,7 +31,10 @@ def convert_country_codes(source_codes: List[str], source_format: str, target_fo
     target_codes = []
     for code in source_codes:
         try:
-            target_code = getattr(pyc.countries.get(**{source_format: code}), target_format)
+            country_codes = pyc.countries.get(**{source_format: code})
+            if country_codes is None:
+                raise KeyError(f"Data is not available for code {code} of type {source_format}.")
+            target_code = getattr(country_codes, target_format)
         except (KeyError, AttributeError) as e:
             if throw_error:
                 raise e
@@ -43,7 +46,7 @@ def convert_country_codes(source_codes: List[str], source_format: str, target_fo
 def remove_landlocked_countries(country_list: List[str]) -> List[str]:
     """Filtering out landlocked countries."""
     # TODO: maybe we should move this list in a file?
-    landlocked_countries = {'LU', 'AT', 'CZ', 'HU', 'MK', 'MD', 'RS', 'SK', 'CH', 'LI'}
+    landlocked_countries = {'AT', 'CH', 'CZ', 'HU', 'LI', 'LU', 'MD', 'MK', 'RS', 'SK'}
     return sorted(list(set(country_list) - landlocked_countries))
 
 

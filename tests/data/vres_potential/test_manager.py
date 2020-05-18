@@ -11,7 +11,7 @@ def test_get_available_regions_wrong_type():
 def test_get_available_regions_output():
     list_2 = get_available_regions("nuts2")
     assert isinstance(list_2, list)
-    assert len(list_2) == 294
+    assert len(list_2) == 293
     assert list_2[0] == 'AL01'
     assert list_2[-1] == 'UKN0'
     list_0 = get_available_regions("nuts0")
@@ -45,21 +45,21 @@ def test_read_capacity_potential_output_format():
 def test_read_capacity_potential_output():
     # Pv utility
     ds = read_capacity_potential('pv_utility', 'nuts2')
-    assert len(ds.index) == 294
+    assert len(ds.index) == 293
     assert round(ds['EL64']) == 0
     ds = read_capacity_potential('pv_utility', 'nuts0')
     assert len(ds.index) == 34
     assert round(ds['CH']) == 14
     # Pv residential
     ds = read_capacity_potential('pv_residential', 'nuts2')
-    assert len(ds.index) == 294
+    assert len(ds.index) == 293
     assert round(ds['HU22']) == 2
     ds = read_capacity_potential('pv_residential', 'nuts0')
     assert len(ds.index) == 34
     assert round(ds['BA']) == 0
     # Wind onshore
     ds = read_capacity_potential('wind_onshore', 'nuts2')
-    assert len(ds.index) == 294
+    assert len(ds.index) == 293
     assert round(ds['AL01']) == 3
     ds = read_capacity_potential('wind_onshore', 'nuts0')
     assert len(ds.index) == 34

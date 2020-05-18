@@ -112,7 +112,7 @@ class Resite:
         for region in self.regions:
             subregions = get_subregions(region)
             all_subregions.extend(subregions)
-            shapes_subregion = get_shapes(subregions, which='onshore_offshore', save=True)['geometry']
+            shapes_subregion = get_shapes(subregions, save=True)['geometry']
             regions_shapes[region] = unary_union(shapes_subregion)
 
         # Get all points situated in the given regions at the given spatial resolution
@@ -200,18 +200,18 @@ class Resite:
 
         # Get shape of regions and list of subregions
         regions_shapes = pd.Series(index=self.regions)
-        onshore_shape = []
-        offshore_shape = []
+        onshore_shapes = []
+        offshore_shapes = []
         all_subregions = []
         for region in self.regions:
             subregions = get_subregions(region)
             all_subregions.extend(subregions)
-            shapes = get_shapes(subregions, which='onshore_offshore', save=True)
-            onshore_shape.extend(shapes[~shapes['offshore']]['geometry'].values)
-            offshore_shape.extend(shapes[shapes['offshore']]['geometry'].values)
+            shapes = get_shapes(subregions, save=True)
+            onshore_shapes.extend(shapes[~shapes['offshore']]['geometry'].values)
+            offshore_shapes.extend(shapes[shapes['offshore']]['geometry'].values)
             regions_shapes[region] = unary_union(shapes['geometry'])
-        onshore_shape = unary_union(onshore_shape)
-        offshore_shape = unary_union(offshore_shape)
+        onshore_shape = unary_union(onshore_shapes)
+        offshore_shape = unary_union(offshore_shapes)
 
         # Divide the union of all regions shapes into grid cells of a given spatial resolution
         # and compute how much land is available in each cell for each technology

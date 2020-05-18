@@ -5,6 +5,7 @@ from .utils import define_simple_network
 
 # TODO: complete
 
+
 def test_add_generators_per_bus_ehighway_topology():
     import yaml
     net = define_simple_network()
@@ -13,7 +14,7 @@ def test_add_generators_per_bus_ehighway_topology():
     tech_config_path = join(dirname(abspath(__file__)), '../../data/technologies/vres_tech_config.yml')
     tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
     converters = {tech: tech_config[tech]["converter"] for tech in technologies}
-    net = add_generators_per_bus(net, technologies, countries, converters, topology_type='ehighway')
+    net = add_generators_per_bus(net, technologies, converters, countries, topology_type='ehighway')
     gens = net.generators
     assert len(gens.index) == 5
     for gen_id in ["Gen pv_utility BE", "Gen pv_utility NL",

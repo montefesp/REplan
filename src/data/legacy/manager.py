@@ -105,14 +105,14 @@ def associated_legacy_to_points(tech: str, points: List[Tuple[float, float]], sp
         pop_density_array = load_population_density_data(spatial_resolution)
 
         codes = [item for item in data.index]
-        onshore_shapes = get_shapes(codes, which='onshore', save=True)
+        onshore_shapes = get_shapes(codes, which='onshore', save=True)["geometry"]
 
         coords_multipoint = MultiPoint(points)
         df = pd.DataFrame([])
 
         for country in data.index:
 
-            points_in_country = coords_multipoint.intersection(onshore_shapes.loc[country, 'geometry'])
+            points_in_country = coords_multipoint.intersection(onshore_shapes.loc[country])
             points_in_country = [(point.x, point.y) for point in points_in_country]
 
             unit_capacity = data.loc[country] / pop_density_array.sel(locations=points_in_country).values.sum()
@@ -333,7 +333,7 @@ def get_legacy_capacity_in_regions(tech: str, regions_shapes: pd.Series, countri
             return capacities
 
         # Get countries shapes
-        countries_shapes = get_shapes(data.index.values, which='onshore', save=True)['geometry']
+        countries_shapes = get_shapes(data.index.values, which='onshore', save=True)["geometry"]
 
         # TODO: some other scaling factor should be used here, e.g., GDP data, rooftop area, etc.
         for region_id, region_shape in regions_shapes.items():

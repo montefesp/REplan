@@ -126,7 +126,7 @@ def match_points_to_countries(points: List[Tuple[float, float]], countries: List
         Series giving for each point the associated region or NA if the point didn't fall into any region
     """
 
-    shapes = get_shapes(countries, which='onshore_offshore', save=True)
+    shapes = get_shapes(countries, save=True)
 
     union_shapes = pd.Series(index=countries)
     for country in countries:

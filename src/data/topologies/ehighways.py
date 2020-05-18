@@ -14,8 +14,7 @@ import matplotlib.pyplot as plt
 
 import pypsa
 
-from src.data.geographics import get_shapes, remove_landlocked_countries
-from src.data.geographics import get_natural_earth_shapes, get_nuts_shapes
+from src.data.geographics import get_shapes, get_natural_earth_shapes, get_nuts_shapes
 from src.data.technologies import get_costs
 from src.data.topologies.core import plot_topology, voronoi_special
 
@@ -268,13 +267,9 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
 
     # Add offshore polygons to remaining offshore buses
     if add_offshore:
-        # TODO: considering the new get_shapes function we probably don't need this anymore
-        #  or do we need to raise an error in get_shapes when we don't have certain offshore shapes?
-        offshore_countries = remove_landlocked_countries(countries)
-        offshore_shapes = get_shapes(offshore_countries, which='offshore', save=True)
-        offshore_zones_codes = sorted(list(set(offshore_shapes.index.values).intersection(set(offshore_countries))))
-        if len(offshore_zones_codes) != 0:
-            offshore_zones_shape = unary_union(offshore_shapes["geometry"].values)
+        offshore_shapes = get_shapes(countries, which='offshore', save=True)["geometry"]
+        if len(offshore_shapes) != 0:
+            offshore_zones_shape = unary_union(offshore_shapes.values)
             offshore_buses = buses[~buses.onshore]
             # Use a home-made 'voronoi' partition to assign a region to each offshore bus
             buses.loc[~buses.onshore, "region"] = voronoi_special(offshore_zones_shape, offshore_buses[["x", "y"]])

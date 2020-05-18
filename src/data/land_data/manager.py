@@ -569,7 +569,7 @@ def get_land_availability_for_countries(countries: List[str], tech: str, tech_co
 
     """
 
-    all_shapes = get_shapes(countries, which='onshore_offshore', save=True)
+    all_shapes = get_shapes(countries, save=True)
     shapes = all_shapes[~all_shapes['offshore']]["geometry"].values
     if tech in ["wind_offshore", "wind_floating"]:
         shapes = all_shapes[all_shapes['offshore']]["geometry"].values
@@ -588,7 +588,7 @@ if __name__ == '__main__':
     tech_ = "wind_onshore"
     region_ = 'BE'
     subregions_ = get_subregions(region_)
-    all_shapes = get_shapes(subregions_, which='onshore_offshore')
+    all_shapes = get_shapes(subregions_)
     print(all_shapes)
     if tech_ in ["wind_floating", "wind_offshore"]:
         union = unary_union(all_shapes[all_shapes['offshore']]["geometry"].values)

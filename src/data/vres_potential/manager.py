@@ -67,7 +67,7 @@ def read_capacity_potential(tech: str, nuts_type: str = "nuts0") -> pd.Series:
         return pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0)[tech]
 
 
-# TODO: maybe this function is going to disappear?
+# TODO: this function is going to disappear
 def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[float, float]]],
                                      spatial_resolution: float, countries: List[str],
                                      existing_capacity_ds: pd.Series = None) -> pd.Series:
@@ -108,10 +108,9 @@ def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[floa
     # Get NUTS2 and EEZ shapes
     nuts2_regions_list = get_available_regions("nuts2")
     codes = [code for code in nuts2_regions_list if code[:2] in nuts0_regions]
-    region_shapes = get_shapes(codes, which='onshore_offshore', save=True)
 
-    region_shapes_dict = {"nuts2": region_shapes.loc[~region_shapes['offshore']],
-                          "eez": region_shapes.loc[region_shapes['offshore']]}
+    region_shapes_dict = {"nuts2": get_shapes(codes, which='onshore')["geometry"],
+                          "eez": get_shapes(countries, which='offshore', save=True)["geometry"]}
     region_shapes_dict["eez"].index = [f"EZ{code}" for code in region_shapes_dict["eez"].index]
 
     tech_points_tuples = sorted([(tech, point) for tech, points in tech_points_dict.items() for point in points])
@@ -134,7 +133,7 @@ def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[floa
         else:
             region_shapes = region_shapes_dict["nuts2"]
 
-        point_regions_ds = match_points_to_regions(points, region_shapes["geometry"]).dropna()
+        point_regions_ds = match_points_to_regions(points, region_shapes).dropna()
         points = list(point_regions_ds.index)
         points_info_df = pd.DataFrame(point_regions_ds.values, point_regions_ds.index, columns=["region"])
 
@@ -215,29 +214,29 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
 
         # Compute potential for each NUTS2 or EEZ
         potential_per_subregion_ds = read_capacity_potential(tech, nuts_type='nuts2')
-        all_shapes = get_shapes(potential_per_subregion_ds.index.values,
-                                which='onshore_offshore', save=True)
+        if tech in ["wind_offshore", "wind_floating"]:
+            potential_per_subregion_ds.index = [code[2:] for code in potential_per_subregion_ds.index]
 
         # Get NUTS2 or EEZ shapes
         #  TODO: would need to get this out of the loop
         if tech in ['wind_offshore', 'wind_floating']:
-            shapes = all_shapes.loc[all_shapes['offshore']]
-            shapes.index = [f"EZ{code}" for code in shapes.index]
+            offshore_codes = list(set([code[:2] for code in potential_per_subregion_ds.index]))
+            shapes = get_shapes(offshore_codes, which='offshore', save=True)["geometry"]
         else:
-            shapes = all_shapes.loc[~all_shapes['offshore']]
+            shapes = get_shapes(list(potential_per_subregion_ds.index), which='onshore')["geometry"]
 
         # Compute capacity potential for the regions given as argument
         for i, region in enumerate(regions):
             cap_pot = 0
-            for index, shape in shapes.iterrows():
+            for index, shape in shapes.items():
                 try:
-                    intersection = region.intersection(shape["geometry"])
+                    intersection = region.intersection(shape)
                 except TopologicalError:
                     logger.info(f"Warning: Problem with shape for code {index}")
                     continue
                 if intersection.is_empty or intersection.area == 0.:
                     continue
-                cap_pot += potential_per_subregion_ds[index]*intersection.area/shape["geometry"].area
+                cap_pot += potential_per_subregion_ds[index]*intersection.area/shape.area
                 try:
                     region = region.difference(intersection)
                 except TopologicalError:
