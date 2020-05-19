@@ -237,7 +237,7 @@ def get_topology(network: pypsa.Network, countries: List[str] = None, add_offsho
     assert countries is None or len(countries) != 0, "Error: Countries list must not be empty. If you want to " \
                                                      "obtain, the full topology, don't pass anything as argument."
 
-    topology_dir = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/generated2/")
+    topology_dir = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/generated/")
     buses_fn = f"{topology_dir}buses.csv"
     assert isfile(buses_fn), f"Error: Buses are undefined. Please run 'preprocess'."
     buses = pd.read_csv(buses_fn, index_col='id')
