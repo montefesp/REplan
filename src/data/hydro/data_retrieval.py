@@ -43,6 +43,6 @@ if __name__ == '__main__':
     years = ['2014', '2015', '2016', '2017', '2018']
     months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
 
-    spatial_resolution = 0.5
+    spatial_resolution = 0.28125
 
     retrieve_with_cds_api(regions, spatial_resolution, years, months)
