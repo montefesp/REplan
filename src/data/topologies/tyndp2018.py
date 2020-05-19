@@ -86,9 +86,9 @@ def get_topology(network: pypsa.Network, countries: List[str] = None, add_offsho
     ----------
     network: pypsa.Network
         Network instance
-    countries: List[str]
+    countries: List[str] (default: None)
         List of ISO codes of countries for which we want the tyndp topology.
-    add_offshore: bool
+    add_offshore: bool (default: False)
         Whether to include offshore nodes
     extend_line_cap: bool (default True)
         Whether line capacity is allowed to be expanded

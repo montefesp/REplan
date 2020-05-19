@@ -1,4 +1,5 @@
-from os.path import dirname, join, abspath
+from os.path import dirname, join, abspath, isfile, isdir
+from os import makedirs
 from typing import List
 
 import pandas as pd
@@ -14,7 +15,7 @@ import matplotlib.pyplot as plt
 
 import pypsa
 
-from src.data.geographics import get_shapes, get_natural_earth_shapes, get_nuts_shapes
+from src.data.geographics import get_shapes, get_natural_earth_shapes, get_nuts_shapes, replace_uk_el_codes
 from src.data.technologies import get_costs
 from src.data.topologies.core import plot_topology, voronoi_special
 
@@ -72,6 +73,10 @@ def preprocess(plotting: bool = False):
     plotting: bool
         Whether to plot the results
     """
+
+    generated_dir = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/generated/")
+    if not isdir(generated_dir):
+        makedirs(generated_dir)
 
     eh_clusters = get_ehighway_clusters()
 
@@ -136,11 +141,7 @@ def preprocess(plotting: bool = False):
                               ["OFFI", -9.5, 41.0, Point(-9.5, 41.0), False]],  # Portugal West
                              columns=["id", "x", "y", "region", "onshore"])
     add_buses = add_buses.set_index("id")
-
     buses = buses.append(add_buses)
-
-    bus_save_fn = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/generated/buses.csv")
-    buses.to_csv(bus_save_fn)
 
     # Offshore lines
     add_lines = pd.DataFrame([["OFF1-96IE", "OFF1", "96IE", "DC", 0],
@@ -198,16 +199,17 @@ def preprocess(plotting: bool = False):
         bus1_y = buses.loc[bus1_id]["y"]
         lines.loc[idx, "length"] = geopy.distance.geodesic((bus0_y, bus0_x), (bus1_y, bus1_x)).km
 
-    line_save_fn = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/generated/lines.csv")
-    lines.to_csv(line_save_fn)
-
     if plotting:
         plot_topology(buses, lines)
         plt.show()
 
+    buses.to_csv(f"{generated_dir}buses.csv")
+    lines.to_csv(f"{generated_dir}lines.csv")
 
-def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool, extend_line_cap: bool = True,
-                 use_ex_line_cap: bool = True, plot: bool = False) -> pypsa.Network:
+
+def get_topology(network: pypsa.Network, countries: List[str] = None, add_offshore: bool = True,
+                 extend_line_cap: bool = True, use_ex_line_cap: bool = True,
+                 plot: bool = False) -> pypsa.Network:
     """
     Load the e-highway network topology (buses and links) using PyPSA.
 
@@ -215,9 +217,9 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     ----------
     network: pypsa.Network
         Network instance
-    countries: List[str]
+    countries: List[str] (default: None)
         List of ISO codes of countries for which we want the e-highway topology
-    add_offshore: bool
+    add_offshore: bool (default: True)
         Whether to include offshore nodes
     extend_line_cap: bool (default True)
         Whether line capacity is allowed to be expanded
@@ -232,21 +234,32 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
         Updated network
     """
 
-    topology_dir = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/generated/")
-    buses = pd.read_csv(f"{topology_dir}buses.csv", index_col='id')
+    assert countries is None or len(countries) != 0, "Error: Countries list must not be empty. If you want to " \
+                                                     "obtain, the full topology, don't pass anything as argument."
+
+    topology_dir = join(dirname(abspath(__file__)), "../../../data/topologies/e-highways/generated2/")
+    buses_fn = f"{topology_dir}buses.csv"
+    assert isfile(buses_fn), f"Error: Buses are undefined. Please run 'preprocess'."
+    buses = pd.read_csv(buses_fn, index_col='id')
+    lines_fn = f"{topology_dir}lines.csv"
+    assert isfile(lines_fn), f"Error: Lines are undefined. Please run 'preprocess'."
+    lines = pd.read_csv(lines_fn, index_col='id')
 
     # Remove offshore buses if not considered
     if not add_offshore:
         buses = buses.loc[buses['onshore']]
 
-    # In e-highway, GB is referenced as UK
-    e_highway_problems = {"GB": "UK"}
-    e_highway_countries = [e_highway_problems[c] if c in e_highway_problems else c for c in countries]
+    if countries is not None:
+        # In e-highway, GB is referenced as UK
+        iso_to_ehighway = {"GB": "UK"}
+        ehighway_countries = [iso_to_ehighway[c] if c in iso_to_ehighway else c for c in countries]
 
-    # Remove onshore buses that are not in the considered region, keep also buses that are offshore
-    def filter_buses(bus):
-        return not bus.onshore or bus.name[2:] in e_highway_countries
-    buses = buses.loc[buses.apply(filter_buses, axis=1)]
+        # Remove onshore buses that are not in the considered region, keep also buses that are offshore
+        def filter_buses(bus):
+            return not bus.onshore or bus.name[2:] in ehighway_countries
+        buses = buses.loc[buses.apply(filter_buses, axis=1)]
+    else:
+        countries = replace_uk_el_codes(list(set([idx[2:] for idx in buses.index if buses.loc[idx, "onshore"]])))
 
     # Converting polygons strings to Polygon object
     regions = buses.region.values
@@ -255,14 +268,13 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
         if isinstance(region, str):
             regions[i] = shapely.wkt.loads(region)
 
-    # Get corresponding lines
-    lines = pd.read_csv(f"{topology_dir}lines.csv", index_col='id')
     # Remove lines for which one of the two end buses has been removed
     lines = pd.DataFrame(lines.loc[lines.bus0.isin(buses.index) & lines.bus1.isin(buses.index)])
 
     # Removing offshore buses that are not connected anymore
     connected_buses = sorted(list(set(lines["bus0"]).union(set(lines["bus1"]))))
     buses = buses.loc[connected_buses]
+    assert len(buses) != 0, "Error: No buses are located in the given list of countries."
 
     # Add offshore polygons to remaining offshore buses
     if add_offshore:
@@ -293,7 +305,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     lines['p_nom_min'] = lines['p_nom']
     lines['p_min_pu'] = -1.  # Making the link bi-directional
     lines = lines.drop('s_nom', axis=1)
-    lines['p_nom_extendable'] = pd.Series(extend_line_cap, index=lines.index)
+    lines['p_nom_extendable'] = extend_line_cap
     lines['capital_cost'] = pd.Series(index=lines.index)
     for idx in lines.index:
         carrier = lines.loc[idx].carrier

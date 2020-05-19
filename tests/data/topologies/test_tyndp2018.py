@@ -2,8 +2,6 @@ import pytest
 
 from src.data.topologies.tyndp2018 import *
 
-import pypsa
-
 
 def test_get_topology_no_countries():
     n = pypsa.Network()
@@ -14,7 +12,7 @@ def test_get_topology_no_countries():
 def test_get_topology_missing_countries():
     n = pypsa.Network()
     with pytest.raises(AssertionError):
-        get_topology(n, ["ZZ"])
+        get_topology(n, ["US"])
 
 
 def test_get_topology_disconnected_onshore_bus():
@@ -57,6 +55,7 @@ def test_get_topology_whole():
     assert len(n.links) == 81
     assert all(l["p_min_pu"] == -1 for idx, l in n.links.iterrows())
     assert all(l["p_nom_extendable"] for idx, l in n.links.iterrows())
+    assert all(l["capital_cost"] > 0 for idx, l in n.links.iterrows())
     assert all(l["p_nom_min"] == l["p_nom"] for idx, l in n.links.iterrows())
 
 
