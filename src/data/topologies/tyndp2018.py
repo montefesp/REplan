@@ -1,5 +1,6 @@
 from typing import List
-from os.path import join, dirname, abspath
+from os.path import join, dirname, abspath, isfile, isdir
+from os import makedirs
 
 import pandas as pd
 
@@ -23,6 +24,10 @@ def preprocess(plotting=True) -> None:
     plotting: bool
         Whether to plot the results
     """
+
+    generated_dir = join(dirname(abspath(__file__)), "../../../data/topologies/tyndp2018/generated/")
+    if not isdir(generated_dir):
+        makedirs(generated_dir)
 
     # Create links
     link_data_fn = join(dirname(abspath(__file__)),
@@ -51,9 +56,6 @@ def preprocess(plotting=True) -> None:
     buses.x = [c.x for c in centroids]
     buses.y = [c.y for c in centroids]
 
-    buses_save_fn = join(dirname(abspath(__file__)), "../../../data/topologies/tyndp2018/generated/buses.csv")
-    buses.to_csv(buses_save_fn)
-
     # Adding length to the lines
     links["length"] = pd.Series([0]*len(links.index), index=links.index)
     for idx in links.index:
@@ -65,16 +67,18 @@ def preprocess(plotting=True) -> None:
         bus1_y = buses.loc[bus1_id]["y"]
         links.loc[idx, "length"] = geopy.distance.geodesic((bus0_y, bus0_x), (bus1_y, bus1_x)).km
 
-    link_save_fn = join(dirname(abspath(__file__)), "../../../data/topologies/tyndp2018/generated/links.csv")
-    links.to_csv(link_save_fn)
-
     if plotting:
         plot_topology(buses, links)
         plt.show()
 
+    buses.region = buses.region.astype(str)
+    buses.to_csv(f"{generated_dir}buses.csv")
+    links.to_csv(f"{generated_dir}links.csv")
 
-def get_topology(network: pypsa.Network, countries: List[str], add_offshore: bool = False, extend_line_cap: bool = True,
-                 use_ex_line_cap: bool = True, plot: bool = False) -> pypsa.Network:
+
+def get_topology(network: pypsa.Network, countries: List[str] = None, add_offshore: bool = False,
+                 extend_line_cap: bool = True, use_ex_line_cap: bool = True,
+                 plot: bool = False) -> pypsa.Network:
     """
     Load the e-highway network topology (buses and links) using PyPSA.
 
@@ -83,7 +87,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
     network: pypsa.Network
         Network instance
     countries: List[str]
-        List of ISO codes of countries for which we want the e-highway topology
+        List of ISO codes of countries for which we want the tyndp topology.
     add_offshore: bool
         Whether to include offshore nodes
     extend_line_cap: bool (default True)
@@ -99,21 +103,31 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
         Updated network
     """
 
+    assert countries is None or len(countries) != 0, "Error: Countries list must not be empty. If you want to " \
+                                                     "obtain, the full topology, don't pass anything as argument."
+
     topology_dir = join(dirname(abspath(__file__)), "../../../data/topologies/tyndp2018/generated/")
-    buses = pd.read_csv(f"{topology_dir}buses.csv", index_col='id')
+    buses_fn = f"{topology_dir}buses.csv"
+    assert isfile(buses_fn), f"Error: Buses are undefined. Please run 'preprocess'."
+    buses = pd.read_csv(buses_fn, index_col='id')
+    links_fn = f"{topology_dir}links.csv"
+    assert isfile(links_fn), f"Error: Links are undefined. Please run 'preprocess'."
+    links = pd.read_csv(links_fn, index_col='id')
 
     # Remove offshore buses if not considered
     if not add_offshore:
         buses = buses.loc[buses['onshore']]
 
-    # Check if there is a bus for each country considered
-    missing_countries = set(countries) - set(buses.index)
-    assert not missing_countries, f"Error: No buses exist for the following countries: {missing_countries}"
+    if countries is not None:
+        # Check if there is a bus for each country considered
+        missing_countries = set(countries) - set(buses.index)
+        assert not missing_countries, f"Error: No buses exist for the following countries: {missing_countries}"
 
-    # Remove onshore buses that are not in the considered countries, keep also buses that are offshore
-    def filter_buses(bus):
-        return not bus.onshore or bus.name in countries
-    buses = buses.loc[buses.apply(filter_buses, axis=1)]
+        # Remove onshore buses that are not in the considered countries, keep also buses that are offshore
+        def filter_buses(bus):
+            return not bus.onshore or bus.name in countries
+        buses = buses.loc[buses.apply(filter_buses, axis=1)]
+    countries = buses.index
 
     # Converting polygons strings to Polygon object
     regions = buses.region.values
@@ -122,8 +136,6 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
         if isinstance(region, str):
             regions[i] = shapely.wkt.loads(region)
 
-    # Get corresponding links
-    links = pd.read_csv(f"{topology_dir}links.csv", index_col='id')
     # Remove links for which one of the two end buses has been removed
     links = pd.DataFrame(links.loc[links.bus0.isin(buses.index) & links.bus1.isin(buses.index)])
 
@@ -138,7 +150,7 @@ def get_topology(network: pypsa.Network, countries: List[str], add_offshore: boo
         links['p_nom'] = 0
     links['p_nom_min'] = links['p_nom']
     links['p_min_pu'] = -1.  # Making the link bi-directional
-    links['p_nom_extendable'] = pd.Series(extend_line_cap, index=links.index)
+    links['p_nom_extendable'] = extend_line_cap
     links['capital_cost'] = pd.Series(index=links.index)
     for idx in links.index:
         carrier = links.loc[idx].carrier

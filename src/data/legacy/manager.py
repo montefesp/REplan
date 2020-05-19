@@ -84,7 +84,7 @@ def associated_legacy_to_points(tech: str, points: List[Tuple[float, float]], sp
         data['MWac'] *= 1e-3
 
         # Associate each location with legacy capacity to a point in points
-        # TODO: make a function of this? use kneighbors?
+        # ODO: make a function of this? use kneighbors?
         points = np.array(points)
         legacy_capacity_locs = np.array(list(data['Location'].values))
         associated_points = \
@@ -142,8 +142,9 @@ def get_legacy_capacity_at_points(technologies: List[str], tech_config: Dict[str
     technologies: List[str]
         List of technologies for which we want to obtain legacy capacity
     tech_config: Dict[str, Any]
-        # TODO: comment -> actually need to remove that and only pass legacy_min_capacity
-        # TODO: Maybe it shouldn't even be passed as arguments but read direclty here? We could define a function in data/technologies that returns the required value?
+        # ODO: comment -> actually need to remove that and only pass legacy_min_capacity
+        # ODO: Maybe it shouldn't even be passed as arguments but read directly
+        here? We could define a function in data/technologies that returns the required value?
     countries: List[str]
         Countries for which we want legacy capacity
     points : List[Tuple[float, float]]

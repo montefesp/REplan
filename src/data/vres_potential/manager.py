@@ -218,12 +218,11 @@ def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[P
             potential_per_subregion_ds.index = [code[2:] for code in potential_per_subregion_ds.index]
 
         # Get NUTS2 or EEZ shapes
-        #  TODO: would need to get this out of the loop
         if tech in ['wind_offshore', 'wind_floating']:
             offshore_codes = list(set([code[:2] for code in potential_per_subregion_ds.index]))
-            shapes = get_shapes(offshore_codes, which='offshore', save=True)["geometry"]
+            shapes = get_shapes(offshore_codes, 'offshore', True)["geometry"]
         else:
-            shapes = get_shapes(list(potential_per_subregion_ds.index), which='onshore')["geometry"]
+            shapes = get_shapes(list(potential_per_subregion_ds.index), 'onshore', True)["geometry"]
 
         # Compute capacity potential for the regions given as argument
         for i, region in enumerate(regions):

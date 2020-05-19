@@ -583,7 +583,7 @@ if __name__ == '__main__':
     from shapely.ops import unary_union
     import yaml
     # TODO: need to change
-    config_fn = join(dirname(abspath(__file__)), f"../../../data/technologies/vres_tech_config.yml")
+    config_fn = join(dirname(abspath(__file__)), f"../../../data/technologies/tech_config.yml")
     tech_config_ = yaml.load(open(config_fn, "r"), Loader=yaml.FullLoader)
     tech_ = "wind_onshore"
     region_ = 'BE'

@@ -127,7 +127,7 @@ class Resite:
             tech_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore',
                                                                               'pv_utility', 'pv_residential']))
             existing_cap_ds = get_legacy_capacity_at_points(tech_with_legacy_data, self.tech_config,
-                                                                 all_subregions, init_points, self.spatial_res)
+                                                            all_subregions, init_points, self.spatial_res)
 
             # If some initial points with existing capacity were filtered, add them back
             for tech in tech_with_legacy_data:
@@ -408,7 +408,7 @@ class Resite:
         yaml.dump(params, open(f"{output_folder}config.yaml", 'w'))
 
         # Save the technology configurations
-        yaml.dump(self.tech_config, open(f"{output_folder}vres_tech_config.yaml", 'w'))
+        yaml.dump(self.tech_config, open(f"{output_folder}tech_config.yaml", 'w'))
 
         # Save the attributes
         resite_output = [

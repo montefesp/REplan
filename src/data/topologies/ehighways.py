@@ -41,7 +41,6 @@ def get_ehighway_shapes() -> pd.Series:
                        f"../../../data/topologies/e-highways/source/clusters_2016.csv")
     clusters = pd.read_csv(clusters_fn, delimiter=";", index_col=0)
 
-    # TODO: if get_shapes could take different code types at the same time, we could simplify even more this function
     all_codes = []
     for idx in clusters.index:
         all_codes.extend(clusters.loc[idx, 'codes'].split(','))

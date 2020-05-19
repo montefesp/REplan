@@ -14,7 +14,6 @@ In the dataset:
     'orography' -> 'z'
     'slope_of_sub_gridscale_orography' -> 'slor'
 """
-# TODO: change names
 categories = {
     "model_bathymetry": "model_bathymetry",
     "land_sea_mask": ["land_sea_mask", "model_bathymetry"],

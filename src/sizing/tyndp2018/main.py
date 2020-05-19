@@ -44,7 +44,7 @@ if __name__ == '__main__':
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
     fuel_info = pd.read_excel(join(tech_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
-    vres_tech_config = yaml.load(open(join(tech_dir, 'vres_tech_config.yml')), Loader=yaml.FullLoader)
+    tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
 
     # Time
     timeslice = config['time']['slice']
@@ -108,16 +108,16 @@ if __name__ == '__main__':
                                         config["res"]["spatial_resolution"], countries,
                                         "countries", config["res"]["cap_dens"], offshore_buses=False)
             elif strategy == "bus":
-                converters = {tech: vres_tech_config[tech]["converter"] for tech in technologies}
+                converters = {tech: tech_config[tech]["converter"] for tech in technologies}
                 net = add_res_per_bus(net, technologies, converters, countries,
                                       config["res"]["use_ex_cap"], topology_type='countries', offshore_buses=False)
             elif strategy == "no_siting":
                 net = add_res_at_resolution(net, technologies, [config["region"]],
-                                            vres_tech_config, config["res"]["spatial_resolution"],
+                                            tech_config, config["res"]["spatial_resolution"],
                                             config['res']['filtering_layers'], config["res"]["use_ex_cap"],
                                             topology_type='countries', offshore_buses=False)
             elif strategy == 'siting':
-                net = add_res(net, technologies, config['res'], vres_tech_config, config["region"],
+                net = add_res(net, technologies, config['res'], tech_config, config["region"],
                               output_dir=f"{output_dir}resite/", offshore_buses=False, topology_type='countries')
 
     # Add conventional gen
@@ -170,7 +170,7 @@ if __name__ == '__main__':
     yaml.dump(config, open(f"{output_dir}config.yaml", 'w'))
     yaml.dump(tech_info, open(f"{output_dir}tech_info.yaml", 'w'))
     yaml.dump(fuel_info, open(f"{output_dir}fuel_info.yaml", 'w'))
-    yaml.dump(vres_tech_config, open(f"{output_dir}vres_tech_config.yaml", 'w'))
+    yaml.dump(tech_config, open(f"{output_dir}tech_config.yaml", 'w'))
 
     net.export_to_csv_folder(output_dir)
 

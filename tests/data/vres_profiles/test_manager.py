@@ -5,7 +5,7 @@ from src.data.vres_profiles.manager import *
 
 def get_converters(techs):
     import yaml
-    tech_config_path = join(dirname(abspath(__file__)), '../../../data/technologies/vres_tech_config.yml')
+    tech_config_path = join(dirname(abspath(__file__)), '../../../data/technologies/tech_config.yml')
     tech_conf = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
     return {tech: tech_conf[tech]["converter"] for tech in techs}
 
