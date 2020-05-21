@@ -43,7 +43,7 @@ def get_co2_emission_level_for_country(country_code: str, year: int) -> float:
         co2_intensity = eea_emission_df[eea_emission_df["Country"] == country_name].loc[year, "co2 (g/kWh)"]
         # Multiply by production to obtain total co2 emissions (in kT)
         iea_production_fn = join(dirname(abspath(__file__)),
-                                 f"../../../data/generation/source/iea/{country_code}.csv")
+                                 f"../../../data/generation/source/iea/total/{country_code}.csv")
         iea_production_df = pd.read_csv(iea_production_fn, index_col=0)
         return co2_intensity*iea_production_df.loc[year, "Electricity Production (GWh)"]*1e6/1e9
     else:

@@ -46,7 +46,7 @@ def add_phs_plants(network: pypsa.Network, topology_type: str = "countries",
         nodes_with_capacity = sorted(list(set(buses_onshore.index) & set(pow_cap.index)))
         bus_pow_cap = pow_cap.loc[nodes_with_capacity]
         bus_en_cap = en_cap.loc[nodes_with_capacity]
-    else: # topology_type == 'ehighway
+    else:  # topology_type == 'ehighway
         bus_pow_cap, bus_en_cap, nodes_with_capacity = phs_nuts_to_ehighway(buses_onshore.index, pow_cap, en_cap)
 
     logger.info(f"Adding {bus_pow_cap.sum():.2f} GW of PHS hydro "
@@ -119,7 +119,7 @@ def add_ror_plants(network: pypsa.Network, topology_type: str = "countries",
         nodes_with_capacity = sorted(list(set(buses_onshore.index) & set(pow_cap.index)))
         bus_pow_cap = pow_cap.loc[nodes_with_capacity]
         bus_inflows = inflows[nodes_with_capacity]
-    else: # topology_type == 'ehighway'
+    else:  # topology_type == 'ehighway'
         bus_pow_cap, bus_inflows, nodes_with_capacity = \
             ror_inputs_nuts_to_ehighway(buses_onshore.index, pow_cap, inflows)
 
@@ -191,7 +191,7 @@ def add_sto_plants(network: pypsa.Network, topology_type: str = "countries",
         bus_pow_cap = pow_cap.loc[nodes_with_capacity]
         bus_en_cap = en_cap.loc[nodes_with_capacity]
         bus_inflows = inflows[nodes_with_capacity]
-    else: #topology_type == 'ehighway'
+    else:  # topology_type == 'ehighway'
         bus_pow_cap, bus_en_cap, bus_inflows, nodes_with_capacity = \
             sto_inputs_nuts_to_ehighway(buses_onshore.index, pow_cap, en_cap, inflows)
 

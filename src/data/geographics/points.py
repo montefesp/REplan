@@ -19,6 +19,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
+# TODO: should this be implemented using multiprocessing? At least the last part when adding 'outside' points?
 def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Series,
                             keep_outside: bool = True, distance_threshold: float = 5.) -> pd.Series:
     """

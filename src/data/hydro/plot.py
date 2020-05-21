@@ -8,7 +8,7 @@ from src.data.hydro import get_hydro_capacities
 
 
 def plot_capacity_per_country(tech: str, countries: List[str],
-                              lonrange=None, latrange=None) -> None:
+                              lon_range: List[float] = None, lat_range: List[float] = None) -> None:
     """
     Plot a choropleth map of the existing capacity of a technology in a series of countries.
 
@@ -18,7 +18,10 @@ def plot_capacity_per_country(tech: str, countries: List[str],
         One of wind_offshore, wind_onshore, pv_utility, pv_residential
     countries: List[str]
         List of ISO codes
-
+    lon_range: List[float] (default: None)
+        Longitudinal range over which to display the map. Automatically set if not specified.
+    lat_range: List[float] (default: None)
+        Latitudinal range over which to display the map. Automatically set if not specified.
     """
 
     series = get_hydro_capacities("countries", tech)
@@ -41,10 +44,10 @@ def plot_capacity_per_country(tech: str, countries: List[str],
         fig.update_layout(
             geo=dict(
                 lonaxis=dict(
-                    range=lonrange,
+                    range=lon_range,
                 ),
                 lataxis=dict(
-                    range=latrange,
+                    range=lat_range,
                 ),
                 scope='europe')
         )
@@ -54,4 +57,4 @@ def plot_capacity_per_country(tech: str, countries: List[str],
 
 if __name__ == '__main__':
     regions = get_subregions("EU2")
-    plot_capacity_per_country("ror", regions, lonrange=[-12, 30], latrange=[35, 75])
+    plot_capacity_per_country("ror", regions, lon_range=[-12, 30], lat_range=[35, 75])

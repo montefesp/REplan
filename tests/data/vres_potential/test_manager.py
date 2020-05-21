@@ -99,9 +99,8 @@ def test_get_capacity_potential_at_points_wrong_country():
         get_capacity_potential_at_points({'wind_onshore': [(0.5, 1.0)]}, 0.5, ['ZZ'])
 
 
-# TODO: add test for 'get_capacity_potential_at_points' if we keep this function
-
-# TODO: add test for 'get_capacity_potential_for_regions' if we keep this function
+# TODO: add test for 'get_capacity_potential_at_points' and 'get_capacity_potential_for_regions'
+#  if we keep these functions
 
 
 def test_get_capacity_potential_for_countries_wrong_tech():

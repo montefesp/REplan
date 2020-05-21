@@ -101,6 +101,7 @@ def get_phs_capacities(aggregation_level: str) -> Tuple[pd.Series, pd.Series]:
     """Returns available PHS power (in GW) and energy (in GWh) capacities per NUTS or country in which it exists"""
     return get_hydro_capacities(aggregation_level, 'phs')
 
+
 def phs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series) -> (pd.Series, pd.Series, set):
     """
     Mapping PHS capacities from NUTS3 to PHS
@@ -120,6 +121,7 @@ def phs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series
         PHS e-highway power capacities.
     bus_e_cap: pd.Series
         PHS e-highway energy capacities.
+    # TODO: make no sense to me to return this as argument
     regions_with_cap: set
         Regions (i.e., countries) with capacity.
 
@@ -140,6 +142,7 @@ def phs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series
     regions_with_cap = set(bus_p_cap.index.str[2:])
 
     return bus_p_cap, bus_e_cap, regions_with_cap
+
 
 # ----- ROR ----- #
 
@@ -205,12 +208,11 @@ def get_sto_inflows(aggregation_level: str, timestamps: pd.DatetimeIndex = None)
     """Returns STO inflows (in GWh) per NUTS or country in which it exists"""
     return get_hydro_inflows(aggregation_level, 'sto', timestamps)
 
+
 def sto_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series,
                                 inflow_ts: pd.DataFrame) -> (pd.Series, pd.Series, pd.DataFrame, set):
     """
-    Rescale STO plants inputs from NUTS2 levels to e-highway bus levels.
 
-    All inputs are rescaled based on regions areas.
 
     Parameters
     ----------
@@ -244,6 +246,7 @@ def sto_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd
 
         nuts3_codes = eh_clusters.loc[eh_bus, 'codes'].split(',')
 
+        # TODO: why use reindex?
         bus_p_cap.loc[eh_bus] = p_cap.reindex(nuts3_codes).sum()
         bus_e_cap.loc[eh_bus] = e_cap.reindex(nuts3_codes).sum()
         # STO inflows computed as sum over one ehighway cluster (as they are expressed in energy units)
