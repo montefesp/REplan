@@ -1,136 +1,120 @@
 import pytest
 
 from src.data.vres_potential.manager import *
+from src.data.geographics import get_shapes
 
 
-def test_get_available_regions_wrong_type():
+def test_compute_land_availability_missing_globals():
+    onshore_shape = get_shapes(["BE"], "onshore").loc["BE", "geometry"]
+    with pytest.raises(NameError):
+        compute_land_availability(onshore_shape)
+
+
+def test_compute_land_availability_empty_filters():
+    onshore_shape = get_shapes(["BE"], "onshore").loc["BE", "geometry"]
+    init_land_availability_globals({})
+    availability = compute_land_availability(onshore_shape)
+    assert availability == 30683.0
+
+    offshore_shape = get_shapes(["BE"], "offshore").loc["BE", "geometry"]
+    init_land_availability_globals({})
+    availability = compute_land_availability(offshore_shape)
+    assert availability == 3454.0
+
+
+def test_compute_land_availability_copernicus():
+    onshore_shape = get_shapes(["BE"], "onshore").loc["BE", "geometry"]
+    filters = {'copernicus': True}
+    init_land_availability_globals(filters)
+    availability = compute_land_availability(onshore_shape)
+    assert availability == 11542.83
+
+
+def test_compute_land_availability_glaes_priors():
+    onshore_shape = get_shapes(["BE"], "onshore").loc["BE", "geometry"]
+    filters = {'glaes_priors': {'settlement_proximity': (None, 1000)}}
+    init_land_availability_globals(filters)
+    availability = compute_land_availability(onshore_shape)
+    assert availability == 6122.68
+
+
+def test_compute_land_availability_natura():
+    onshore_shape = get_shapes(["BE"], "onshore").loc["BE", "geometry"]
+    filters = {'natura': 1}
+    init_land_availability_globals(filters)
+    availability = compute_land_availability(onshore_shape)
+    assert availability == 30683.0
+
+    offshore_shape = get_shapes(["BE"], "offshore").loc["BE", "geometry"]
+    filters = {'natura': 1}
+    init_land_availability_globals(filters)
+    availability = compute_land_availability(offshore_shape)
+    assert availability == 3454.0
+
+
+def test_compute_land_availability_gebco():
+    onshore_shape = get_shapes(["BE"], "onshore").loc["BE", "geometry"]
+    filters = {'altitude_threshold': 300}
+    init_land_availability_globals(filters)
+    availability = compute_land_availability(onshore_shape)
+    assert availability == 24715.12
+
+    offshore_shape = get_shapes(["BE"], "offshore").loc["BE", "geometry"]
+    filters = {'depth_thresholds': {'low': -50, 'high': -10}}
+    init_land_availability_globals(filters)
+    availability = compute_land_availability(offshore_shape)
+    assert availability == 2805.86
+
+# TODO:
+#  - add clc test once the loop problem is corrected
+#  - add distance_to_shore test once it is added
+
+
+def test_get_land_availability_for_shapes_empty_list_of_shapes():
     with pytest.raises(AssertionError):
-        get_available_regions("nuts1")
+        get_land_availability_for_shapes([], {})
 
 
-def test_get_available_regions_output():
-    list_2 = get_available_regions("nuts2")
-    assert isinstance(list_2, list)
-    assert len(list_2) == 293
-    assert list_2[0] == 'AL01'
-    assert list_2[-1] == 'UKN0'
-    list_0 = get_available_regions("nuts0")
-    assert isinstance(list_0, list)
-    assert len(list_0) == 34
-    assert list_0[0] == 'AL'
-    assert list_0[-1] == 'UK'
-    list_eez = get_available_regions("eez")
-    assert isinstance(list_eez, list)
-    assert len(list_eez) == 26
-    assert list_eez[0] == "EZAL"
-    assert list_eez[-1] == "EZSE"
+def test_get_land_availability_for_shapes_mp_vs_non_mp():
+    onshore_shapes = get_shapes(["BE", "NL"], "onshore")["geometry"]
+    filters = {'glaes_priors': {'settlement_proximity': (None, 1000)}}
+    availabilities_mp = get_land_availability_for_shapes(onshore_shapes, filters)
+    availabilities_non_mp = get_land_availability_for_shapes(onshore_shapes, filters, 1)
+    assert len(availabilities_mp) == 2
+    assert all([availabilities_mp[i] == availabilities_non_mp[i] for i in range(2)])
 
 
-def test_read_capacity_potential_wrong_tech():
-    with pytest.raises(AssertionError):
-        read_capacity_potential('wind')
+def test_get_capacity_potential_for_shapes():
+    onshore_shapes = get_shapes(["BE", "NL"], "onshore")["geometry"]
+    filters = {'glaes_priors': {'settlement_proximity': (None, 1000)}}
+    power_density = 10
+    capacities = get_capacity_potential_for_shapes(onshore_shapes, filters, power_density)
+    assert len(capacities) == 2
+    assert round(capacities[0], 4) == 61.2268
+    assert round(capacities[1], 4) == 213.0432
+
+    offshore_shapes = get_shapes(["BE", "NL"], "offshore")["geometry"]
+    filters = {'natura': 1}
+    power_density = 15
+    capacities = get_capacity_potential_for_shapes(offshore_shapes, filters, power_density)
+    assert len(capacities) == 2
+    assert round(capacities[0], 4) == 51.81
+    assert round(capacities[1], 4) == 960.21
 
 
-def test_read_capacity_potential_wrong_nuts_type():
-    with pytest.raises(AssertionError):
-        read_capacity_potential('wind_onshore', 'nuts1')
+def test_get_capacity_potential_per_country():
+    filters = {'glaes_priors': {'settlement_proximity': (None, 1000)}}
+    power_density = 10
+    capacities_ds = get_capacity_potential_per_country(["BE", "NL"], True, filters, power_density)
+    assert isinstance(capacities_ds, pd.Series)
+    assert len(capacities_ds) == 2
+    assert round(capacities_ds["BE"], 4) == 61.2268
+    assert round(capacities_ds["NL"], 4) == 213.0432
 
-
-def test_read_capacity_potential_output_format():
-    techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
-    for tech in techs:
-        assert isinstance(read_capacity_potential(tech), pd.Series)
-
-
-def test_read_capacity_potential_output():
-    # Pv utility
-    ds = read_capacity_potential('pv_utility', 'nuts2')
-    assert len(ds.index) == 293
-    assert round(ds['EL64']) == 0
-    ds = read_capacity_potential('pv_utility', 'nuts0')
-    assert len(ds.index) == 34
-    assert round(ds['CH']) == 14
-    # Pv residential
-    ds = read_capacity_potential('pv_residential', 'nuts2')
-    assert len(ds.index) == 293
-    assert round(ds['HU22']) == 2
-    ds = read_capacity_potential('pv_residential', 'nuts0')
-    assert len(ds.index) == 34
-    assert round(ds['BA']) == 0
-    # Wind onshore
-    ds = read_capacity_potential('wind_onshore', 'nuts2')
-    assert len(ds.index) == 293
-    assert round(ds['AL01']) == 3
-    ds = read_capacity_potential('wind_onshore', 'nuts0')
-    assert len(ds.index) == 34
-    assert round(ds['UK']) == 82
-    # Wind offshore
-    ds = read_capacity_potential('wind_offshore')
-    assert len(ds.index) == 26
-    assert round(ds['EZFR']) == 200
-    # Wind floating
-    ds = read_capacity_potential('wind_floating')
-    assert len(ds.index) == 26
-    assert round(ds['EZME']) == 0
-
-
-def test_get_capacity_potential_at_points_wrong_tech():
-    with pytest.raises(AssertionError):
-        get_capacity_potential_at_points({'wind': [(0.5, 1.0)]}, 0.5, ['BE'])
-
-
-def test_get_capacity_potential_at_points_empty_list():
-    with pytest.raises(AssertionError):
-        get_capacity_potential_at_points({'wind_onshore': []}, 0.5, ['BE'])
-
-
-def test_get_capacity_potential_at_points_wrong_point_spatial_resolution():
-    with pytest.raises(AssertionError):
-        get_capacity_potential_at_points({'wind_onshore': [(0.5, 1.2)]}, 0.5, ['BE'])
-
-
-def test_get_capacity_potential_at_points_wrong_input_spatial_resolution():
-    with pytest.raises(AssertionError):
-        get_capacity_potential_at_points({'wind_onshore': [(0.5, 1.0)]}, 1.5, ['BE'])
-
-
-def test_get_capacity_potential_at_points_wrong_country():
-    with pytest.raises(AssertionError):
-        get_capacity_potential_at_points({'wind_onshore': [(0.5, 1.0)]}, 0.5, ['ZZ'])
-
-
-# TODO: add test for 'get_capacity_potential_at_points' and 'get_capacity_potential_for_regions'
-#  if we keep these functions
-
-
-def test_get_capacity_potential_for_countries_wrong_tech():
-    with pytest.raises(AssertionError):
-        get_capacity_potential_for_countries('wind', ['BE'])
-
-
-def test_get_capacity_potential_for_countries_missing_country():
-    ds = get_capacity_potential_for_countries('wind_onshore', ['ZZ'])
-    assert isinstance(ds, pd.Series)
-    assert len(ds) == 0
-    ds = get_capacity_potential_for_countries('wind_offshore', ['ZZ'])
-    assert isinstance(ds, pd.Series)
-    assert len(ds) == 0
-    ds = get_capacity_potential_for_countries('wind_onshore', ['BE', 'ZZ'])
-    assert isinstance(ds, pd.Series)
-    assert len(ds) == 1
-    assert ds.index.equals(pd.Index(['BE']))
-    ds = get_capacity_potential_for_countries('wind_onshore', ['BE', 'ZZ'])
-    assert isinstance(ds, pd.Series)
-    assert len(ds) == 1
-    assert ds.index.equals(pd.Index(['BE']))
-
-
-def test_get_capacity_potential_for_countries_gb_gr():
-    ds = get_capacity_potential_for_countries('wind_onshore', ['GB', 'GR'])
-    assert isinstance(ds, pd.Series)
-    assert len(ds) == 2
-    assert ds.index.equals(pd.Index(['GB', 'GR']))
-    ds = get_capacity_potential_for_countries('wind_offshore', ['GB', 'GR'])
-    assert isinstance(ds, pd.Series)
-    assert len(ds) == 2
-    assert ds.index.equals(pd.Index(['GB', 'GR']))
+    filters = {'natura': 1}
+    power_density = 15
+    capacities_ds = get_capacity_potential_per_country(["BE", "NL"], False, filters, power_density)
+    assert isinstance(capacities_ds, pd.Series)
+    assert len(capacities_ds) == 2
+    assert round(capacities_ds["BE"], 4) == 51.81
+    assert round(capacities_ds["NL"], 4) == 960.21

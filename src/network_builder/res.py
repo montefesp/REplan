@@ -219,8 +219,7 @@ def add_generators_using_siting(network: pypsa.Network, technologies: List[str],
 
         buses = network.buses.copy()
         if offshore_buses or tech in ["pv_residential", "pv_utility", "wind_onshore"]:
-            is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
-            buses = buses[buses.onshore == is_onshore]
+            buses = buses[buses.onshore == tech_config[tech]['onshore']]
             associated_buses = match_points_to_regions(points, buses.region).dropna()
         elif topology_type == 'countries':
             associated_buses = match_points_to_countries(points, list(buses.index)).dropna()
@@ -314,8 +313,7 @@ def add_generators_at_resolution(network: pypsa.Network, technologies: List[str]
 
         buses = network.buses.copy()
         if offshore_buses or tech in ["pv_residential", "pv_utility", "wind_onshore"]:
-            is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
-            buses = buses[buses.onshore == is_onshore]
+            buses = buses[buses.onshore == tech_config[tech]['onshore']]
             associated_buses = match_points_to_regions(points, buses.region).dropna()
         elif topology_type == 'countries':
             associated_buses = match_points_to_countries(points, list(buses.index)).dropna()
@@ -325,7 +323,7 @@ def add_generators_at_resolution(network: pypsa.Network, technologies: List[str]
 
         existing_cap = 0
         if use_ex_cap:
-            existing_cap = resite.existing_capacity_ds[tech][points].values
+            existing_cap = resite.existing_cap_ds[tech][points].values
 
         p_nom_max = 'inf'
         if limit_max_cap:

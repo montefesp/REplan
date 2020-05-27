@@ -1,5 +1,5 @@
 from os.path import join, dirname, abspath, isfile
-from typing import List, Union
+from typing import List
 
 from six.moves import reduce
 
@@ -287,7 +287,6 @@ def get_shapes(region_codes: List[str], which: str = 'onshore_offshore', save: b
         DataFrame containing desired shapes.
     """
 
-    # TODO: should we use as string for this argument or two bool arguments (onshore and offshore)
     accepted_which = ["onshore", "offshore", "onshore_offshore"]
     assert which in accepted_which, f"Error: 'which' must be one of {accepted_which}, received {which}"
     assert len(region_codes) != 0, f"Error: Empty list of codes."

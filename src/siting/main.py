@@ -9,8 +9,8 @@ logger = logging.getLogger()
 
 params = yaml.load(open('config.yaml'), Loader=yaml.FullLoader)
 
-tech_config_path = join(dirname(abspath(__file__)), '../parameters/tech_config.yml')
-tech_config = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
+tech_dir = join(dirname(abspath(__file__)), "../../data/technologies/")
+tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
 
 if __name__ == '__main__':
 

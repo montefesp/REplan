@@ -12,17 +12,19 @@ from shapely.geometry import MultiPoint
 
 from src.data.legacy import get_legacy_capacity_at_points, get_legacy_capacity_in_regions
 from src.data.vres_profiles import compute_capacity_factors
-from src.data.land_data import filter_points, get_land_availability_in_grid_cells
-from src.data.vres_potential import get_capacity_potential_at_points
+from src.data.land_data import filter_points
+from src.data.vres_potential import get_capacity_potential_at_points, get_capacity_potential_for_shapes
 from src.data.load import get_load
 from src.data.geographics import get_shapes, get_points_in_shape, get_subregions
+
+from src.resite.grid_cells import get_grid_cells
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
 
-# TODO: maybe we should change the word point to 'cell'
 
+# TODO: maybe we should change the word point to 'cell'
 
 class Resite:
     """
@@ -214,15 +216,15 @@ class Resite:
         offshore_shape = unary_union(offshore_shapes)
 
         # Divide the union of all regions shapes into grid cells of a given spatial resolution
-        # and compute how much land is available in each cell for each technology
-        shapes = [offshore_shape if tech in ["wind_offshore", "wind_floating"] else onshore_shape
-                  for tech in self.technologies]
-        land_availability = \
-            get_land_availability_in_grid_cells(self.technologies, self.tech_config, shapes, self.spatial_res)
+        grid_cells_ds = get_grid_cells(self.technologies, self.tech_config, self.spatial_res,
+                                       onshore_shape, offshore_shape)
 
         # Compute capacities potential
-        cap_potential_ds = \
-            land_availability.apply(lambda x: x["Area"]*self.tech_config[x.name[0]]["power_density"]/1e3, axis=1)
+        cap_potential_ds = pd.Series(index=grid_cells_ds.index)
+        for tech in self.technologies:
+            cap_potential_ds[tech] = \
+                get_capacity_potential_for_shapes(grid_cells_ds[tech].values, self.tech_config[tech]["filters"],
+                                                  self.tech_config[tech]["power_density"])
 
         # Compute legacy capacity
         existing_cap_ds = pd.Series(0., index=cap_potential_ds.index)
@@ -232,7 +234,7 @@ class Resite:
                                                                                'pv_utility', 'pv_residential']))
             for tech in techs_with_legacy_data:
                 tech_existing_cap_ds = \
-                    get_legacy_capacity_in_regions(tech, land_availability.loc[tech]["Shape"].reset_index(drop=True),
+                    get_legacy_capacity_in_regions(tech, grid_cells_ds.loc[tech].reset_index(drop=True),
                                                    all_subregions)
                 existing_cap_ds[tech] = tech_existing_cap_ds.values
 

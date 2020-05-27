@@ -9,7 +9,7 @@ import shapely
 import shapely.prepared
 from shapely.ops import unary_union, nearest_points
 from shapely.errors import TopologicalError
-from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon, GeometryCollection
+from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon
 import geopy.distance
 
 from src.data.geographics.shapes import get_shapes
@@ -171,24 +171,3 @@ def get_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
     points = [(point.x, point.y) for point in points.intersection(shape)]
 
     return points
-
-
-def create_grid_cells(shape: Union[Polygon, MultiPolygon], resolution: float) \
-        -> (List[Tuple[float, float]], List[Union[Polygon, MultiPolygon]]):
-    """Divide a geographical shape by applying voronoi partition."""
-
-    from vresutils.graph import voronoi_partition_pts
-
-    points = get_points_in_shape(shape, resolution)
-    if len(points) == 0:
-        logger.warning("WARNING: No points at given resolution falls into shape.")
-        return points, []
-    grid_cells = voronoi_partition_pts(points, shape)
-
-    # Keep only Polygons and MultiPolygons
-    for i, shape in enumerate(grid_cells):
-        if isinstance(shape, GeometryCollection):
-            geos = [geo for geo in shape if isinstance(geo, Polygon) or isinstance(geo, MultiPolygon)]
-            grid_cells[i] = unary_union(geos)
-
-    return points, grid_cells

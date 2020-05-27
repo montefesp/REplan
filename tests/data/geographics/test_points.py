@@ -127,23 +127,3 @@ def test_get_points_in_shape_with_init_points():
     assert all(map(lambda point: int(point[0] / res) == point[0] / res and
                int(point[1] / res) == point[1] / res, points))
     assert points == points_in
-
-
-def test_create_grid_cells_too_coarse_resolution():
-    shape = get_shapes(["BE"], "onshore").loc["BE", "geometry"]
-    res = 10.0
-    points, gc = create_grid_cells(shape, res)
-    assert isinstance(points, list)
-    assert isinstance(gc, list)
-    assert len(points) == 0
-    assert len(gc) == 0
-
-
-def test_create_grid_cells():
-    shape = get_shapes(["BE"], "onshore").loc["BE", "geometry"]
-    res = 1.0
-    points, gc = create_grid_cells(shape, res)
-    assert len(gc) == len(points)
-    assert all([isinstance(cell, Polygon) or isinstance(cell, MultiPolygon) for cell in gc])
-    areas_sum = sum([cell.area for cell in gc])
-    assert abs(areas_sum - shape.area)/max(areas_sum, shape.area) < 0.01

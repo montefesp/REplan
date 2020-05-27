@@ -1,285 +1,253 @@
-"""
-All these functions are computing potentials based on NUTS2 or NUTS0 aggregated potentials
-"""
 from os.path import join, dirname, abspath
-from typing import List, Dict, Tuple, Union
+from typing import List, Dict, Union
+from ast import literal_eval
 
 import numpy as np
 import pandas as pd
 
+from osgeo import ogr, osr
+import geokit as gk
+import glaes as gl
+
+import multiprocessing as mp
+import progressbar as pgb
+
+import shapely.wkt
 from shapely.geometry import Polygon, MultiPolygon
-from shapely.errors import TopologicalError
 
-from src.data.geographics import get_shapes, match_points_to_regions
-from src.data.population_density import load_population_density_data
+from src.data.geographics import get_shapes
 
-import logging
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
-logger = logging.getLogger()
+def init_land_availability_globals(filters: Dict) -> None:
+    """
+    Initialize global variables to use in land availability computation
+
+    Parameters
+    ----------
+    filters: Dict
+        Dictionary containing a set of values describing the filters to apply to obtain land availability.
+
+    """
+
+    # global in each process of the multiprocessing.Pool
+    global gebco_, clc_, natura_, spatial_ref_, filters_, onshore_shape_
+
+    filters_ = filters
+
+    spatial_ref_ = osr.SpatialReference()
+    spatial_ref_.ImportFromEPSG(4326)
+
+    land_data_dir = join(dirname(abspath(__file__)), "../../../data/land_data/")
+
+    # Natura dataset (protected areas in Europe)
+    if "natura" in filters:
+        natura_ = gk.raster.loadRaster(f"{land_data_dir}generated/natura2000.tif")
+
+    # GEBCO dataset (altitude and depth)
+    if 'depth_thresholds' in filters or 'altitude_threshold' in filters:
+        gebco_fn = f"{land_data_dir}source/GEBCO/GEBCO_2019/gebco_2019_n75.0_s30.0_w-20.0_e40.0.tif"
+        gebco_ = gk.raster.loadRaster(gebco_fn)
+
+    # Corine dataset (land use)
+    if 'clc' in filters:
+        clc_ = gk.raster.loadRaster(f"{land_data_dir}source/CLC2018/CLC2018_CLC2018_V2018_20.tif")
+        clc_.SetProjection(gk.srs.loadSRS(3035).ExportToWkt())
+
+    #if 'distances_to_shore' in filters:
+    #    onshore_shape = unary_union(get_shapes(get_subregions("EU"), 'onshore', save=True)["geometry"].values)
+    #    onshore_shape_wkt = shapely.wkt.dumps(onshore_shape)
+    #    onshore_shape_ = ogr.CreateGeometryFromWkt(onshore_shape_wkt, spatial_ref_)
 
 
-def get_available_regions(region_type: str) -> List[str]:
-    """Return the list of codes of regions for which capacity potential is available."""
+def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
+    """
+    Compute land availability in (km2) of a geographical shape.
 
-    accepted_types = ["nuts2", "nuts0", "eez"]
-    assert region_type in accepted_types, f"Error: region_type {region_type} is not in {accepted_types}"
+    Parameters
+    ----------
+    shape: Union[Polygon, MultiPolygon]
+        Geographical shape
+    Returns
+    -------
+    float
+        Available area in (km2)
+    Notes
+    -----
+    spatial_ref, filters, natura, clc and gebco must have been previously initialized as global variables
 
-    path_potential_data = join(dirname(abspath(__file__)), '../../../data/vres_potential/generated/')
+    """
 
-    # Onshore, return NUTS (0 or 2) capacity potentials
-    if region_type in ["nuts2", "nuts0"]:
-        return list(pd.read_csv(f"{path_potential_data}{region_type}_capacity_potentials_GW.csv", index_col=0).index)
-    # Offshore, return EEZ capacity potentials
+    import matplotlib.pyplot as plt
+
+    poly_wkt = shapely.wkt.dumps(shape)
+    poly = ogr.CreateGeometryFromWkt(poly_wkt, spatial_ref_)
+
+    # Compute rooftop area using COPERNICUS
+    if filters_.get("copernicus", 0):
+        path_cop = join(dirname(abspath(__file__)),
+                        f"../../../data/land_data/source/COPERNICUS/ESM_class50_100m/ESM_class50_100m.tif")
+        ec = gl.ExclusionCalculator(poly, pixelRes=1000, initialValue=path_cop)
+
+        return ec.areaAvailable/1e6
+
+    ec = gl.ExclusionCalculator(poly, pixelRes=1000)
+
+    # GLAES priors
+    if 'glaes_priors' in filters_:
+        priors_filters = filters_["glaes_priors"]
+        for prior_name in priors_filters.keys():
+            prior_value = priors_filters[prior_name]
+            if isinstance(prior_value, str):
+                prior_value = literal_eval(prior_value)
+            ec.excludePrior(prior_name, value=prior_value)
+
+    # Exclude protected areas
+    if 'natura' in filters_:
+        ec.excludeRasterType(natura_, value=filters_["natura"])
+
+    # Depth and altitude filters
+    if 'depth_thresholds' in filters_:
+        depth_thresholds = filters_["depth_thresholds"]
+        # Keep points between two depth thresholds
+        ec.excludeRasterType(gebco_, (depth_thresholds["low"], depth_thresholds["high"]), invert=True)
+    elif 'altitude_threshold' in filters_ and filters_['altitude_threshold'] > 0.:
+        ec.excludeRasterType(gebco_, (filters_['altitude_threshold'], None))
+
+    # Corine filters
+    if 'clc' in filters_:
+        clc_filters = filters_["clc"]
+
+        if "remove_codes" in clc_filters and "remove_distance" in clc_filters and clc_filters["remove_distance"] > 0.:
+            # for remove_code in clc_filters["remove_codes"]:
+            #    ec.excludeRasterType(clc_, value=remove_code, buffer=clc_filters["remove_distance"])
+            ec.excludeRasterType(clc_, value=clc_filters["remove_codes"], buffer=clc_filters["remove_distance"])
+
+        if "keep_codes" in clc_filters:
+            # Invert True indicates code that need to be kept
+            # TODO: doing a loop or not doesn't give the same result...
+            # for keep_code in clc_filters["keep_codes"]:
+            #    ec.excludeRasterType(clc_, value=keep_code, mode='include')
+            ec.excludeRasterType(clc_, value=clc_filters["keep_codes"], mode='include')
+
+    #if 'distances_to_shore' in filters_:
+    #    distance_filters = filters_['distances_to_shore']
+    #    if 'min' in distance_filters:
+    #        ec.excludeVectorType(onshore_shape_, buffer=distance_filters['min'])
+
+    # ec.draw()
+    # plt.show()
+
+    return ec.areaAvailable/1e6
+
+
+def get_land_availability_for_shapes_mp(shapes: List[Union[Polygon, MultiPolygon]],
+                                        filters: Dict, processes: int = None) -> np.array:
+    """Return land availability in a list of geographical region for a given technology using multiprocessing"""
+
+    with mp.Pool(initializer=init_land_availability_globals, initargs=(filters, ),
+                 maxtasksperchild=20, processes=processes) as pool:
+
+        widgets = [
+            pgb.widgets.Percentage(),
+            ' ', pgb.widgets.SimpleProgress(format='(%s)' % pgb.widgets.SimpleProgress.DEFAULT_FORMAT),
+            ' ', pgb.widgets.Bar(),
+            ' ', pgb.widgets.Timer(),
+            ' ', pgb.widgets.ETA()
+        ]
+        progressbar = pgb.ProgressBar(prefix='Compute GIS potentials: ', widgets=widgets, max_value=len(shapes))
+        available_areas = list(progressbar(pool.imap(compute_land_availability, shapes)))
+
+    return np.array(available_areas)
+
+
+def get_land_availability_for_shapes_non_mp(shapes: List[Union[Polygon, MultiPolygon]], filters: Dict) -> np.array:
+    """Return land availability in a list of geographical region for a given technology NOT using multiprocessing"""
+
+    init_land_availability_globals(filters)
+    available_areas = np.zeros((len(shapes), ))
+    for i, shape in enumerate(shapes):
+        available_areas[i] = compute_land_availability(shape)
+    return available_areas
+
+
+def get_land_availability_for_shapes(shapes: List[Union[Polygon, MultiPolygon]], filters: Dict,
+                                     processes: int = None) -> np.array:
+    """
+    Return land availability in a list of geographical region for a given technology.
+
+    Parameters
+    ----------
+    shapes: List[Union[Polygon, MultiPolygon]]
+        List of geographical regions
+    filters: Dict
+        Dictionary containing a set of values describing the filters to apply to obtain land availability.
+    processes: int
+        Number of parallel processes
+
+    Returns
+    -------
+    np.array
+        Land availability (in km) for each shape
+
+    """
+
+    assert len(shapes) != 0, "Error: List of shapes is empty."
+
+    if processes == 1:
+        return get_land_availability_for_shapes_non_mp(shapes, filters)
     else:
-        return list(pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0).index)
+        return get_land_availability_for_shapes_mp(shapes, filters, processes)
 
 
-def read_capacity_potential(tech: str, nuts_type: str = "nuts0") -> pd.Series:
+def get_capacity_potential_for_shapes(shapes: List[Union[Polygon, MultiPolygon]], filters: Dict,
+                                      power_density: float, processes: int = None) -> np.array:
     """
-    Return for each NUTS2 or NUTS0 (version 2016) region or EEZ (depending on technology) its capacity potential in GW.
+    Return capacity potentials (GW) in a series of geographical shapes.
 
     Parameters
     ----------
-    tech: str
-        Technology name among 'wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility' and 'pv_residential'
-    nuts_type: str (default: nuts0)
-        If equal to 'nuts0', returns capacity per NUTS0 region, if 'nuts2', returns per NUTS2 region.
+    shapes: List[Union[Polygon, MultiPolygon]]
+        List of geographical regions
+    filters: Dict
+        Dictionary containing a set of values describing the filters to apply to obtain land availability.
+    power_density: float
+        Power density in MW/km2
+    processes: int (default: None)
+        Number of parallel processes
 
     Returns
     -------
-    pd.Series:
-        Gives for each NUTS2 region or EEZ its capacity potential in GW
-
+    np.array
+        Array of capacity potentials (GW)
     """
-
-    accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
-    assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
-
-    path_potential_data = join(dirname(abspath(__file__)), '../../../data/vres_potential/generated/')
-
-    # Onshore, return NUTS (0 or 2) capacity potentials
-    if tech in ['wind_onshore', 'pv_utility', 'pv_residential']:
-        accepted_nuts = ["nuts2", "nuts0"]
-        assert nuts_type in accepted_nuts, f"Error: nuts_type {nuts_type} is not in {accepted_nuts}"
-        return pd.read_csv(f"{path_potential_data}{nuts_type}_capacity_potentials_GW.csv", index_col=0)[tech]
-    # Offshore, return EEZ capacity potentials
-    else:
-        return pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0)[tech]
+    return get_land_availability_for_shapes(shapes, filters, processes) * power_density / 1e3
 
 
-# TODO: this function is going to disappear
-def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[float, float]]],
-                                     spatial_resolution: float, countries: List[str],
-                                     existing_capacity_ds: pd.Series = None) -> pd.Series:
+def get_capacity_potential_per_country(countries: List[str], is_onshore: float, filters: Dict,
+                                       power_density: float, processes: int = None):
     """
-    Compute the potential capacity at a series of points for different technologies.
+    Return capacity potentials (GW) in a series of countries.
 
     Parameters
     ----------
-    tech_points_dict : Dict[str, Dict[str, List[Tuple[float, float]]]
-        Dictionary associating to each tech a list of points.
-    spatial_resolution : float
-        Spatial resolution of the points.
     countries: List[str]
-        List of ISO codes of countries in which the points are situated
-    existing_capacity_ds: pd.Series (default: None)
-        Data series given for each tuple of (tech, point) the existing capacity.
+        List of ISO codes.
+    is_onshore: bool
+        Whether the technology is onshore located.
+    filters: Dict
+        Dictionary containing a set of values describing the filters to apply to obtain land availability.
+    power_density: float
+        Power density in MW/km2
+    processes: int (default: None)
+        Number of parallel processes
 
     Returns
     -------
-    capacity_potential_ds : pd.Series
-        Gives for each pair of technology - point the associated capacity potential in GW
-    """
-
-    accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
-    for tech, points in tech_points_dict.items():
-        assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
-        assert len(points) != 0, f"Error: List of points for tech {tech} is empty."
-        assert all(map(lambda point: int(point[0]/spatial_resolution) == point[0]/spatial_resolution
-                   and int(point[1]/spatial_resolution) == point[1]/spatial_resolution, points)), \
-            f"Error: Some points do not have the correct resolution {spatial_resolution}"
-
-    pop_density_array = load_population_density_data(spatial_resolution)
-
-    # Create a modified copy of regions to deal with UK and EL
-    iso_to_nuts0 = {"GB": "UK", "GR": "EL"}
-    nuts0_regions = [iso_to_nuts0[c] if c in iso_to_nuts0 else c for c in countries]
-
-    # Get NUTS2 and EEZ shapes
-    nuts2_regions_list = get_available_regions("nuts2")
-    codes = [code for code in nuts2_regions_list if code[:2] in nuts0_regions]
-
-    region_shapes_dict = {"nuts2": get_shapes(codes, which='onshore')["geometry"],
-                          "eez": get_shapes(countries, which='offshore', save=True)["geometry"]}
-    region_shapes_dict["eez"].index = [f"EZ{code}" for code in region_shapes_dict["eez"].index]
-
-    tech_points_tuples = sorted([(tech, point) for tech, points in tech_points_dict.items() for point in points])
-    capacity_potential_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(tech_points_tuples))
-
-    # Check that if existing capacity is defined for every point
-    if existing_capacity_ds is not None:
-        missing_existing_points = set(existing_capacity_ds.index) - set(capacity_potential_ds.index)
-        assert not missing_existing_points, \
-            f"Error: Missing following points in existing capacity series: {missing_existing_points}"
-
-    for tech, points in tech_points_dict.items():
-
-        # Compute potential for each NUTS2 or EEZ
-        potential_per_region_ds = read_capacity_potential(tech, nuts_type='nuts2')
-
-        # Find the geographical region code associated to each point
-        if tech in ['wind_offshore', 'wind_floating']:
-            region_shapes = region_shapes_dict["eez"]
-        else:
-            region_shapes = region_shapes_dict["nuts2"]
-
-        point_regions_ds = match_points_to_regions(points, region_shapes).dropna()
-        points = list(point_regions_ds.index)
-        points_info_df = pd.DataFrame(point_regions_ds.values, point_regions_ds.index, columns=["region"])
-
-        if tech in ['wind_offshore', 'wind_floating']:
-
-            # For offshore sites, divide the total potential of the region by the number of points
-            # associated to that region
-
-            # Get how many points we have in each region and the potential capacity of those regions
-            region_freq_ds = points_info_df.groupby(['region'])['region'].count()
-            regions = region_freq_ds.index
-            region_cap_pot_ds = potential_per_region_ds[regions]
-            region_info_df = pd.concat([region_freq_ds, region_cap_pot_ds], axis=1)
-            region_info_df.columns = ["freq", "cap_pot"]
-
-            # Assign these values to each points depending on which region they fall in
-            points_info_df = \
-                points_info_df.merge(region_info_df, left_on='region', right_on='region', right_index=True)
-
-            # Compute potential of each point by dividing the region potential by the number of points it contains
-            cap_pot_per_point = points_info_df["cap_pot"]/points_info_df["freq"]
-
-        else:  # tech in ['wind_onshore', 'pv_utility', 'pv_residential']:
-
-            # For onshore sites, divide the total anti-proportionally (or proportionally for residential PV)
-            # to population
-            # Here were actually using population density, which is proportional to population because we consider
-            # that each point is associated to an equivalent area.
-            points_info_df['pop_dens'] = np.clip(pop_density_array.sel(locations=points).values, a_min=1., a_max=None)
-            if tech in ['wind_onshore', 'pv_utility']:
-                points_info_df['pop_dens'] = 1./points_info_df['pop_dens']
-
-            # Aggregate per region and get capacity potential for regions in which the points fall
-            regions_info_df = points_info_df.groupby(['region']).sum()
-            regions_info_df["cap_pot"] = potential_per_region_ds[regions_info_df.index]
-            regions_info_df.columns = ['sum_pop_dens', 'cap_pot']
-
-            # Assign these values to each points depending on which region they fall in
-            points_info_df = points_info_df.merge(regions_info_df, left_on='region', right_on='region',
-                                                  right_index=True)
-            # Compute potential
-            cap_pot_per_point = points_info_df['pop_dens'] * points_info_df['cap_pot'] / points_info_df['sum_pop_dens']
-
-        capacity_potential_ds.loc[tech, cap_pot_per_point.index] = cap_pot_per_point.values
-
-    # Update capacity potential with existing potential if present
-    if existing_capacity_ds is not None:
-        underestimated_capacity = existing_capacity_ds[capacity_potential_ds.index] > capacity_potential_ds
-        capacity_potential_ds[underestimated_capacity] = existing_capacity_ds[underestimated_capacity]
-
-    return capacity_potential_ds
-
-
-# TODO: to be replace with computation using GLAES?
-def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[Polygon, MultiPolygon]]]) -> pd.Series:
-    """
-    Get capacity potential (in GW) for a series of technology for associated geographical regions.
-
-    Parameters
-    ----------
-    tech_regions_dict: Dict[str, List[Union[Polygon, MultiPolygon]]]
-        Dictionary giving for each technology for which region we want to obtain potential capacity
-
-    Returns
-    -------
-    capacity_potential_ds: pd.Series
-        Gives for each pair of technology and region the associated potential capacity in GW
+    pd.Series
+        Series containing the capacity potentials (GW) for each code.
 
     """
-    accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
-    for tech in tech_regions_dict.keys():
-        assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
+    which = 'onshore' if is_onshore else 'offshore'
+    shapes = get_shapes(countries, which=which, save=True)["geometry"]
+    land_availability = get_land_availability_for_shapes(shapes, filters, processes)
 
-    tech_regions_tuples = [(tech, i) for tech, points in tech_regions_dict.items() for i in range(len(points))]
-    capacity_potential_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(tech_regions_tuples))
-
-    for tech, regions in tech_regions_dict.items():
-
-        # Compute potential for each NUTS2 or EEZ
-        potential_per_subregion_ds = read_capacity_potential(tech, nuts_type='nuts2')
-        if tech in ["wind_offshore", "wind_floating"]:
-            potential_per_subregion_ds.index = [code[2:] for code in potential_per_subregion_ds.index]
-
-        # Get NUTS2 or EEZ shapes
-        if tech in ['wind_offshore', 'wind_floating']:
-            offshore_codes = list(set([code[:2] for code in potential_per_subregion_ds.index]))
-            shapes = get_shapes(offshore_codes, 'offshore', True)["geometry"]
-        else:
-            shapes = get_shapes(list(potential_per_subregion_ds.index), 'onshore', True)["geometry"]
-
-        # Compute capacity potential for the regions given as argument
-        for i, region in enumerate(regions):
-            cap_pot = 0
-            for index, shape in shapes.items():
-                try:
-                    intersection = region.intersection(shape)
-                except TopologicalError:
-                    logger.info(f"Warning: Problem with shape for code {index}")
-                    continue
-                if intersection.is_empty or intersection.area == 0.:
-                    continue
-                cap_pot += potential_per_subregion_ds[index]*intersection.area/shape.area
-                try:
-                    region = region.difference(intersection)
-                except TopologicalError:
-                    logger.info(f"Warning: Problem with shape for code {index}")
-                if region.is_empty or region.area == 0.:
-                    break
-            capacity_potential_ds.loc[tech, i] = cap_pot
-
-    return capacity_potential_ds
-
-
-def get_capacity_potential_for_countries(tech: str, countries: List[str]) -> pd.Series:
-    """
-    Get capacity potential (in GW) for a given technology for all countries for which it is available.
-
-    If data is not available for one of the given countries, there will be no entry for that country
-     in the returned series.
-
-    Parameters
-    ----------
-    tech: str
-        One of ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
-    countries: List[str]
-        List of ISO codes of countries
-
-    Returns
-    -------
-    capacity_potential_ds: pd.Series
-        Gives for each pair of technology and region the associated potential capacity in GW
-
-    """
-
-    # Get capacity at NUTS0 level (or EEZ)
-    capacity_potential_ds = read_capacity_potential(tech, nuts_type='nuts0')
-
-    # Convert EEZ names to country names
-    if tech in ['wind_offshore', 'wind_floating']:
-        capacity_potential_ds.index = [code[2:] for code in capacity_potential_ds.index]
-
-    # Change 'UK' to 'GB' and 'EL' to 'GR'
-    capacity_potential_ds.rename(index={'UK': 'GB', 'EL': 'GR'}, inplace=True)
-
-    # Extract only countries for which data is available
-    countries = sorted(list(set(countries) & set(capacity_potential_ds.index)))
-    capacity_potential_ds = capacity_potential_ds.loc[countries]
-
-    return capacity_potential_ds
+    return pd.Series(land_availability*power_density/1e3, index=countries)

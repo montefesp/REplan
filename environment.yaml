@@ -31,8 +31,8 @@ dependencies:
   - pip:
       - dash==1.7.0
       - vresutils==0.3.1
-      - git+https://github.com/PyPSA/glaes.git#egg=glaes
-      - git+https://github.com/PyPSA/geokit.git#egg=geokit
+      - git+https://github.com/FZJ-IEK3-VSA/geokit.git#egg=geokit
+      - git+https://github.com/FZJ-IEK3-VSA/glaes.git#egg=glaes
       - cdsapi
       - docplex
       - cplex
