@@ -60,7 +60,7 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
             logger.warning(f"WARNING: TopologicalError with shape {index}")
             continue
 
-        # After intersection, we can end up into 4 case:
+        # After intersection, we can end up into 4 cases:
         #  1 - No points were in the intersection and we obtain an empty geometry
         if points_in_region.is_empty:
             continue

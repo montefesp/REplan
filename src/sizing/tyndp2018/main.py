@@ -25,8 +25,8 @@ from src.network_builder.snsp import add_snsp_constraint_tyndp
 from src.postprocessing.sizing_results import SizingResults
 
 import logging
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
-logger = logging.getLogger()
+logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
 
@@ -141,6 +141,8 @@ if __name__ == '__main__':
 
     if config["battery"]["include"]:
         net = add_batteries(net, config["battery"]["type"], config["battery"]["max_hours"])
+
+    exit()
 
     co2_reference_kt = \
         get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])

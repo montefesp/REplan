@@ -23,7 +23,7 @@ region: "EU"
 
 # RES
 res:
-  include: True
+  include: False
   # Give which technology should be installed using each strategy
   strategies:
     max: []
@@ -75,12 +75,12 @@ res:
 
 # Conventional generation
 dispatch:
-  include: True
+  include: False
   tech: "ccgt"
 
 # Nuclear
 nuclear:
-  include: True
+  include: False
   use_ex_cap: True # Whether to include existing cap
   extendable: False
 
@@ -92,18 +92,18 @@ battery:
 
 # Hydro
 phs:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
   cyclic_sof: True
 
 ror:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
 
 sto:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
   cyclic_sof: True

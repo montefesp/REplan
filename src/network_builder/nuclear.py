@@ -10,7 +10,7 @@ from src.data.generation import get_gen_from_ppm
 from src.data.technologies import get_costs, get_plant_type
 
 import logging
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
 
 

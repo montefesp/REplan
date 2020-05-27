@@ -7,9 +7,8 @@ import pypsa
 from src.data.technologies import get_costs, get_plant_type
 
 import logging
-
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
-logger = logging.getLogger()
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 
 def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:

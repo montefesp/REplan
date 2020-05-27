@@ -15,7 +15,7 @@ from src.resite.resite import Resite
 from src.data.technologies import get_costs
 
 import logging
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
 
 

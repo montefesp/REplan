@@ -7,9 +7,8 @@ import pypsa
 from src.data.technologies import get_costs, get_plant_type
 
 import logging
-
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
-logger = logging.getLogger()
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 
 def add_batteries(network: pypsa.Network, battery_type: str, max_hours: float) -> pypsa.Network:
@@ -32,6 +31,8 @@ def add_batteries(network: pypsa.Network, battery_type: str, max_hours: float) -
 
     """
     logger.info(f"Adding {battery_type} storage.")
+
+    assert max_hours > 0, f"Error: 'max_hours' must be > 0, got {max_hours}"
 
     onshore_bus_indexes = pd.Index([bus_id for bus_id in network.buses.index if network.buses.loc[bus_id].onshore])
 
