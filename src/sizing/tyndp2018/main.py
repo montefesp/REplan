@@ -142,8 +142,6 @@ if __name__ == '__main__':
     if config["battery"]["include"]:
         net = add_batteries(net, config["battery"]["type"], config["battery"]["max_hours"])
 
-    exit()
-
     co2_reference_kt = \
         get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
     co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(

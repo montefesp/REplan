@@ -37,4 +37,3 @@ def test_add_batteries():
         assert 0 <= su.loc[idx, "efficiency_dispatch"] <= 1
         assert 0 <= su.loc[idx, "efficiency_store"] <= 1
         assert 0 <= su.loc[idx, "self_discharge"] <= 1
-
