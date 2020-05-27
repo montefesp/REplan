@@ -77,7 +77,7 @@ def get_subregions(region: str) -> List[str]:
     return subregions
 
 
-def replace_uk_el_codes(countries_list: List[str]) -> List[str]:
+def replace_iso2_codes(countries_list: List[str]) -> List[str]:
     """
     Updating ISO_2 code for UK and EL (not uniform across datasets).
 
@@ -92,10 +92,35 @@ def replace_uk_el_codes(countries_list: List[str]) -> List[str]:
         Updated ISO_2 codes.
     """
 
-    country_names_issues = {'UK': 'GB', 'EL': 'GR'}
+    country_names_issues = {'UK': 'GB', 'EL': 'GR', 'KV': 'XK'}
     updated_codes = [country_names_issues[c] if c in country_names_issues else c for c in countries_list]
 
     return updated_codes
+
+
+def revert_old_country_names(c: str) -> str:
+    """
+    Reverting country full names to old ones, as some datasets are not updated on the issue.
+
+    Parameters
+    ----------
+    c: str
+        Novel country name.
+
+    Returns
+    -------
+    c: str
+       Old country name
+    """
+
+    if c == "North Macedonia":
+        return "Macedonia"
+
+    if c == "Czechia":
+        return "Czech Republic"
+
+    return c
+
 
 # def get_nuts_codes(nuts_level: int, year: int):
 #     available_years = [2013, 2016]

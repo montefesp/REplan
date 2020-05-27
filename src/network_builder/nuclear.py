@@ -5,8 +5,7 @@ import pandas as pd
 
 import pypsa
 
-from src.data.geographics import convert_country_codes, match_points_to_regions
-from src.data.generation import get_gen_from_ppm
+from src.data.generation import get_powerplant_df
 from src.data.technologies import get_costs, get_plant_type
 
 import logging
@@ -14,8 +13,7 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %
 logger = logging.getLogger()
 
 
-def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: bool, extendable: bool,
-                   ppm_file_name: str = None) -> pypsa.Network:
+def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: bool, extendable: bool) -> pypsa.Network:
     """
     Add nuclear generators to a PyPsa Network instance.
 
@@ -29,8 +27,6 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
         Whether to consider existing capacity or not
     extendable: bool
         Whether generators are extendable
-    ppm_file_name: str
-        Name of the file from which to retrieve the data if value is not None
 
     Returns
     -------
@@ -39,41 +35,16 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
     """
 
     # Load existing nuclear plants
-    if ppm_file_name is not None:
-        ppm_folder = join(dirname(abspath(__file__)), "../../data/generation/source/ppm/")
-        gens = pd.read_csv(f"{ppm_folder}/{ppm_file_name}", index_col=0, delimiter=";")
-        # TODO: this is shit, anyway need to deal with this ppm from file thing
-        def correct_countries(c: str):
-            if c == "Macedonia, Republic of":
-                return "North Macedonia"
-            if c == "Czech Republic":
-                return "Czechia"
-            return c
-        gens["Country"] = gens["Country"].apply(lambda c: correct_countries(c))
-        gens["Country"] = convert_country_codes(gens["Country"].values, 'name', 'alpha_2', True)
-        gens = gens[gens["Country"].isin(countries)]
-    else:
-        gens = get_gen_from_ppm(fuel_type="Nuclear", countries=countries)
+    onshore_buses = network.buses[network.buses.onshore]
 
-    # If not plants in the chosen countries, return directly the network
+    gens = get_powerplant_df('nuclear', countries, onshore_buses.region)
+    gens.rename(columns={'region_code': 'bus_id'}, inplace=True)
+
+    # If no plants in the chosen countries, return directly the network
     if len(gens) == 0:
         return network
 
-    onshore_buses = network.buses[network.buses.onshore]
-    gens_bus_ds = match_points_to_regions(gens[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values,
-                                          onshore_buses.region, distance_threshold=50)
-    points = list(gens_bus_ds.index)
-    gens = gens[gens[["lon", "lat"]].apply(lambda x: (x[0], x[1]) in points, axis=1)]
-
-    def add_region(lon, lat):
-        bus = gens_bus_ds[lon, lat]
-        print(bus)
-        # Need the if because some points are exactly at the same position
-        return bus if isinstance(bus, str) else bus.iloc[0]
-    print(gens)
-    gens["bus_id"] = gens[["lon", "lat"]].apply(lambda x: add_region(x[0], x[1]), axis=1)
-
-    logger.info(f"Adding {gens['Capacity'].sum()*1e-3:.2f} GW of nuclear capacity in {gens['Country'].unique()}.")
+    logger.info(f"Adding {gens['Capacity'].sum() * 1e-3:.2f} GW of nuclear capacity in {gens['Country'].unique()}.")
 
     if not use_ex_cap:
         gens.Capacity = 0.

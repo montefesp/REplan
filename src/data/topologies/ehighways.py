@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 import pypsa
 
-from src.data.geographics import get_shapes, get_natural_earth_shapes, get_nuts_shapes, replace_uk_el_codes
+from src.data.geographics import get_shapes, get_natural_earth_shapes, get_nuts_shapes, replace_iso2_codes
 from src.data.technologies import get_costs
 from src.data.topologies.core import plot_topology, voronoi_special
 
@@ -259,7 +259,7 @@ def get_topology(network: pypsa.Network, countries: List[str] = None, add_offsho
             return not bus.onshore or bus.name[2:] in ehighway_countries
         buses = buses.loc[buses.apply(filter_buses, axis=1)]
     else:
-        countries = replace_uk_el_codes(list(set([idx[2:] for idx in buses.index if buses.loc[idx, "onshore"]])))
+        countries = replace_iso2_codes(list(set([idx[2:] for idx in buses.index if buses.loc[idx, "onshore"]])))
 
     # Converting polygons strings to Polygon object
     regions = buses.region.values

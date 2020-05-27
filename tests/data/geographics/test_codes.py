@@ -43,6 +43,6 @@ def test_remove_landlocked_codes():
     assert remove_landlocked_countries(landlocked + others) == others
 
 
-def test_replace_uk_el_codes():
+def test_replace_iso2_codes():
     codes = ["AB", "BE", "ZL", "UK", "MT", "EL"]
-    assert replace_uk_el_codes(codes) == ["AB", "BE", "ZL", "GB", "MT", "GR"]
+    assert replace_iso2_codes(codes) == ["AB", "BE", "ZL", "GB", "MT", "GR"]

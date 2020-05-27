@@ -10,7 +10,7 @@ from shapely.ops import unary_union
 
 import hashlib
 
-from src.data.geographics.codes import convert_country_codes, replace_uk_el_codes, remove_landlocked_countries
+from src.data.geographics.codes import convert_country_codes, replace_iso2_codes, remove_landlocked_countries
 
 
 def correct_shapes(shapes: gpd.GeoSeries) -> gpd.GeoSeries:
@@ -311,7 +311,7 @@ def get_shapes(region_codes: List[str], which: str = 'onshore_offshore', save: b
         which = "onshore_offshore"
 
     # If NUTS codes given as argument and offshore is needed, compute ISO codes from NUTS codes
-    iso_codes = replace_uk_el_codes(list(set([code[:2] for code in region_codes])))
+    iso_codes = replace_iso2_codes(list(set([code[:2] for code in region_codes])))
 
     if which == 'onshore':
         # Generating file including only onshore shapes.
@@ -332,7 +332,7 @@ def get_shapes(region_codes: List[str], which: str = 'onshore_offshore', save: b
     def filter_shape(x):
         if isinstance(x['geometry'], Polygon):
             return x['geometry']
-        iso_code = replace_uk_el_codes([x.name[:2]])[0]
+        iso_code = replace_iso2_codes([x.name[:2]])[0]
         union_shape = unary_union(get_eez_and_land_union_shapes([iso_code]))
         return x['geometry'].intersection(union_shape)
     shapes['geometry'] = shapes.apply(lambda x: filter_shape(x), axis=1)

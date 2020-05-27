@@ -1,75 +1,132 @@
-from typing import List
-from os.path import join, dirname, abspath
 from os import listdir
+from os.path import join, dirname, abspath
+from typing import List, Optional
 
+import geopandas as gpd
 import pandas as pd
-
-import powerplantmatching as pm
+import yaml
 
 from src.data.geographics import convert_country_codes
+from src.data.geographics.points import match_points_to_regions
 
 
-def load_ppm():
-    """Load the power plant matching database. Needs to be done only once"""
-    pm.powerplants(from_url=True)
-
-
-def get_gen_from_ppm(fuel_type: str = "", technology: str = "", countries: List[str] = None) -> pd.DataFrame:
+def get_powerplant_df(plant_type: str, country_list: List[str], shapes: gpd.GeoSeries) -> pd.DataFrame:
     """
-    Return information about generator using a certain fuel type and/or technology
-     as extracted from power plant matching tool.
+    Returns frame with power plants filtered by tehcnology and country list.
 
     Parameters
     ----------
-    fuel_type: str
-        One of the generator's fuel type contained in the power plant matching tool
-        ['Bioenergy', 'Geothermal', 'Hard Coal', 'Hydro', 'Lignite', 'Natural Gas', 'Nuclear',
-        'Oil', 'Other', 'Solar', 'Waste', 'Wind']
-    technology: str
-        One of the generator's technology contained in the power plant matching tool
-        ['Pv', 'Reservoir', 'Offshore', 'OCGT', 'Storage Technologies', 'Run-Of-River',
-         'CCGT, 'CCGT, Thermal', 'Steam Turbine', 'Pumped Storage']
-    countries: List[str]
-        List of ISO codes of countries for which we want to obtain plants
-        Available countries:
-        ['AT', 'BE', 'BG', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE',
-         'IT', 'LT', 'LU', 'LV', 'MK', 'NL', 'NO', 'PL', 'PT', 'RO', 'SI', 'SK', 'SE']
+    plant_type: str
+        Type of power plant to be retrieved, values taken as keys of the tech_config file (e.g., ror, sto, nuclear).
+    country_list: List[str]
+        List of target ISO2 country codes.
+    shapes: gpd.GeoSeries
+        GeoDataFrame containing shapes of the above country list, required to assign NUTS regions to each df entry.
 
     Returns
     -------
-    fuel_type_plants: pandas.DataFrame
-        Dataframe giving for each generator having the right fuel_type and technology
-        ['Volume_Mm3', 'YearCommissioned', 'Duration', 'Set', 'Name', 'projectID', 'Country', 'DamHeight_m',
-         'Retrofit', 'Technology', 'Efficiency', 'Capacity' (in MW), 'lat', 'lon', 'Fueltype']
-         Note that the Country field is converted to the associated country code
-
+    powerplant_df: pd.DataFrame
+        Sliced power plant frame.
     """
 
-    plants = pm.collection.matched_data()
+    tech_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
+    tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
 
-    if fuel_type != "":
-        assert fuel_type in set(plants.Fueltype), f"Error: Fuel type {fuel_type} does not exist."
-        plants = plants[plants.Fueltype == fuel_type]
-    if technology != "":
-        assert technology in set(plants.Technology), f"Error: Technology {technology} does not exist " \
-                                                     f"(possibly for fuel type you chose)."
-        plants = plants[plants.Technology == technology]
+    if plant_type in ['ror', 'sto', 'phs']:
+        # Hydro entries read from richer hydro-only database.
+        source_dir = \
+            join(dirname(abspath(__file__)), "../../../data/generation/source/JRC/hydro-power-database-master/data/")
+        pp_fn = f"{source_dir}jrc-hydro-power-plant-database.csv"
+        pp_df = pd.read_csv(pp_fn, index_col=0)
 
-    # Convert country name to ISO code
-    def correct_countries(c: str):
-        if c == "Macedonia, Republic of":
-            return "North Macedonia"
-        if c == "Czech Republic":
-            return "Czechia"
-        return c
-    plants["Country"] = plants["Country"].apply(lambda c: correct_countries(c))
-    plants["Country"] = convert_country_codes(plants["Country"].values, 'name', 'alpha_2', True)
+        # Filter out plants outside target countries, of other tech than the target tech, whose capacity is missing.
+        pp_df = pp_df.loc[(pp_df["country_code"].isin(country_list)) &
+                          (pp_df['type'] == tech_config[plant_type]['jrc_type']) &
+                          (~pp_df['installed_capacity_MW'].isnull())]
+        # Append NUTS region column to the frame.
+        pp_df = append_power_plants_region_codes(pp_df, shapes)
+        # Hydro database country column contains ISO2 entries, full name column retrieved.
+        pp_df['Country'] = convert_country_codes(pp_df['country_code'], 'alpha_2', 'name', True)
+        # Column renaming for consistency across different datasets.
+        pp_df.rename(columns={'installed_capacity_MW': 'Capacity', 'name': 'Name'}, inplace=True)
 
-    # Get only plants in countries over which the network is defined
-    if countries is not None:
-        plants = plants[plants["Country"].isin(countries)]
+    else:
+        # all other technologies read from JRC's PPDB.
+        country_names = convert_country_codes(country_list, 'alpha_2', 'name')
 
-    return plants
+        source_dir = join(dirname(abspath(__file__)), "../../../data/generation/source/JRC/JRC-PPDB-OPEN.ver1.0/")
+        pp_fn = f"{source_dir}JRC_OPEN_UNITS.csv"
+        pp_df = pd.read_csv(pp_fn, sep=';')
+
+        # Plants in the PPDB are listed per generator (multiple per plant), duplicates are hereafter dropped.
+        pp_df = pp_df.drop_duplicates(subset='eic_p', keep='first').set_index('eic_p')
+        # Filter out plants outside target countries, of other tech than the target tech, which are decommissioned.
+        pp_df = pp_df.loc[(pp_df["country"].isin(country_names)) &
+                          (pp_df['type_g'] == tech_config[plant_type]['jrc_type']) &
+                          (pp_df["status_g"] == 'COMMISSIONED')]
+
+        # Remove plants whose commissioning year goes back further than specified year.
+        if 'comm_year_threshold' in tech_config[plant_type]:
+            pp_df = pp_df[~(pp_df['year_commissioned'] < tech_config[plant_type]['comm_year_threshold'])]
+
+        # Append NUTS region column to the frame.
+        pp_df = append_power_plants_region_codes(pp_df, shapes, dist_threshold=50.)
+        # Column renaming for consistency across different datasets.
+        pp_df.rename(columns={'capacity_p': 'Capacity', 'country': 'Country', 'name_p': 'Name'}, inplace=True)
+
+    # Filter out plants in countries with additional constraints (e.g., nuclear decommissioning in DE)
+    if 'countries_out' in tech_config[plant_type]:
+        country_names = convert_country_codes(tech_config[plant_type]['countries_out'], 'alpha_2', 'name', True)
+        pp_df = pp_df[~pp_df['Country'].isin(country_names)]
+
+    # Return subset of columns for further processing.
+    return pp_df[['Name', 'Capacity', 'Country', 'region_code', 'lon', 'lat']]
+
+
+def append_power_plants_region_codes(pp_df: pd.DataFrame, shapes: gpd.GeoSeries, dist_threshold: Optional[float] = 5.,
+                                     lonlat_name: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Appending region (e.g., NUTS2, NUTS3, etc.) code column to input frame.
+
+    Parameters
+    ----------
+    pp_df: pd.DataFrame
+        Power plant frame.
+    shapes: gpd.GeoSeries
+        GeoDataFrame containing shapes union to which plants are to be mapped.
+    dist_threshold: Optional[float]
+        Maximal distance (km) from one shape for points outside of all shapes to be accepted.
+    lonlat_name: Optional[List[str]]
+        Name of the (lon, lat) columns in the pp_df object. Required, as e.g., the GRanD database, has different cols.
+
+    Returns
+    -------
+    pp_df: pd.DataFrame
+        Frame including the region column.
+    """
+    # TODO: Assigning a plant to a given region should first take the country into account and after that the location.
+    #  At this stage, the largest ROR in RO is assigned to RS. Vianden (LU) is assigned to DE. Plants in PT to ES.
+
+    # Defining the default value of the optional parameter (as mutable objects are not to be passed as default args).
+    if lonlat_name is None:
+        lonlat_name = ["lon", "lat"]
+
+    # Find to which region each plant belongs
+    plants_locs = pp_df[lonlat_name].apply(lambda xy: (xy[0], xy[1]), axis=1).values
+    plants_region_ds = match_points_to_regions(plants_locs, shapes, distance_threshold=dist_threshold).dropna()
+
+    def add_region(lon, lat):
+        try:
+            region_code = plants_region_ds[lon, lat]
+            # Need the if because some points are exactly at the same position
+            return region_code if isinstance(region_code, str) else region_code.iloc[0]
+        except KeyError:
+            return None
+
+    pp_df["region_code"] = pp_df[lonlat_name].apply(lambda x: add_region(x[0], x[1]), axis=1)
+    pp_df = pp_df[~pp_df['region_code'].isnull()]
+
+    return pp_df
 
 
 def get_hydro_production(countries: List[str] = None, years: List[int] = None) -> pd.DataFrame:
@@ -114,7 +171,8 @@ def get_hydro_production(countries: List[str] = None, years: List[int] = None) -
     # Slice on time
     if years is not None:
         missing_years = set(years) - set(prod_df.columns)
-        assert not missing_years, f"Error: Data is not available for any country for years {sorted(list(missing_years))}"
+        assert not missing_years, \
+            f"Error: Data is not available for any country for years {sorted(list(missing_years))}"
         prod_df = prod_df[years]
         prod_df = prod_df.dropna()
 
@@ -122,29 +180,20 @@ def get_hydro_production(countries: List[str] = None, years: List[int] = None) -
     if countries is not None:
         missing_countries = set(countries) - set(prod_df.index)
         assert not missing_countries, f"Error: Data is not available for countries " \
-                                      f"{sorted(list(missing_countries))} for years {years}"
+            f"{sorted(list(missing_countries))} for years {years}"
         prod_df = prod_df.loc[countries]
 
     return prod_df
 
 
 if __name__ == '__main__':
-    if 1:
-        df = get_gen_from_ppm(fuel_type='Hydro', technology="Pumped Storage")
-        print(len(df))
-        print(len(df.dropna(subset=["Duration"])))
-        print(df["Duration"])
-        print(df.keys())
-        exit()
-        #print(set(df["Set"]))
-        missing_technology_df = df[df["Technology"].apply(lambda x: not isinstance(x, str))]
-        #print(df[df["Set"].apply(lambda x: not isinstance(x, str))]["Capacity"].sum())
-        print(len(missing_technology_df))
-        print(missing_technology_df.iloc[100])
 
-        df = pd.read_csv("/home/utilisateur/Global_Grid/code/py_ggrid/data/hydro/source/pp_fresna_hydro_updated.csv",
-                         index_col=0, sep=";")
-        print(len(df))
-        missing_technology_df = df[df["Technology"].apply(lambda x: not isinstance(x, str))]
-        print(len(missing_technology_df))
-        #print(df.loc[missing_technology_df.index].dropna(subset=["Technology"])["Capacity"].sum())
+    from src.data.geographics.shapes import get_nuts_shapes
+
+    NUTS_level = '3'
+    shapes_ = get_nuts_shapes(NUTS_level)
+    country_list_ = ['AT', 'BA', 'CZ', 'GB']
+
+    tech_ = 'nuclear'
+
+    df = get_powerplant_df(plant_type=tech_, country_list=country_list_, shapes=shapes_)
