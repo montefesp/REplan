@@ -1,0 +1,49 @@
+Project structure
+
+py_ggrid
+	- data/
+		- generation/
+			- legacy/
+			- potentials/
+				- ENSPRESO/
+				- glaes/
+			- profiles/
+			- resite/
+		- geographics/
+		- indicators/
+			- emissions/
+		- load/
+		- technologies/
+		- topologies/
+	- output/
+	- src/
+		- data/
+			- generation/
+				- legacy/
+					- hydro/
+					- nuclear/
+					- vres/
+				- potentials/
+					- glaes/
+					- ENSPRESO/
+				- profiles/
+			- geographics/
+			- indicators/
+				- emissions/
+			- load/
+			- technologies/
+			- topologies/
+		- network/
+			- resite/
+			- components/
+			- globals/
+		- postprocessing/
+	- main.py (same for any topology, which is to be given as argument in config.yaml)
+	- config.yaml
+	- read.me
+	- environment.yaml
+	- project_structure.yaml
+	
+NOTE: src/siting/ maybe to be removed and migrated into a standalone resite/ project.
+	  src/sizing/ would disappear, while main.py and config.yaml are moved to py_ggrid/ root.
+	  src/vres_profiles/transfer_functions to be moved under src/technologies/
