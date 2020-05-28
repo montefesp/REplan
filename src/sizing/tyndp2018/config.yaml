@@ -26,11 +26,11 @@ res:
   include: True
   # Give which technology should be installed using each strategy
   strategies:
-    max: []
+    max: ['wind_offshore']
     comp: []
     no_siting: []
-    siting: ['wind_onshore', 'pv_utility', 'pv_residential']
-    bus: []
+    siting: []
+    bus: ['wind_onshore', 'pv_utility', 'pv_residential']
 
   # For strategy = max or comp
   path: 'EU_wide_off_2015_08'

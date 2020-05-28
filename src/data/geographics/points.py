@@ -13,6 +13,7 @@ from shapely.geometry import Point, MultiPoint, Polygon, MultiPolygon
 import geopy.distance
 
 from src.data.geographics.shapes import get_shapes
+from src.data.geographics.codes import replace_iso2_codes, revert_iso2_codes
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -108,6 +109,65 @@ def match_points_to_regions(points: List[Tuple[float, float]], shapes_ds: pd.Ser
                     f"{[(point.x, point.y) for point in remaining_points]}.")
 
     return points_region_ds
+
+
+def correct_region_assignment(point_ds: pd.Series, shapes_ds: pd.Series, point_list: List[Tuple[float, float]],
+                              region_list: List[str]) -> pd.Series:
+    """
+    When associating power plants to regions (i.e., shapes), it sometime happens that the resolution of the underlying
+    shape or the accuracy of the (lon, lat) entry limits the performance of the assessment, with plants in one region
+    (very close to borders) being linked to neighboring regions. This functions is intended to correct such issues.
+
+    Parameters
+    ----------
+    point_ds: pd.Series
+        Series of (lat, lon) - region pairs, as assessed via "match_points_to_regions"
+    shapes_ds: pd.Series
+        Dataframe storing geometries of NUTS regions.
+    point_list: List[Tuple[float, float]]
+        List of plant coordinates, in original shape.
+    region_list: List[str]
+        List of expected regions (e.g., "country" column in df), same object shape as the point_list above.
+
+    Returns
+    -------
+    points_region_ds : pd.Series
+        Series with updated regions.
+    """
+    points_ds_idx_list = point_ds.index.values.tolist()
+    # Iterate through coordinate tuples in the initial dataset.
+    for coord in points_ds_idx_list:
+
+        # Locate coordinate in the initial coordinate list.
+        idx_in_point_list = point_list.index(coord)
+        # Identify associated country.
+        expected_region = region_list[idx_in_point_list]
+        # Retrieve ISO2 code for the identified country.
+        # TODO: this slicing below is a complete mess, to be addressed. .loc on Series returns Series instead of value
+        # Strip numbers from index.
+        code = ''.join(filter(str.isupper, point_ds.loc[coord].values[0]))
+        region_in_ds = replace_iso2_codes([code])[0]
+
+        # If initial and expected country are the same, continue...
+        if expected_region == region_in_ds:
+            continue
+        # ...if not...
+        else:
+            min_dist = np.inf
+            closest_region = None
+            # ...select all shapes associated to the expected country
+            shapes_in_region = shapes_ds.loc[shapes_ds.index.str.startswith(revert_iso2_codes([expected_region])[0])]
+            # Loop over them and find the closest shape.
+            for region in shapes_in_region.index:
+                dist = shapes_in_region[region].distance(Point(coord))
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_region = region
+            # The index (region) which is closest to the coordinate is the updated associated region.
+            point_ds.loc[coord] = closest_region
+
+    return point_ds
+
 
 
 def match_points_to_countries(points: List[Tuple[float, float]], countries: List[str]) -> pd.Series:

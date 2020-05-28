@@ -7,7 +7,7 @@ import pandas as pd
 import yaml
 
 from src.data.geographics import convert_country_codes
-from src.data.geographics.points import match_points_to_regions
+from src.data.geographics.points import match_points_to_regions, correct_region_assignment
 
 
 def get_powerplant_df(plant_type: str, country_list: List[str], shapes: gpd.GeoSeries) -> pd.DataFrame:
@@ -69,6 +69,8 @@ def get_powerplant_df(plant_type: str, country_list: List[str], shapes: gpd.GeoS
         if 'comm_year_threshold' in tech_config[plant_type]:
             pp_df = pp_df[~(pp_df['year_commissioned'] < tech_config[plant_type]['comm_year_threshold'])]
 
+        pp_df['country_code'] = \
+            pp_df.apply(lambda x: convert_country_codes([x['country']], 'name', 'alpha_2', True)[0], axis=1)
         # Append NUTS region column to the frame.
         pp_df = append_power_plants_region_codes(pp_df, shapes, dist_threshold=50.)
         # Column renaming for consistency across different datasets.
@@ -83,7 +85,8 @@ def get_powerplant_df(plant_type: str, country_list: List[str], shapes: gpd.GeoS
     return pp_df[['Name', 'Capacity', 'Country', 'region_code', 'lon', 'lat']]
 
 
-def append_power_plants_region_codes(pp_df: pd.DataFrame, shapes: gpd.GeoSeries, dist_threshold: Optional[float] = 5.,
+def append_power_plants_region_codes(pp_df: pd.DataFrame, shapes: gpd.GeoSeries, check_regions: bool = True,
+                                     dist_threshold: Optional[float] = 5.,
                                      lonlat_name: Optional[List[str]] = None) -> pd.DataFrame:
     """
     Appending region (e.g., NUTS2, NUTS3, etc.) code column to input frame.
@@ -94,6 +97,9 @@ def append_power_plants_region_codes(pp_df: pd.DataFrame, shapes: gpd.GeoSeries,
         Power plant frame.
     shapes: gpd.GeoSeries
         GeoDataFrame containing shapes union to which plants are to be mapped.
+    check_regions: bool = True
+        Boolean argument used to call a function that corrects the potentially wrong assignment of power plant locations
+        based solely on point matching in shapes.
     dist_threshold: Optional[float]
         Maximal distance (km) from one shape for points outside of all shapes to be accepted.
     lonlat_name: Optional[List[str]]
@@ -104,27 +110,37 @@ def append_power_plants_region_codes(pp_df: pd.DataFrame, shapes: gpd.GeoSeries,
     pp_df: pd.DataFrame
         Frame including the region column.
     """
-    # TODO: Assigning a plant to a given region should first take the country into account and after that the location.
-    #  At this stage, the largest ROR in RO is assigned to RS. Vianden (LU) is assigned to DE. Plants in PT to ES.
 
     # Defining the default value of the optional parameter (as mutable objects are not to be passed as default args).
     if lonlat_name is None:
         lonlat_name = ["lon", "lat"]
 
-    # Find to which region each plant belongs
-    plants_locs = pp_df[lonlat_name].apply(lambda xy: (xy[0], xy[1]), axis=1).values
-    plants_region_ds = match_points_to_regions(plants_locs, shapes, distance_threshold=dist_threshold).dropna()
+    if len(shapes.index[0]) == 2:
 
-    def add_region(lon, lat):
-        try:
-            region_code = plants_region_ds[lon, lat]
-            # Need the if because some points are exactly at the same position
-            return region_code if isinstance(region_code, str) else region_code.iloc[0]
-        except KeyError:
-            return None
+        pp_df["region_code"] = pp_df["country_code"]
+        pp_df = pp_df[~pp_df['region_code'].isnull()]
 
-    pp_df["region_code"] = pp_df[lonlat_name].apply(lambda x: add_region(x[0], x[1]), axis=1)
-    pp_df = pp_df[~pp_df['region_code'].isnull()]
+    else:
+
+        # Find to which region each plant belongs
+        plants_locs = pp_df[lonlat_name].apply(lambda xy: (xy[0], xy[1]), axis=1).values
+        plants_region_ds = match_points_to_regions(plants_locs, shapes, distance_threshold=dist_threshold).dropna()
+
+        if check_regions:
+            plants_regs = pp_df['country_code'].values.tolist()
+            plants_region_ds = correct_region_assignment(plants_region_ds, shapes,
+                                                         plants_locs.tolist(), plants_regs)
+
+        def add_region(lon, lat):
+            try:
+                region_code = plants_region_ds[lon, lat]
+                # Need the if because some points are exactly at the same position
+                return region_code if isinstance(region_code, str) else region_code.iloc[0]
+            except KeyError:
+                return None
+
+        pp_df["region_code"] = pp_df[lonlat_name].apply(lambda x: add_region(x[0], x[1]), axis=1)
+        pp_df = pp_df[~pp_df['region_code'].isnull()]
 
     return pp_df
 
@@ -188,12 +204,20 @@ def get_hydro_production(countries: List[str] = None, years: List[int] = None) -
 
 if __name__ == '__main__':
 
-    from src.data.geographics.shapes import get_nuts_shapes
+    from src.data.geographics.shapes import get_nuts_shapes, get_natural_earth_shapes
 
-    NUTS_level = '3'
-    shapes_ = get_nuts_shapes(NUTS_level)
-    country_list_ = ['AT', 'BA', 'CZ', 'GB']
+    topology = 'NUTS3'
 
-    tech_ = 'nuclear'
+    if topology == 'countries':
+        shapes_ = get_natural_earth_shapes()
+    else:
+        shapes_ = get_nuts_shapes(topology[-1:])
+
+    country_list_ = ['FI', 'ME', 'BG', 'BE', 'CH', 'CZ', 'DE', 'LV', 'AT', 'SK', 'HU', 'PT', 'RS',
+                     'AL', 'PL', 'IE', 'GR', 'ES', 'HR', 'RO', 'IT', 'FR', 'GB', 'SI', 'SE', 'MK']
+
+    tech_ = 'ror'
 
     df = get_powerplant_df(plant_type=tech_, country_list=country_list_, shapes=shapes_)
+
+    print(df)

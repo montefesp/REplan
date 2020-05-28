@@ -102,7 +102,7 @@ def get_phs_capacities(aggregation_level: str) -> Tuple[pd.Series, pd.Series]:
     return get_hydro_capacities(aggregation_level, 'phs')
 
 
-def phs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series) -> (pd.Series, pd.Series, set):
+def phs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series) -> (pd.Series, pd.Series):
     """
     Mapping PHS capacities from NUTS3 to PHS
 
@@ -121,9 +121,6 @@ def phs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series
         PHS e-highway power capacities.
     bus_e_cap: pd.Series
         PHS e-highway energy capacities.
-    # TODO: make no sense to me to return this as argument
-    regions_with_cap: set
-        Regions (i.e., countries) with capacity.
 
     """
 
@@ -139,9 +136,7 @@ def phs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series
         bus_p_cap.loc[eh_bus] = p_cap.reindex(nuts3_codes).sum()
         bus_e_cap.loc[eh_bus] = e_cap.reindex(nuts3_codes).sum()
 
-    regions_with_cap = set(bus_p_cap.index.str[2:])
-
-    return bus_p_cap, bus_e_cap, regions_with_cap
+    return bus_p_cap, bus_e_cap
 
 
 # ----- ROR ----- #
@@ -175,8 +170,7 @@ def ror_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, inflow_ts
         ROR power capacity (GW) for each bus for which there is installed capacity
     bus_inflows: pd.DataFrame (index: time, columns: ids of bus for which capacity exists)
         ROR energy inflow (per unit) for each bus for which there is installed capacity
-    regions_with_cap: set
-        Regions (i.e., countries) with capacity.
+
     """
 
     eh_clusters = get_ehighway_clusters().loc[eh_buses]
@@ -192,9 +186,7 @@ def ror_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, inflow_ts
         # ROR capacity factor is taken as the mean across all NUTS3 areas in the same ehighway cluster.
         bus_inflows[eh_bus] = inflow_ts.loc[:, inflow_ts.columns.isin(nuts3_codes)].mean(axis=1)
 
-    regions_with_cap = set(bus_p_cap.index.str[2:])
-
-    return bus_p_cap, bus_inflows, regions_with_cap
+    return bus_p_cap, bus_inflows
 
 
 # ----- STO ----- #
@@ -210,7 +202,7 @@ def get_sto_inflows(aggregation_level: str, timestamps: pd.DatetimeIndex = None)
 
 
 def sto_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series,
-                                inflow_ts: pd.DataFrame) -> (pd.Series, pd.Series, pd.DataFrame, set):
+                                inflow_ts: pd.DataFrame) -> (pd.Series, pd.Series, pd.DataFrame):
     """
 
 
@@ -232,8 +224,7 @@ def sto_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd
         STO energy capacity (GWh) for each bus for which there is installed capacity
     bus_inflows: pd.DataFrame (index: time, columns: ids of bus for which capacity exists)
         STO energy inflow (GWh) for each bus for which there is installed capacity
-    regions_with_cap: set
-        Regions (i.e., countries) with STO capacity.
+
     """
 
     eh_clusters = get_ehighway_clusters().loc[eh_buses]
@@ -246,14 +237,9 @@ def sto_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd
 
         nuts3_codes = eh_clusters.loc[eh_bus, 'codes'].split(',')
 
-        # TODO: why use reindex?
         bus_p_cap.loc[eh_bus] = p_cap.reindex(nuts3_codes).sum()
         bus_e_cap.loc[eh_bus] = e_cap.reindex(nuts3_codes).sum()
         # STO inflows computed as sum over one ehighway cluster (as they are expressed in energy units)
         bus_inflows[eh_bus] = inflow_ts.loc[:, inflow_ts.columns.isin(nuts3_codes)].sum(axis=1)
 
-    regions_with_cap = set(bus_p_cap.index.str[2:])
-
-    return bus_p_cap, bus_e_cap, bus_inflows, regions_with_cap
-
-
+    return bus_p_cap, bus_e_cap, bus_inflows

@@ -98,6 +98,27 @@ def replace_iso2_codes(countries_list: List[str]) -> List[str]:
     return updated_codes
 
 
+def revert_iso2_codes(countries_list: List[str]) -> List[str]:
+    """
+    Reverting ISO_2 code for UK and EL (not uniform across datasets).
+
+    Parameters
+    ----------
+    countries_list: List[str]
+        Initial list of ISO_2 codes.
+
+    Returns
+    -------
+    updated_codes: List[str]
+        Updated ISO_2 codes.
+    """
+
+    country_names_issues = {'GB': 'UK', 'GR': 'El', 'XK': 'KV'}
+    updated_codes = [country_names_issues[c] if c in country_names_issues else c for c in countries_list]
+
+    return updated_codes
+
+
 def revert_old_country_names(c: str) -> str:
     """
     Reverting country full names to old ones, as some datasets are not updated on the issue.

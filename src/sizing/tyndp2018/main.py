@@ -127,8 +127,7 @@ if __name__ == '__main__':
 
     # Adding nuclear
     if config["nuclear"]["include"]:
-        net = add_nuclear(net, countries, config["nuclear"]["use_ex_cap"], config["nuclear"]["extendable"],
-                          "pp_nuclear_WNA.csv")
+        net = add_nuclear(net, countries, config["nuclear"]["use_ex_cap"], config["nuclear"]["extendable"])
 
     if config["sto"]["include"]:
         net = add_sto_plants(net, 'countries', config["sto"]["extendable"], config["sto"]["cyclic_sof"])

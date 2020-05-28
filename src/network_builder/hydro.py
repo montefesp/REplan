@@ -47,7 +47,8 @@ def add_phs_plants(network: pypsa.Network, topology_type: str = "countries",
         bus_pow_cap = pow_cap.loc[nodes_with_capacity]
         bus_en_cap = en_cap.loc[nodes_with_capacity]
     else:  # topology_type == 'ehighway
-        bus_pow_cap, bus_en_cap, nodes_with_capacity = phs_nuts_to_ehighway(buses_onshore.index, pow_cap, en_cap)
+        bus_pow_cap, bus_en_cap = phs_nuts_to_ehighway(buses_onshore.index, pow_cap, en_cap)
+        nodes_with_capacity = set(bus_pow_cap.index.str[2:])
 
     logger.info(f"Adding {bus_pow_cap.sum():.2f} GW of PHS hydro "
                 f"with {bus_en_cap.sum():.2f} GWh of storage in {nodes_with_capacity}.")
@@ -120,8 +121,9 @@ def add_ror_plants(network: pypsa.Network, topology_type: str = "countries",
         bus_pow_cap = pow_cap.loc[nodes_with_capacity]
         bus_inflows = inflows[nodes_with_capacity]
     else:  # topology_type == 'ehighway'
-        bus_pow_cap, bus_inflows, nodes_with_capacity = \
+        bus_pow_cap, bus_inflows = \
             ror_inputs_nuts_to_ehighway(buses_onshore.index, pow_cap, inflows)
+        nodes_with_capacity = set(bus_pow_cap.index.str[2:])
 
     logger.info(f"Adding {bus_pow_cap.sum():.2f} GW of ROR hydro in {nodes_with_capacity}.")
 
@@ -192,8 +194,16 @@ def add_sto_plants(network: pypsa.Network, topology_type: str = "countries",
         bus_en_cap = en_cap.loc[nodes_with_capacity]
         bus_inflows = inflows[nodes_with_capacity]
     else:  # topology_type == 'ehighway'
-        bus_pow_cap, bus_en_cap, bus_inflows, nodes_with_capacity = \
+        bus_pow_cap, bus_en_cap, bus_inflows = \
             sto_inputs_nuts_to_ehighway(buses_onshore.index, pow_cap, en_cap, inflows)
+        nodes_with_capacity = set(bus_pow_cap.index.str[2:])
+
+    nodes_capacity_no_storage = \
+        set(bus_pow_cap[bus_pow_cap > 0.].index.tolist()).intersection(set(bus_en_cap[bus_en_cap == 0.].index.tolist()))
+    bus_pow_cap.loc[nodes_capacity_no_storage] = 0.
+    nodes_storage_no_capacity = \
+        set(bus_en_cap[bus_en_cap > 0.].index.tolist()).intersection(set(bus_pow_cap[bus_pow_cap == 0.].index.tolist()))
+    bus_en_cap.loc[nodes_storage_no_capacity] = 0.
 
     logger.info(f"Adding {bus_pow_cap.sum():.2f} GW of STO hydro "
                 f"with {bus_en_cap.sum() * 1e-3:.2f} TWh of storage in {nodes_with_capacity}.")

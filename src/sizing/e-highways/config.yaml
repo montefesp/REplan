@@ -22,7 +22,7 @@ add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES
 
 # RES
 res:
-  include: True
+  include: False
   # Give which technology should be installed using each strategy
   strategies:
     max: []
@@ -76,7 +76,7 @@ dispatch:
 
 # Nuclear
 nuclear:
-  include: False
+  include: True
   use_ex_cap: True # Whether to include existing cap
   extendable: False
 
@@ -88,13 +88,13 @@ battery:
 
 # Hydro
 phs:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
   cyclic_sof: True
 
 ror:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
 

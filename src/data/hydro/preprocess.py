@@ -95,13 +95,13 @@ def get_phs_storage_capacities(phs_capacity_df: pd.Series, default_phs_duration:
     return phs_capacity_df[['Name', 'Capacity', 'Energy', 'region_code']]
 
 
-def build_phs_data(phs_plants_df: pd.Series, default_phs_duration: float) -> pd.DataFrame:
+def build_phs_data(phs_plants_df: pd.DataFrame, default_phs_duration: float) -> pd.DataFrame:
     """
     Compute total PHS power (GW) and energy (GWh) capacities for a series of regions.
 
     Parameters
     ----------
-    phs_plants_df: pd.Series
+    phs_plants_df: pd.DataFrame
         Frame containing PHS power plant data.
     default_phs_duration: float
         Default duration for PHS plants.
@@ -266,9 +266,8 @@ def get_storage_distribution_from_grand(nuts_codes: List[str]) -> pd.Series:
 
     # Filtering out reservoirs whose purpose is not for hydro power generation.
     reservoirs_hydropower = reservoirs_df[(reservoirs_df['USE_ELEC'].isin(['Main', 'Sec', 'Major'])) &
-                                          (reservoirs_df['COUNTRY'].isin(codes_dict.values()))]
-
-    reservoirs_hydropower = append_power_plants_region_codes(reservoirs_hydropower, shapes,
+                                          (reservoirs_df['COUNTRY'].isin(codes_dict.values()))].copy()
+    reservoirs_hydropower = append_power_plants_region_codes(reservoirs_hydropower, shapes, check_regions=False,
                                                              lonlat_name=["LONG_DD", "LAT_DD"])
     storage_by_nuts = reservoirs_hydropower.groupby(by=reservoirs_hydropower['region_code'])['CAP_MCM'].sum()
 
@@ -282,7 +281,6 @@ def get_storage_distribution_from_grand(nuts_codes: List[str]) -> pd.Series:
     storage_distribution_df = pd.concat(storage_df_list, axis=0)
 
     return storage_distribution_df
-
 
 
 def compute_storage_capacities(sto_capacity_df: pd.DataFrame) -> pd.Series:
@@ -319,13 +317,13 @@ def compute_storage_capacities(sto_capacity_df: pd.DataFrame) -> pd.Series:
                 hydro_storage_energy_cap = pd.read_csv(hydro_storage_capacities_entsoe_fn, index_col=0)
                 max_storage = np.nanmax(np.nan_to_num(hydro_storage_energy_cap.values.flatten()))
                 if max_storage > 0.:
-                    hydro_storage_energy_cap_ds.loc[c] = round(max_storage * 1e-3, 2)
+                    hydro_storage_energy_cap_ds.loc[c] = round(max_storage * 1e-3, 3)
                 else:
                     # ...if ENTSO-E data is missing (NaNs replaced by 0s), approximate storage via GRanD v1.3
-                    hydro_storage_energy_cap_ds.loc[c] = round(get_country_storage_from_grand(country_name), 2)
+                    hydro_storage_energy_cap_ds.loc[c] = round(get_country_storage_from_grand(country_name), 3)
             except FileNotFoundError:
                 # ...if ENTSO-E file is missing altogether, approximate storage via GRanD v1.3
-                hydro_storage_energy_cap_ds.loc[c] = round(get_country_storage_from_grand(country_name), 2)
+                hydro_storage_energy_cap_ds.loc[c] = round(get_country_storage_from_grand(country_name), 3)
 
     # If topology unit is "countries", return frame
     if len(sto_capacity_df.index[0]) == 2:
@@ -481,10 +479,12 @@ def build_sto_data(sto_capacity_ds: pd.Series, timestamps: pd.DatetimeIndex,
     sto_multipliers_ds: pd.Series
          STO multipliers per country.
     """
-    sto_capacity_df = sto_capacity_ds.groupby(sto_capacity_ds.index).sum().to_frame() * 1e-3
+    sto_capacity_ds = sto_capacity_ds.groupby(sto_capacity_ds.index).sum() * 1e-3
 
     # Compute energy capacity of STO plants between regions
-    sto_capacity_df["Energy"] = compute_storage_capacities(sto_capacity_df).fillna(0.)
+    storage_capacities = compute_storage_capacities(sto_capacity_ds)
+    sto_capacity_df = pd.concat([sto_capacity_ds, storage_capacities], axis=1, ignore_index=True, sort=True)
+    sto_capacity_df.columns = ['Capacity', 'Energy']
 
     # STO inflow (in GWh)
     sto_inflows_df = pd.DataFrame(index=timestamps, columns=sto_capacity_df.index)
@@ -589,11 +589,11 @@ def generate_eu_hydro_files(resolution: float, topology_unit: str, timestamps: p
 
 if __name__ == '__main__':
 
-    nuts_type_ = 'countries'
-    resolution_ = 0.5  # 0.28125
+    nuts_type_ = 'NUTS3'
+    resolution_ = 0.28125  # 0.28125
 
-    start = datetime(2014, 1, 1, 0, 0, 0)
-    end = datetime(2018, 12, 31, 23, 0, 0)
+    start = datetime(2015, 1, 1, 0, 0, 0)
+    end = datetime(2015, 1, 1, 10, 0, 0)
     timestamps_ = pd.date_range(start, end, freq='H')
 
     generate_eu_hydro_files(resolution_, nuts_type_, timestamps_)
