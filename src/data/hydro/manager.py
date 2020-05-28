@@ -136,6 +136,10 @@ def phs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series
         bus_p_cap.loc[eh_bus] = p_cap.reindex(nuts3_codes).sum()
         bus_e_cap.loc[eh_bus] = e_cap.reindex(nuts3_codes).sum()
 
+    # Keep only node with power/storage capacity.
+    bus_p_cap = bus_p_cap.loc[bus_p_cap > 0.]
+    bus_e_cap = bus_e_cap.loc[bus_e_cap > 0.]
+
     return bus_p_cap, bus_e_cap
 
 
@@ -185,6 +189,10 @@ def ror_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, inflow_ts
         bus_p_cap.loc[eh_bus] = p_cap.reindex(nuts3_codes).sum()
         # ROR capacity factor is taken as the mean across all NUTS3 areas in the same ehighway cluster.
         bus_inflows[eh_bus] = inflow_ts.loc[:, inflow_ts.columns.isin(nuts3_codes)].mean(axis=1)
+
+    # Keep only nodes with power capacity.
+    bus_p_cap = bus_p_cap[bus_p_cap > 0.]
+    bus_inflows = bus_inflows.loc[:, bus_p_cap.index]
 
     return bus_p_cap, bus_inflows
 
@@ -241,5 +249,18 @@ def sto_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd
         bus_e_cap.loc[eh_bus] = e_cap.reindex(nuts3_codes).sum()
         # STO inflows computed as sum over one ehighway cluster (as they are expressed in energy units)
         bus_inflows[eh_bus] = inflow_ts.loc[:, inflow_ts.columns.isin(nuts3_codes)].sum(axis=1)
+
+    # Sets to 0. storage capacities if there is no associated power rating.
+    nodes_capacity_no_storage = \
+        set(bus_p_cap[bus_p_cap > 0.].index.tolist()).intersection(set(bus_e_cap[bus_e_cap == 0.].index.tolist()))
+    bus_p_cap.loc[nodes_capacity_no_storage] = 0.
+    # Sets to 0. power rating if there is no storage capacity associaed.
+    nodes_storage_no_capacity = \
+        set(bus_e_cap[bus_e_cap > 0.].index.tolist()).intersection(set(bus_p_cap[bus_p_cap == 0.].index.tolist()))
+    bus_e_cap.loc[nodes_storage_no_capacity] = 0.
+    # Keep only nodes with power/storage capacity.
+    bus_p_cap = bus_p_cap.loc[bus_p_cap > 0.]
+    bus_e_cap = bus_e_cap.loc[bus_e_cap > 0.]
+    bus_inflows = bus_inflows.loc[:, bus_p_cap.index]
 
     return bus_p_cap, bus_e_cap, bus_inflows

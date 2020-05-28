@@ -127,7 +127,7 @@ def add_ror_plants(network: pypsa.Network, topology_type: str = "countries",
 
     logger.info(f"Adding {bus_pow_cap.sum():.2f} GW of ROR hydro in {nodes_with_capacity}.")
 
-    bus_inflows = bus_inflows.round(3)
+    bus_inflows = bus_inflows.dropna().round(3)
 
     capital_cost, marginal_cost = get_costs('ror', len(network.snapshots))
 
@@ -198,13 +198,6 @@ def add_sto_plants(network: pypsa.Network, topology_type: str = "countries",
             sto_inputs_nuts_to_ehighway(buses_onshore.index, pow_cap, en_cap, inflows)
         nodes_with_capacity = set(bus_pow_cap.index.str[2:])
 
-    nodes_capacity_no_storage = \
-        set(bus_pow_cap[bus_pow_cap > 0.].index.tolist()).intersection(set(bus_en_cap[bus_en_cap == 0.].index.tolist()))
-    bus_pow_cap.loc[nodes_capacity_no_storage] = 0.
-    nodes_storage_no_capacity = \
-        set(bus_en_cap[bus_en_cap > 0.].index.tolist()).intersection(set(bus_pow_cap[bus_pow_cap == 0.].index.tolist()))
-    bus_en_cap.loc[nodes_storage_no_capacity] = 0.
-
     logger.info(f"Adding {bus_pow_cap.sum():.2f} GW of STO hydro "
                 f"with {bus_en_cap.sum() * 1e-3:.2f} TWh of storage in {nodes_with_capacity}.")
     bus_inflows = bus_inflows.round(3)
@@ -233,7 +226,7 @@ def add_sto_plants(network: pypsa.Network, topology_type: str = "countries",
                  cyclic_state_of_charge=cyclic_sof,
                  max_hours=max_hours.values,
                  inflow=bus_inflows.values,
-                 x=buses_onshore.loc[bus_pow_cap.index].x.values,
-                 y=buses_onshore.loc[bus_pow_cap.index].y.values)
+                 x=buses_onshore.loc[bus_pow_cap.index.values].x.values,
+                 y=buses_onshore.loc[bus_pow_cap.index.values].y.values)
 
     return network

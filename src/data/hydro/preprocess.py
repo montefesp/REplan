@@ -589,11 +589,11 @@ def generate_eu_hydro_files(resolution: float, topology_unit: str, timestamps: p
 
 if __name__ == '__main__':
 
-    nuts_type_ = 'NUTS3'
-    resolution_ = 0.28125  # 0.28125
+    nuts_type_ = 'countries'
+    resolution_ = 0.5  # 0.28125
 
-    start = datetime(2015, 1, 1, 0, 0, 0)
-    end = datetime(2015, 1, 1, 10, 0, 0)
+    start = datetime(2014, 1, 1, 0, 0, 0)
+    end = datetime(2018, 12, 31, 23, 0, 0)
     timestamps_ = pd.date_range(start, end, freq='H')
 
     generate_eu_hydro_files(resolution_, nuts_type_, timestamps_)
