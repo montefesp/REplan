@@ -5,6 +5,7 @@ from time import strftime
 
 import numpy as np
 import pandas as pd
+from pyomo.opt import ProblemFormat
 
 import pypsa
 
@@ -22,6 +23,7 @@ from src.network_builder.hydro import add_phs_plants, add_ror_plants, add_sto_pl
 from src.network_builder.conventional import add_generators as add_conventional
 from src.network_builder.battery import add_batteries
 from src.network_builder.snsp import add_snsp_constraint_tyndp
+from src.network_builder.curtailment import add_curtailment_penalty_term
 from src.postprocessing.sizing_results import SizingResults
 
 import logging
@@ -139,7 +141,7 @@ if __name__ == '__main__':
         net = add_ror_plants(net, 'countries', config["ror"]["extendable"])
 
     if config["battery"]["include"]:
-        net = add_batteries(net, config["battery"]["type"], config["battery"]["max_hours"])
+        net = add_batteries(net, config["battery"]["type"], tech_config["Li-ion"]["max_hours"])
 
     co2_reference_kt = \
         get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
@@ -147,8 +149,10 @@ if __name__ == '__main__':
         net.snapshots) / NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
 
-    if config["snsp"]["include"]:
+    if config["functionality"]["which"] == 'snsp':
         extra_functionality = add_snsp_constraint_tyndp
+    elif config["functionality"]["which"] == 'curtailment':
+        extra_functionality = add_curtailment_penalty_term
     else:
         extra_functionality = None
 
@@ -156,20 +160,21 @@ if __name__ == '__main__':
     if not isdir(output_dir):
         makedirs(output_dir)
 
-    net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}test.log",
+    net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"][config["solver"]],
              extra_functionality=extra_functionality, pyomo=True)
 
-    # if True:
-    #     net.model.write(filename=join(output_dir, 'model.lp'),
-    #                     format=ProblemFormat.cpxlp,
-    #                     io_options={'symbolic_solver_labels': True})
+    if config['keep_lp']:
+        net.model.write(filename=join(output_dir, 'model.lp'),
+                        format=ProblemFormat.cpxlp,
+                        io_options={'symbolic_solver_labels': False})
+        net.model.objective.pprint()
 
     # Save config and parameters files
-    yaml.dump(config, open(f"{output_dir}config.yaml", 'w'))
-    yaml.dump(tech_info, open(f"{output_dir}tech_info.yaml", 'w'))
-    yaml.dump(fuel_info, open(f"{output_dir}fuel_info.yaml", 'w'))
-    yaml.dump(tech_config, open(f"{output_dir}tech_config.yaml", 'w'))
+    yaml.dump(config, open(f"{output_dir}config.yaml", 'w'), sort_keys=False)
+    yaml.dump(tech_config, open(f"{output_dir}tech_config.yaml", 'w'), sort_keys=False)
+    tech_info.to_csv(f"{output_dir}tech_info.csv")
+    fuel_info.to_csv(f"{output_dir}fuel_info.csv")
 
     net.export_to_csv_folder(output_dir)
 
