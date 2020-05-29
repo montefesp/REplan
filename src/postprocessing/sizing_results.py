@@ -40,9 +40,6 @@ class SizingResults:
 
         print(f"Total generation (TWh):\n{self.get_generators_generation().sum()}\n")
         print(f"Total load (TWh):\n{round(self.net.loads_t.p.values.sum() * (1e-3),2)}\n")
-        # print(f"Number of generators:\n{self.get_generators_numbers()}\n")
-        # print(f"Generators CFs (%):\n{self.get_generators_average_usage()}\n")
-        # print(f"Curtailment (TWh):\n{self.get_generators_curtailment()}\n")
 
     def get_gen_capital_and_marginal_cost(self):
 
@@ -98,7 +95,7 @@ class SizingResults:
         df_capacities_all = self.net.generators
         df_cf_per_generator_all = self.net.generators_t['p_max_pu']
 
-        df_cf = pd.Series(index=opt_cap.index)
+        df_cf = pd.Series(index=opt_cap.index, dtype=float)
 
         for item in df_cf.index:
 
@@ -119,21 +116,28 @@ class SizingResults:
     def get_generators_curtailment(self):
 
         opt_cap = self.get_generators_capacity()['final']
-        tot_gen = self.get_generators_generation()
-        df_capacities_all = self.net.generators
-        df_cf_per_generator_all = self.net.generators_t['p_max_pu']
 
-        df_curtailment = pd.Series(index=opt_cap.index)
+        df_p_nom = self.net.generators['p_nom_opt']
+        df_p_max_pu = self.net.generators_t['p_max_pu']
+        df_p = self.net.generators_t['p']
+
+        df_curtailment = pd.Series(index=opt_cap.index, dtype=float)
 
         for item in df_curtailment.index:
 
-            if item in ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_residential', 'pv_utility', 'ror']:
-                df_capacities = df_capacities_all[df_capacities_all.index.str.contains(item)]['p_nom_opt']
-                df_cf_per_generator = df_cf_per_generator_all.loc[:,
-                                      df_cf_per_generator_all.columns.str.contains(item)].sum()
+            if item in ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_residential', 'pv_utility']:
 
-                production_per_type = (df_capacities*df_cf_per_generator).sum()
-                df_curtailment.loc[item] = production_per_type*(1e-3) - tot_gen.loc[item]
+                all_gens = df_p_nom[df_p_nom.index.str.contains(item)]
+
+                curtailment_tech = 0.
+
+                for gen in all_gens.index:
+
+                    curtailment_t = df_p_max_pu.loc[:, gen] * df_p_nom.loc[gen] - df_p.loc[:, gen]
+                    curtailment_gen = curtailment_t.sum()
+                    curtailment_tech += curtailment_gen
+
+                df_curtailment.loc[item] = curtailment_tech*(1e-3)
 
             else:
                 df_curtailment.loc[item] = np.nan
@@ -269,7 +273,7 @@ class SizingResults:
 
         carriers = links_carriers.unique()
 
-        df_power = pd.Series(index=carriers)
+        df_power = pd.Series(index=carriers, dtype=float)
 
         for carrier in carriers:
 

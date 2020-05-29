@@ -17,7 +17,7 @@ solver_options:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-01-01T10:00']
+  slice: ['2015-01-01T00:00', '2015-01-10T23:00']
   resolution: 1
 
 # Space
@@ -115,8 +115,8 @@ functionalities:
     include: False
     share: 0.65
   curtailment:
-    include: False
-    strategy: ['technical', 0.5] # ['economic', 0.01]
+    include: True
+    strategy: ['technical', 1.] # ['technical', 0.], ['technical', 1.], ['economic', 0.], ['economic', 9999.]
 
 # Emissions
 co2_emissions:

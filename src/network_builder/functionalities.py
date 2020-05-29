@@ -98,7 +98,7 @@ def add_curtailment_constraints(network: pypsa.Network, snapshots: pd.DatetimeIn
     def curtailment_rule(model, gen, snapshot):
 
         return gens_p_max_pu.loc[snapshot, gen] * model.generator_p_nom[gen] - model.generator_p[gen, snapshot] <= \
-               allowed_curtailment_share * gens_p_max_pu.loc[snapshot, gen]
+               allowed_curtailment_share * gens_p_max_pu.loc[snapshot, gen] * model.generator_p_nom[gen]
 
     model.limit_curtailment = Constraint(list(gens), list(snapshots), rule=curtailment_rule)
 
