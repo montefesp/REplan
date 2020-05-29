@@ -22,8 +22,7 @@ from src.network_builder.nuclear import add_generators as add_nuclear
 from src.network_builder.hydro import add_phs_plants, add_ror_plants, add_sto_plants
 from src.network_builder.conventional import add_generators as add_conventional
 from src.network_builder.battery import add_batteries
-from src.network_builder.snsp import add_snsp_constraint_tyndp
-from src.network_builder.curtailment import add_curtailment_penalty_term
+from src.network_builder.functionalities import add_extra_functionalities
 from src.postprocessing.sizing_results import SizingResults
 
 import logging
@@ -149,26 +148,18 @@ if __name__ == '__main__':
         net.snapshots) / NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
 
-    if config["functionality"]["which"] == 'snsp':
-        extra_functionality = add_snsp_constraint_tyndp
-    elif config["functionality"]["which"] == 'curtailment':
-        extra_functionality = add_curtailment_penalty_term
-    else:
-        extra_functionality = None
-
     # Compute and save results
     if not isdir(output_dir):
         makedirs(output_dir)
 
     net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"][config["solver"]],
-             extra_functionality=extra_functionality, pyomo=True)
+             extra_functionality=add_extra_functionalities, pyomo=True)
 
     if config['keep_lp']:
         net.model.write(filename=join(output_dir, 'model.lp'),
                         format=ProblemFormat.cpxlp,
                         io_options={'symbolic_solver_labels': False})
-        net.model.objective.pprint()
 
     # Save config and parameters files
     yaml.dump(config, open(f"{output_dir}config.yaml", 'w'), sort_keys=False)

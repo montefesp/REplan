@@ -1,5 +1,5 @@
 # model
-keep_lp: False
+keep_lp: True
 
 # solver
 solver: 'gurobi'
@@ -110,12 +110,13 @@ sto:
   extendable: False
   cyclic_sof: True
 
-functionality:
-  which: "curtailment"
+functionalities:
   snsp:
+    include: False
     share: 0.65
   curtailment:
-    cost: 0.01 # 0.01 = 10 $/MWh
+    include: False
+    strategy: ['technical', 0.5] # ['economic', 0.01]
 
 # Emissions
 co2_emissions:
