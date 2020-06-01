@@ -44,7 +44,7 @@ def add_snsp_constraint_tyndp(network: pypsa.Network, snapshots: pd.DatetimeInde
 
 def add_curtailment_penalty_term(network: pypsa.Network, snapshots: pd.DatetimeIndex):
     """
-    Add system non-synchronous generation share constraint to the model.
+    Add curtailment penalties to the objective function.
 
     Parameters
     ----------
@@ -73,7 +73,7 @@ def add_curtailment_penalty_term(network: pypsa.Network, snapshots: pd.DatetimeI
 
 def add_curtailment_constraints(network: pypsa.Network, snapshots: pd.DatetimeIndex):
     """
-    Add system non-synchronous generation share constraint to the model.
+    Add extra constrains limiting curtailment of each generator, at each time step, as a share of p_max_pu*p_nom.
 
     Parameters
     ----------
@@ -107,6 +107,17 @@ def add_curtailment_constraints(network: pypsa.Network, snapshots: pd.DatetimeIn
 
 
 def add_extra_functionalities(network: pypsa.Network, snapshots: pd.DatetimeIndex):
+    """
+    Wrapper for the inclusion of multiple extra_functionalities.
+
+    Parameters
+    ----------
+    network: pypsa.Network
+        A PyPSA Network instance with buses associated to regions
+    snapshots: pd.DatetimeIndex
+        Network snapshots.
+
+    """
 
     config_fn = join(dirname(abspath(__file__)), '../sizing/tyndp2018/config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
