@@ -47,6 +47,10 @@ if __name__ == '__main__':
     fuel_info = pd.read_excel(join(tech_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
     tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
 
+    # Compute and save results
+    if not isdir(output_dir):
+        makedirs(output_dir)
+
     # Save config and parameters files
     yaml.dump(config, open(f"{output_dir}config.yaml", 'w'), sort_keys=False)
     yaml.dump(tech_config, open(f"{output_dir}tech_config.yaml", 'w'), sort_keys=False)
@@ -153,10 +157,6 @@ if __name__ == '__main__':
     co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(
         net.snapshots) / NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
-
-    # Compute and save results
-    if not isdir(output_dir):
-        makedirs(output_dir)
 
     net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"][config["solver"]],
