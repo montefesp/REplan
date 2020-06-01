@@ -47,6 +47,12 @@ if __name__ == '__main__':
     fuel_info = pd.read_excel(join(tech_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
     tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
 
+    # Save config and parameters files
+    yaml.dump(config, open(f"{output_dir}config.yaml", 'w'), sort_keys=False)
+    yaml.dump(tech_config, open(f"{output_dir}tech_config.yaml", 'w'), sort_keys=False)
+    tech_info.to_csv(f"{output_dir}tech_info.csv")
+    fuel_info.to_csv(f"{output_dir}fuel_info.csv")
+
     # Time
     timeslice = config['time']['slice']
     time_resolution = config['time']['resolution']
@@ -160,12 +166,6 @@ if __name__ == '__main__':
         net.model.write(filename=join(output_dir, 'model.lp'),
                         format=ProblemFormat.cpxlp,
                         io_options={'symbolic_solver_labels': False})
-
-    # Save config and parameters files
-    yaml.dump(config, open(f"{output_dir}config.yaml", 'w'), sort_keys=False)
-    yaml.dump(tech_config, open(f"{output_dir}tech_config.yaml", 'w'), sort_keys=False)
-    tech_info.to_csv(f"{output_dir}tech_info.csv")
-    fuel_info.to_csv(f"{output_dir}fuel_info.csv")
 
     net.export_to_csv_folder(output_dir)
 
