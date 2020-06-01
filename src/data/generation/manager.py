@@ -6,7 +6,7 @@ import geopandas as gpd
 import pandas as pd
 import yaml
 
-from src.data.geographics import convert_country_codes
+from src.data.geographics import convert_country_codes, replace_iso2_codes
 from src.data.geographics.points import match_points_to_regions, correct_region_assignment
 
 
@@ -38,6 +38,9 @@ def get_powerplant_df(plant_type: str, country_list: List[str], shapes: gpd.GeoS
             join(dirname(abspath(__file__)), "../../../data/generation/source/JRC/hydro-power-database-master/data/")
         pp_fn = f"{source_dir}jrc-hydro-power-plant-database.csv"
         pp_df = pd.read_csv(pp_fn, index_col=0)
+
+        # Replace ISO2 codes.
+        pp_df["country_code"] = pp_df["country_code"].map(lambda x: replace_iso2_codes([x])[0])
 
         # Filter out plants outside target countries, of other tech than the target tech, whose capacity is missing.
         pp_df = pp_df.loc[(pp_df["country_code"].isin(country_list)) &

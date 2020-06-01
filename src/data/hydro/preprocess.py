@@ -149,8 +149,7 @@ def compute_ror_series(runoff_dataset: xr.Dataset, region_points: List[Tuple[flo
 
 
 def build_ror_data(ror_capacity_ds: pd.Series, timestamps: pd.DatetimeIndex,
-                   runoff_dataset: xr.Dataset, runoff_points_region_ds: pd.Series,
-                   flood_event_threshold: float) -> Tuple[pd.Series, pd.DataFrame]:
+                   runoff_dataset: xr.Dataset, runoff_points_region_ds: pd.Series) -> Tuple[pd.Series, pd.DataFrame]:
     """
     Compute total ROR capacities (in GW) and inflow (p.u. of capacity) for a series of regions.
 
@@ -164,8 +163,6 @@ def build_ror_data(ror_capacity_ds: pd.Series, timestamps: pd.DatetimeIndex,
         ERA5 runoff dataset
     runoff_points_region_ds: pd.Series
         Indicates in which region each ERA5 point falls.
-    flood_event_threshold: float
-         Quantile clipping runoff time series (see compute_ror_series for usage).
 
     Returns
     -------
@@ -175,11 +172,15 @@ def build_ror_data(ror_capacity_ds: pd.Series, timestamps: pd.DatetimeIndex,
         ROR inflow time-series (p.u. of power capacity) for each region.
     """
 
+    ror_thresholds_fn = join(dirname(abspath(__file__)), "../../../data/hydro/source/ror_flood_event_thresholds.csv")
+    ror_thresholds = pd.read_csv(ror_thresholds_fn, index_col=0)
+
     ror_capacity_ds = ror_capacity_ds.groupby(ror_capacity_ds.index).sum() * 1e-3
 
     ror_inflows_df = pd.DataFrame(index=timestamps, columns=ror_capacity_ds.index)
     for region in ror_capacity_ds.index:
         points = runoff_points_region_ds[runoff_points_region_ds == region].index.to_list()
+        flood_event_threshold = ror_thresholds.loc[region[:2], 'value']
         if points:
             ror_inflows_df[region] = compute_ror_series(runoff_dataset, points, flood_event_threshold)
     ror_inflows_df.dropna(axis=1, inplace=True)
@@ -550,11 +551,9 @@ def generate_eu_hydro_files(resolution: float, topology_unit: str, timestamps: p
     logger.info('Runoff measurement points mapped to regions shapes.')
 
     # Build ROR data
-    flood_event_threshold = tech_config['ror']['flood_threshold']
-
     ror_plants_df = get_powerplant_df('ror', countries, shapes)
     ror_capacity_ds, ror_inflows_df = build_ror_data(ror_plants_df.set_index(["region_code"])["Capacity"], timestamps,
-                                                     runoff_dataset, runoff_points_region_ds, flood_event_threshold)
+                                                     runoff_dataset, runoff_points_region_ds)
 
     # Build STO data
     runoff_dataset_with_area = compute_sto_unit_area(runoff_dataset, resolution)
