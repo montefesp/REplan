@@ -158,7 +158,7 @@ if __name__ == '__main__':
         net.snapshots) / NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
 
-    net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}solver.log",
+    net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
              solver_options=config["solver_options"][config["solver"]],
              extra_functionality=add_extra_functionalities, pyomo=True)
 

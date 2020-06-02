@@ -2,7 +2,7 @@
 keep_lp: False
 
 # solver
-solver: 'gurobi'
+solver: 'cplex'
 solver_options:
   gurobi:
     Threads: 0
@@ -11,7 +11,11 @@ solver_options:
     Crossover: 0
     BarConvTol: 1e-8
   cplex:
-    solutiontype: 1
+    threads: 0
+    lpmethod: 1
+    solutiontype: 2
+    barrier convergetol: 1e-8
+
   cbc: 0
 
 # Time
