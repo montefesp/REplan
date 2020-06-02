@@ -6,6 +6,7 @@ import pandas as pd
 import pypsa
 
 from src.data.generation import get_powerplant_df
+from src.data.geographics.codes import convert_country_codes
 from src.data.technologies import get_costs, get_plant_type
 
 import logging
@@ -44,7 +45,8 @@ def add_generators(network: pypsa.Network, countries: List[str], use_ex_cap: boo
     if len(gens) == 0:
         return network
 
-    logger.info(f"Adding {gens['Capacity'].sum() * 1e-3:.2f} GW of nuclear capacity in {gens['Country'].unique()}.")
+    logger.info(f"Adding {gens['Capacity'].sum() * 1e-3:.2f} GW of nuclear capacity "
+                f"in {convert_country_codes(gens['Country'].unique(), 'name', 'alpha_2')}.")
 
     if not use_ex_cap:
         gens.Capacity = 0.

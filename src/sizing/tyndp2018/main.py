@@ -80,7 +80,7 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
-    net = get_topology(net, countries, plot=False)
+    net = get_topology(net, countries, extend_line_cap=True)
 
     # Adding load
     logger.info("Adding load.")
@@ -165,7 +165,7 @@ if __name__ == '__main__':
     if config['keep_lp']:
         net.model.write(filename=join(output_dir, 'model.lp'),
                         format=ProblemFormat.cpxlp,
-                        io_options={'symbolic_solver_labels': False})
+                        io_options={'symbolic_solver_labels': True})
 
     net.export_to_csv_folder(output_dir)
 
