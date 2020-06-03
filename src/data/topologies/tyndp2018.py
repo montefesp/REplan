@@ -31,15 +31,35 @@ def preprocess(plotting=True) -> None:
 
     # Create links
     link_data_fn = join(dirname(abspath(__file__)),
-                        "../../../data/topologies/tyndp2018/source/NTC_TYNDP2018_country.xlsx")
-    links = pd.read_excel(link_data_fn, names=["name", "NTC (MW)", "Carrier"])
-    links["bus0"] = links["name"].apply(lambda k: k.split('-')[0])
-    links["bus1"] = links["name"].apply(lambda k: k.split('-')[1].split("_")[0])
-    links["p_nom"] = links["NTC (MW)"]/1000.0
-    links = links.set_index("name")
-    links.index.names = ["id"]
-    links = links.drop(["NTC (MW)"], axis=1)
-    links["carrier"] = links["Carrier"]
+                        "../../../data/topologies/tyndp2018/source/Input Data.xlsx")
+    # Read TYNDP2018 (NTC 2027, reference grid) data
+    links = pd.read_excel(link_data_fn, sheet_name="NTC", index_col=0, skiprows=[0, 2], usecols=[0, 3, 4],
+                          names=["link", "in", "out"])
+
+    # Get NTC as the minimum capacity between the two flow directions.
+    links["NTC"] = links[["in", "out"]].min(axis=1)
+    links["bus0"] = links.index.str[:2]
+    links["bus1"] = [i[1][:2] for i in links.index.str.split('-')]
+
+    # Remove links which do not cross international borders.
+    links_crossborder = links[links["bus0"] != links["bus1"]].copy()
+    links_crossborder["id"] = links_crossborder["bus0"] + '-' + links_crossborder["bus1"]
+    # Sum all capacities belonging to the same border and convert from MW to GW.
+    links = links_crossborder.groupby("id")["NTC"].sum() / 1000.
+
+    links = links.to_frame("p_nom")
+    links["id"] = links.index.values
+    links["bus0"] = links["id"].apply(lambda k: k.split('-')[0])
+    links["bus1"] = links["id"].apply(lambda k: k.split('-')[1])
+
+    # A subset of links are assumed to be DC connections.
+    dc_set = {'BE-GB', 'CY-GR', 'DE-GB', 'DE-NO', 'DE-SE', 'DK-GB', 'DK-NL', 'DK-NO', 'DK-PL', 'DK-SE',
+              'EE-FI', 'ES-FR', 'FR-GB', 'FR-IE', 'GB-IE', 'GB-IS', 'GB-NL', 'GB-NO', 'GR-IT', 'GR-TR',
+              'IT-ME', 'IT-MT', 'IT-TN', 'LT-SE', 'PL-SE'}
+    links["carrier"] = links["id"].apply(lambda x: 'DC' if x in dc_set else 'AC')
+    # A connection between Rep. of Ireland (IE) and Northern Ireland (NI) is considered in the TYNDP, yet as NI is the
+    # ISO2 code of Nicaragua, this results in weird results. Thus, the connection is dropped, as IE-GB links exist.
+    links = links[~links.index.str.contains("NI")]
 
     # Create buses
     buses_names = []
