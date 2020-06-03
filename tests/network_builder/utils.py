@@ -16,22 +16,24 @@ def define_simple_network() -> pypsa.Network:
 
     """
     net = pypsa.Network()
-    buses_id = ["BE", "NL", "OFF1"]
+    buses_id = ["ONBE", "ONNL", "ONLU", "OFF1"]
 
     # Geographical info
-    all_shapes = get_shapes(["BE", "NL"], which='onshore_offshore')
+    all_shapes = get_shapes(["BE", "NL", "LU"], which='onshore_offshore')
     onshore_shapes = all_shapes.loc[~all_shapes['offshore']]["geometry"]
     offshore_shape = all_shapes.loc[(all_shapes['offshore']) & (all_shapes.index == 'BE')]["geometry"]
     centroids = [onshore_shapes["BE"].centroid, onshore_shapes["NL"].centroid,
-                 offshore_shape["BE"].centroid]
-    x, y = zip(*[(point.x, point.y) for point in centroids])
+                 onshore_shapes["LU"].centroid, offshore_shape["BE"].centroid]
+    xs, ys = zip(*[(point.x, point.y) for point in centroids])
 
     # Add buses
-    buses = pd.DataFrame(index=buses_id, columns=["x", "y", "region", "onshore"])
-    buses["x"] = x
-    buses["y"] = y
-    buses["region"] = [onshore_shapes["BE"], onshore_shapes["NL"], offshore_shape["BE"]]
-    buses["onshore"] = [True, True, False]
+    buses = pd.DataFrame(index=buses_id, columns=["x", "y", "country", "region", "onshore"])
+    buses["x"] = xs
+    buses["y"] = ys
+    buses["country"] = ["BE", "NL", "LU", None]
+    buses["region"] = [onshore_shapes["BE"], onshore_shapes["NL"],
+                       onshore_shapes["LU"], offshore_shape["BE"]]
+    buses["onshore"] = [True, True, True, False]
     net.import_components_from_dataframe(buses, "Bus")
 
     # Time

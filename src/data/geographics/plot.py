@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Any
 
 from random import random
 import numpy as np
@@ -10,7 +10,7 @@ import geopandas as gpd
 from shapely.geometry import MultiPolygon, Polygon
 
 
-def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]]) -> None:
+def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]], fill=True, show=True) -> Any:
     """
     Display in different colours a set of polygons or multipolygons.
 
@@ -18,6 +18,10 @@ def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]]) -> None:
     ----------
     polygons_list: List[Union[Polygon, MultiPolygon]]
         List of shapely polygons or multipolygons
+    fill: bool (default: True)
+        Whether to fill in shapes or not
+    show: bool (default: True)
+        Whether to use plt.show or to return plotting axis
     """
 
     assert isinstance(polygons_list, list) or isinstance(polygons_list, np.ndarray) \
@@ -34,12 +38,18 @@ def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]]) -> None:
         for poly in polygons:
             longitudes = [i[0] for i in poly.exterior.coords]
             latitudes = [i[1] for i in poly.exterior.coords]
-            ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color=c)
-            # Remove interior
-            interior_polys = list(poly.interiors)
-            for i_poly in interior_polys:
-                longitudes = [i[0] for i in i_poly.coords]
-                latitudes = [i[1] for i in i_poly.coords]
-                ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color='white')
+            if not fill:
+                ax.plot(longitudes, latitudes, transform=ccrs.PlateCarree(), color='k')
+            else:
+                ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color=c)
+                # Remove interior
+                interior_polys = list(poly.interiors)
+                for i_poly in interior_polys:
+                    longitudes = [i[0] for i in i_poly.coords]
+                    latitudes = [i[1] for i in i_poly.coords]
+                    ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color='white')
 
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        return ax

@@ -8,7 +8,7 @@ from src.data.technologies import get_costs, get_plant_type
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
 
-
+# TODO: change ehighway topology to regions topology
 def add_phs_plants(network: pypsa.Network, topology_type: str = "countries",
                    extendable: bool = False, cyclic_sof: bool = True) -> pypsa.Network:
     """

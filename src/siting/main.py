@@ -1,4 +1,3 @@
-from os.path import join, dirname, abspath
 import yaml
 
 from src.resite.resite import Resite
@@ -9,18 +8,13 @@ logger = logging.getLogger()
 
 params = yaml.load(open('config.yaml'), Loader=yaml.FullLoader)
 
-tech_dir = join(dirname(abspath(__file__)), "../../data/technologies/")
-tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
-
 if __name__ == '__main__':
 
     logger.info('Building class.')
-    resite = Resite(params["regions"], params["technologies"], tech_config, params["timeslice"],
-                    params["spatial_resolution"])
+    resite = Resite(params["regions"], params["technologies"], params["timeslice"], params["spatial_resolution"])
 
     logger.info('Reading input.')
-    # resite.build_input_data(params["use_ex_cap"], params['filtering_layers'])
-    resite.build_input_data_new(params["use_ex_cap"])
+    resite.build_input_data(params["use_ex_cap"])
 
     values = [0.1]
     for v in values:

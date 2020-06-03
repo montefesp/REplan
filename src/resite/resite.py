@@ -2,7 +2,7 @@ from os.path import join, dirname, abspath, isdir
 from os import makedirs
 import yaml
 import pickle
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple
 from time import strftime
 
 import pandas as pd
@@ -10,12 +10,12 @@ import pandas as pd
 from shapely.ops import unary_union
 from shapely.geometry import MultiPoint
 
-from src.data.legacy import get_legacy_capacity_at_points, get_legacy_capacity_in_regions
+from src.data.legacy import get_legacy_capacity_in_regions
 from src.data.vres_profiles import compute_capacity_factors
-from src.data.land_data import filter_points
-from src.data.vres_potential import get_capacity_potential_at_points, get_capacity_potential_for_shapes
+from src.data.vres_potential import get_capacity_potential_for_shapes
 from src.data.load import get_load
-from src.data.geographics import get_shapes, get_points_in_shape, get_subregions
+from src.data.geographics import get_shapes, get_subregions
+from src.data.technologies import get_config_dict
 
 from src.resite.grid_cells import get_grid_cells
 
@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
-# TODO: maybe we should change the word point to 'cell'
+# TODO: maybe we should change the word point to 'cell' or 'site'?
 
 class Resite:
     """
@@ -46,8 +46,7 @@ class Resite:
 
     """
 
-    def __init__(self, regions: List[str], technologies: List[str], tech_config: Dict[str, Any], timeslice: List[str],
-                 spatial_resolution: float):
+    def __init__(self, regions: List[str], technologies: List[str], timeslice: List[str], spatial_resolution: float):
         """
         Constructor
 
@@ -57,8 +56,6 @@ class Resite:
             List of regions in which we want to site
         technologies: List[str]
             List of technologies for which we want to site
-        tech_config: Dict[str, Any]
-            Dictionary containing parameters configuration of each technology
         timeslice: List[str]
             List of 2 string containing starting and end date of the time horizon
         spatial_resolution: float
@@ -67,7 +64,6 @@ class Resite:
 
         self.technologies = technologies
         self.regions = regions
-        self.tech_config = tech_config
         self.timestamps = pd.date_range(timeslice[0], timeslice[1], freq='1H')
         self.spatial_res = spatial_resolution
 
@@ -88,105 +84,7 @@ class Resite:
 
         return output_folder
 
-    # TODO: Once build_input_data_new works for David, remove this function
-    def build_input_data(self, use_ex_cap: bool, filtering_layers: Dict[str, bool]):
-        """Preprocess data.
-
-        Parameters:
-        -----------
-        use_ex_cap: bool
-            Whether to compute or not existing capacity and use it in optimization
-        filtering_layers: Dict[str, bool]
-            Dictionary indicating if a given filtering layers needs to be applied.
-            If the layer name is present as key and associated to a True boolean,
-            then the corresponding is applied.
-        """
-
-        self.use_ex_cap = use_ex_cap
-        self.filtering_layers = filtering_layers
-
-        # self.load_df = get_prepared_load(timestamps=self.timestamps, regions=self.regions)
-        self.load_df = get_load(timestamps=self.timestamps, regions=self.regions, missing_data='interpolate')
-
-        # Get shape of regions and list of subregions
-        regions_shapes = pd.Series(index=self.regions)
-        all_subregions = []
-        for region in self.regions:
-            subregions = get_subregions(region)
-            all_subregions.extend(subregions)
-            shapes_subregion = get_shapes(subregions, save=True)['geometry']
-            regions_shapes[region] = unary_union(shapes_subregion)
-
-        # Get all points situated in the given regions at the given spatial resolution
-        init_points = get_points_in_shape(unary_union(regions_shapes.values), self.spatial_res)
-
-        # Filter those points
-        self.tech_points_dict = filter_points(self.technologies, self.tech_config, init_points, self.spatial_res,
-                                              filtering_layers)
-
-        if use_ex_cap:
-            # Get existing capacity at initial points, for technologies for which we can compute legacy data
-            tech_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore',
-                                                                              'pv_utility', 'pv_residential']))
-            existing_cap_ds = get_legacy_capacity_at_points(tech_with_legacy_data, self.tech_config,
-                                                            all_subregions, init_points, self.spatial_res)
-
-            # If some initial points with existing capacity were filtered, add them back
-            for tech in tech_with_legacy_data:
-                if tech in existing_cap_ds.index.get_level_values(0):
-                    self.tech_points_dict[tech] += list(existing_cap_ds[tech].index)
-                # Remove duplicates
-                self.tech_points_dict[tech] = list(set(self.tech_points_dict[tech]))
-
-        # Remove techs that have no points associated to them
-        self.tech_points_dict = {k: v for k, v in self.tech_points_dict.items() if len(v) > 0}
-
-        # Create dataframe with existing capacity, for all points (not just the ones with existing capacity)
-        self.tech_points_tuples = [(tech, point) for tech, points in self.tech_points_dict.items() for point in points]
-        self.existing_cap_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(self.tech_points_tuples))
-        if use_ex_cap:
-            self.existing_cap_ds.loc[existing_cap_ds.index] = existing_cap_ds.values
-
-        # Compute capacity factors for each point
-        converters = {tech: self.tech_config[tech]["converter"] for tech in self.technologies}
-        self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.spatial_res,
-                                                      self.timestamps, converters)
-
-        # Compute capacity potential for each point (taking into account existing capacity)
-        self.cap_potential_ds = get_capacity_potential_at_points(self.tech_points_dict, self.spatial_res,
-                                                                 all_subregions, self.existing_cap_ds)
-
-        # Compute the percentage of potential capacity that is covered by existing capacity
-        existing_cap_percentage_ds = self.existing_cap_ds.divide(self.cap_potential_ds)
-
-        # Remove points which have zero potential capacity
-        self.existing_cap_percentage_ds = existing_cap_percentage_ds.dropna()
-        self.cap_potential_ds = self.cap_potential_ds[self.existing_cap_percentage_ds.index]
-        self.cap_factor_df = self.cap_factor_df[self.existing_cap_percentage_ds.index]
-        self.existing_cap_ds = self.existing_cap_ds[self.existing_cap_percentage_ds.index]
-
-        # Retrieve final points
-        self.tech_points_tuples = self.existing_cap_percentage_ds.index.values
-        self.tech_points_dict = {}
-        techs = set(self.existing_cap_percentage_ds.index.get_level_values(0))
-        for tech in techs:
-            self.tech_points_dict[tech] = list(self.existing_cap_ds[tech].index)
-
-        # Maximum generation that can be produced if max capacity installed
-        self.generation_potential_df = self.cap_factor_df * self.cap_potential_ds
-
-        # Associating coordinates to regions
-        self.region_tech_points_dict = {region: set() for region in self.regions}
-        for tech, points in self.tech_points_dict.items():
-            points = MultiPoint(points)
-            for region in self.regions:
-                points_in_region = points.intersection(regions_shapes[region])
-                points_in_region = [(tech, (point.x, point.y)) for point in points_in_region] \
-                    if isinstance(points_in_region, MultiPoint) \
-                    else [(tech, (points_in_region.x, points_in_region.y))]
-                self.region_tech_points_dict[region] = self.region_tech_points_dict[region].union(set(points_in_region))
-
-    def build_input_data_new(self, use_ex_cap: bool):
+    def build_input_data(self, use_ex_cap: bool):
         """Preprocess data.
 
         Parameters:
@@ -194,11 +92,9 @@ class Resite:
         use_ex_cap: bool
             Whether to compute or not existing capacity and use it in optimization
         """
-
-        self.use_ex_cap = use_ex_cap
 
         # Compute total load (in GWh) for each region
-        self.load_df = get_load(timestamps=self.timestamps, regions=self.regions, missing_data='interpolate')
+        load_df = get_load(timestamps=self.timestamps, regions=self.regions, missing_data='interpolate')
 
         # Get shape of regions and list of subregions
         regions_shapes = pd.Series(index=self.regions)
@@ -211,20 +107,22 @@ class Resite:
             shapes = get_shapes(subregions, save=True)
             onshore_shapes.extend(shapes[~shapes['offshore']]['geometry'].values)
             offshore_shapes.extend(shapes[shapes['offshore']]['geometry'].values)
+            # TODO: this is fucking slow for EU...
             regions_shapes[region] = unary_union(shapes['geometry'])
+        # TODO: maybe in some cases we could pass this directly?
         onshore_shape = unary_union(onshore_shapes)
         offshore_shape = unary_union(offshore_shapes)
 
         # Divide the union of all regions shapes into grid cells of a given spatial resolution
-        grid_cells_ds = get_grid_cells(self.technologies, self.tech_config, self.spatial_res,
-                                       onshore_shape, offshore_shape)
+        grid_cells_ds = get_grid_cells(self.technologies, self.spatial_res, onshore_shape, offshore_shape)
 
         # Compute capacities potential
+        tech_config = get_config_dict(self.technologies, ['filters', 'power_density'])
         cap_potential_ds = pd.Series(index=grid_cells_ds.index)
         for tech in self.technologies:
             cap_potential_ds[tech] = \
-                get_capacity_potential_for_shapes(grid_cells_ds[tech].values, self.tech_config[tech]["filters"],
-                                                  self.tech_config[tech]["power_density"])
+                get_capacity_potential_for_shapes(grid_cells_ds[tech].values, tech_config[tech]["filters"],
+                                                  tech_config[tech]["power_density"])
 
         # Compute legacy capacity
         existing_cap_ds = pd.Series(0., index=cap_potential_ds.index)
@@ -249,35 +147,42 @@ class Resite:
         points_to_drop = pd.DataFrame(cap_potential_ds).apply(lambda x:
                                                               x[0] < potential_cap_thresholds[x.name[0]] or x[0] == 0,
                                                               axis=1)
-        self.cap_potential_ds = cap_potential_ds[~points_to_drop]
-        self.existing_cap_ds = existing_cap_ds[~points_to_drop]
-
-        # Compute the percentage of potential capacity that is covered by existing capacity
-        self.existing_cap_percentage_ds = self.existing_cap_ds.divide(self.cap_potential_ds)
+        cap_potential_ds = cap_potential_ds[~points_to_drop]
+        existing_cap_ds = existing_cap_ds[~points_to_drop]
+        grid_cells_ds = grid_cells_ds[~points_to_drop]
 
         # Compute capacity factors for each point
-        self.tech_points_tuples = self.existing_cap_percentage_ds.index.values
-        self.tech_points_dict = {}
-        techs = set(self.existing_cap_percentage_ds.index.get_level_values(0))
+        tech_points_dict = {}
+        techs = set(existing_cap_ds.index.get_level_values(0))
         for tech in techs:
-            self.tech_points_dict[tech] = list(self.existing_cap_ds[tech].index)
-        converters = {tech: self.tech_config[tech]["converter"] for tech in techs}
-        self.cap_factor_df = compute_capacity_factors(self.tech_points_dict, self.spatial_res,
-                                                      self.timestamps, converters)
-
-        # Maximum generation that can be produced if max capacity installed
-        self.generation_potential_df = self.cap_factor_df * self.cap_potential_ds
+            tech_points_dict[tech] = list(existing_cap_ds[tech].index)
+        cap_factor_df = compute_capacity_factors(tech_points_dict, self.spatial_res, self.timestamps)
 
         # Associating coordinates to regions
-        self.region_tech_points_dict = {region: set() for region in self.regions}
-        for tech, points in self.tech_points_dict.items():
+        region_tech_points_dict = {region: set() for region in self.regions}
+        for tech, points in tech_points_dict.items():
             points = MultiPoint(points)
             for region in self.regions:
                 points_in_region = points.intersection(regions_shapes[region])
                 points_in_region = [(tech, (point.x, point.y)) for point in points_in_region] \
                     if isinstance(points_in_region, MultiPoint) \
                     else [(tech, (points_in_region.x, points_in_region.y))]
-                self.region_tech_points_dict[region] = self.region_tech_points_dict[region].union(set(points_in_region))
+                region_tech_points_dict[region] = region_tech_points_dict[region].union(set(points_in_region))
+
+        # Save all data in object
+        self.use_ex_cap = use_ex_cap
+        # TODO: should actually be obtained from grid cells directly
+        self.tech_points_tuples = existing_cap_ds.index.values
+        self.tech_points_dict = tech_points_dict
+        self.region_tech_points_dict = region_tech_points_dict
+        # TODO: this should actually be called sth like 'initial_sites_ds'
+        self.initial_sites_ds = grid_cells_ds
+        self.load_df = load_df
+        self.cap_potential_ds = cap_potential_ds
+        self.existing_cap_ds = existing_cap_ds
+        self.existing_cap_percentage_ds = existing_cap_ds.divide(cap_potential_ds)
+        self.cap_factor_df = cap_factor_df
+        self.generation_potential_df = cap_factor_df * cap_potential_ds
 
     def build_model(self, modelling: str, formulation: str, formulation_params: List[float],
                     write_lp: bool = False, output_folder: str = None):
@@ -399,7 +304,7 @@ class Resite:
 
         # Save some parameters to facilitate identification of run in directory
         params = {'spatial_resolution': self.spatial_res,
-                  'filtering_layers': self.filtering_layers,
+                  # 'filtering_layers': self.filtering_layers,
                   'timeslice': [str(self.timestamps[0]), str(self.timestamps[-1])],
                   'regions': self.regions,
                   'technologies': self.technologies,
@@ -410,7 +315,7 @@ class Resite:
         yaml.dump(params, open(f"{output_folder}config.yaml", 'w'))
 
         # Save the technology configurations
-        yaml.dump(self.tech_config, open(f"{output_folder}tech_config.yaml", 'w'))
+        yaml.dump(get_config_dict(self.technologies), open(f"{output_folder}tech_config.yaml", 'w'))
 
         # Save the attributes
         resite_output = [
@@ -436,6 +341,3 @@ class Resite:
         ]
 
         pickle.dump(resite_output, open(join(output_folder, 'resite_model.p'), 'wb'))
-
-
-

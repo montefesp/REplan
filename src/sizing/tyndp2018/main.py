@@ -13,16 +13,8 @@ from src.data.emission import get_reference_emission_levels_for_region
 from src.data.topologies.tyndp2018 import get_topology
 from src.data.geographics import get_subregions
 from src.data.load import get_load
-from src.network_builder.res import add_generators_from_file as add_res_from_file
-from src.network_builder.res import \
-    add_generators_using_siting as add_res, \
-    add_generators_at_resolution as add_res_at_resolution, \
-    add_generators_per_bus as add_res_per_bus
-from src.network_builder.nuclear import add_generators as add_nuclear
-from src.network_builder.hydro import add_phs_plants, add_ror_plants, add_sto_plants
-from src.network_builder.conventional import add_generators as add_conventional
-from src.network_builder.battery import add_batteries
-from src.network_builder.functionalities import add_extra_functionalities
+from src.data.technologies import get_config_dict
+from src.network_builder import *
 from src.postprocessing.sizing_results import SizingResults
 
 import logging
@@ -45,7 +37,7 @@ if __name__ == '__main__':
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
     fuel_info = pd.read_excel(join(tech_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
-    tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
+    # tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
 
     # Compute and save results
     if not isdir(output_dir):
@@ -53,7 +45,7 @@ if __name__ == '__main__':
 
     # Save config and parameters files
     yaml.dump(config, open(f"{output_dir}config.yaml", 'w'), sort_keys=False)
-    yaml.dump(tech_config, open(f"{output_dir}tech_config.yaml", 'w'), sort_keys=False)
+    yaml.dump(get_config_dict(), open(f"{output_dir}tech_config.yaml", 'w'), sort_keys=False)
     tech_info.to_csv(f"{output_dir}tech_info.csv")
     fuel_info.to_csv(f"{output_dir}fuel_info.csv")
 
@@ -113,23 +105,21 @@ if __name__ == '__main__':
 
             logger.info(f"Adding RES {technologies} generation with strategy {strategy}.")
 
-            if strategy in ["comp", "max"]:
-                net = add_res_from_file(net, technologies, strategy,
-                                        config["res"]["path"], config["res"]["area_per_site"],
-                                        config["res"]["spatial_resolution"], countries,
-                                        "countries", config["res"]["cap_dens"], offshore_buses=False)
+            if strategy == "from_files":
+                net = add_res_from_file(net, "countries", technologies,
+                                        config["res"]["sites_dir"], config["res"]["sites_fn"],
+                                        config["res"]["spatial_resolution"],
+                                        config["res"]["use_default_capacity"], config["res"]["area_per_site"])
             elif strategy == "bus":
-                converters = {tech: tech_config[tech]["converter"] for tech in technologies}
-                net = add_res_per_bus(net, technologies, converters, countries,
-                                      config["res"]["use_ex_cap"], topology_type='countries', offshore_buses=False)
+                net = add_res_per_bus(net, 'countries', technologies, config["res"]["use_ex_cap"])
             elif strategy == "no_siting":
-                net = add_res_at_resolution(net, technologies, [config["region"]],
-                                            tech_config, config["res"]["spatial_resolution"],
-                                            config['res']['filtering_layers'], config["res"]["use_ex_cap"],
-                                            topology_type='countries', offshore_buses=False)
+                net = add_res_in_grid_cells(net, 'countries', technologies,
+                                            config["region"], config["res"]["spatial_resolution"],
+                                            config["res"]["use_ex_cap"], config["res"]["limit_max_cap"])
             elif strategy == 'siting':
-                net = add_res(net, technologies, config['res'], tech_config, config["region"],
-                              output_dir=f"{output_dir}resite/", offshore_buses=False, topology_type='countries')
+                net = add_res(net, 'countries', technologies, config['res'], config["region"],
+                              config['res']['use_ex_cap'], config['res']['limit_max_cap'],
+                              output_dir=f"{output_dir}resite/")
 
     # Add conventional gen
     if config["dispatch"]["include"]:
@@ -150,7 +140,7 @@ if __name__ == '__main__':
         net = add_ror_plants(net, 'countries', config["ror"]["extendable"])
 
     if config["battery"]["include"]:
-        net = add_batteries(net, config["battery"]["type"], tech_config["Li-ion"]["max_hours"])
+        net = add_batteries(net, config["battery"]["type"])
 
     co2_reference_kt = \
         get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
@@ -160,12 +150,21 @@ if __name__ == '__main__':
 
     net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
              solver_options=config["solver_options"][config["solver"]],
-             extra_functionality=add_extra_functionalities, pyomo=True)
+             keep_references=True, keep_shadowprices=["Generator", "Bus"], pyomo=False)
+             # extra_functionality=add_extra_functionalities, pyomo=True)
 
     if config['keep_lp']:
         net.model.write(filename=join(output_dir, 'model.lp'),
                         format=ProblemFormat.cpxlp,
                         io_options={'symbolic_solver_labels': True})
+                        io_options={'symbolic_solver_labels': False})
+        net.model.objective.pprint()
+
+    marginal_price = pypsa.linopt.get_dual(net, 'Bus', 'marginal_price')
+    shadow_price = pypsa.linopt.get_dual(net, 'Generator', 'mu_upper')
+    print((shadow_price < 0).sum())
+    print((pypsa.linopt.get_dual(net, 'Generator', 'mu_lower') < 0).sum())
+    print(net.dualvalues)
 
     net.export_to_csv_folder(output_dir)
 

@@ -14,6 +14,8 @@ from shapely.geometry import Point, Polygon
 import atlite
 import windpowerlib
 
+from src.data.technologies import get_config_dict
+
 
 def read_resource_database(spatial_resolution: float) -> xr.Dataset:
     """
@@ -71,7 +73,7 @@ def read_resource_database(spatial_resolution: float) -> xr.Dataset:
 
 def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float]]],
                              spatial_res: float, timestamps: pd.DatetimeIndex,
-                             converters: Dict[str, Union[Dict[str, str], str]],
+                             # converters: Dict[str, Union[Dict[str, str], str]],
                              smooth_wind_power_curve: bool = True) -> pd.DataFrame:
     """
     Compute capacity factors for a list of points associated to a list of technologies.
@@ -84,12 +86,6 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
         Spatial resolution of coordinates
     timestamps: pd.DatetimeIndex
         Time stamps for which we want capacity factors
-    converters: Dict[str, Union[Dict[str, str], str]]
-        Dictionary indicating for each technology which converter(s) to use.
-        For each technology in the dictionary:
-            - if it is pv-based, the name of the converter must be specified as a string
-            - if it is wind, a dictionary must be defined associated for the four wind regimes
-            defined below (I, II, III, IV), the name of the converter as a string
     smooth_wind_power_curve : boolean (default True)
         If "True", the transfer function of wind assets replicates the one of a wind farm,
         rather than one of a wind turbine.
@@ -101,14 +97,22 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 
     """
 
-    missing_converters = set(tech_points_dict.keys()) - set(converters.keys())
-    assert not missing_converters, f"Error: No converter was provided for the following" \
-                                   f" techs: {sorted(list(missing_converters))}"
+    #missing_converters = set(tech_points_dict.keys()) - set(converters.keys())
+    #assert not missing_converters, f"Error: No converter was provided for the following" \
+    #                               f" techs: {sorted(list(missing_converters))}"
 
     for tech, points in tech_points_dict.items():
         assert len(points) != 0, f"Error: No points were defined for tech {tech}"
 
     assert len(timestamps) != 0, f"Error: No timestamps were defined."
+
+    # Get the converters corresponding to the input technologies
+    # Dictionary indicating for each technology which converter(s) to use.
+    #    For each technology in the dictionary:
+    #        - if it is pv-based, the name of the converter must be specified as a string
+    #        - if it is wind, a dictionary must be defined associated for the four wind regimes
+    #        defined below (I, II, III, IV), the name of the converter as a string
+    converters_dict = get_config_dict(list(tech_points_dict.keys()), ["converter"])
 
     vres_profiles_dir = join(dirname(abspath(__file__)), "../../../data/vres_profiles/source/")
     transfer_function_dir = f"{vres_profiles_dir}transfer_functions/"
@@ -155,7 +159,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 
                     # Get the transfer function curve
                     # literal_eval converts a string to an array (in this case)
-                    converter = converters[tech][cls]
+                    converter = converters_dict[tech]["converter"][cls]
                     power_curve_array = literal_eval(data_converter_wind.loc['Power curve', converter])
                     wind_speed_references = np.asarray([i[0] for i in power_curve_array])
                     capacity_factor_references = np.asarray([i[1] for i in power_curve_array])
@@ -196,7 +200,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 
         elif resource == 'pv':
 
-            converter = converters[tech]
+            converter = converters_dict[tech]["converter"]
 
             # Get irradiance in W from J
             irradiance = sub_dataset.ssrd / 3600.

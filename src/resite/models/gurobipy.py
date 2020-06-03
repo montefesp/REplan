@@ -71,7 +71,8 @@ def build_model(resite, formulation: str, formulation_params: List[float],
         # Portion of capacity at each location for each technology
         y = model.addVars(tech_points_tuples, lb=0., ub=1., name=lambda k: 'y_%s_%s_%s' % (k[0], k[1], k[2]))
         # Create generation dictionary for building speed up
-        region_generation_y_dict = create_generation_y_dict(y, resite)
+        region_generation_y_dict = \
+            create_generation_y_dict(y, regions, resite.region_tech_points_dict, resite.generation_potential_df)
 
         # - Constraints - #
         # Impose a certain percentage of the load to be covered over each time slice
@@ -101,7 +102,8 @@ def build_model(resite, formulation: str, formulation_params: List[float],
         # Portion of capacity at each location for each technology
         y = model.addVars(tech_points_tuples, lb=0., ub=1., name=lambda k: 'y_%s_%s_%s' % (k[0], k[1], k[2]))
         # Create generation dictionary for building speed up
-        region_generation_y_dict = create_generation_y_dict(y, resite)
+        region_generation_y_dict = \
+            create_generation_y_dict(y, regions, resite.region_tech_points_dict, resite.generation_potential_df)
 
         # - Constraint - #
         # Generation must be greater than x percent of the load in each region for each time step

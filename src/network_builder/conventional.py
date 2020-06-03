@@ -40,7 +40,8 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
     fuel, efficiency = tech_info.loc[get_plant_type(tech)][["fuel", "efficiency_ds"]]
 
     network.madd("Generator",
-                 f"Gen {tech} " + buses.index,
+                 buses.index,
+                 suffix=f" Gen {tech}",
                  bus=buses.index,
                  p_nom_extendable=True,
                  type=tech,

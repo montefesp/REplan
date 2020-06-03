@@ -17,7 +17,7 @@ time:
   resolution: 1
 
 # Space
-region: "EU"
+region: "BENELUX"
 add_offshore: True # ! if False, remove wind_offshore and wind_floating from RES technologies
 
 # RES
@@ -25,17 +25,17 @@ res:
   include: False
   # Give which technology should be installed using each strategy
   strategies:
-    max: []
-    comp: []
+    from_files: []
     no_siting: []
     siting: []
     bus: ['wind_offshore', 'wind_onshore', 'pv_utility']
 
-  # For strategy = max or comp
-  path: '20200414_214108'
-  resite_nb: 100 # can be multiples of 25
+  # For strategy = from_files
+  sites_dir: '20200414_214108'
+  sites_fn: 'max_site_data.p'
+  use_default_capacity: True
   area_per_site: 2500 #km2
-  cap_dens:
+  # cap_dens:
     # wind_onshore: 1  # MW/km2, assuming 10% max utilization of the entire cell area
     # wind_offshore: 4 # MW/km2, assuming 40% max utilization of the entire cell area
 
@@ -45,14 +45,14 @@ res:
   timeslice: ['2015-01-01T00:00', '2015-01-01T23:00']
   use_ex_cap: True
   limit_max_cap: True
-  filtering_layers:
-    resource_quality: True
-    population_density: True
-    protected_areas: False
-    bathymetry: True
-    orography: True
-    forestry: True
-    water_mask: True
+  #filtering_layers:
+  #  resource_quality: True
+  #  population_density: True
+  #  protected_areas: False
+  #  bathymetry: True
+  #  orography: True
+  #  forestry: True
+  #  water_mask: True
 
   # For strategy = siting
   modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
@@ -84,7 +84,6 @@ nuclear:
 battery:
   include: True
   type: "Li-ion"
-  max_hours: 4 # THIS IS FIXED. IF IT CHANGES, CAPEX MUST CHANGE ACCORDINGLY.
 
 # Hydro
 phs:

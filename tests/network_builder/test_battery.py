@@ -9,24 +9,17 @@ net_ = define_simple_network()
 
 def test_add_batteries_missing_battery_type():
     with pytest.raises(AssertionError):
-        add_batteries(net_, 'wrong battery type', 1)
-
-
-def test_add_batteries_wrong_max_hours():
-    with pytest.raises(AssertionError):
-        add_batteries(net_, 'Li-ion', -1)
-    with pytest.raises(AssertionError):
-        add_batteries(net_, 'Li-ion', 0)
+        add_batteries(net_, 'wrong battery type')
 
 
 def test_add_batteries():
 
-    net = add_batteries(net_, 'Li-ion', 4)
+    net = add_batteries(net_, 'Li-ion')
     assert isinstance(net, pypsa.Network)
     su = net.storage_units
-    assert len(su) == 2
-    for bus in ["BE", "NL"]:
-        idx = f"StorageUnit Li-ion {bus}"
+    assert len(su) == 3
+    for bus in ["ONBE", "ONNL", "ONLU"]:
+        idx = f"{bus} StorageUnit Li-ion"
         assert idx in su.index
         assert su.loc[idx, "type"] == "Li-ion"
         assert su.loc[idx, "bus"] == bus

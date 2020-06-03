@@ -4,13 +4,13 @@ from numpy import arange
 from pyomo.environ import Constraint, Objective, maximize, minimize
 
 
-def create_generation_y_dict(model, resite):
+def create_generation_y_dict(model, regions, region_tech_points_dict, generation_potential_df):
 
-    region_generation_y_dict = dict.fromkeys(resite.regions)
-    for region in resite.regions:
+    region_generation_y_dict = dict.fromkeys(regions)
+    for region in regions:
         # Get generation potential for points in region for each techno
-        region_tech_points = resite.region_tech_points_dict[region]
-        tech_points_generation_potential = resite.generation_potential_df[region_tech_points]
+        region_tech_points = region_tech_points_dict[region]
+        tech_points_generation_potential = generation_potential_df[region_tech_points]
         region_ys = pd.Series([model.y[tech, loc] for tech, loc in region_tech_points],
                               index=pd.MultiIndex.from_tuples(region_tech_points))
         region_generation = tech_points_generation_potential * region_ys

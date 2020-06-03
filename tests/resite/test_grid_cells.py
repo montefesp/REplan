@@ -32,7 +32,7 @@ def get_tech_config():
 
 def test_get_grid_cells_empty_list_of_technologies():
     with pytest.raises(AssertionError):
-        get_grid_cells([], get_tech_config(), 0.5)
+        get_grid_cells([], 0.5)
 
 
 def test_get_grid_cells_missing_shapes():
@@ -40,17 +40,18 @@ def test_get_grid_cells_missing_shapes():
     onshore_shape = shapes[~shapes["offshore"]].loc["BE", "geometry"]
     offshore_shape = shapes[shapes["offshore"]].loc["BE", "geometry"]
     with pytest.raises(AssertionError):
-        get_grid_cells(['wind_onshore'], get_tech_config(), 0.5, offshore_shape=offshore_shape)
+        get_grid_cells(['wind_onshore'], 0.5, offshore_shape=offshore_shape)
     with pytest.raises(AssertionError):
-        get_grid_cells(['wind_offshore'], get_tech_config(), 0.5, onshore_shape=onshore_shape)
+        get_grid_cells(['wind_offshore'], 0.5, onshore_shape=onshore_shape)
 
 
 def test_get_grid_cells():
     shapes = get_shapes(["BE"])
     onshore_shape = shapes[~shapes["offshore"]].loc["BE", "geometry"]
     offshore_shape = shapes[shapes["offshore"]].loc["BE", "geometry"]
-    ds = get_grid_cells(['wind_onshore', 'wind_offshore', 'pv_utility'], get_tech_config(),
+    ds = get_grid_cells(['wind_onshore', 'wind_offshore', 'pv_utility'],
                         0.25, onshore_shape, offshore_shape)
+
     assert isinstance(ds, pd.Series)
     assert len(ds['wind_offshore']) == 6
     assert len(ds['wind_onshore']) == 61

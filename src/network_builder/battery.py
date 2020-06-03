@@ -4,14 +4,14 @@ import pandas as pd
 
 import pypsa
 
-from src.data.technologies import get_costs, get_plant_type
+from src.data.technologies import get_costs, get_plant_type, get_config_values
 
 import logging
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def add_batteries(network: pypsa.Network, battery_type: str, max_hours: float) -> pypsa.Network:
+def add_batteries(network: pypsa.Network, battery_type: str) -> pypsa.Network:
     """
     Add a battery at each node of the network.
 
@@ -21,8 +21,6 @@ def add_batteries(network: pypsa.Network, battery_type: str, max_hours: float) -
         Pypsa network
     battery_type: str
         Type of battery to add
-    max_hours: float
-        Maximum state of charge capacity in terms of hours at full output capacity
 
     Returns
     -------
@@ -31,8 +29,6 @@ def add_batteries(network: pypsa.Network, battery_type: str, max_hours: float) -
 
     """
     logger.info(f"Adding {battery_type} storage.")
-
-    assert max_hours > 0, f"Error: 'max_hours' must be > 0, got {max_hours}"
 
     onshore_bus_indexes = pd.Index([bus_id for bus_id in network.buses.index if network.buses.loc[bus_id].onshore])
 
@@ -46,8 +42,12 @@ def add_batteries(network: pypsa.Network, battery_type: str, max_hours: float) -
         tech_info.loc[get_plant_type(battery_type)][["efficiency_ds", "efficiency_ch", "efficiency_sd"]]
     self_discharge = round(1 - self_discharge, 4)
 
+    # Get max number of hours of storage
+    max_hours = get_config_values(battery_type, ["max_hours"])
+
     network.madd("StorageUnit",
-                 [f"StorageUnit {battery_type} {bus_id}" for bus_id in onshore_bus_indexes],
+                 onshore_bus_indexes,
+                 suffix=f" StorageUnit {battery_type}",
                  type=battery_type,
                  bus=onshore_bus_indexes,
                  p_nom_extendable=True,

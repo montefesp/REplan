@@ -1,32 +1,14 @@
-# Spatial resolution (in degrees) of the potential sites.
 spatial_resolution: 0.5
-
-# Various data layers to be taken into account in potential site selection.
-filtering_layers:
-  resource_quality: True
-  population_density: True
-  protected_areas: False
-  bathymetry: True
-  orography: True
-  forestry: True
-  water_mask: True
-
 timeslice: ['2015-01-01T00:00', '2015-01-01T23:00']
 regions: ['BENELUX']
-technologies: ['wind_onshore', 'wind_offshore']
+technologies: ['wind_onshore']
 
-use_ex_cap: True
+use_ex_cap: False
 
-modelling: 'docplex' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
+modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
 # solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
-# solver_options:
-#  gurobi:
-#    Threads: 0
-#    Crossover: 0
-#  cplex: 0
-#  cbc: 0
 write_lp: False
 
 # Type of problem to be solved. Check resite.py for a full list.
-formulation: 'meet_demand_with_capacity' # 'meet_RES_targets_hourly' # 'meet_RES_targets_agg' # 'meet_demand_with_capacity' #
+formulation: 'meet_demand_with_capacity' # 'meet_RES_targets_hourly' # 'meet_RES_targets_agg'
 formulation_params: [0.5, 0.5, 0.5, 0.5]

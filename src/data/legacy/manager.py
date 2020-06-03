@@ -249,6 +249,7 @@ def get_legacy_capacity_in_countries(tech: str, countries: List[str]) -> pd.Seri
     return capacities
 
 
+# TODO: should countries be compulsory or not?
 def get_legacy_capacity_in_regions(tech: str, regions_shapes: pd.Series, countries: List[str]) -> pd.Series:
     """
     Return the total existing capacity (in GW) for the given tech for a set of geographical regions.

@@ -97,8 +97,9 @@ def preprocess(plotting: bool = False):
                 lines.loc[idx].bus1 not in eh_clusters.index.values:
             lines = lines.drop([idx])
 
-    buses = pd.DataFrame(columns=["x", "y", "region", "onshore"], index=eh_clusters.index)
+    buses = pd.DataFrame(columns=["x", "y", "country", "region", "onshore"], index=eh_clusters.index)
     buses.index.names = ["id"]
+    buses.country = eh_clusters.country
 
     # Assemble the clusters define in e-highways in order to compute for each bus its region, x and y
     cluster_shapes = get_ehighway_shapes()
@@ -122,24 +123,25 @@ def preprocess(plotting: bool = False):
         buses.loc[idx].onshore = True
 
     # Offshore nodes
-    add_buses = pd.DataFrame([["OFF1", -6.5, 49.5, Point(-6.5, 49.5), False],  # England south-west
-                              ["OFF2", 3.5, 55.5, Point(3.5, 55.5), False],  # England East
-                              ["OFF3", 30.0, 43.5, Point(30.0, 43.5), False],  # Black Sea
-                              ["OFF4", 18.5, 56.5, Point(18.5, 56.5), False],  # Sweden South-east
-                              ["OFF5", 19.5, 62.0, Point(19.5, 62.0), False],  # Sweden North-east
-                              ["OFF6", -3.0, 46.5, Point(-3.0, 46.5), False],  # France west
-                              ["OFF7", -5.0, 54.0, Point(-5.0, 54.0), False],  # Isle of Man
-                              ["OFF8", -7.5, 56.5, Point(-7.5, 56.0), False],  # Uk North
-                              ["OFF9", 15.0, 43.0, Point(15.0, 43.0), False],  # Italy east
-                              ["OFFA", 25.0, 39.0, Point(25.0, 39.0), False],  # Greece East
-                              ["OFFB", 1.5, 40.0, Point(1.5, 40.0), False],  # Spain east
-                              ["OFFC", 9.0, 65.0, Point(9.0, 65.0), False],  # Norway South-West
-                              ["OFFD", 14.5, 69.0, Point(14.0, 68.5), False],  # Norway North-West
+    # TODO: not sure what to set 'country' to...
+    add_buses = pd.DataFrame([["OFF1", -6.5, 49.5, None, Point(-6.5, 49.5), False],  # England south-west
+                              ["OFF2", 3.5, 55.5, None, Point(3.5, 55.5), False],  # England East
+                              ["OFF3", 30.0, 43.5, None, Point(30.0, 43.5), False],  # Black Sea
+                              ["OFF4", 18.5, 56.5, None, Point(18.5, 56.5), False],  # Sweden South-east
+                              ["OFF5", 19.5, 62.0, None, Point(19.5, 62.0), False],  # Sweden North-east
+                              ["OFF6", -3.0, 46.5, None, Point(-3.0, 46.5), False],  # France west
+                              ["OFF7", -5.0, 54.0, None, Point(-5.0, 54.0), False],  # Isle of Man
+                              ["OFF8", -7.5, 56.5, None, Point(-7.5, 56.0), False],  # Uk North
+                              ["OFF9", 15.0, 43.0, None, Point(15.0, 43.0), False],  # Italy east
+                              ["OFFA", 25.0, 39.0, None, Point(25.0, 39.0), False],  # Greece East
+                              ["OFFB", 1.5, 40.0, None, Point(1.5, 40.0), False],  # Spain east
+                              ["OFFC", 9.0, 65.0, None, Point(9.0, 65.0), False],  # Norway South-West
+                              ["OFFD", 14.5, 69.0, None, Point(14.0, 68.5), False],  # Norway North-West
                               # ["OFFE", 26.0, 72.0, Point(26.0, 72.0), False],  # Norway North-West Norther
-                              ["OFFF", 11.5, 57.0, Point(11.5, 57.0), False],  # East Denmark
-                              ["OFFG", -1.0, 50.0, Point(-1.0, 50.0), False],  # France North
-                              ["OFFI", -9.5, 41.0, Point(-9.5, 41.0), False]],  # Portugal West
-                             columns=["id", "x", "y", "region", "onshore"])
+                              ["OFFF", 11.5, 57.0, None, Point(11.5, 57.0), False],  # East Denmark
+                              ["OFFG", -1.0, 50.0, None, Point(-1.0, 50.0), False],  # France North
+                              ["OFFI", -9.5, 41.0, None, Point(-9.5, 41.0), False]],  # Portugal West
+                             columns=["id", "x", "y", "country", "region", "onshore"])
     add_buses = add_buses.set_index("id")
     buses = buses.append(add_buses)
 

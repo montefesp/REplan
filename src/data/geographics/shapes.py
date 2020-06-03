@@ -275,7 +275,7 @@ def get_shapes(region_codes: List[str], which: str = 'onshore_offshore', save: b
     ----------
     region_codes: List[str]
         List of regions for which to retrieve shapes.
-        This is either a list of i) ISO_2 (tyndp), ii) NUTS2 or iii) NUTS3 codes (ehighway).
+        This is either a list of i) ISO_2, ii) NUTS codes.
     which : str (default: 'onshore_offshore')
         Optional argument used to choose which shapes to retrieve.
     save: bool (default: False)

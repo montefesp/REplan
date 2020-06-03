@@ -2,7 +2,7 @@
 keep_lp: False
 
 # solver
-solver: 'cplex'
+solver: 'gurobi'
 solver_options:
   gurobi:
     Threads: 0
@@ -21,11 +21,11 @@ solver_options:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-01-01T23:00']
+  slice: ['2015-01-01T00:00', '2015-01-01T10:00']
   resolution: 1
 
 # Space
-region: "ES_PT"
+region: "BENELUX"
 # add_offshore: False
 
 # RES
@@ -33,19 +33,19 @@ res:
   include: True
   # Give which technology should be installed using each strategy
   strategies:
-    max: []
-    comp: []
+    from_files: []
     no_siting: []
     siting: []
-    bus: ['wind_offshore', 'wind_onshore', 'pv_utility', 'pv_residential']
+    bus: ['pv_utility']
 
   # For strategy = max or comp
-  path: 'EU_wide_off_2015_08'
-  resite_nb: 0 # can be multiples of 25
+  sites_dir: 'EU_wide_off_2015_08'
+  sites_fn: 'max_site_data.p'
+  use_default_capacity: True
   area_per_site: 2500 #km2
-  cap_dens:
-     wind_onshore: 3  # MW/km2, assuming 30% max utilization of the entire cell area
-     wind_offshore: 6 # MW/km2, assuming 60% max utilization of the entire cell area
+  # cap_dens:
+  #   wind_onshore: 3  # MW/km2, assuming 30% max utilization of the entire cell area
+  #   wind_offshore: 6 # MW/km2, assuming 60% max utilization of the entire cell area
 
   # For strategy = siting or no siting
   # Various data layers to be taken into account in potential site selection.
@@ -53,14 +53,14 @@ res:
   timeslice: ['2015-01-01T00:00', '2015-01-01T23:00']
   use_ex_cap: True
   limit_max_cap: True
-  filtering_layers:
-    resource_quality: True
-    population_density: True
-    protected_areas: False
-    bathymetry: True
-    orography: True
-    forestry: True
-    water_mask: True
+  # filtering_layers:
+  #   resource_quality: True
+  #  population_density: True
+  #  protected_areas: False
+  #  bathymetry: True
+  #  orography: True
+  #  forestry: True
+  #  water_mask: True
 
   # For strategy = siting
   modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
@@ -93,23 +93,23 @@ nuclear:
 
 # Battery
 battery:
-  include: True
+  include: False
   type: "Li-ion"
 
 # Hydro
 phs:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
   cyclic_sof: True
 
 ror:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
 
 sto:
-  include: True
+  include: False
   use_ex_cap: True
   extendable: False
   cyclic_sof: True

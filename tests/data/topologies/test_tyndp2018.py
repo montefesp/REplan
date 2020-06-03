@@ -31,6 +31,7 @@ def test_get_topology_subset_and_no_existing_cap():
     assert len(n.buses) == len(codes)
     assert "x" in n.buses.keys()
     assert "y" in n.buses.keys()
+    assert "country" in n.buses.keys()
     assert "region" in n.buses.keys()
     assert "onshore" in n.buses.keys()
     # Links
@@ -49,6 +50,7 @@ def test_get_topology_whole():
     assert len(n.buses) == 38
     assert "x" in n.buses.keys()
     assert "y" in n.buses.keys()
+    assert "country" in n.buses.keys()
     assert "region" in n.buses.keys()
     assert "onshore" in n.buses.keys()
     # Links

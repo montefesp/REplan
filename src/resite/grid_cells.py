@@ -6,11 +6,29 @@ import numpy as np
 from shapely.ops import unary_union
 from shapely.geometry import Polygon, MultiPolygon, GeometryCollection
 
-from src.data.geographics import get_points_in_shape
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+
+from src.data.geographics import get_points_in_shape, display_polygons
+from src.data.technologies import get_config_dict
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
+
+
+def plot_grid_cells(grid_cells_ds: pd.Series):
+    """Plot grid cells (points and regions)"""
+
+    for tech in set(grid_cells_ds.index.get_level_values(0)):
+        tech_grid_cells_ds = grid_cells_ds.loc[tech]
+        ax = display_polygons(tech_grid_cells_ds.values, fill=False, show=False)
+        points = list(tech_grid_cells_ds.index)
+        print(points)
+        xs, ys = zip(*points)
+        ax.scatter(xs, ys, transform=ccrs.PlateCarree(), c='k')
+
+    plt.show()
 
 
 def create_grid_cells(shape: Union[Polygon, MultiPolygon], resolution: float) \
@@ -34,7 +52,7 @@ def create_grid_cells(shape: Union[Polygon, MultiPolygon], resolution: float) \
     return points, grid_cells
 
 
-def get_grid_cells(technologies: List[str], tech_config: Dict, resolution: float,
+def get_grid_cells(technologies: List[str], resolution: float,
                    onshore_shape: Union[Polygon, MultiPolygon] = None,
                    offshore_shape: Union[Polygon, MultiPolygon] = None) -> pd.Series:
     """
@@ -43,10 +61,7 @@ def get_grid_cells(technologies: List[str], tech_config: Dict, resolution: float
     Parameters
     ----------
     technologies: List[str]
-        List of technologies for which we want to obtain land availability.
-        Each technology must have an entry in 'tech_config'.
-    tech_config: Dict
-        # TODO: comment
+        List of technologies for which we want to generate grid cells.
     resolution: float
         Spatial resolution at which the grid cells must be defined.
     onshore_shape: Union[Polygon, MultiPolygon] (default: None)
@@ -63,6 +78,9 @@ def get_grid_cells(technologies: List[str], tech_config: Dict, resolution: float
     """
 
     assert len(technologies) != 0, 'Error: Empty list of technologies.'
+
+    # Determine if tech are onshore- or offshore-based
+    tech_config = get_config_dict(technologies, ["onshore"])
 
     # Check the right shapes have been passed
     for tech in technologies:

@@ -46,8 +46,9 @@ def preprocess(plotting=True) -> None:
     for name in links.index:
         buses_names += name.split("-")
     buses_names = sorted(list(set(buses_names)))
-    buses = pd.DataFrame(index=buses_names, columns=["x", "y", "region", "onshore"])
+    buses = pd.DataFrame(index=buses_names, columns=["x", "y", "country", "region", "onshore"])
     buses.index.names = ["id"]
+    buses.country = list(buses.index)
     buses.onshore = True
 
     # Get shape of each country
@@ -135,6 +136,11 @@ def get_topology(network: pypsa.Network, countries: List[str] = None, add_offsho
     for i, region in enumerate(regions):
         if isinstance(region, str):
             regions[i] = shapely.wkt.loads(region)
+
+    # If we have only one bus, add it to the network and return
+    if len(buses) == 1:
+        network.import_components_from_dataframe(buses, "Bus")
+        return network
 
     # Remove links for which one of the two end buses has been removed
     links = pd.DataFrame(links.loc[links.bus0.isin(buses.index) & links.bus1.isin(buses.index)])

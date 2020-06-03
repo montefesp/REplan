@@ -17,6 +17,7 @@ from shapely.geometry import Polygon, MultiPolygon
 
 from src.data.geographics import get_shapes
 
+
 def init_land_availability_globals(filters: Dict) -> None:
     """
     Initialize global variables to use in land availability computation
@@ -154,6 +155,7 @@ def get_land_availability_for_shapes_mp(shapes: List[Union[Polygon, MultiPolygon
             ' ', pgb.widgets.ETA()
         ]
         progressbar = pgb.ProgressBar(prefix='Compute GIS potentials: ', widgets=widgets, max_value=len(shapes))
+        # TODO: are this sorted right?
         available_areas = list(progressbar(pool.imap(compute_land_availability, shapes)))
 
     return np.array(available_areas)
@@ -250,4 +252,4 @@ def get_capacity_potential_per_country(countries: List[str], is_onshore: float, 
     shapes = get_shapes(countries, which=which, save=True)["geometry"]
     land_availability = get_land_availability_for_shapes(shapes, filters, processes)
 
-    return pd.Series(land_availability*power_density/1e3, index=countries)
+    return pd.Series(land_availability*power_density/1e3, index=shapes.index)
