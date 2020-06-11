@@ -100,7 +100,7 @@ def add_curtailment_constraints(network: pypsa.Network, snapshots: pd.DatetimeIn
     techs = ['wind', 'pv']
     gens = network.generators.index[network.generators.index.str.contains('|'.join(techs))]
 
-    model.generator_c = Var(model.gens, snapshots, within=NonNegativeReals)
+    model.generator_c = Var(gens, snapshots, within=NonNegativeReals)
 
     def generation_curtailment_rule(model, gen, snapshot):
         return model.generator_c[gen, snapshot] == \

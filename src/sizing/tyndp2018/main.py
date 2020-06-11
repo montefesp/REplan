@@ -156,15 +156,15 @@ if __name__ == '__main__':
     if config['keep_lp']:
         net.model.write(filename=join(output_dir, 'model.lp'),
                         format=ProblemFormat.cpxlp,
-                        io_options={'symbolic_solver_labels': True})
+                        # io_options={'symbolic_solver_labels': True})
                         io_options={'symbolic_solver_labels': False})
         net.model.objective.pprint()
 
-    marginal_price = pypsa.linopt.get_dual(net, 'Bus', 'marginal_price')
-    shadow_price = pypsa.linopt.get_dual(net, 'Generator', 'mu_upper')
-    print((shadow_price < 0).sum())
-    print((pypsa.linopt.get_dual(net, 'Generator', 'mu_lower') < 0).sum())
-    print(net.dualvalues)
+    # marginal_price = pypsa.linopt.get_dual(net, 'Bus', 'marginal_price')
+    # shadow_price = pypsa.linopt.get_dual(net, 'Generator', 'mu_upper')
+    # print((shadow_price < 0).sum())
+    # print((pypsa.linopt.get_dual(net, 'Generator', 'mu_lower') < 0).sum())
+    # print(net.dualvalues)
 
     net.export_to_csv_folder(output_dir)
 

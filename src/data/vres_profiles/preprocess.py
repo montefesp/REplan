@@ -18,7 +18,7 @@ def built_cap_factor_for_countries_files():
     # Add first data from current fleet
     current_wind_file_names = sorted([file for file in wind_file_names if "current" in file])
 
-    ts = pd.date_range('2015-01-01T00:00', '2018-01-31T23:00', freq='1H')
+    ts = pd.date_range('2015-01-01T00:00', '2018-12-31T23:00', freq='1H')
     onshore_capacity_factors_df = pd.DataFrame(index=ts, dtype=float)
     offshore_capacity_factors_df = pd.DataFrame(index=ts, dtype=float)
     for fn in current_wind_file_names:
@@ -56,7 +56,7 @@ def built_cap_factor_for_countries_files():
 
     # PV
     pv_file_names = sorted([file for file in all_files if file.startswith('ninja_pv')])
-    ts = pd.date_range('2015-01-01T00:00', '2018-01-31T23:00', freq='1H')
+    ts = pd.date_range('2015-01-01T00:00', '2018-12-31T23:00', freq='1H')
     pv_capacity_factors_df = pd.DataFrame(index=ts, dtype=float)
     for fn in pv_file_names:
         country = fn.split('_')[3]
