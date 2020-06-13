@@ -5,6 +5,8 @@ from pypsa import Network
 
 from src.data.technologies import get_costs
 
+# TODO: delete this file (replaced by utils and results_display)
+
 
 class SizingResults:
 
@@ -111,8 +113,6 @@ class SizingResults:
 
         return df_cf.round(3)
 
-
-
     def get_generators_curtailment(self):
 
         opt_cap = self.get_generators_capacity()['final']
@@ -144,8 +144,6 @@ class SizingResults:
 
         return df_curtailment.round(3)
 
-
-
     def get_generators_opex(self):
         """Return the operational expenses of running each type of generator over the self.net.snapshots"""
 
@@ -174,14 +172,6 @@ class SizingResults:
     def get_generators_cost(self):
         return self.get_generators_opex() + self.get_generators_capex()
 
-
-
-
-
-
-
-
-
     # --- Transmission --- #
 
     def display_transmission(self):
@@ -196,7 +186,6 @@ class SizingResults:
         #     print(f"Lines power:\n{self.get_lines_power()}\n")
         #     print(f"Lines use:\n{self.get_lines_usage()}\n")
         #     print(f"Lines capex:\n{self.get_lines_capex()}\n")
-
 
         if len(self.net.links.index) != 0:
             links_capacities = self.get_links_capacity()
@@ -446,8 +435,6 @@ class SizingResults:
 
         return pd.DataFrame.from_dict(energy, orient="index", columns=["energy"]).energy
 
-
-
     def get_storage_spillage(self):
 
         storage_units = self.net.storage_units
@@ -494,7 +481,6 @@ class SizingResults:
 
         return storage_units.groupby(["type"]).capex.sum()
 
-
     def display_co2(self):
 
         print('\n\n\n# --- CO2 --- #')
@@ -523,14 +509,11 @@ class SizingResults:
         print(f"CO2 utilization:\n{df_co2}\n")
 
 
-
-
-
 if __name__ == "__main__":
 
     topology = 'tyndp2018'
 
-    run_id = '20200507_123405'
+    run_id = '20200602_113206'
 
     main_output_dir = f'../../output/sizing/{topology}/'
     output_dir = f"{main_output_dir}{run_id}/"
