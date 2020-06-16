@@ -82,19 +82,9 @@ if __name__ == '__main__':
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
     net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)
 
-    # Get peak load and normalized load profile
-    loads_max = loads.max(axis=0)
-    loads_pu = loads.apply(lambda x: x/x.max(), axis=0)
-    # Add generators for load shedding (prevents the model from being infeasible
-    net.madd("Generator",
-             "Load shed " + onshore_bus_indexes,
-             bus=onshore_bus_indexes,
-             type="load",
-             p_nom=loads_max.values,
-             p_max_pu=loads_pu.values,
-             x=net.buses.loc[onshore_bus_indexes].x.values,
-             y=net.buses.loc[onshore_bus_indexes].y.values,
-             marginal_cost=fuel_info.loc["load", "cost"])
+    if config["functionalities"]["load_shed"]["include"]:
+        logger.info("Adding load shedding generators.")
+        net = add_load_shedding(net, loads)
 
     # Adding pv and wind generators
     if config['res']['include']:

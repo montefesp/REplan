@@ -100,7 +100,6 @@ def add_generators_from_file(network: pypsa.Network, topology_type: str, technol
         else:
             points_bus_ds = match_points_to_regions(points, buses.region).dropna()
         points = list(points_bus_ds.index)
-        print(points)
 
         logger.info(f"Adding {tech} in {list(set(points_bus_ds))}.")
 

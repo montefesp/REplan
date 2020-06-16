@@ -109,6 +109,8 @@ functionalities:
   curtailment:
     include: True
     strategy: ['economic', 10.] # ['technical', 0.], ['technical', 1.], ['economic', 0.], ['economic', 9999.]
+  load_shed:
+    include: True
 
 # Emissions
 co2_emissions:

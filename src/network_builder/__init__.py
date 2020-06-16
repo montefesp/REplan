@@ -7,4 +7,5 @@ from src.network_builder.nuclear import add_generators as add_nuclear
 from src.network_builder.hydro import add_phs_plants, add_ror_plants, add_sto_plants
 from src.network_builder.conventional import add_generators as add_conventional
 from src.network_builder.battery import add_batteries
+from src.network_builder.load_shed import add_load_shedding
 from src.network_builder.functionalities import *
