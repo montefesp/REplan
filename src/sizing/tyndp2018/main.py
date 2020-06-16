@@ -109,7 +109,7 @@ if __name__ == '__main__':
                 net = add_res_from_file(net, "countries", technologies,
                                         config["res"]["sites_dir"], config["res"]["sites_fn"],
                                         config["res"]["spatial_resolution"],
-                                        config["res"]["use_default_capacity"], config["res"]["area_per_site"])
+                                        config["res"]["use_default_capacity"])
             elif strategy == "bus":
                 net = add_res_per_bus(net, 'countries', technologies, config["res"]["use_ex_cap"])
             elif strategy == "no_siting":
@@ -148,10 +148,15 @@ if __name__ == '__main__':
         net.snapshots) / NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
 
-    net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
+    # net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
+    #          solver_options=config["solver_options"][config["solver"]],
+    #          keep_references=True, keep_shadowprices=["Generator", "Bus"], pyomo=False)
+
+    net.lopf(solver_name=config["solver"],
+             solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
              solver_options=config["solver_options"][config["solver"]],
-             keep_references=True, keep_shadowprices=["Generator", "Bus"], pyomo=False)
-             # extra_functionality=add_extra_functionalities, pyomo=True)
+             extra_functionality=add_extra_functionalities,
+             pyomo=True)
 
     if config['keep_lp']:
         net.model.write(filename=join(output_dir, 'model.lp'),

@@ -8,7 +8,7 @@ import pypsa
 
 from src.data.vres_profiles import compute_capacity_factors, get_cap_factor_for_countries
 from src.data.geographics import match_points_to_regions, match_points_to_countries, get_shapes,\
-    remove_landlocked_countries
+    remove_landlocked_countries, get_area_per_site
 from src.data.vres_potential import get_capacity_potential_for_countries, get_capacity_potential_at_points, \
     get_capacity_potential_for_regions
 from src.data.vres_potential import get_capacity_potential_for_shapes
@@ -23,7 +23,7 @@ logger = logging.getLogger()
 
 def add_generators_from_file(network: pypsa.Network, topology_type: str, technologies: List[str],
                              sites_dir: str, sites_fn: str, spatial_resolution: float,
-                             use_default_capacity: bool = True, area_per_site: int = None) -> pypsa.Network:
+                             use_default_capacity: bool = True) -> pypsa.Network:
     """
     Add wind and PV generators based on sites that where selected via a certain siting method to a Network class.
 
@@ -44,8 +44,6 @@ def add_generators_from_file(network: pypsa.Network, topology_type: str, technol
         Spatial resolution at which the points are defined.
     use_default_capacity: bool (default: True)
         Whether to use default capacity to compute it from data.
-    area_per_site: int (default: None)
-        Area per site in km2. Needs to be define if using default capacity.
 
     Returns
     -------
@@ -64,8 +62,8 @@ def add_generators_from_file(network: pypsa.Network, topology_type: str, technol
     assert topology_type == "countries" or "region" in network.buses.columns, \
         "Error: If you are not using a one-node-per-country topology, you must associate regions to buses."
 
-    assert not use_default_capacity or area_per_site is not None, \
-        "Error: area_per_site must be defined if use_default_capacity is True."
+    # assert not use_default_capacity or area_per_site is not None, \
+    #     "Error: area_per_site must be defined if use_default_capacity is True."
 
     # Get countries over which the network is defined
     countries = list(network.buses.country.dropna())
@@ -102,6 +100,7 @@ def add_generators_from_file(network: pypsa.Network, topology_type: str, technol
         else:
             points_bus_ds = match_points_to_regions(points, buses.region).dropna()
         points = list(points_bus_ds.index)
+        print(points)
 
         logger.info(f"Adding {tech} in {list(set(points_bus_ds))}.")
 
@@ -122,10 +121,11 @@ def add_generators_from_file(network: pypsa.Network, topology_type: str, technol
 
         else:
 
-            # Use predefined per km capacity multiplied by are_per_site
+            # Use predefined per km capacity multiplied by grid cell area.
             bus_capacity_potential_per_km = pd.Series(get_config_values(tech, ['power_density']), index=buses.index)
             points_capacity_potential = \
-                [bus_capacity_potential_per_km[points_bus_ds[point]]*area_per_site/1e3 for point in points]
+                [bus_capacity_potential_per_km[points_bus_ds[point]] *
+                 get_area_per_site(point, spatial_resolution) / 1e3 for point in points]
 
         # Get capacity factors
         cap_factor_series = tech_points_cap_factor_df.loc[network.snapshots][tech][points].values
