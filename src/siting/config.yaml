@@ -1,14 +1,16 @@
+# Scope parameters
 spatial_resolution: 0.5
-timeslice: ['2015-01-01T00:00', '2015-01-01T23:00']
+timeslice: ['2015-01-01T00:00', '2015-01-07T23:00']
 regions: ['BENELUX']
-technologies: ['wind_onshore']
+technologies: ['wind_onshore', 'pv_utility', 'pv_residential', 'wind_offshore']
 
 use_ex_cap: False
 
-modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
-# solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
+# Optimization parameters
+formulation: 'meet_RES_targets' # Type of problem to be solved.
+formulation_params:
+  # cap_per_tech: [0.5, 0.5]
+  perc_per_region: [0.5]
+  time_resolution: 'hour'
+modelling: 'docplex' # Choice of modelling language.
 write_lp: False
-
-# Type of problem to be solved. Check resite.py for a full list.
-formulation: 'meet_demand_with_capacity' # 'meet_RES_targets_hourly' # 'meet_RES_targets_agg'
-formulation_params: [0.5, 0.5, 0.5, 0.5]

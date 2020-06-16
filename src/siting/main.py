@@ -14,7 +14,7 @@ if __name__ == '__main__':
     resite = Resite(params["regions"], params["technologies"], params["timeslice"], params["spatial_resolution"])
 
     logger.info('Reading input.')
-    resite.build_input_data(params["use_ex_cap"])
+    resite.build_data(params["use_ex_cap"])
 
     values = [0.1]
     for v in values:
@@ -26,11 +26,7 @@ if __name__ == '__main__':
 
         logger.info('Sending model to solver.')
         results = resite.solve_model()
-
         logger.info('Retrieving results.')
-        if params["modelling"] != "pyomo" or \
-                (params["modelling"] == "pyomo" and str(results.solver.termination_condition) != "infeasible"):
-            resite.retrieve_solution()
-            resite.retrieve_sites_data()
+        resite.retrieve_selected_sites_data()
 
-        # resite.save(output_folder)
+        resite.save(output_folder)
