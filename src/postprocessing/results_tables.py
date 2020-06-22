@@ -87,7 +87,7 @@ def generate_capacities_table(nets: List[pypsa.Network], names: List[str],
                               technologies: List[str], save: bool = False):
     """Generate a csv table containing capacities and others of different sizing runs."""
 
-    table = pd.DataFrame(index=pd.MultiIndex.from_product((names, ["GW_add", "GW_tot", "GWh", "Curt.", "CF"])),
+    table = pd.DataFrame(index=pd.MultiIndex.from_product((names, ["GW_add", "GW_tot", "TWh", "Curt.", "CF"])),
                          columns=technologies, dtype=float)
     for i, net in enumerate(nets):
         name = names[i]
@@ -106,7 +106,7 @@ def generate_capacities_table(nets: List[pypsa.Network], names: List[str],
         gen_power = get_generators_generation(net).drop(['load'])
         links_power = get_links_power(net)
         power = pd.concat([gen_power, links_power]).reindex(technologies).dropna()
-        table.loc[(name, "GWh")] = power
+        table.loc[(name, "TWh")] = power
 
         # Curtailment
         gen_curtailment = get_generators_curtailment(net)
@@ -131,7 +131,7 @@ def generate_capacities_table(nets: List[pypsa.Network], names: List[str],
     # Change slightly indexes
     indexes = []
     for name in names:
-        indexes += [(name, "GW_add"), ("", "GW_tot"), ("", "GWh"), ("", "CF")]
+        indexes += [(name, "GW_add"), ("", "GW_tot"), ("", "TWh"), ("", "CF")]
     table.index = pd.MultiIndex.from_tuples(indexes)
     table.to_csv("table_capacities.csv")
 
