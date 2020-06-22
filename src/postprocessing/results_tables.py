@@ -48,9 +48,8 @@ def generate_costs_table(nets: List[pypsa.Network], names: List[str],
 
 
 def convert_cost_table_to_latex(table, objective_dict, caption_string):
-    text = "\\begin{table}\n" \
-           "\centering\n" \
-           "\\begin{tabular}{ccr" + "c"*len(table.columns) + "}\n" \
+    text = "\\begin{center}\n" \
+           "\\begin{longtable}{ccr" + "c"*len(table.columns) + "}\n" \
            "\t& OBJ & "
     for name in table.columns:
         name = name.replace("_", "\\textsubscript{")
@@ -78,10 +77,10 @@ def convert_cost_table_to_latex(table, objective_dict, caption_string):
             text += "\midrule"
         text += "\n"
     text += "\\bottomrule\n" \
-            "\end{tabular}\n" \
-            "\caption{" + caption_string +"}\n" \
+            "\caption{" + caption_string + "}\n" \
             "\label{tab:label}\n" \
-            "\end{table}"
+            "\end{longtable}\n" \
+            "\end{center}"
 
     return text
 
@@ -139,9 +138,8 @@ def generate_capacities_table(nets: List[pypsa.Network], names: List[str],
 
 
 def convert_cap_table_to_latex(table, caption_string):
-    text = "\\begin{table}\n" \
-           "\centering\n" \
-           "\\begin{tabular}{cr" + "c"*len(table.columns) + "}\n" \
+    text = "\\begin{center}\n" \
+           "\\begin{longtable}{cr" + "c"*len(table.columns) + "}\n" \
            "\t&  "
     for name in table.columns:
         name = name.replace("_", "\\textsubscript{")
@@ -174,10 +172,10 @@ def convert_cap_table_to_latex(table, caption_string):
             text += "\midrule"
         text += "\n"
     text += "\\bottomrule\n" \
-            "\end{tabular}\n" \
-            "\caption{" + caption_string +"}\n" \
+            "\caption{" + caption_string + "}\n" \
             "\label{tab:label}\n" \
-            "\end{table}"
+            "\end{longtable}\n" \
+            "\end{center}"
 
     return text
 
