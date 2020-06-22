@@ -107,7 +107,7 @@ if __name__ == '__main__':
     from pypsa import Network
 
     topology = 'tyndp2018'
-    run_id = '20200602_113206'
+    run_id = '20200617_133432'
     output_dir = f'../../output/sizing/{topology}/{run_id}/'
 
     net = Network()

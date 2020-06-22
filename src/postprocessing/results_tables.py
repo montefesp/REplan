@@ -1,4 +1,6 @@
 from typing import List
+import yaml
+from os.path import join
 
 from src.postprocessing.utils import *
 
@@ -43,7 +45,7 @@ def generate_costs_table(nets: List[pypsa.Network], names: List[str],
     table.to_csv("table_costs.csv")
 
 
-def convert_cost_table_to_latex(table):
+def convert_cost_table_to_latex(table, objective_dict):
     text = "\\begin{table}\n" \
            "\centering\n" \
            "\\begin{tabular}{ccr" + "c"*len(table.columns) + "}\n" \
@@ -59,7 +61,8 @@ def convert_cost_table_to_latex(table):
         value_name = value_name.replace("_", "\\textsubscript{")
         value_name += "}" if "{" in value_name else ""
         if value_name == "CAPEX":
-            text += "\multirow{2}{*}{" + case + "} & \multirow{2}{*}{0} & " + value_name
+            text += "\multirow{2}{*}{" + case.replace("_", "\\textunderscore ") + "} & \multirow{2}{*}{" + \
+                    str(objective_dict[case]) +"} & " + value_name
         else:
             text += f"\t& & {value_name}"
         for v in table.loc[index].values:
@@ -81,7 +84,7 @@ def generate_capacities_table(nets: List[pypsa.Network], names: List[str],
                               technologies: List[str], save: bool = False):
     """Generate a csv table containing capacities and others of different sizing runs."""
 
-    table = pd.DataFrame(index=pd.MultiIndex.from_product((names, ["GW_add", "GW_tot", "GWh", "CF"])),
+    table = pd.DataFrame(index=pd.MultiIndex.from_product((names, ["GW_add", "GW_tot", "GWh", "Curt.", "CF"])),
                          columns=technologies, dtype=float)
     for i, net in enumerate(nets):
         name = names[i]
@@ -97,10 +100,16 @@ def generate_capacities_table(nets: List[pypsa.Network], names: List[str],
         table.loc[(name, "GW_tot")] = final_cap
 
         # Generation
-        gen_power = get_generators_generation(net)
+        gen_power = get_generators_generation(net).drop(['load'])
         links_power = get_links_power(net)
         power = pd.concat([gen_power, links_power]).reindex(technologies).dropna()
         table.loc[(name, "GWh")] = power
+
+        # Curtailment
+        gen_curtailment = get_generators_curtailment(net)
+        load_curtailment = get_generators_generation(net).reindex(['load'])
+        curtailment = pd.concat([gen_curtailment, load_curtailment]).reindex(technologies).dropna()
+        table.loc[(name, "Curt.")] = curtailment
 
         # Capacity factors
         gen_cf = get_generators_average_usage(net)
@@ -147,7 +156,7 @@ def convert_cap_table_to_latex(table):
         value_name = value_name.replace("_", "\\textsubscript{")
         value_name += "}" if "{" in value_name else ""
         if value_name == "GW\\textsubscript{add}":
-            text += "\multirow{4}{*}{" + case + "} & " + value_name
+            text += "\multirow{5}{*}{" + case.replace("_", "\\textunderscore ") + "} & " + value_name
         else:
             text += f"\t & {value_name}"
         for v in table.loc[index].values:
@@ -170,21 +179,39 @@ if __name__ == '__main__':
     from pypsa import Network
 
     topology = 'tyndp2018'
-    run_names = ['test_1', 'test_2']
-    run_ids = ['20200612_150412', '20200612_151458']
+    run_ids = ['20200617_133432', '20200617_133518']
+    run_names = []
     nets = []
+    objectives = {}
+
     for run_id in run_ids:
+
         output_dir = f'../../output/sizing/{topology}/{run_id}/'
+        config_fn = join(output_dir, 'config.yaml')
+
+        config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
+        run_name = config["res"]["sites_dir"] + "_" + \
+                   config["res"]["sites_fn"].split("_")[0].upper()
+        run_names.append(run_name)
+
         net = Network()
         net.import_from_csv_folder(output_dir)
         nets += [net]
 
+        with open(join(output_dir, "solver.log"), 'r') as f:
+            for line in f:
+                if "objective" in line:
+                    objectives[run_name] = round(float(line.split(' ')[-1]),2)
+
     table = generate_costs_table(nets, run_names, ["ccgt", "wind_offshore", "wind_onshore", "pv_utility",
                                                    "pv_residential", "AC", "DC", "Li-ion"])
-    text = convert_cost_table_to_latex(table)
+    text = convert_cost_table_to_latex(table, objectives)
+
+    print('\n')
     print(text)
+    print('\n')
 
     table = generate_capacities_table(nets, run_names, ["ccgt", "wind_offshore", "wind_onshore", "pv_utility",
-                                                        "pv_residential", "AC", "DC", "Li-ion"])
+                                                        "pv_residential", "AC", "DC", "Li-ion", "load"])
     text = convert_cap_table_to_latex(table)
     print(text)
