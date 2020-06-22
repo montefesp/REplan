@@ -17,7 +17,7 @@ def generate_costs_table(nets: List[pypsa.Network], names: List[str],
                          technologies: List[str], save: bool = False):
     """Generate a csv table containing various costs of different sizing runs."""
 
-    cost_table = pd.DataFrame(index=pd.MultiIndex.from_product((names, ["CAPEX", "OPEX"])),
+    cost_table = pd.DataFrame(index=pd.MultiIndex.from_product((names, ["CAPEX", "OPEX", "TOTAL"])),
                               columns=technologies, dtype=float)
     for i, net in enumerate(nets):
         name = names[i]
@@ -29,7 +29,7 @@ def generate_costs_table(nets: List[pypsa.Network], names: List[str],
         marg_cost = pd.concat([gen_marg_cost, links_marg_cost, store_marg_cost]).reindex(technologies).dropna()
         cost_table.loc[(name, "CAPEX")] = cap_cost
         cost_table.loc[(name, "OPEX")] = marg_cost
-        # cost_table.loc[(name, "TOTAL")] = marg_cost + cap_cost
+        cost_table.loc[(name, "TOTAL")] = marg_cost + cap_cost
     cost_table = cost_table.round(2)
     # Change columns names
     cost_table = cost_table.rename(columns=tech_name_change)
@@ -40,7 +40,7 @@ def generate_costs_table(nets: List[pypsa.Network], names: List[str],
     # Change slightly indexes when saving file
     indexes = []
     for name in names:
-        indexes += [(name, "CAPEX"), ("", "OPEX")]  #, ("", "TOTAL")]
+        indexes += [(name, "CAPEX"), ("", "OPEX"), ("", "TOTAL")]
     cost_table.index = pd.MultiIndex.from_tuples(indexes)
     table.to_csv("table_costs.csv")
 
@@ -62,17 +62,17 @@ def convert_cost_table_to_latex(table, objective_dict, caption_string):
         value_name += "}" if "{" in value_name else ""
         if value_name == "CAPEX":
             if "COMP" in case:
-                text += "\multirow{2}{*}{\shortstack{" + case.split("_")[0] + r"\\" + case.split("_")[-1] + \
-                        "}} & \multirow{2}{*}{" + str(objective_dict[case]) +"} & " + value_name
+                text += "\multirow{3}{*}{\shortstack{" + case.split("_")[0] + r"\\" + case.split("_")[-1] + r"\\" + case.split("_")[1] + \
+                        "}} & \multirow{3}{*}{" + str(objective_dict[case]) +"} & " + value_name
             else:
-                text += "\multirow{2}{*}{" + case.split("_")[0] + \
-                        "} & \multirow{2}{*}{" + str(objective_dict[case]) + "} & " + value_name
+                text += "\multirow{3}{*}{" + case.split("_")[0] + \
+                        "} & \multirow{3}{*}{" + str(objective_dict[case]) + "} & " + value_name
         else:
             text += f"\t& & {value_name}"
         for v in table.loc[index].values:
             text += f" & {v} " if not np.isnan(v) else " & "
         text += "\\\\"
-        if value_name == "OPEX" and i != len(table)-1:
+        if value_name == "TOTAL" and i != len(table)-1:
             text += "\midrule"
         text += "\n"
     text += "\\bottomrule\n" \
@@ -162,7 +162,7 @@ def convert_cap_table_to_latex(table, caption_string):
             if "PROD" in case:
                 text += "\multirow{5}{*}{" + case.split("_")[0] + "} & " + value_name
             else:
-                text += "\multirow{5}{*}{\shortstack{" + case.split("_")[0] + r"\\" + case.split("_")[-1] + "}} & " + value_name
+                text += "\multirow{5}{*}{\shortstack{" + case.split("_")[0] + r"\\" + case.split("_")[-1] + r"\\" + case.split("_")[1] + "}} & " + value_name
         else:
             text += f"\t & {value_name}"
         for v in table.loc[index].values:
@@ -185,7 +185,12 @@ if __name__ == '__main__':
     from pypsa import Network
 
     topology = 'tyndp2018'
-    run_ids = ['20200617_133432', '20200617_133518']
+
+    runs_fn = join(f'../../output/sizing/{topology}/', 'run_dict.yaml')
+    run_dict = yaml.load(open(runs_fn, 'r'), Loader=yaml.FullLoader)
+
+    run_id = 'commit_test'
+    run_ids = run_dict[run_id]
     run_names = []
     nets = []
     objectives = {}
@@ -199,11 +204,11 @@ if __name__ == '__main__':
         run_name = config["res"]["sites_dir"] + "_" + \
                    config["res"]["sites_fn"].split("_")[0].upper()
 
-        name = run_name.split("_")[-2:]
+        name = run_name.split("_")[-3:]
         if "MAX" in name:
             name = "PROD"
         else:
-            name = "COMP_c = " + name[0][1:]
+            name = "COMP_c = " + name[1][1:] + "_" + name[0]
 
         run_names.append(name)
 
