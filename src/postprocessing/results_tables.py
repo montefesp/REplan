@@ -21,8 +21,10 @@ def generate_costs_table(nets: List[pypsa.Network], names: List[str],
                               columns=technologies, dtype=float)
     for i, net in enumerate(nets):
         name = names[i]
-        gen_cap_cost, gen_marg_cost = get_gen_capital_and_marginal_cost(net)
-        store_cap_cost, store_marg_cost = get_storage_capital_and_marginal_cost(net)
+        gen_cap_cost = get_generators_capex(net)
+        gen_marg_cost = get_generators_opex(net)
+        store_cap_cost = get_storage_capex(net)
+        store_marg_cost = get_storage_opex(net)
         links_cap_cost = get_links_capex(net)
         links_marg_cost = pd.Series(0, index=links_cap_cost.index)
         cap_cost = pd.concat([gen_cap_cost, links_cap_cost, store_cap_cost]).reindex(technologies).dropna()
@@ -63,10 +65,10 @@ def convert_cost_table_to_latex(table, objective_dict, caption_string):
         if value_name == "CAPEX":
             if "COMP" in case:
                 text += "\multirow{3}{*}{\shortstack{" + case.split("_")[0] + r"\\" + case.split("_")[-1] + r"\\" + case.split("_")[1] + \
-                        "}} & \multirow{3}{*}{" + str(objective_dict[case]) +"} & " + value_name
+                        "}} & \multirow{3}{*}{" + str(round(objective_dict[case], 2)) +"} & " + value_name
             else:
                 text += "\multirow{3}{*}{" + case.split("_")[0] + \
-                        "} & \multirow{3}{*}{" + str(objective_dict[case]) + "} & " + value_name
+                        "} & \multirow{3}{*}{" + str(round(objective_dict[case], 2)) + "} & " + value_name
         else:
             text += f"\t& & {value_name}"
         for v in table.loc[index].values:
@@ -219,7 +221,7 @@ if __name__ == '__main__':
         with open(join(output_dir, "solver.log"), 'r') as f:
             for line in f:
                 if "objective" in line:
-                    objectives[name] = round(float(line.split(' ')[-1]), 2)
+                    objectives[name] = float(line.split(' ')[-1]) * 1e-5
 
     caption = ", ".join(run_name.split('_')[:-2])
 

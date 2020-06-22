@@ -125,7 +125,7 @@ def get_generators_opex(net: pypsa.Network):
         generation_per_gen = gens_t.p[gens_type.index] * gens_type.marginal_cost
         opex[tech_type] = generation_per_gen.to_numpy().sum()
 
-    return pd.DataFrame.from_dict(opex, orient="index", columns=["opex"]).opex
+    return pd.DataFrame.from_dict(opex, orient="index", columns=["opex"]).opex * 1e-3
 
 
 def get_generators_capex(net: pypsa.Network):
@@ -135,7 +135,7 @@ def get_generators_capex(net: pypsa.Network):
     gens["p_nom_new"] = gens.p_nom_opt - gens.p_nom
     gens["capex"] = gens.p_nom_new * gens.capital_cost
 
-    return gens.groupby(["type"]).capex.sum()
+    return gens.groupby(["type"]).capex.sum() * 1e-3
 
 
 def get_generators_cost(net: pypsa.Network):
@@ -241,7 +241,7 @@ def get_links_capex(net: pypsa.Network):
     links["p_nom_new"] = links.p_nom_opt - links.p_nom
     links["capex"] = links.p_nom_new * links.capital_cost
 
-    df_capex = links.groupby(["carrier"]).capex.sum()
+    df_capex = links.groupby(["carrier"]).capex.sum() * 1e-3
 
     return df_capex.round(2)
 
@@ -367,7 +367,7 @@ def get_storage_opex(net: pypsa.Network):
     total_power = net.storage_units_t.p.abs().sum(axis=0)
     storage_units["opex"] = total_power * storage_units.marginal_cost
 
-    return storage_units.groupby(["type"]).opex.sum()
+    return storage_units.groupby(["type"]).opex.sum() * 1e-3
 
 
 def get_storage_capex(net: pypsa.Network):
@@ -377,4 +377,4 @@ def get_storage_capex(net: pypsa.Network):
     storage_units["p_nom_new"] = storage_units.p_nom_opt - storage_units.p_nom
     storage_units["capex"] = storage_units.p_nom_new * storage_units.capital_cost
 
-    return storage_units.groupby(["type"]).capex.sum()
+    return storage_units.groupby(["type"]).capex.sum() * 1e-3
