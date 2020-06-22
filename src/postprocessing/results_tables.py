@@ -45,7 +45,7 @@ def generate_costs_table(nets: List[pypsa.Network], names: List[str],
     table.to_csv("table_costs.csv")
 
 
-def convert_cost_table_to_latex(table, objective_dict):
+def convert_cost_table_to_latex(table, objective_dict, caption_string):
     text = "\\begin{table}\n" \
            "\centering\n" \
            "\\begin{tabular}{ccr" + "c"*len(table.columns) + "}\n" \
@@ -77,7 +77,7 @@ def convert_cost_table_to_latex(table, objective_dict):
         text += "\n"
     text += "\\bottomrule\n" \
             "\end{tabular}\n" \
-            "\caption{Caption}\n" \
+            "\caption{" + caption_string +"}\n" \
             "\label{tab:label}\n" \
             "\end{table}"
 
@@ -136,7 +136,7 @@ def generate_capacities_table(nets: List[pypsa.Network], names: List[str],
     table.to_csv("table_capacities.csv")
 
 
-def convert_cap_table_to_latex(table):
+def convert_cap_table_to_latex(table, caption_string):
     text = "\\begin{table}\n" \
            "\centering\n" \
            "\\begin{tabular}{cr" + "c"*len(table.columns) + "}\n" \
@@ -173,7 +173,7 @@ def convert_cap_table_to_latex(table):
         text += "\n"
     text += "\\bottomrule\n" \
             "\end{tabular}\n" \
-            "\caption{Caption}\n" \
+            "\caption{" + caption_string +"}\n" \
             "\label{tab:label}\n" \
             "\end{table}"
 
@@ -216,16 +216,17 @@ if __name__ == '__main__':
                 if "objective" in line:
                     objectives[name] = round(float(line.split(' ')[-1]), 2)
 
+    caption = ", ".join(run_name.split('_')[:-2])
+
     table = generate_costs_table(nets, run_names, ["ccgt", "wind_offshore", "wind_onshore", "pv_utility",
                                                    "pv_residential", "AC", "DC", "Li-ion"])
-    text = convert_cost_table_to_latex(table, objectives)
+    text = convert_cost_table_to_latex(table, objectives, caption)
 
-    print(run_name.split('_')[:-2])
     print('\n')
     print(text)
     print('\n')
 
     table = generate_capacities_table(nets, run_names, ["ccgt", "wind_offshore", "wind_onshore", "pv_utility",
                                                         "pv_residential", "AC", "DC", "Li-ion", "load"])
-    text = convert_cap_table_to_latex(table)
+    text = convert_cap_table_to_latex(table, caption)
     print(text)
