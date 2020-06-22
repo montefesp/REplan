@@ -9,7 +9,8 @@ tech_name_change = {'ccgt': 'CCGT',
                     'wind_offshore': "W_off",
                     'wind_onshore': "W_on",
                     'pv_utility': "PV_util",
-                    'pv_residential': "PV_res"}
+                    'pv_residential': "PV_res",
+                    'load': 'Load'}
 
 
 def generate_costs_table(nets: List[pypsa.Network], names: List[str],
@@ -30,7 +31,6 @@ def generate_costs_table(nets: List[pypsa.Network], names: List[str],
         cost_table.loc[(name, "OPEX")] = marg_cost
         # cost_table.loc[(name, "TOTAL")] = marg_cost + cap_cost
     cost_table = cost_table.round(2)
-
     # Change columns names
     cost_table = cost_table.rename(columns=tech_name_change)
 
@@ -61,8 +61,12 @@ def convert_cost_table_to_latex(table, objective_dict):
         value_name = value_name.replace("_", "\\textsubscript{")
         value_name += "}" if "{" in value_name else ""
         if value_name == "CAPEX":
-            text += "\multirow{2}{*}{" + case.replace("_", "\\textunderscore ") + "} & \multirow{2}{*}{" + \
-                    str(objective_dict[case]) +"} & " + value_name
+            if "COMP" in case:
+                text += "\multirow{2}{*}{\shortstack{" + case.split("_")[0] + r"\\" + case.split("_")[-1] + \
+                        "}} & \multirow{2}{*}{" + str(objective_dict[case]) +"} & " + value_name
+            else:
+                text += "\multirow{2}{*}{" + case.split("_")[0] + \
+                        "} & \multirow{2}{*}{" + str(objective_dict[case]) + "} & " + value_name
         else:
             text += f"\t& & {value_name}"
         for v in table.loc[index].values:
@@ -78,7 +82,6 @@ def convert_cost_table_to_latex(table, objective_dict):
             "\end{table}"
 
     return text
-
 
 def generate_capacities_table(nets: List[pypsa.Network], names: List[str],
                               technologies: List[str], save: bool = False):
@@ -156,7 +159,10 @@ def convert_cap_table_to_latex(table):
         value_name = value_name.replace("_", "\\textsubscript{")
         value_name += "}" if "{" in value_name else ""
         if value_name == "GW\\textsubscript{add}":
-            text += "\multirow{5}{*}{" + case.replace("_", "\\textunderscore ") + "} & " + value_name
+            if "PROD" in case:
+                text += "\multirow{5}{*}{" + case.split("_")[0] + "} & " + value_name
+            else:
+                text += "\multirow{5}{*}{\shortstack{" + case.split("_")[0] + r"\\" + case.split("_")[-1] + "}} & " + value_name
         else:
             text += f"\t & {value_name}"
         for v in table.loc[index].values:
@@ -192,7 +198,14 @@ if __name__ == '__main__':
         config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
         run_name = config["res"]["sites_dir"] + "_" + \
                    config["res"]["sites_fn"].split("_")[0].upper()
-        run_names.append(run_name)
+
+        name = run_name.split("_")[-2:]
+        if "MAX" in name:
+            name = "PROD"
+        else:
+            name = "COMP_c = " + name[0][1:]
+
+        run_names.append(name)
 
         net = Network()
         net.import_from_csv_folder(output_dir)
@@ -201,12 +214,13 @@ if __name__ == '__main__':
         with open(join(output_dir, "solver.log"), 'r') as f:
             for line in f:
                 if "objective" in line:
-                    objectives[run_name] = round(float(line.split(' ')[-1]),2)
+                    objectives[name] = round(float(line.split(' ')[-1]), 2)
 
     table = generate_costs_table(nets, run_names, ["ccgt", "wind_offshore", "wind_onshore", "pv_utility",
                                                    "pv_residential", "AC", "DC", "Li-ion"])
     text = convert_cost_table_to_latex(table, objectives)
 
+    print(run_name.split('_')[:-2])
     print('\n')
     print(text)
     print('\n')
