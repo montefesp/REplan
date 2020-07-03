@@ -1,6 +1,6 @@
 # py_ggrid
 
-Py_GGrid provides a set of tools to ease the set up and simulation of grid expansion planning.
+PyGGrid provides a set of tools to ease the set up and simulation of grid expansion planning.
 Currently, the tool is on development and focuses on electricity transmission grids at a macro-level (i.e. our most granular model uses as indivisible units NUTS3 regions).
 
 We currently work using the PyPSA framework as network modelling tool.
