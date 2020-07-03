@@ -4,6 +4,7 @@ from pyomo.environ import Constraint, Var, NonNegativeReals
 from os.path import join, abspath, dirname
 import yaml
 
+
 def add_snsp_constraint_tyndp(network: pypsa.Network, snapshots: pd.DatetimeIndex):
     """
     Add system non-synchronous generation share constraint to the model.
@@ -111,9 +112,6 @@ def add_curtailment_constraints(network: pypsa.Network, snapshots: pd.DatetimeIn
         return model.generator_c[gen, snapshot] <= \
                allowed_curtailment_share * gens_p_max_pu.loc[snapshot, gen] * model.generator_p_nom[gen]
     model.limit_curtailment = Constraint(list(gens), list(snapshots), rule=curtailment_rule)
-
-
-
 
 
 def add_extra_functionalities(network: pypsa.Network, snapshots: pd.DatetimeIndex):

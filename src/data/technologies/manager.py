@@ -73,5 +73,3 @@ def get_config_values(tech_name: str, params: List[str]) -> Union[Any, List[Any]
         return tech_config_dict[tech_name][params[0]]
     else:
         return [tech_config_dict[tech_name][param] for param in params]
-
-

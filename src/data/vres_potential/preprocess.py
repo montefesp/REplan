@@ -1,21 +1,17 @@
-from os.path import join, dirname, abspath, isdir
-from os import makedirs
+from os.path import join, dirname, abspath
 import geokit as gk
-from datetime import datetime
+from datetime import datetime as dt
 from osgeo import osr, ogr
 
-import fiona
 from shapely.ops import unary_union
-from shapely.geometry import mapping
 import shapely.wkt
 
-import geopandas as gpd
-
-from src.data.vres_potential.create_priors import geomExtractor, edgesByProximity, writeEdgeFile
-from src.data.geographics import get_subregions, get_shapes
+from src.data.vres_potential.create_priors import edgesByProximity, writeEdgeFile
+from src.data.geographics import get_shapes
 
 
 def rasterize_natura_vector():
+    """Create a rasterize version of the Natura2000 dataset"""
 
     land_data_dir = join(dirname(abspath(__file__)), "../../../data/land_data/")
     natura = gk.vector.loadVector(f"{land_data_dir}source/Natura2000/Natura2000_end2019_epsg3035.shp")
@@ -23,73 +19,51 @@ def rasterize_natura_vector():
     extent.rasterize(natura, pixelWidth=100, pixelHeight=100, output=f"{land_data_dir}generated/natura2000.tif")
 
 
-def rasterize_distance_to_shore():
+def create_shore_proximity_prior():
+    """Generate a Prior, defined over offshore territories, indicating pixels
+    which are less-than or equal-to X meters from shore"""
 
-    name = "shore_proximity"
-    unit = "meters"
-    description = "Indicates pixels which are less-than or equal-to X meters from shore"
-    source = "NaturalEarth"
-    ftrID = 0
-    unions_dir = join(dirname(abspath(__file__)), "../../../data/land_data/generated/unions/")
-    output_dir = join(dirname(abspath(__file__)), "../../../data/land_data/generated/")
-    tail = str(int(datetime.now().timestamp()))
-    naturalEarth = f"{unions_dir}onshore.shp"
-    regSource = f"{unions_dir}offshore.shp"
+    # Indicates distances too close to shore (m)
+    # considering values for 12, 30, 50, 60, 100, 150 and 200 nm (-> 22, 56, 93, 111, 185, 278 and 370 km)
+    # distances = [0, 5e3, 10e3, 15e3, 20e3, 22e3, 25e3, 50e3, 56e3, 93e3, 100e3,
+    #              111e3, 185e3, 200e3, 278e3, 300e3, 370e3, 400e3, 500e3, 1000e3]
+    distances = [0, 20e3, 50e3, 100e3, 111e3, 185e3, 370e3, 500e3]
 
-    shape = gpd.read_file(regSource)
-    print(shape.loc[0, "geometry"])
-    poly_wkt = shapely.wkt.dumps(shape.loc[0, "geometry"])
+    # Create offshore shape
+    countries = ["AL", "BA", "BE", "BG", "DE", "DK", "EE", "ES", "FI",
+                 "FR", "GB", "GR", "HR", "IE", "IT", "LT", "LV", "ME",
+                 "NL", "NO", "PL", "PT", "RO", "SE", "SI"]
+    shapes = get_shapes(countries, which='offshore', save=True)
+    offshore_union = unary_union(shapes["geometry"].values)
+
+    poly_wkt = shapely.wkt.dumps(offshore_union)
     spatial_ref = osr.SpatialReference()
     spatial_ref.ImportFromEPSG(4326)
     poly = ogr.CreateGeometryFromWkt(poly_wkt, spatial_ref)
 
-
-    # Indicates distances too close to shore (m)
-    distances = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1200, 1400, 1600, 1800, 2000, 2500,
-                 3000, 4000, 5000, 10000, 15000, 20000]
-
-    # Make Region Mask
-    reg = gk.RegionMask.load(poly, select=ftrID, padExtent=max(distances))
+    # Make Region Mask (set resolution to 1km)
+    reg = gk.RegionMask.load(poly, pixelRes=1000)
 
     # Create a geometry list from the osm files
-    geom = geomExtractor(reg.extent, naturalEarth)
+    land_data_dir = join(dirname(abspath(__file__)), "../../../data/land_data/")
+    gebco = gk.vector.loadVector(f"{land_data_dir}source/GEBCO/GEBCO_2019/gebco_2019_n75.0_s30.0_w-20.0_e40.0.tif")
+    indicated = reg.indicateValues(gebco, value='(0-]', applyMask=False) > 0.5
+    geom = gk.geom.polygonizeMask(indicated, bounds=reg.extent.xyXY, srs=reg.srs)
 
     # Get edge matrix
-    result = edgesByProximity(reg, geom, distances)
+    result = edgesByProximity(reg, [geom], distances)
 
-    # make result
-    writeEdgeFile(result, reg, ftrID, output_dir, name, tail, unit, description, source, distances)
+    # Save result
+    ftr_id = 0
+    name = "shore_proximity"
+    unit = "meters"
+    description = "Indicates pixels which are less-than or equal-to X meters from shore"
+    source = "GEBCO"
+    tail = str(int(dt.now().timestamp()))
+    output_dir = f"{land_data_dir}generated/"
+    writeEdgeFile(result, reg, ftr_id, output_dir, name, tail, unit, description, source, distances)
 
-
-def save_shape(poly, name):
-
-    # Define a polygon feature geometry with one attribute
-    schema = {
-        'geometry': 'Polygon',
-        'properties': {'srs': 'int'},
-    }
-
-    # Write a new Shapefile
-    with fiona.open(name, 'w', 'ESRI Shapefile', schema) as c:
-        ## If there are multiple geometries, put the "for" loop here
-        c.write({
-            'geometry': mapping(poly),
-            'properties': {'srs': 4326},
-        })
-
-def generate_shapes_union():
-
-    shapes = get_shapes(get_subregions("BENELUX"))
-    onshore_union = unary_union(shapes[~shapes['offshore']]["geometry"].values)
-    offshore_union = unary_union(shapes[shapes['offshore']]["geometry"].values)
-
-    unions_dir = join(dirname(abspath(__file__)), "../../../data/land_data/generated/unions/")
-    if not isdir(unions_dir):
-        makedirs(unions_dir)
-    save_shape(onshore_union, f"{unions_dir}onshore.shp")
-    save_shape(offshore_union, f"{unions_dir}offshore.shp")
 
 if __name__ == '__main__':
     # rasterize_natura_vector()
-    # generate_shapes_union()
-    rasterize_distance_to_shore()
+    create_shore_proximity_prior()

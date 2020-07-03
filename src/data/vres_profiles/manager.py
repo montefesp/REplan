@@ -71,6 +71,7 @@ def read_resource_database(spatial_resolution: float) -> xr.Dataset:
     return dataset
 
 
+# TODO: shouldn't we be able to compute capacity factors at any point (i.e. at any resolution)?
 def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float]]],
                              spatial_res: float, timestamps: pd.DatetimeIndex,
                              # converters: Dict[str, Union[Dict[str, str], str]],

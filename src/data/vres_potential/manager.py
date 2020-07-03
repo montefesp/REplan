@@ -1,6 +1,7 @@
-from os.path import join, dirname, abspath
-from typing import List, Dict, Union
+from os.path import join, dirname, abspath, isfile
+from typing import List, Dict, Union, Any
 from ast import literal_eval
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,49 @@ from shapely.geometry import Polygon, MultiPolygon
 from src.data.geographics import get_shapes
 
 
+# TODO: add tests for this function
+def get_glaes_prior_defaults(config: List[str], priors: List[str]) -> Dict[str, Any]:
+    """
+    Returns defaults thresholds values for a list of glaes priors.
+
+    Parameters
+    ----------
+    config: List[str]
+        List of strings determining the default configuration
+    priors: List[str]
+        List of priors for which we want to have default thresholds.
+        If empty, return all the priors thresholds in the chosen configuration.
+
+    Returns
+    -------
+    Dict[str, Any]
+
+    """
+
+    # Get the main configuration file
+    assert len(config) != 0
+    exclusions_fn = join(dirname(abspath(__file__)), f"../../../data/land_data/source/"
+                                                     f"GLAES/exclusions/{config[0]}.yaml")
+    assert isfile(exclusions_fn), f"Error: No exclusion configuration named {config[0]}. File {exclusions_fn} not found"
+    prior_threshold_dict = yaml.load(open(exclusions_fn, 'r'), Loader=yaml.FullLoader)
+
+    # Get the right sub-configuration in this file
+    for sub_config in config[1:]:
+        assert sub_config in prior_threshold_dict, f"Error: Did not find sub-configuration " \
+                                                   f"{sub_config} of configuration {config[0]}"
+        prior_threshold_dict = prior_threshold_dict[sub_config]
+
+    # Filter on chosen priors
+    if len(priors) == 0:
+        return prior_threshold_dict
+    prior_threshold_dict_final = {}
+    for prior in priors:
+        assert prior in prior_threshold_dict, f"Error: Default thresholds for prior {prior} is " \
+                                              f"not available in configuration {config}"
+        prior_threshold_dict_final[prior] = prior_threshold_dict[prior]
+    return prior_threshold_dict_final
+
+
 def init_land_availability_globals(filters: Dict) -> None:
     """
     Initialize global variables to use in land availability computation
@@ -30,7 +74,7 @@ def init_land_availability_globals(filters: Dict) -> None:
     """
 
     # global in each process of the multiprocessing.Pool
-    global gebco_, clc_, natura_, spatial_ref_, filters_, onshore_shape_
+    global gebco_, clc_, natura_, spatial_ref_, filters_, cargo_, tanker_, cables_, pipelines_
 
     filters_ = filters
 
@@ -53,10 +97,25 @@ def init_land_availability_globals(filters: Dict) -> None:
         clc_ = gk.raster.loadRaster(f"{land_data_dir}source/CLC2018/CLC2018_CLC2018_V2018_20.tif")
         clc_.SetProjection(gk.srs.loadSRS(3035).ExportToWkt())
 
-    #if 'distances_to_shore' in filters:
-    #    onshore_shape = unary_union(get_shapes(get_subregions("EU"), 'onshore', save=True)["geometry"].values)
-    #    onshore_shape_wkt = shapely.wkt.dumps(onshore_shape)
-    #    onshore_shape_ = ogr.CreateGeometryFromWkt(onshore_shape_wkt, spatial_ref_)
+    if 'shipping' in filters:
+        # shipping_fn = f"{land_data_dir}source/raw_2013_shipping_mol/shipping.tif"
+        #shipping_fn = f"{land_data_dir}source/EMODnet/HA_Routes_Density_2019/" \
+        #              f"wid6-all_other-all_europe-yearly-20190101000000_20191231235959-tdm-grid.tif"
+        #shipping_ = gk.raster.loadRaster(shipping_fn)
+        cargo_fn = f"{land_data_dir}source/EMODnet/HA_Routes_Density_2019/" \
+                      f"wid6-cargo-all_europe-yearly-20190101000000_20191231235959-tdm-grid.tif"
+        cargo_ = gk.raster.loadRaster(cargo_fn)
+        tanker_fn = f"{land_data_dir}source/EMODnet/HA_Routes_Density_2019/" \
+                      f"wid6-tanker-all_europe-yearly-20190101000000_20191231235959-tdm-grid.tif"
+        tanker_ = gk.raster.loadRaster(tanker_fn)
+
+    if 'cables' in filters:
+        cables_fn = f"{land_data_dir}source/EMODnet/HA_TC_Cables_Schematic_20170801/Cables_schematic_20170801.shp"
+        cables_ = gk.vector.loadVector(cables_fn)
+
+    if 'pipelines' in filters:
+        pipelines_fn = f"{land_data_dir}source/EMODnet/HA_Pipelines_20191220/EMODnet_HA_Pipelines_20191220.shp"
+        pipelines_ = gk.vector.loadVector(pipelines_fn)
 
 
 def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
@@ -82,10 +141,10 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
     poly_wkt = shapely.wkt.dumps(shape)
     poly = ogr.CreateGeometryFromWkt(poly_wkt, spatial_ref_)
 
-    # Compute rooftop area using COPERNICUS
-    if filters_.get("copernicus", 0):
+    # Compute rooftop area using ESM (European Settlement Map)
+    if filters_.get("esm", 0):
         path_cop = join(dirname(abspath(__file__)),
-                        f"../../../data/land_data/source/COPERNICUS/ESM_class50_100m/ESM_class50_100m.tif")
+                        f"../../../data/land_data/source/ESM/ESM_class50_100m/ESM_class50_100m.tif")
         ec = gl.ExclusionCalculator(poly, pixelRes=1000, initialValue=path_cop)
 
         return ec.areaAvailable/1e6
@@ -93,13 +152,22 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
     ec = gl.ExclusionCalculator(poly, pixelRes=1000)
 
     # GLAES priors
+    if 'glaes_prior_defaults' in filters_:
+        prior_defaults_params = filters_['glaes_prior_defaults']
+        filters_["glaes_priors"] = get_glaes_prior_defaults(prior_defaults_params["config"],
+                                                            prior_defaults_params["priors"])
+
     if 'glaes_priors' in filters_:
         priors_filters = filters_["glaes_priors"]
         for prior_name in priors_filters.keys():
             prior_value = priors_filters[prior_name]
             if isinstance(prior_value, str):
                 prior_value = literal_eval(prior_value)
-            ec.excludePrior(prior_name, value=prior_value)
+            # Can receive a tuple or a list of tuples
+            if not isinstance(prior_value, list):
+                prior_value = [prior_value]
+            for value in prior_value:
+                ec.excludePrior(prior_name, value=value)
 
     # Exclude protected areas
     if 'natura' in filters_:
@@ -129,13 +197,20 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
             #    ec.excludeRasterType(clc_, value=keep_code, mode='include')
             ec.excludeRasterType(clc_, value=clc_filters["keep_codes"], mode='include')
 
-    #if 'distances_to_shore' in filters_:
-    #    distance_filters = filters_['distances_to_shore']
-    #    if 'min' in distance_filters:
-    #        ec.excludeVectorType(onshore_shape_, buffer=distance_filters['min'])
+    if 'shipping' in filters_:
+        value = filters_['shipping']
+        value = literal_eval(value) if isinstance(value, str) else value
+        ec.excludeRasterType(cargo_, value=value)
+        ec.excludeRasterType(tanker_, value=value)
 
-    # ec.draw()
-    # plt.show()
+    if 'cables' in filters_:
+        ec.excludeVectorType(cables_, buffer=filters_['cables'])
+
+    if 'pipelines' in filters_:
+        ec.excludeVectorType(pipelines_, buffer=filters_['pipelines'])
+
+    ec.draw()
+    plt.show()
 
     return ec.areaAvailable/1e6
 

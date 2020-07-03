@@ -15,7 +15,7 @@ def plot_capacity_per_country(tech: str, countries: List[str],
     Parameters
     ----------
     tech: str
-        One of wind_offshore, wind_onshore, pv_utility, pv_residential
+        One of ror, sto and phs
     countries: List[str]
         List of ISO codes
     lon_range: List[float] (default: None)
