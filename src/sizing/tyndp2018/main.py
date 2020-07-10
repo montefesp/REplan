@@ -6,6 +6,7 @@ from time import strftime
 import numpy as np
 import pandas as pd
 from pyomo.opt import ProblemFormat
+import argparse
 
 import pypsa
 
@@ -21,9 +22,26 @@ import logging
 logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+def parse_args():
+
+    parser = argparse.ArgumentParser(description='Command line arguments.')
+
+    parser.add_argument('-sr', '--spatial_res', type=float, help='Spatial resolution')
+    parser.add_argument('-pd', '--power_density', type=float, help='Offshore power density')
+    parser.add_argument('-dir', '--resite_dir', type=str, help='resite directory')
+    parser.add_argument('-fn', '--resite_fn', type=str, help='resite file name')
+    parser.add_argument('-th', '--threads', type=int, help='Number of threads')
+
+    parsed_args = vars(parser.parse_args())
+
+    return parsed_args
+
 NHoursPerYear = 8760.
 
 if __name__ == '__main__':
+
+    args = parse_args()
+    logger.info(args)
 
     # Main directories
     data_dir = join(dirname(abspath(__file__)), "../../../data/")
@@ -33,6 +51,12 @@ if __name__ == '__main__':
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
+
+    solver_options = config["solver_options"][config["solver"]]
+    if config["solver"] == 'gurobi':
+        config["solver_options"][config["solver"]]['Threads'] = args['threads']
+    else:
+        config["solver_options"][config["solver"]]['threads'] = args['threads']
 
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
@@ -97,9 +121,9 @@ if __name__ == '__main__':
 
             if strategy == "from_files":
                 net = add_res_from_file(net, "countries", technologies,
-                                        config["res"]["sites_dir"], config["res"]["sites_fn"],
-                                        config["res"]["spatial_resolution"],
-                                        config["res"]["use_default_capacity"])
+                                        args['resite_dir'], args['resite_fn'],
+                                        args['spatial_res'],
+                                        args['power_density'])
             elif strategy == "bus":
                 net = add_res_per_bus(net, 'countries', technologies, config["res"]["use_ex_cap"])
             elif strategy == "no_siting":
@@ -164,8 +188,8 @@ if __name__ == '__main__':
     net.export_to_csv_folder(output_dir)
 
     # Display some results
-    results = SizingResults(net)
-    results.display_generation()
-    results.display_transmission()
-    results.display_storage()
-    results.display_co2()
+    # results = SizingResults(net)
+    # results.display_generation()
+    # results.display_transmission()
+    # results.display_storage()
+    # results.display_co2()

@@ -23,7 +23,7 @@ logger = logging.getLogger()
 
 def add_generators_from_file(network: pypsa.Network, topology_type: str, technologies: List[str],
                              sites_dir: str, sites_fn: str, spatial_resolution: float,
-                             use_default_capacity: bool = True) -> pypsa.Network:
+                             power_density: float) -> pypsa.Network:
     """
     Add wind and PV generators based on sites that where selected via a certain siting method to a Network class.
 
@@ -42,8 +42,8 @@ def add_generators_from_file(network: pypsa.Network, topology_type: str, technol
         Name of file containing sites.
     spatial_resolution: float
         Spatial resolution at which the points are defined.
-    use_default_capacity: bool (default: True)
-        Whether to use default capacity to compute it from data.
+    power_density: float
+        Power density of a given technology.
 
     Returns
     -------
@@ -104,27 +104,34 @@ def add_generators_from_file(network: pypsa.Network, topology_type: str, technol
         logger.info(f"Adding {tech} in {list(set(points_bus_ds))}.")
 
         # Compute capacity potential
-        if not use_default_capacity:
+        # if not use_default_capacity:
+        #
+        #     # Compute capacity potential for all initial points in region and then keep the one only for selected sites
+        #     init_points_fn = join(resite_data_path, "init_coordinates_dict.p")
+        #     init_points_list = pickle.load(open(init_points_fn, "rb"))[tech]
+        #
+        #     # TODO: some weird behaviour happening for offshore, duplicate locations occurring.
+        #     #  To be further checked, ideally this filtering disappears..
+        #     init_points_list = list(set(init_points_list))
+        #
+        #     capacity_potential_per_node_full = \
+        #         get_capacity_potential_at_points({tech: init_points_list}, spatial_resolution, countries)[tech]
+        #     points_capacity_potential = list(capacity_potential_per_node_full.loc[points].values)
+        #
+        # else:
+        #
+        #     # Use predefined per km capacity multiplied by grid cell area.
+        #     bus_capacity_potential_per_km = pd.Series(get_config_values(tech, ['power_density']), index=buses.index)
+        #     points_capacity_potential = \
+        #         [bus_capacity_potential_per_km[points_bus_ds[point]] *
+        #          get_area_per_site(point, spatial_resolution) / 1e3 for point in points]
+        #TODO: what do we do with the commented section above?
 
-            # Compute capacity potential for all initial points in region and then keep the one only for selected sites
-            init_points_fn = join(resite_data_path, "init_coordinates_dict.p")
-            init_points_list = pickle.load(open(init_points_fn, "rb"))[tech]
-
-            # TODO: some weird behaviour happening for offshore, duplicate locations occurring.
-            #  To be further checked, ideally this filtering disappears..
-            init_points_list = list(set(init_points_list))
-
-            capacity_potential_per_node_full = \
-                get_capacity_potential_at_points({tech: init_points_list}, spatial_resolution, countries)[tech]
-            points_capacity_potential = list(capacity_potential_per_node_full.loc[points].values)
-
-        else:
-
-            # Use predefined per km capacity multiplied by grid cell area.
-            bus_capacity_potential_per_km = pd.Series(get_config_values(tech, ['power_density']), index=buses.index)
-            points_capacity_potential = \
-                [bus_capacity_potential_per_km[points_bus_ds[point]] *
-                 get_area_per_site(point, spatial_resolution) / 1e3 for point in points]
+        # Use predefined per km capacity multiplied by grid cell area.
+        bus_capacity_potential_per_km = pd.Series(power_density, index=buses.index)
+        points_capacity_potential = \
+            [bus_capacity_potential_per_km[points_bus_ds[point]] *
+             get_area_per_site(point, spatial_resolution) / 1e3 for point in points]
 
         # Get capacity factors
         cap_factor_series = tech_points_cap_factor_df.loc[network.snapshots][tech][points].values

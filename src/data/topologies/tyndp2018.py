@@ -31,7 +31,7 @@ def preprocess(plotting=True) -> None:
 
     # Create links
     link_data_fn = join(dirname(abspath(__file__)),
-                        "../../../data/topologies/tyndp2018/source/Input Data.xlsx")
+                        "../../../data/topologies/tyndp2018/source/Input Data_EU.xlsx")
     # Read TYNDP2018 (NTC 2027, reference grid) data
     links = pd.read_excel(link_data_fn, sheet_name="NTC", index_col=0, skiprows=[0, 2], usecols=[0, 3, 4],
                           names=["link", "in", "out"])
@@ -55,7 +55,7 @@ def preprocess(plotting=True) -> None:
     # A subset of links are assumed to be DC connections.
     dc_set = {'BE-GB', 'CY-GR', 'DE-GB', 'DE-NO', 'DE-SE', 'DK-GB', 'DK-NL', 'DK-NO', 'DK-PL', 'DK-SE',
               'EE-FI', 'ES-FR', 'FR-GB', 'FR-IE', 'GB-IE', 'GB-IS', 'GB-NL', 'GB-NO', 'GR-IT', 'GR-TR',
-              'IT-ME', 'IT-MT', 'IT-TN', 'LT-SE', 'PL-SE'}
+              'IT-ME', 'IT-MT', 'IT-TN', 'LT-SE', 'PL-SE', 'NL-NO'}
     links["carrier"] = links["id"].apply(lambda x: 'DC' if x in dc_set else 'AC')
     # A connection between Rep. of Ireland (IE) and Northern Ireland (NI) is considered in the TYNDP, yet as NI is the
     # ISO2 code of Nicaragua, this results in weird results. Thus, the connection is dropped, as IE-GB links exist.
@@ -76,6 +76,30 @@ def preprocess(plotting=True) -> None:
     centroids = [region.centroid for region in buses.region]
     buses.x = [c.x for c in centroids]
     buses.y = [c.y for c in centroids]
+
+    for item in buses.index:
+        if item == 'NO':
+            buses.loc[item, 'x'] = 10.2513
+            buses.loc[item, 'y'] = 60.2416
+        elif item == 'SE':
+            buses.loc[item, 'x'] = 15.2138
+            buses.loc[item, 'y'] = 59.3386
+        elif item == 'DK':
+            buses.loc[item, 'x'] = 9.0227
+            buses.loc[item, 'y'] = 56.1997
+        elif item == 'GB':
+            buses.loc[item, 'x'] = -1.2816
+            buses.loc[item, 'y'] = 52.7108
+        elif item == 'HR':
+            buses.loc[item, 'x'] = 15.89
+            buses.loc[item, 'y'] = 45.7366
+        elif item == 'GR':
+            buses.loc[item, 'x'] = 21.57
+            buses.loc[item, 'y'] = 40.19
+        elif item == 'FI':
+            buses.loc[item, 'x'] = 24.82
+            buses.loc[item, 'y'] = 61.06
+
 
     # Adding length to the lines
     links["length"] = pd.Series([0]*len(links.index), index=links.index)
