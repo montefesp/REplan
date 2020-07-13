@@ -3,7 +3,7 @@ from typing import Tuple
 
 import pandas as pd
 
-from .manager import get_plant_type
+from .manager import get_config_values
 
 NHoursPerYear = 8760.0
 
@@ -75,7 +75,7 @@ def get_costs(tech: str, nb_hours: float) -> Tuple[float, float]:
     """
     tech_info_fn = join(dirname(abspath(__file__)), "../../../data/technologies/tech_info.xlsx")
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
-    plant, plant_type = get_plant_type(tech)
+    plant, plant_type = get_config_values(tech, ["plant", "type"])
     tech_info = tech_info.loc[plant, plant_type]
     fuel_info_fn = join(dirname(abspath(__file__)), "../../../data/technologies/fuel_info.xlsx")
     fuel_info = pd.read_excel(fuel_info_fn, sheet_name='values', index_col=0)

@@ -67,7 +67,6 @@ def read_capacity_potential(tech: str, nuts_type: str = "nuts0") -> pd.Series:
         return pd.read_csv(f"{path_potential_data}eez_capacity_potentials_GW.csv", index_col=0)[tech]
 
 
-# TODO: this function is going to disappear
 def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[float, float]]],
                                      spatial_resolution: float, countries: List[str],
                                      existing_capacity_ds: pd.Series = None) -> pd.Series:
@@ -187,7 +186,6 @@ def get_capacity_potential_at_points(tech_points_dict: Dict[str, List[Tuple[floa
     return capacity_potential_ds
 
 
-# TODO: to be replace with computation using GLAES?
 def get_capacity_potential_for_regions(tech_regions_dict: Dict[str, List[Union[Polygon, MultiPolygon]]]) -> pd.Series:
     """
     Get capacity potential (in GW) for a series of technology for associated geographical regions.

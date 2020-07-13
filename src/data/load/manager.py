@@ -53,7 +53,6 @@ def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
     countries: List[str] (default: None)
         ISO codes of countries
     regions: List[str] (default: None)
-        # TODO: this is pretty shitty no?
         List of codes referring to regions made of several countries defined in data/region_definition.csv
     missing_data: str (default: error)
         Defines how to deal with missing data. If value is 'error', throws an error. If value is 'interpolate', uses
@@ -151,7 +150,6 @@ def get_load_from_source_country(target_countries: List[str], timestamps: pd.Dat
         "Error: This function only works for year 2015 to 2018"
 
     # Load the file indicating if load information is available for the given regions
-    # TODO: this is kind of shitty
     load_info_fn = join(dirname(abspath(__file__)), "../../../data/load/source_load_countries.csv")
     load_info = pd.read_csv(load_info_fn, index_col="Code")
     load_info = load_info.dropna()
@@ -258,8 +256,6 @@ def get_load_from_nuts_codes(nuts_codes_lists: List[List[str]], timestamps: pd.D
             country_load = countries_load[country_code]
 
             # Down scale country load to the regions of interest by using population and gdp
-            # TODO: doing the thing only on population for now but need to update that
-            #  -> would be nice if we had yearly load per NUTS region
             regions_pop_dens = pop_dens.loc[nuts_code]['2016']
             regions_area = area.loc[nuts_code]['2016']
             # regions_gdp = gdp.loc[region_codes_list]

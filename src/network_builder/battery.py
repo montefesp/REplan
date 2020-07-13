@@ -1,10 +1,8 @@
-from os.path import join, dirname, abspath
-
 import pandas as pd
 
 import pypsa
 
-from src.data.technologies import get_costs, get_plant_type, get_config_values
+from src.data.technologies import get_costs, get_config_values, get_info
 
 import logging
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
@@ -32,14 +30,10 @@ def add_batteries(network: pypsa.Network, battery_type: str) -> pypsa.Network:
 
     onshore_bus_indexes = pd.Index([bus_id for bus_id in network.buses.index if network.buses.loc[bus_id].onshore])
 
-    # Get costs
+    # Get costs and efficiencies
     capital_cost, marginal_cost = get_costs(battery_type, len(network.snapshots))
-
-    # Get efficiencies
-    tech_info_fn = join(dirname(abspath(__file__)), "../../data/technologies/tech_info.xlsx")
-    tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
     efficiency_dispatch, efficiency_store, self_discharge = \
-        tech_info.loc[get_plant_type(battery_type)][["efficiency_ds", "efficiency_ch", "efficiency_sd"]]
+        get_info(battery_type, ["efficiency_ds", "efficiency_ch", "efficiency_sd"])
     self_discharge = round(1 - self_discharge, 4)
 
     # Get max number of hours of storage

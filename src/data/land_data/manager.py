@@ -133,13 +133,12 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
 
     elif filter_name == 'resource_quality':
 
-        # TODO: kinda slow (again a problem of xarray in-memory computations, as for hydro runoff)
         database = read_resource_database(spatial_resolution)
         database = database.sel(locations=sorted(points))
 
-        if tech_dict['resource'] == 'wind':
+        if tech_dict['plant'] == 'Wind':
             array_resource = xu.sqrt(database.u100 ** 2 + database.v100 ** 2)
-        elif tech_dict['resource'] == 'pv':
+        elif tech_dict['plant'] == 'PV':
             array_resource = database.ssrd / 3600.
         else:
             raise ValueError("Error: Resource must be wind or pv")
@@ -305,10 +304,10 @@ def filter_points(technologies: List[str], tech_config: Dict[str, Any], init_poi
             if filtering_layers[key]:
 
                 # Some filter should not apply to some technologies
-                if key == 'bathymetry' and tech_dict['deployment'] in ['onshore', 'utility', 'residential']:
+                if key == 'bathymetry' and tech_dict['type'] in ['Onshore', 'Utility', 'Residential']:
                     continue
                 if key in ['orography', 'population_density', 'protected_areas', 'forestry', 'water_mask'] \
-                        and tech_dict['deployment'] in ['offshore', 'floating']:
+                        and tech_dict['type'] in ['Offshore', 'Floating']:
                     continue
                 points = filter_points_by_layer(key, points, spatial_resolution, tech_dict)
 

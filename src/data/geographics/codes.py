@@ -45,12 +45,10 @@ def convert_country_codes(source_codes: List[str], source_format: str, target_fo
 
 def remove_landlocked_countries(country_list: List[str]) -> List[str]:
     """Filtering out landlocked countries."""
-    # TODO: maybe we should move this list in a file?
     landlocked_countries = {'AT', 'CH', 'CZ', 'HU', 'LI', 'LU', 'MD', 'MK', 'RS', 'SK'}
     return sorted(list(set(country_list) - landlocked_countries))
 
 
-# TODO: do sth with this
 def get_subregions(region: str) -> List[str]:
     """
     Return the list of the subregions composing one of the region defined in data/region_definition.csv.
@@ -119,20 +117,20 @@ def revert_iso2_codes(countries_list: List[str]) -> List[str]:
     return updated_codes
 
 
+def convert_old_country_names(c: str) -> str:
+    """Converting country old full names to new ones, as some datasets are not updated on the issue."""
+
+    if c == "Macedonia":
+        return "North Macedonia"
+
+    if c == "Czech Republic":
+        return "Czechia"
+
+    return c
+
+
 def revert_old_country_names(c: str) -> str:
-    """
-    Reverting country full names to old ones, as some datasets are not updated on the issue.
-
-    Parameters
-    ----------
-    c: str
-        Novel country name.
-
-    Returns
-    -------
-    c: str
-       Old country name
-    """
+    """Reverting country full names to old ones, as some datasets are not updated on the issue."""
 
     if c == "North Macedonia":
         return "Macedonia"

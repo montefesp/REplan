@@ -19,8 +19,7 @@ from shapely.geometry import Polygon, MultiPolygon
 from src.data.geographics import get_shapes
 
 
-# TODO: add tests for this function
-def get_glaes_prior_defaults(config: List[str], priors: List[str]) -> Dict[str, Any]:
+def get_glaes_prior_defaults(config: List[str], priors: List[str] = None) -> Dict[str, Any]:
     """
     Returns defaults thresholds values for a list of glaes priors.
 
@@ -28,9 +27,9 @@ def get_glaes_prior_defaults(config: List[str], priors: List[str]) -> Dict[str, 
     ----------
     config: List[str]
         List of strings determining the default configuration
-    priors: List[str]
+    priors: List[str] (default: None)
         List of priors for which we want to have default thresholds.
-        If empty, return all the priors thresholds in the chosen configuration.
+        If None, return all the priors thresholds in the chosen configuration.
 
     Returns
     -------
@@ -52,7 +51,7 @@ def get_glaes_prior_defaults(config: List[str], priors: List[str]) -> Dict[str, 
         prior_threshold_dict = prior_threshold_dict[sub_config]
 
     # Filter on chosen priors
-    if len(priors) == 0:
+    if priors is None:
         return prior_threshold_dict
     prior_threshold_dict_final = {}
     for prior in priors:
@@ -98,15 +97,11 @@ def init_land_availability_globals(filters: Dict) -> None:
         clc_.SetProjection(gk.srs.loadSRS(3035).ExportToWkt())
 
     if 'shipping' in filters:
-        # shipping_fn = f"{land_data_dir}source/raw_2013_shipping_mol/shipping.tif"
-        #shipping_fn = f"{land_data_dir}source/EMODnet/HA_Routes_Density_2019/" \
-        #              f"wid6-all_other-all_europe-yearly-20190101000000_20191231235959-tdm-grid.tif"
-        #shipping_ = gk.raster.loadRaster(shipping_fn)
         cargo_fn = f"{land_data_dir}source/EMODnet/HA_Routes_Density_2019/" \
                       f"wid6-cargo-all_europe-yearly-20190101000000_20191231235959-tdm-grid.tif"
         cargo_ = gk.raster.loadRaster(cargo_fn)
         tanker_fn = f"{land_data_dir}source/EMODnet/HA_Routes_Density_2019/" \
-                      f"wid6-tanker-all_europe-yearly-20190101000000_20191231235959-tdm-grid.tif"
+                    f"wid6-tanker-all_europe-yearly-20190101000000_20191231235959-tdm-grid.tif"
         tanker_ = gk.raster.loadRaster(tanker_fn)
 
     if 'cables' in filters:
@@ -136,7 +131,7 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
 
     """
 
-    import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
 
     poly_wkt = shapely.wkt.dumps(shape)
     poly = ogr.CreateGeometryFromWkt(poly_wkt, spatial_ref_)
@@ -192,7 +187,6 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
 
         if "keep_codes" in clc_filters:
             # Invert True indicates code that need to be kept
-            # TODO: doing a loop or not doesn't give the same result...
             # for keep_code in clc_filters["keep_codes"]:
             #    ec.excludeRasterType(clc_, value=keep_code, mode='include')
             ec.excludeRasterType(clc_, value=clc_filters["keep_codes"], mode='include')
@@ -209,8 +203,8 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
     if 'pipelines' in filters_:
         ec.excludeVectorType(pipelines_, buffer=filters_['pipelines'])
 
-    ec.draw()
-    plt.show()
+    # ec.draw()
+    # plt.show()
 
     return ec.areaAvailable/1e6
 
@@ -230,7 +224,6 @@ def get_land_availability_for_shapes_mp(shapes: List[Union[Polygon, MultiPolygon
             ' ', pgb.widgets.ETA()
         ]
         progressbar = pgb.ProgressBar(prefix='Compute GIS potentials: ', widgets=widgets, max_value=len(shapes))
-        # TODO: are this sorted right?
         available_areas = list(progressbar(pool.imap(compute_land_availability, shapes)))
 
     return np.array(available_areas)

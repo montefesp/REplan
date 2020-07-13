@@ -123,7 +123,6 @@ def preprocess(plotting: bool = False):
         buses.loc[idx].onshore = True
 
     # Offshore nodes
-    # TODO: not sure what to set 'country' to...
     add_buses = pd.DataFrame([["OFF1", -6.5, 49.5, None, Point(-6.5, 49.5), False],  # England south-west
                               ["OFF2", 3.5, 55.5, None, Point(3.5, 55.5), False],  # England East
                               ["OFF3", 30.0, 43.5, None, Point(30.0, 43.5), False],  # Black Sea

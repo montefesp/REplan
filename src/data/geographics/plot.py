@@ -5,6 +5,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
+import cartopy.feature as cf
 import geopandas as gpd
 
 from shapely.geometry import MultiPolygon, Polygon
@@ -28,8 +29,14 @@ def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]], fill=Tru
         or isinstance(polygons_list, gpd.array.GeometryArray), \
         f'The argument must be a list of polygons or multipolygons, got {type(polygons_list)}'
 
+    land_50m = cf.NaturalEarthFeature('physical', 'land', '50m',
+                                      edgecolor='darkgrey',
+                                      facecolor=cf.COLORS['land_alt1'])
+
     fig = plt.figure(figsize=(13, 13))
     ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+    ax.add_feature(land_50m, linewidth=0.5, zorder=-1)
+    ax.add_feature(cf.BORDERS.with_scale('50m'), edgecolor='darkgrey', linewidth=0.5, zorder=-1)
 
     for polygons in polygons_list:
         c = (random(), random(), random())
@@ -39,15 +46,15 @@ def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]], fill=Tru
             longitudes = [i[0] for i in poly.exterior.coords]
             latitudes = [i[1] for i in poly.exterior.coords]
             if not fill:
-                ax.plot(longitudes, latitudes, transform=ccrs.PlateCarree(), color='k')
+                ax.plot(longitudes, latitudes, transform=ccrs.PlateCarree(), color='k', zorder=0)
             else:
-                ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color=c)
+                ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color=c, zorder=0)
                 # Remove interior
                 interior_polys = list(poly.interiors)
                 for i_poly in interior_polys:
                     longitudes = [i[0] for i in i_poly.coords]
                     latitudes = [i[1] for i in i_poly.coords]
-                    ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color='white')
+                    ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color='white', zorder=0)
 
     if show:
         plt.show()

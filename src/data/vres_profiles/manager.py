@@ -14,7 +14,7 @@ from shapely.geometry import Point, Polygon
 import atlite
 import windpowerlib
 
-from src.data.technologies import get_config_dict
+from src.data.technologies import get_config_dict, get_config_values
 
 
 def read_resource_database(spatial_resolution: float) -> xr.Dataset:
@@ -71,7 +71,6 @@ def read_resource_database(spatial_resolution: float) -> xr.Dataset:
     return dataset
 
 
-# TODO: shouldn't we be able to compute capacity factors at any point (i.e. at any resolution)?
 def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float]]],
                              spatial_res: float, timestamps: pd.DatetimeIndex,
                              # converters: Dict[str, Union[Dict[str, str], str]],
@@ -97,10 +96,6 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
          DataFrame storing capacity factors for each technology and each point
 
     """
-
-    #missing_converters = set(tech_points_dict.keys()) - set(converters.keys())
-    #assert not missing_converters, f"Error: No converter was provided for the following" \
-    #                               f" techs: {sorted(list(missing_converters))}"
 
     for tech, points in tech_points_dict.items():
         assert len(points) != 0, f"Error: No points were defined for tech {tech}"
@@ -130,10 +125,10 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 
     for tech in tech_points_dict.keys():
 
-        resource = tech.split('_')[0]
+        resource = get_config_values(tech, ["plant"])
         sub_dataset = dataset.sel(locations=sorted(tech_points_dict[tech]))
 
-        if resource == 'wind':
+        if resource == 'Wind':
 
             wind_speed_reference_height = 100.
             roughness = sub_dataset.fsr
@@ -144,7 +139,6 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
             wind_mean = wind.mean(dim='time')
 
             # Split according to the IEC 61400 WTG classes
-            # TODO: put this in a file, maybe?
             wind_classes = {'IV': [0., 6.5], 'III': [6.5, 8.], 'II': [8., 9.5], 'I': [9.5, 99.]}
 
             for cls in wind_classes:
@@ -182,7 +176,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
                             pd.Series(wind_speed_references), pd.Series(capacity_factor_references_pu),
                             standard_deviation_method='turbulence_intensity',
                             turbulence_intensity=float(turbulence_intensity.min().values),
-                            wind_speed_range=10.0)  # TODO: parametrize ?
+                            wind_speed_range=10.0)
 
                         power_output = da.map_blocks(np.interp, wind_data,
                                                      capacity_factor_farm['wind_speed'].values,
@@ -199,7 +193,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
 
                     continue
 
-        elif resource == 'pv':
+        elif resource == 'PV':
 
             converter = converters_dict[tech]["converter"]
 

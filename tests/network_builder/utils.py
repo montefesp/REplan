@@ -9,8 +9,8 @@ def define_simple_network() -> pypsa.Network:
     """
     Returns a simple test PyPSA network.
 
-    The network is composed of two onshore buses associated to the onshore territories of Belgium
-    and the Netherlands and of one offshore bus corresponding to the offshore territory of Belgium.
+    The network is composed of three onshore buses associated to the onshore territories of Belgium, the Netherlands
+    and Luxembourg and of one offshore bus corresponding to the offshore territory of Belgium.
 
     Currently, no links and lines are integrated.
 

@@ -11,8 +11,6 @@ from src.data.land_data import filter_onshore_offshore_points
 from src.data.population_density import load_population_density_data
 
 
-# TODO: need to merge the end of the if and else
-#  will probably disappear if we use grid cells instead of points -> use get_legacy_capacity_in_regions
 def associated_legacy_to_points(tech: str, points: List[Tuple[float, float]], spatial_resolution: float,
                                 countries: List[str], legacy_min_capacity: float) -> pd.Series:
     """
@@ -130,7 +128,6 @@ def associated_legacy_to_points(tech: str, points: List[Tuple[float, float]], sp
     return points_capacity_ds
 
 
-# TODO: we won't probably keep this function
 def get_legacy_capacity_at_points(technologies: List[str], tech_config: Dict[str, Any],
                                   countries: List[str], points: List[Tuple[float, float]],
                                   spatial_resolution: float) -> pd.Series:
@@ -337,7 +334,6 @@ def get_legacy_capacity_in_regions(tech: str, regions_shapes: pd.Series, countri
         # Get countries shapes
         countries_shapes = get_shapes(data.index.values, which='onshore', save=True)["geometry"]
 
-        # TODO: some other scaling factor should be used here, e.g., GDP data, rooftop area, etc.
         for region_id, region_shape in regions_shapes.items():
             for country_id, country_shape in countries_shapes.items():
                 capacities[region_id] += \

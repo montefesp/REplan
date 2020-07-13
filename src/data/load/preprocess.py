@@ -71,13 +71,13 @@ def fill_gaps(time_series: pd.Series) -> pd.Series:
     return time_series
 
 
-def correct_time_series(time_series: pd.Series, plot: bool = False) -> pd.Series:
+def correct_time_series(ts_initial: pd.Series, plot: bool = False) -> pd.Series:
     """
     Remove a time series outliers and fill gaps via interpolation.
 
     Parameters
     ----------
-    time_series: pd.Series
+    ts_initial: pd.Series
         Time-series of load (can be NaNs) indexed with datetime indexes
     plot: bool (default: False)
         Whether to plot or not
@@ -88,19 +88,16 @@ def correct_time_series(time_series: pd.Series, plot: bool = False) -> pd.Series
         Corrected time series
     """
 
-    if plot:
-        plt.plot(time_series.values)
+    ts_without_outliers = filter_outliers(ts_initial.copy())
+    ts_without_gaps = fill_gaps(ts_without_outliers.copy())
 
-    time_series = filter_outliers(time_series)
     if plot:
-        plt.plot(time_series.values)
-
-    time_series = fill_gaps(time_series)
-    if plot:
-        plt.plot(time_series.values, alpha=0.5)
+        plt.plot(ts_initial, alpha=0.5, c='r')
+        plt.plot(ts_without_outliers, alpha=0.1, c='k')
+        plt.plot(ts_without_gaps, alpha=0.5, c='b')
         plt.show()
 
-    return time_series
+    return ts_without_gaps
 
 
 def preprocess():
@@ -148,7 +145,7 @@ def preprocess():
     # Correct time series by removing outliers and filling gaps
     for key in final_data.keys():
         print(key)
-        final_data[key] = correct_time_series(final_data[key])
+        final_data[key] = correct_time_series(final_data[key], True)
 
     final_data.index = final_data.index.strftime('%Y-%m-%d %H:%M:%S')
     final_data_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
@@ -221,5 +218,5 @@ def create_countries_load_files():
 
 
 if __name__ == "__main__":
-    # preprocess()
-    create_countries_load_files()
+    preprocess()
+    # create_countries_load_files()

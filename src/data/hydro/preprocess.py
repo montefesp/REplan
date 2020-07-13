@@ -1,22 +1,20 @@
 from typing import List, Tuple
 from datetime import datetime
 from os import listdir
-from os.path import join, abspath, dirname, isfile
+from os.path import join, abspath, dirname, isdir
 
-import pickle
 import yaml
 import geopy.distance
 import pandas as pd
 import xarray as xr
 import xlrd
 
-
 import numpy as np
-from geopandas import read_file
+import geopandas as gpd
 
 from src.data.geographics import match_points_to_regions, get_nuts_shapes, get_natural_earth_shapes, \
-    replace_iso2_codes, convert_country_codes, revert_old_country_names
-from src.data.generation import get_hydro_production, get_powerplant_df, append_power_plants_region_codes
+    replace_iso2_codes, convert_country_codes, revert_old_country_names, convert_old_country_names
+from src.data.generation import get_hydro_production, get_powerplants, match_powerplants_to_regions
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -40,17 +38,61 @@ def read_runoff_data(resolution: float, timestamps: pd.DatetimeIndex) -> xr.Data
 
      """
     runoff_dir = join(dirname(abspath(__file__)), f"../../../data/hydro/source/ERA5/runoff/{resolution}")
+    assert isdir(runoff_dir), f"Error: No data found for resolution {resolution} (directory {runoff_dir} not found)."
     runoff_files = [join(runoff_dir, fn) for fn in listdir(runoff_dir) if fn.endswith(".nc")]
     runoff_dataset = xr.open_mfdataset(runoff_files, combine='by_coords')
     runoff_dataset = runoff_dataset.stack(locations=('longitude', 'latitude'))
+    missing_ts = set(timestamps) - set(pd.to_datetime(runoff_dataset.time.values))
+    assert not missing_ts, f"Error: Data is not available for following timestamps: {sorted(list(missing_ts))}."
     runoff_dataset = runoff_dataset.sel(time=timestamps)
+
+    # Add area to dataset
+    runoff_dataset = add_runoff_area(runoff_dataset, resolution)
 
     return runoff_dataset
 
 
-def get_phs_storage_capacities(phs_capacity_df: pd.Series, default_phs_duration: float) -> pd.DataFrame:
+def add_runoff_area(dataset: xr.Dataset, resolution: float) -> xr.Dataset:
     """
-     Assigning storage capacities to PHS plants.
+     Computing cell area for each (lon, lat) pair.
+
+     Parameters
+     ----------
+     dataset: xarray.Dataset
+         Contains runoff data, in this case expressed in m.
+     resolution: float
+         Runoff data spatial resolution.
+
+     Returns
+     -------
+     dataset: xr.Dataset
+         Same input dataset with 'area' variable added.
+     """
+    # Get distance between two latitudes. Does not depend on the geo-location, thus an arbitrary point is considered.
+    p1 = (0.0, 0.0)
+    p2 = (p1[0] + resolution, 0.0)
+    dist_latitude = geopy.distance.distance(p1, p2).km
+
+    lon = dataset['longitude'].values
+    lat = dataset['latitude'].values
+    # Get vectors of 'bordering' longitudes.
+    lonplus = lon + resolution / 2
+    lonmin = lon - resolution / 2
+
+    # Initialize a zero-vector and compute distances between longitude pairs.
+    dist = np.zeros(len(lat))
+    for idx in np.arange(len(lat)):
+        dist[idx] = geopy.distance.distance((lat[idx], lonplus[idx]), (lat[idx], lonmin[idx])).km
+
+    # Compute cell area and attach it to the dataset.
+    dataset['area'] = ('locations', dist * dist_latitude)
+
+    return dataset
+
+
+def get_phs_storage_capacities(phs_capacity_df: pd.DataFrame, default_phs_duration: float) -> pd.DataFrame:
+    """
+     Assigning storage capacities (MWh) to PHS plants.
 
      Parameters
      ----------
@@ -72,16 +114,17 @@ def get_phs_storage_capacities(phs_capacity_df: pd.Series, default_phs_duration:
     # Iterate through all PHS plants
     for idx in phs_capacity_df.index:
         # Retrieve ISO2 country code for index checks
-        code = convert_country_codes([phs_capacity_df.loc[idx, 'Country']], 'name', 'alpha_2', True)[0]
-        if code in phs_geth_all.index:
+        # code = convert_country_codes([phs_capacity_df.loc[idx, 'Country']], 'name', 'alpha_2', True)[0]
+        iso_code = phs_capacity_df.loc[idx, 'ISO2']
+        if iso_code in phs_geth_all.index:
             # Compute country-specific PHS duration, based on Geth
-            default_duration = phs_geth_all.loc[code, 'Estor [GWh]'] / phs_geth_all.loc[code, 'Pd,nom [GW]']
+            default_duration = phs_geth_all.loc[iso_code, 'Estor [GWh]'] / phs_geth_all.loc[iso_code, 'Pd,nom [GW]']
         else:
             # If country data is missing, impose default value
             default_duration = default_phs_duration
         # If ISO2 in file sheets (detailed country data exists), read file...
         try:
-            phs_geth = pd.read_excel(phs_geth_fn, sheet_name=code, index_col='JRC_HPDB_id')
+            phs_geth = pd.read_excel(phs_geth_fn, sheet_name=iso_code, index_col='JRC_HPDB_id')
             if idx in phs_geth.index and not np.isnan(phs_geth.loc[idx, 'Estor [GWh]']):
                 # If storage content is provided, fetch it directly...
                 phs_capacity_df.loc[idx, 'Energy'] = phs_geth.loc[idx, 'Estor [GWh]'] * 1e3
@@ -180,7 +223,7 @@ def build_ror_data(ror_capacity_ds: pd.Series, timestamps: pd.DatetimeIndex,
     ror_inflows_df = pd.DataFrame(index=timestamps, columns=ror_capacity_ds.index)
     for region in ror_capacity_ds.index:
         points = runoff_points_region_ds[runoff_points_region_ds == region].index.to_list()
-        flood_event_threshold = ror_thresholds.loc[region[:2], 'value']
+        flood_event_threshold = ror_thresholds.loc[replace_iso2_codes([region[:2]])[0], 'value']
         if points:
             ror_inflows_df[region] = compute_ror_series(runoff_dataset, points, flood_event_threshold)
     ror_inflows_df.dropna(axis=1, inplace=True)
@@ -193,47 +236,49 @@ def build_ror_data(ror_capacity_ds: pd.Series, timestamps: pd.DatetimeIndex,
     return ror_capacity_ds, ror_inflows_df
 
 
-
-def get_country_storage_from_grand(c: str) -> float:
+def get_country_storage_from_grand(country_name: str) -> float:
     """
-     Estimating STO energy storage capacity per country based on the GRanD dataset.
+     Estimating STO energy storage capacity (in GWh) per country based on the GRanD dataset.
 
      Parameters
      ----------
-     c: str
+     country_name: str
          Country name.
 
      Returns
      -------
-     storage_potential: float
-         Estimated energy storage potential for country c.
+     float
+         Estimated energy storage potential (in GWh) for the country of interest.
+
+     Notes
+     -----
+     If the country name is not present in the database, returns 0.
 
     """
 
     source_dir = join(dirname(abspath(__file__)), "../../../data/hydro/source/GDW/GRanD_Version_1_3/")
     grand_reservoirs_fn = f"{source_dir}GRanD_reservoirs_v1_3.shp"
+    reservoirs_df = pd.DataFrame(gpd.read_file(grand_reservoirs_fn)).set_index('GRAND_ID')
+    # See get_nuts_storage_distribution_from_grand for explanation
+    reservoirs_df = reservoirs_df[reservoirs_df['RES_NAME'] != 'Vanern']
 
-    reservoirs_df = pd.DataFrame(read_file(grand_reservoirs_fn)).set_index('GRAND_ID')
     # Filtering out reservoirs whose purpose is not for hydro power generation.
-    reservoirs_hydropower = reservoirs_df[reservoirs_df['USE_ELEC'].isin(['Main', 'Sec', 'Major'])]
+    reservoirs_hydropower_df = reservoirs_df[reservoirs_df['USE_ELEC'].isin(['Main', 'Sec', 'Major'])]
     # Filtering out reservoirs outside the country of interest.
-    reservoirs_hydropower = reservoirs_hydropower[reservoirs_hydropower['COUNTRY'] == c]
+    reservoirs_hydropower_df = reservoirs_hydropower_df[reservoirs_hydropower_df['COUNTRY'] == country_name]
 
+    # Filtering out reservoirs whose dam height data is not available (value of -99 in the dataset).
+    reservoirs_hydropower_df = reservoirs_hydropower_df[reservoirs_hydropower_df['DAM_HGT_M'] > 0.]
+    # Computing equivalent energy content (GWh) via hydro power equation.
     g = 9.81  # Gravitational constant [m/s2].
     rho = 1000.  # Water density [kg/m3].
-    # Filtering out reservoirs whose dam height data is not available (value of -99 in the dataset).
-    reservoirs_hydropower = reservoirs_hydropower[reservoirs_hydropower['DAM_HGT_M'] > 0.]
-    # Computing equivalent energy content (GWh) via hydro power equation.
-    reservoirs_hydropower['EN_POT'] = rho * g * \
-                                reservoirs_hydropower['DAM_HGT_M'] * reservoirs_hydropower['CAP_MCM'] / (3.6 * 1e6)
+    reservoirs_hydropower_df['EN_POT'] = \
+        rho * g * reservoirs_hydropower_df['DAM_HGT_M'] * reservoirs_hydropower_df['CAP_MCM'] / (3.6 * 1e6)
 
-    storage_potential = reservoirs_hydropower['EN_POT'].sum()
-
-    return storage_potential
+    return reservoirs_hydropower_df['EN_POT'].sum()
 
 
-
-def get_storage_distribution_from_grand(nuts_codes: List[str]) -> pd.Series:
+def get_nuts_storage_distribution_from_grand(nuts_codes: List[str]) -> pd.Series:
     """
      Estimating STO energy storage distribution per NUTS sub-divisions.
 
@@ -244,58 +289,72 @@ def get_storage_distribution_from_grand(nuts_codes: List[str]) -> pd.Series:
 
      Returns
      -------
-     storage_distribution_df: pd.DataFrame
+     storage_distribution_ds: pd.DataFrame
          DataFrame containing STO energy storage distribution keys per NUTS regions.
 
     """
 
+    assert len(nuts_codes) != 0, "Error: Empty list of NUTS codes."
+
+    # Read GRanD database
     source_dir = join(dirname(abspath(__file__)), "../../../data/hydro/source/GDW/GRanD_Version_1_3/")
     grand_reservoirs_fn = f"{source_dir}GRanD_reservoirs_v1_3.shp"
-
-    reservoirs_df = pd.DataFrame(read_file(grand_reservoirs_fn)).set_index('GRAND_ID')
+    reservoirs_df = pd.DataFrame(gpd.read_file(grand_reservoirs_fn)).set_index('GRAND_ID')
     # A particular reservoir is manually removed (others could follow). The Vanern lake (SE) is labeled as a reservoir
     # with hydro power activities, though information online suggests otherwise. Its presence in the associated NUTS
     # region leads to inconsistencies in the distribution of Swedish storage potential across the country.
     reservoirs_df = reservoirs_df[reservoirs_df['RES_NAME'] != 'Vanern']
 
-    codes_list = list(set([nuts[:2] for nuts in nuts_codes]))
-    countries_list = [revert_old_country_names(c)
-                      for c in convert_country_codes(replace_iso2_codes(codes_list), 'alpha_2', 'name', True)]
-    codes_dict = dict(zip(codes_list, countries_list))
+    # Get NUTS0, ISO2 and countries names of the countries which NUTS regions are part of
+    nuts0_codes = list(set([nuts[:2] for nuts in nuts_codes]))
+    iso2_codes = replace_iso2_codes(nuts0_codes)
+    countries_names = convert_country_codes(iso2_codes, 'alpha_2', 'name', True)
 
-    shapes = get_nuts_shapes(str(len(nuts_codes[0]) - 2))
+    # Get NUTS region shapes
+    shapes = get_nuts_shapes(str(len(nuts_codes[0]) - 2), nuts_codes)
+    shapes_countries = replace_iso2_codes([c[:2] for c in shapes.index])
 
     # Filtering out reservoirs whose purpose is not for hydro power generation.
-    reservoirs_hydropower = reservoirs_df[(reservoirs_df['USE_ELEC'].isin(['Main', 'Sec', 'Major'])) &
-                                          (reservoirs_df['COUNTRY'].isin(codes_dict.values()))].copy()
-    reservoirs_hydropower = append_power_plants_region_codes(reservoirs_hydropower, shapes, check_regions=False,
-                                                             lonlat_name=["LONG_DD", "LAT_DD"])
-    storage_by_nuts = reservoirs_hydropower.groupby(by=reservoirs_hydropower['region_code'])['CAP_MCM'].sum()
+    reservoirs_df["COUNTRY"] = reservoirs_df["COUNTRY"].apply(convert_old_country_names)
+    reservoirs_hydropower_df = reservoirs_df[(reservoirs_df['USE_ELEC'].isin(['Main', 'Sec', 'Major'])) &
+                                             (reservoirs_df['COUNTRY'].isin(countries_names))].copy()
 
-    # Computing storage distribution keys per country and concatenating them into one single frame.
-    storage_df_list = []
-    for c in codes_dict:
-        storage_sum_grand = reservoirs_hydropower[reservoirs_hydropower['COUNTRY'] == codes_dict[c]]['CAP_MCM'].sum()
-        storage_df_temp = storage_by_nuts[storage_by_nuts.index.str.contains(c)]
-        storage_df_temp /= storage_sum_grand
-        storage_df_list.append(storage_df_temp)
-    storage_distribution_df = pd.concat(storage_df_list, axis=0)
+    # Associating each plant to the corresponding NUTS region
+    reservoirs_hydropower_df["ISO2"] = \
+        convert_country_codes(reservoirs_hydropower_df['COUNTRY'], 'name', 'alpha_2', True)
+    reservoirs_hydropower_df["region_code"] = \
+        match_powerplants_to_regions(reservoirs_hydropower_df.rename(columns={'LONG_DD': 'lon', 'LAT_DD': 'lat'}),
+                                     shapes, shapes_countries)
+    reservoirs_hydropower_df = reservoirs_hydropower_df[~reservoirs_hydropower_df['region_code'].isnull()]
 
-    return storage_distribution_df
+    # Aggregating storage capacity per NUTS region
+    storage_by_nuts_ds = reservoirs_hydropower_df.groupby(by=reservoirs_hydropower_df['region_code'])['CAP_MCM'].sum()
+
+    # Computing storage distribution keys per NUTS by dividing the capacity
+    # per NUTS by the total capacity of all NUTS in the same country.
+    storage_distribution_ds = pd.Series()
+    for nuts0_code, iso2_code in zip(nuts0_codes, iso2_codes):
+        storage_sum_per_country = \
+            reservoirs_hydropower_df[reservoirs_hydropower_df['ISO2'] == iso2_code]['CAP_MCM'].sum()
+        storage_ds_temp = storage_by_nuts_ds[storage_by_nuts_ds.index.str.contains(nuts0_code)]
+        storage_ds_temp /= storage_sum_per_country
+        storage_distribution_ds = storage_distribution_ds.append(storage_ds_temp)
+
+    return storage_distribution_ds
 
 
-def compute_storage_capacities(sto_capacity_df: pd.DataFrame) -> pd.Series:
+def compute_storage_capacities(sto_capacity_ds: pd.Series) -> pd.Series:
     """
      Computing STO energy capacities (TWh) per unit region.
 
      Parameters
      ----------
-     sto_capacity_df: pd.DataFrame
+     sto_capacity_ds: pd.Series
          DataFrame containing STO installed capacities per unit region (e.g., "countries", "NUTS3")
 
      Returns
      -------
-     hydro_storage_energy_cap_ds: pd.DataFrame
+     hydro_storage_energy_cap_ds: pd.Series
          DataFrame containing STO energy storage ratings.
 
     """
@@ -303,78 +362,41 @@ def compute_storage_capacities(sto_capacity_df: pd.DataFrame) -> pd.Series:
     # Initially reading modelled data from Hartel et. al (2017)
     hydro_storage_capacities_fn = f"{source_dir}Hartel_2017_EU_hydro_storage_capacities.xlsx"
     hydro_storage_energy_cap_ds = pd.read_excel(hydro_storage_capacities_fn, skiprows=1,
-                                              usecols=['ISO2', 'Eq. Storage'], index_col='ISO2', squeeze=True) * 1e3
-    country_codes = replace_iso2_codes(list(set([nuts[:2] for nuts in sto_capacity_df.index])))
+                                                usecols=['ISO2', 'Eq. Storage'], index_col='ISO2', squeeze=True) * 1e3
 
-    for c in country_codes:
+    # Get storage capacities for countries which are not in the Hartel study
+    iso2_codes = sorted(replace_iso2_codes(list(set([region_code[:2] for region_code in sto_capacity_ds.index]))))
+    hydro_storage_energy_cap_ds = hydro_storage_energy_cap_ds.reindex(iso2_codes)
+    for iso2_code in iso2_codes:
         # If c is not covered in the Hartel study...
-        if c not in hydro_storage_energy_cap_ds.index:
-            country_name = revert_old_country_names(convert_country_codes([c], 'alpha_2', 'name', True)[0])
+        # if iso2_code not in hydro_storage_energy_cap_ds.index:
+        if np.isnan(hydro_storage_energy_cap_ds[iso2_code]):
+            country_name = revert_old_country_names(convert_country_codes([iso2_code], 'alpha_2', 'name', True)[0])
             try:
                 # ...look-up for ENTSO-E reservoir data...
-                hydro_storage_capacities_entsoe_fn = \
-                    f"{source_dir}ENTSOE/Water Reservoirs and Hydro Storage Plants_" \
-                    f"201412290000-201912300000_" + str(c) + ".csv"
+                hydro_storage_capacities_entsoe_fn = f"{source_dir}ENTSOE/Water Reservoirs and Hydro Storage Plants" \
+                    f"_201412290000-201912300000_{iso2_code}.csv"
                 hydro_storage_energy_cap = pd.read_csv(hydro_storage_capacities_entsoe_fn, index_col=0)
                 max_storage = np.nanmax(np.nan_to_num(hydro_storage_energy_cap.values.flatten()))
                 if max_storage > 0.:
-                    hydro_storage_energy_cap_ds.loc[c] = round(max_storage * 1e-3, 3)
+                    hydro_storage_energy_cap_ds.loc[iso2_code] = max_storage * 1e-3
                 else:
                     # ...if ENTSO-E data is missing (NaNs replaced by 0s), approximate storage via GRanD v1.3
-                    hydro_storage_energy_cap_ds.loc[c] = round(get_country_storage_from_grand(country_name), 3)
+                    hydro_storage_energy_cap_ds.loc[iso2_code] = get_country_storage_from_grand(country_name)
             except FileNotFoundError:
                 # ...if ENTSO-E file is missing altogether, approximate storage via GRanD v1.3
-                hydro_storage_energy_cap_ds.loc[c] = round(get_country_storage_from_grand(country_name), 3)
+                hydro_storage_energy_cap_ds.loc[iso2_code] = get_country_storage_from_grand(country_name)
 
-    # If topology unit is "countries", return frame
-    if len(sto_capacity_df.index[0]) == 2:
-        return hydro_storage_energy_cap_ds
+    # If topology unit is "countries", return series directly
+    if len(sto_capacity_ds.index[0]) == 2:
+        return hydro_storage_energy_cap_ds.round(3)
     else:
         # If some NUTS-based topology in place, storage distribution among regions is done via GRanD v1.3
-        storage_distribution_by_nuts = get_storage_distribution_from_grand(sto_capacity_df.index)
+        storage_distribution_by_nuts = get_nuts_storage_distribution_from_grand(sto_capacity_ds.index)
         for nuts in storage_distribution_by_nuts.index:
-            storage_distribution_by_nuts.loc[nuts] *= \
-                hydro_storage_energy_cap_ds.loc[replace_iso2_codes([nuts[:2]])[0]]
+            storage_distribution_by_nuts.loc[nuts] *= hydro_storage_energy_cap_ds.loc[replace_iso2_codes([nuts[:2]])[0]]
         hydro_storage_energy_cap_ds = storage_distribution_by_nuts.copy()
-        return hydro_storage_energy_cap_ds
-
-
-def compute_sto_unit_area(dataset: xr.Dataset, resolution: float) -> xr.Dataset:
-    """
-     Computing cell area for each (lon, lat) pair.
-
-     Parameters
-     ----------
-     dataset: xarray.Dataset
-         Contains runoff data, in this case expressed in m.
-     resolution: float
-         Runoff data spatial resolution.
-
-     Returns
-     -------
-     dataset: xr.Dataset
-         Same input dataset with 'area' variable added.
-     """
-    # Get distance between two latitudes. Does not depend on the geo-location, thus an arbitrary point is considered.
-    p1 = (0.0, 0.0)
-    p2 = (p1[0] + resolution, 0.0)
-    dist_latitude = geopy.distance.distance(p1, p2).km
-
-    lon = dataset['longitude'].values
-    lat = dataset['latitude'].values
-    # Get vectors of 'bordering' longitudes.
-    lonplus = lon + resolution / 2
-    lonmin = lon - resolution / 2
-
-    # Initialize a zero-vector and compute distances between longitude pairs.
-    dist = np.zeros(len(lat))
-    for idx in np.arange(len(lat)):
-        dist[idx] = geopy.distance.distance((lat[idx], lonplus[idx]), (lat[idx], lonmin[idx])).km
-
-    # Compute cell area and attach it to the dataset.
-    dataset['area'] = ('locations', dist * dist_latitude)
-
-    return dataset
+        return hydro_storage_energy_cap_ds.round(3)
 
 
 def compute_sto_inflows(runoff_dataset: xr.Dataset, points: List[Tuple[float, float]]) -> pd.DataFrame:
@@ -452,7 +474,8 @@ def compute_countries_sto_multipliers(years: List[int], countries: List[str], st
 
 def build_sto_data(sto_capacity_ds: pd.Series, timestamps: pd.DatetimeIndex,
                    runoff_dataset: xr.Dataset, runoff_points_region_ds: pd.Series,
-                   ror_capacity_ds: pd.Series, ror_inflows_df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
+                   ror_capacity_ds: pd.Series, ror_inflows_df: pd.DataFrame) \
+        -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
     """
     Compute total STO power (GW) and energy( (GWh) capacities and inflow (GWh) for a series of regions.
 
@@ -463,7 +486,7 @@ def build_sto_data(sto_capacity_ds: pd.Series, timestamps: pd.DatetimeIndex,
     timestamps: pd.DatetimeIndex
         Time stamps over which the inflows must be computed.
     runoff_dataset: xr.Dataset
-        ERA5 runoff dataset
+        ERA5 runoff dataset with area per dataset point.
     runoff_points_region_ds: pd.Series
         Indicates in which region each ERA5 point falls.
     ror_inflows_df: pd.DataFrame
@@ -482,10 +505,12 @@ def build_sto_data(sto_capacity_ds: pd.Series, timestamps: pd.DatetimeIndex,
     """
     sto_capacity_ds = sto_capacity_ds.groupby(sto_capacity_ds.index).sum() * 1e-3
 
-    # Compute energy capacity of STO plants between regions
+    # Compute energy capacity of STO plants by regions
     storage_capacities = compute_storage_capacities(sto_capacity_ds)
     sto_capacity_df = pd.concat([sto_capacity_ds, storage_capacities], axis=1, ignore_index=True, sort=True)
     sto_capacity_df.columns = ['Capacity', 'Energy']
+    # Some regions can end up without any storage capacities
+    sto_capacity_df = sto_capacity_df.dropna()
 
     # STO inflow (in GWh)
     sto_inflows_df = pd.DataFrame(index=timestamps, columns=sto_capacity_df.index)
@@ -503,7 +528,7 @@ def build_sto_data(sto_capacity_ds: pd.Series, timestamps: pd.DatetimeIndex,
                 f'of ERA5 point unavailability in regions.')
 
     # Compute STO multipliers
-    years = [y for y in timestamps.year.unique()]
+    years = list(timestamps.year.unique())
     countries = replace_iso2_codes(list(set([code[:2] for code in sto_inflows_df.columns])))
     sto_multipliers_ds = compute_countries_sto_multipliers(years, countries, sto_inflows_df,
                                                            ror_inflows_df, ror_capacity_ds)
@@ -515,7 +540,8 @@ def build_sto_data(sto_capacity_ds: pd.Series, timestamps: pd.DatetimeIndex,
     return sto_capacity_df, sto_inflows_df, sto_multipliers_ds
 
 
-def generate_eu_hydro_files(resolution: float, topology_unit: str, timestamps: pd.DatetimeIndex):
+def generate_eu_hydro_files(resolution: float, topology_unit: str,
+                            timestamps: pd.DatetimeIndex):
     """
      Generating hydro files, i.e., capacities and inflows.
 
@@ -537,7 +563,8 @@ def generate_eu_hydro_files(resolution: float, topology_unit: str, timestamps: p
         shapes = get_natural_earth_shapes()
     else:  # topology in ['NUTS2', 'NUTS3']
         shapes = get_nuts_shapes(topology_unit[-1:])
-    countries = replace_iso2_codes(list(set([code[:2] for code in shapes.index])))
+    shapes_countries = replace_iso2_codes([code[:2] for code in shapes.index])
+    countries = sorted(list(set(shapes_countries)))
 
     tech_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
     tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
@@ -550,23 +577,37 @@ def generate_eu_hydro_files(resolution: float, topology_unit: str, timestamps: p
         match_points_to_regions(runoff_dataset.locations.values, shapes, keep_outside=False).dropna()
     logger.info('Runoff measurement points mapped to regions shapes.')
 
+    def add_region_code(pp_df: pd.DataFrame):
+        if topology_unit == "countries":
+            pp_df['region_code'] = pp_df["ISO2"]
+        else:
+            pp_df['region_code'] = match_powerplants_to_regions(pp_df, shapes, shapes_countries)
+            pp_df = pp_df[~pp_df['region_code'].isnull()]
+        return pp_df
+
     # Build ROR data
-    ror_plants_df = get_powerplant_df('ror', countries, shapes)
+    # Get all ROR powerplants in the countries of interest and add region name
+    logging.info('Building ROR data')
+    ror_plants_df = get_powerplants('ror', countries)
+    ror_plants_df = add_region_code(ror_plants_df)
+    # Get capacity and inflow per region (for which inflow data exists)
     ror_capacity_ds, ror_inflows_df = build_ror_data(ror_plants_df.set_index(["region_code"])["Capacity"], timestamps,
                                                      runoff_dataset, runoff_points_region_ds)
 
     # Build STO data
-    runoff_dataset_with_area = compute_sto_unit_area(runoff_dataset, resolution)
-
-    sto_plants_df = get_powerplant_df('sto', countries, shapes)
+    logging.info('Building STO data')
+    sto_plants_df = get_powerplants('sto', countries)
+    sto_plants_df = add_region_code(sto_plants_df)
     sto_capacity_df, sto_inflows_df, sto_multipliers_ds = \
         build_sto_data(sto_plants_df.set_index(["region_code"])["Capacity"], timestamps,
-                       runoff_dataset_with_area, runoff_points_region_ds, ror_capacity_ds, ror_inflows_df)
+                       runoff_dataset, runoff_points_region_ds, ror_capacity_ds, ror_inflows_df)
 
     # Build PHS data
+    logging.info('Building PHS data')
     default_phs_duration = tech_config['phs']['default_duration']
 
-    phs_plants_df = get_powerplant_df('phs', countries, shapes)
+    phs_plants_df = get_powerplants('phs', countries)
+    phs_plants_df = add_region_code(phs_plants_df)
     phs_capacity_df = build_phs_data(phs_plants_df, default_phs_duration)
 
     # Merge capacities DataFrame.
@@ -574,24 +615,24 @@ def generate_eu_hydro_files(resolution: float, topology_unit: str, timestamps: p
     capacities_df.columns = ['ROR_CAP [GW]', 'STO_CAP [GW]', 'STO_EN_CAP [GWh]', 'PSP_CAP [GW]', 'PSP_EN_CAP [GWh]']
     capacities_df.replace(0., np.nan, inplace=True)
     capacities_df.dropna(how='all', inplace=True)
+    ror_inflows_df = ror_inflows_df[capacities_df['ROR_CAP [GW]'].dropna().index]
+    sto_inflows_df = sto_inflows_df[capacities_df['STO_CAP [GW]'].dropna().index]
 
     # Saving files
     save_dir = join(dirname(abspath(__file__)), "../../../data/hydro/generated/")
     capacities_df.to_csv(f"{save_dir}hydro_capacities_per_{topology_unit}.csv")
     ror_inflows_df.to_csv(f"{save_dir}hydro_ror_time_series_per_{topology_unit}_pu.csv")
     sto_inflows_df.to_csv(f"{save_dir}hydro_sto_inflow_time_series_per_{topology_unit}_GWh.csv")
-    sto_multipliers_ds.to_csv(f"{save_dir}hydro_sto_multipliers_per_{topology_unit}.csv")
+    sto_multipliers_ds.to_csv(f"{save_dir}hydro_sto_multipliers_per_{topology_unit}.csv", header=['multiplier'])
     logger.info('Files saved to disk.')
-
-
 
 
 if __name__ == '__main__':
 
-    nuts_type_ = 'countries'
+    nuts_type_ = 'NUTS3'
     resolution_ = 0.5  # 0.28125
 
-    start = datetime(2014, 1, 1, 0, 0, 0)
+    start = datetime(2018, 1, 1, 0, 0, 0)
     end = datetime(2018, 12, 31, 23, 0, 0)
     timestamps_ = pd.date_range(start, end, freq='H')
 

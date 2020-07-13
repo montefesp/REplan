@@ -1,4 +1,5 @@
 from os.path import join, dirname, abspath
+from os import listdir
 from typing import Tuple, Union, List
 
 import pandas as pd
@@ -22,17 +23,21 @@ def get_hydro_capacities(aggregation_level: str, plant_type: str) -> Union[pd.Se
 
     Returns
     -------
-    (pd.Series, pd.Series) or pd.Series
+    Union[pd.Series, Tuple[pd.Series, pd.Series]]
+        (Tuple of) Series containing capacity data.
     """
 
-    accepted_levels = ["NUTS3", "NUTS2", "countries"]
-    assert aggregation_level in accepted_levels, \
-        f"Error: Accepted aggregation levels are {accepted_levels}, received {aggregation_level}"
     accepted_plant_types = ["phs", "ror", "sto"]
     assert plant_type in accepted_plant_types, \
         f"Error: Accepted plant types are {accepted_plant_types}, received {plant_type}"
 
     hydro_dir = join(dirname(abspath(__file__)), "../../../data/hydro/generated/")
+
+    available_levels = \
+        [fn.split("_")[-1].split(".")[0] for fn in listdir(hydro_dir) if fn.startswith("hydro_capacities_per_")]
+    assert aggregation_level in available_levels, \
+        f"Error: Accepted aggregation levels are {available_levels}, received {aggregation_level}"
+
     hydro_capacities = pd.read_csv(f"{hydro_dir}hydro_capacities_per_{aggregation_level}.csv", index_col=0)
     # If aggregation level is country, just change index names for UK and EL
     if aggregation_level == "countries":
@@ -69,14 +74,16 @@ def get_hydro_inflows(aggregation_level: str, plant_type: str, timestamps: pd.Da
 
     """
 
-    accepted_levels = ["NUTS3", "NUTS2", "countries"]
-    assert aggregation_level in accepted_levels, \
-        f"Error: Accepted aggregation levels are {accepted_levels}, received {aggregation_level}"
     accepted_plant_types = ["ror", "sto"]
     assert plant_type in accepted_plant_types, \
         f"Error: Accepted plant types are {accepted_plant_types}, received {plant_type}"
 
     hydro_dir = join(dirname(abspath(__file__)), "../../../data/hydro/generated/")
+
+    available_levels = [fn.split("_")[-2] for fn in listdir(hydro_dir) if "time_series" in fn]
+    assert aggregation_level in available_levels, \
+        f"Error: Accepted aggregation levels are {available_levels}, received {aggregation_level}"
+
     if plant_type == "sto":
         inflows_fn = f"{hydro_dir}hydro_sto_inflow_time_series_per_{aggregation_level}_GWh.csv"
     else:  # plant_type == "ror"
@@ -102,9 +109,9 @@ def get_phs_capacities(aggregation_level: str) -> Tuple[pd.Series, pd.Series]:
     return get_hydro_capacities(aggregation_level, 'phs')
 
 
-def phs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series) -> (pd.Series, pd.Series):
+def phs_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series) -> Tuple[pd.Series, pd.Series]:
     """
-    Mapping PHS capacities from NUTS3 to PHS
+    Rescale PHS plants inputs from NUTS3 levels to e-highway bus levels.
 
     Parameters
     ----------
@@ -137,8 +144,8 @@ def phs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series
         bus_e_cap.loc[eh_bus] = e_cap.reindex(nuts3_codes).sum()
 
     # Keep only node with power/storage capacity.
-    bus_p_cap = bus_p_cap.loc[bus_p_cap > 0.]
-    bus_e_cap = bus_e_cap.loc[bus_e_cap > 0.]
+    bus_p_cap = bus_p_cap[bus_p_cap != 0.]
+    bus_e_cap = bus_e_cap[bus_e_cap != 0.]
 
     return bus_p_cap, bus_e_cap
 
@@ -156,7 +163,7 @@ def get_ror_inflows(aggregation_level: str, timestamps: pd.DatetimeIndex = None)
 
 
 def ror_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, inflow_ts: pd.DataFrame) \
-        -> (pd.Series, pd.DataFrame):
+        -> Tuple[pd.Series, pd.DataFrame]:
     """
     Rescale ROR plants inputs from NUTS3 levels to e-highway bus levels.
 
@@ -191,7 +198,7 @@ def ror_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, inflow_ts
         bus_inflows[eh_bus] = inflow_ts.loc[:, inflow_ts.columns.isin(nuts3_codes)].mean(axis=1)
 
     # Keep only nodes with power capacity.
-    bus_p_cap = bus_p_cap[bus_p_cap > 0.]
+    bus_p_cap = bus_p_cap[bus_p_cap != 0.]
     bus_inflows = bus_inflows.loc[:, bus_p_cap.index]
 
     return bus_p_cap, bus_inflows
@@ -210,9 +217,9 @@ def get_sto_inflows(aggregation_level: str, timestamps: pd.DatetimeIndex = None)
 
 
 def sto_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd.Series,
-                                inflow_ts: pd.DataFrame) -> (pd.Series, pd.Series, pd.DataFrame):
+                                inflow_ts: pd.DataFrame) -> Tuple[pd.Series, pd.Series, pd.DataFrame]:
     """
-
+    Rescale STO plants inputs from NUTS3 levels to e-highway bus levels.
 
     Parameters
     ----------
@@ -250,17 +257,10 @@ def sto_inputs_nuts_to_ehighway(eh_buses: List[str], p_cap: pd.Series, e_cap: pd
         # STO inflows computed as sum over one ehighway cluster (as they are expressed in energy units)
         bus_inflows[eh_bus] = inflow_ts.loc[:, inflow_ts.columns.isin(nuts3_codes)].sum(axis=1)
 
-    # Sets to 0. storage capacities if there is no associated power rating.
-    nodes_capacity_no_storage = \
-        set(bus_p_cap[bus_p_cap > 0.].index.tolist()).intersection(set(bus_e_cap[bus_e_cap == 0.].index.tolist()))
-    bus_p_cap.loc[nodes_capacity_no_storage] = 0.
-    # Sets to 0. power rating if there is no storage capacity associaed.
-    nodes_storage_no_capacity = \
-        set(bus_e_cap[bus_e_cap > 0.].index.tolist()).intersection(set(bus_p_cap[bus_p_cap == 0.].index.tolist()))
-    bus_e_cap.loc[nodes_storage_no_capacity] = 0.
     # Keep only nodes with power/storage capacity.
-    bus_p_cap = bus_p_cap.loc[bus_p_cap > 0.]
-    bus_e_cap = bus_e_cap.loc[bus_e_cap > 0.]
-    bus_inflows = bus_inflows.loc[:, bus_p_cap.index]
+    no_cap_indexes = (bus_p_cap != 0.) | (bus_e_cap != 0.)
+    bus_p_cap = bus_p_cap.loc[no_cap_indexes]
+    bus_e_cap = bus_e_cap.loc[no_cap_indexes]
+    bus_inflows = bus_inflows.loc[:, no_cap_indexes]
 
     return bus_p_cap, bus_e_cap, bus_inflows

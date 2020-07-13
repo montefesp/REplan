@@ -1,19 +1,7 @@
 from os.path import join, dirname, abspath
-from typing import Tuple, List, Dict, Any, Union
+from typing import List, Dict, Any, Union
 import yaml
-
-
-# TODO: this will probably be replaced by the following function
-def get_plant_type(tech_name: str) -> Tuple[str, str]:
-
-    tech_conf_path = join(dirname(abspath(__file__)), '../../../data/technologies/tech_config.yml')
-    tech_conf = yaml.load(open(tech_conf_path, 'r'), Loader=yaml.FullLoader)
-
-    assert tech_name in tech_conf, f"Error: Technology {tech_name} configuration is not defined."
-    for key in ['plant', 'type']:
-        assert key in tech_conf[tech_name], f"Error: {key} undefined for technology {tech_name}"
-
-    return tech_conf[tech_name]['plant'], tech_conf[tech_name]['type']
+import pandas as pd
 
 
 def get_config_dict(tech_names: List[str] = None, params: Union[List[str], List[List[str]]] = None) -> Dict[str, Any]:
@@ -63,9 +51,21 @@ def get_config_dict(tech_names: List[str] = None, params: Union[List[str], List[
     return tech_conf
 
 
-# TODO: comment and test
 def get_config_values(tech_name: str, params: List[str]) -> Union[Any, List[Any]]:
+    """
+    Return the values corresponding to a series of configuration parameters.
 
+    Parameters
+    ----------
+    tech_name: str
+        Technology name.
+    params: List[str]
+        List of parameters.
+    Returns
+    -------
+    Unique or list of required parameters values.
+
+    """
     assert len(params) != 0, "Error: List of parameters is empty"
 
     tech_config_dict = get_config_dict([tech_name], params)
@@ -73,3 +73,32 @@ def get_config_values(tech_name: str, params: List[str]) -> Union[Any, List[Any]
         return tech_config_dict[tech_name][params[0]]
     else:
         return [tech_config_dict[tech_name][param] for param in params]
+
+
+def get_info(tech_name: str, params: List[str]) -> pd.Series:
+    """
+    Return some information about a pre-defined technology.
+
+    Parameters
+    ----------
+    tech_name: str
+        Technology name.
+    params: List[str]
+        Name of parameters.
+
+    Returns
+    -------
+    pd.Series
+        Series containing the value for each parameter.
+
+    """
+    assert len(params) != 0, "Error: List of parameters is empty."
+
+    tech_info_fn = join(dirname(abspath(__file__)), "../../../data/technologies/tech_info.xlsx")
+    plant, plant_type = get_config_values(tech_name, ["plant", "type"])
+    tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1]).loc[plant, plant_type]
+
+    for param in params:
+        assert param in tech_info, f"Error: There is no parameter {param} for technology {tech_name}."
+
+    return tech_info[params]

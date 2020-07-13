@@ -12,7 +12,7 @@ from src.data.topologies.ehighways import get_topology
 from src.data.geographics import get_subregions
 from src.data.technologies import get_config_dict
 from src.network_builder import *
-from src.postprocessing.sizing_results import SizingResults
+from src.postprocessing.results_display import *
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     net.export_to_csv_folder(output_dir)
 
     # Display some results
-    results = SizingResults(net)
-    results.display_generation()
-    results.display_transmission()
-    results.display_storage()
+    display_generation(net)
+    display_transmission(net)
+    display_storage(net)
+    display_co2(net)

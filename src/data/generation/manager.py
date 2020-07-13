@@ -4,148 +4,136 @@ from typing import List, Optional
 
 import geopandas as gpd
 import pandas as pd
-import yaml
 
 from src.data.geographics import convert_country_codes, replace_iso2_codes
-from src.data.geographics.points import match_points_to_regions, correct_region_assignment
+from src.data.geographics.points import match_points_to_regions
+from src.data.technologies import get_config_dict
 
 
-def get_powerplant_df(plant_type: str, country_list: List[str], shapes: gpd.GeoSeries) -> pd.DataFrame:
+# TODO: in the end this function should go in legacy data
+def get_powerplants(tech_name: str, country_codes: List[str]) -> pd.DataFrame:
     """
-    Returns frame with power plants filtered by tehcnology and country list.
+    Return power plants filtered by technology and country list.
 
     Parameters
     ----------
-    plant_type: str
-        Type of power plant to be retrieved, values taken as keys of the tech_config file (e.g., ror, sto, nuclear).
-    country_list: List[str]
+    tech_name: str
+        Name of one of the technologies defined in the system.
+    country_codes: List[str]
         List of target ISO2 country codes.
-    shapes: gpd.GeoSeries
-        GeoDataFrame containing shapes of the above country list, required to assign NUTS regions to each df entry.
 
     Returns
     -------
-    powerplant_df: pd.DataFrame
-        Sliced power plant frame.
+    pp_df: pd.DataFrame
+        List of powerplants with the following attributes: name, capacity (in MW), ISO2 code, longitude and latitude.
+
     """
 
-    tech_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
-    tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
+    assert len(country_codes) != 0, "Error: List of country must be non-empty."
+    assert all([len(c) == 2 for c in country_codes]), "Error: Countries must be identified with ISO2 codes which" \
+                                                      " are of length 2. Found code of different length than 2."
 
-    if plant_type in ['ror', 'sto', 'phs']:
+    tech_config = get_config_dict([tech_name])[tech_name]
+
+    assert 'jrc_type' in tech_config, "Error: Capacities cannot be retrieved for this technology."
+
+    jrc_dir = join(dirname(abspath(__file__)), "../../../data/generation/source/JRC/")
+    if tech_name in ['ror', 'sto', 'phs']:
         # Hydro entries read from richer hydro-only database.
-        source_dir = \
-            join(dirname(abspath(__file__)), "../../../data/generation/source/JRC/hydro-power-database-master/data/")
-        pp_fn = f"{source_dir}jrc-hydro-power-plant-database.csv"
+        pp_fn = f"{jrc_dir}hydro-power-database-master/data/jrc-hydro-power-plant-database.csv"
         pp_df = pd.read_csv(pp_fn, index_col=0)
-
+        pp_df.rename(columns={'installed_capacity_MW': 'Capacity', 'name': 'Name', 'country_code': 'ISO2'},
+                     inplace=True)
         # Replace ISO2 codes.
-        pp_df["country_code"] = pp_df["country_code"].map(lambda x: replace_iso2_codes([x])[0])
+        pp_df["ISO2"] = pp_df["ISO2"].map(lambda x: replace_iso2_codes([x])[0])
 
         # Filter out plants outside target countries, of other tech than the target tech, whose capacity is missing.
-        pp_df = pp_df.loc[(pp_df["country_code"].isin(country_list)) &
-                          (pp_df['type'] == tech_config[plant_type]['jrc_type']) &
-                          (~pp_df['installed_capacity_MW'].isnull())]
-        # Append NUTS region column to the frame.
-        pp_df = append_power_plants_region_codes(pp_df, shapes)
-        # Hydro database country column contains ISO2 entries, full name column retrieved.
-        pp_df['Country'] = convert_country_codes(pp_df['country_code'], 'alpha_2', 'name', True)
-        # Column renaming for consistency across different datasets.
-        pp_df.rename(columns={'installed_capacity_MW': 'Capacity', 'name': 'Name'}, inplace=True)
+        pp_df = pp_df.loc[(pp_df["ISO2"].isin(country_codes)) &
+                          (pp_df['type'] == tech_config['jrc_type']) &
+                          (~pp_df['Capacity'].isnull())]
 
     else:
-        # all other technologies read from JRC's PPDB.
-        country_names = convert_country_codes(country_list, 'alpha_2', 'name')
-
-        source_dir = join(dirname(abspath(__file__)), "../../../data/generation/source/JRC/JRC-PPDB-OPEN.ver1.0/")
-        pp_fn = f"{source_dir}JRC_OPEN_UNITS.csv"
+        # All other technologies read from JRC's PPDB.
+        pp_fn = f"{jrc_dir}JRC-PPDB-OPEN.ver1.0/JRC_OPEN_UNITS.csv"
         pp_df = pd.read_csv(pp_fn, sep=';')
+
+        pp_df["ISO2"] = convert_country_codes(pp_df['country'], 'name', 'alpha_2', True)
 
         # Plants in the PPDB are listed per generator (multiple per plant), duplicates are hereafter dropped.
         pp_df = pp_df.drop_duplicates(subset='eic_p', keep='first').set_index('eic_p')
         # Filter out plants outside target countries, of other tech than the target tech, which are decommissioned.
-        pp_df = pp_df.loc[(pp_df["country"].isin(country_names)) &
-                          (pp_df['type_g'] == tech_config[plant_type]['jrc_type']) &
+        pp_df = pp_df.loc[(pp_df["ISO2"].isin(country_codes)) &
+                          (pp_df['type_g'] == tech_config['jrc_type']) &
                           (pp_df["status_g"] == 'COMMISSIONED')]
-
         # Remove plants whose commissioning year goes back further than specified year.
-        if 'comm_year_threshold' in tech_config[plant_type]:
-            pp_df = pp_df[~(pp_df['year_commissioned'] < tech_config[plant_type]['comm_year_threshold'])]
+        if 'comm_year_threshold' in tech_config:
+            pp_df = pp_df[~(pp_df['year_commissioned'] < tech_config['comm_year_threshold'])]
 
-        pp_df['country_code'] = \
-            pp_df.apply(lambda x: convert_country_codes([x['country']], 'name', 'alpha_2', True)[0], axis=1)
-        # Append NUTS region column to the frame.
-        pp_df = append_power_plants_region_codes(pp_df, shapes, dist_threshold=50.)
         # Column renaming for consistency across different datasets.
-        pp_df.rename(columns={'capacity_p': 'Capacity', 'country': 'Country', 'name_p': 'Name'}, inplace=True)
+        pp_df.rename(columns={'capacity_p': 'Capacity', 'name_p': 'Name'}, inplace=True)
 
     # Filter out plants in countries with additional constraints (e.g., nuclear decommissioning in DE)
-    if 'countries_out' in tech_config[plant_type]:
-        country_names = convert_country_codes(tech_config[plant_type]['countries_out'], 'alpha_2', 'name', True)
-        pp_df = pp_df[~pp_df['Country'].isin(country_names)]
+    if 'countries_out' in tech_config:
+        pp_df = pp_df[~pp_df['ISO2'].isin(tech_config['countries_out'])]
 
-    # Return subset of columns for further processing.
-    return pp_df[['Name', 'Capacity', 'Country', 'region_code', 'lon', 'lat']]
+    return pp_df[['Name', 'Capacity', 'ISO2', 'lon', 'lat']]
 
 
-def append_power_plants_region_codes(pp_df: pd.DataFrame, shapes: gpd.GeoSeries, check_regions: bool = True,
-                                     dist_threshold: Optional[float] = 5.,
-                                     lonlat_name: Optional[List[str]] = None) -> pd.DataFrame:
+def match_powerplants_to_regions(pp_df: pd.DataFrame, shapes_ds: gpd.GeoSeries,
+                                 shapes_countries: Optional[List[str]] = None,
+                                 dist_threshold: Optional[float] = 5.) -> pd.Series:
     """
-    Appending region (e.g., NUTS2, NUTS3, etc.) code column to input frame.
+    Match each power plant to a region defined by its geographical shape.
 
     Parameters
     ----------
     pp_df: pd.DataFrame
-        Power plant frame.
-    shapes: gpd.GeoSeries
+        Power plant frame with columns ISO2, lon and lat.
+    shapes_ds: gpd.GeoSeries
         GeoDataFrame containing shapes union to which plants are to be mapped.
-    check_regions: bool = True
-        Boolean argument used to call a function that corrects the potentially wrong assignment of power plant locations
-        based solely on point matching in shapes.
-    dist_threshold: Optional[float]
+    shapes_countries: List[str] (default: None)
+        If relevant, indicates to which country each shape belongs too.
+        Allows to make sure that points are not assigned to shapes which are not part of the same country.
+    dist_threshold: Optional[float] (default: 5.)
         Maximal distance (km) from one shape for points outside of all shapes to be accepted.
-    lonlat_name: Optional[List[str]]
-        Name of the (lon, lat) columns in the pp_df object. Required, as e.g., the GRanD database, has different cols.
 
     Returns
     -------
-    pp_df: pd.DataFrame
-        Frame including the region column.
+    pd.Series
+        Indicates for each element in the input dataframe to which shape it belongs.
     """
 
-    # Defining the default value of the optional parameter (as mutable objects are not to be passed as default args).
-    if lonlat_name is None:
-        lonlat_name = ["lon", "lat"]
+    for col in ["ISO2", "lat", "lon"]:
+        assert col in pp_df.columns, f"Error: Dataframe missing column {col}."
+    assert all(len(c) == 2 for c in pp_df["ISO2"]), "Error: ISO2 codes must be of length 2."
+    assert shapes_countries is None or all(len(c) == 2 for c in shapes_countries), \
+        "Error: Shapes countries must be given as ISO2 codes of length 2."
 
-    if len(shapes.index[0]) == 2:
+    def add_region(lon, lat):
+        try:
+            region_code = matched_locs[lon, lat]
+            # Need the if because some points are exactly at the same position
+            return region_code if isinstance(region_code, str) else region_code.iloc[0]
+        except (AttributeError, KeyError):
+            return None
 
-        pp_df["region_code"] = pp_df["country_code"]
-        pp_df = pp_df[~pp_df['region_code'].isnull()]
-
+    # Find to which region each plant belongs
+    pp_df["loc"] = pp_df[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1)
+    if shapes_countries is None:
+        matched_locs = match_points_to_regions(pp_df["loc"], shapes_ds, distance_threshold=dist_threshold).dropna()
+        plants_region_ds = pp_df[["lon", "lat"]].apply(lambda x: add_region(x[0], x[1]), axis=1)
     else:
+        unique_countries = sorted(list(set(pp_df["ISO2"])))
+        plants_region_ds = pd.Series(index=pp_df.index)
+        for country in unique_countries:
+            pp_df_in_country = pp_df[pp_df["ISO2"] == country]
+            plants_locs = pp_df_in_country[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values
+            shapes_in_country = shapes_ds[[c == country for c in shapes_countries]]
+            matched_locs = match_points_to_regions(plants_locs, shapes_in_country, distance_threshold=dist_threshold)
+            plants_region_ds.loc[pp_df_in_country.index] = \
+                pp_df_in_country[["lon", "lat"]].apply(lambda x: add_region(x[0], x[1]), axis=1)
 
-        # Find to which region each plant belongs
-        plants_locs = pp_df[lonlat_name].apply(lambda xy: (xy[0], xy[1]), axis=1).values
-        plants_region_ds = match_points_to_regions(plants_locs, shapes, distance_threshold=dist_threshold).dropna()
-
-        if check_regions:
-            plants_regs = pp_df['country_code'].values.tolist()
-            plants_region_ds = correct_region_assignment(plants_region_ds, shapes,
-                                                         plants_locs.tolist(), plants_regs)
-
-        def add_region(lon, lat):
-            try:
-                region_code = plants_region_ds[lon, lat]
-                # Need the if because some points are exactly at the same position
-                return region_code if isinstance(region_code, str) else region_code.iloc[0]
-            except KeyError:
-                return None
-
-        pp_df["region_code"] = pp_df[lonlat_name].apply(lambda x: add_region(x[0], x[1]), axis=1)
-        pp_df = pp_df[~pp_df['region_code'].isnull()]
-
-    return pp_df
+    return plants_region_ds
 
 
 def get_hydro_production(countries: List[str] = None, years: List[int] = None) -> pd.DataFrame:
@@ -203,24 +191,3 @@ def get_hydro_production(countries: List[str] = None, years: List[int] = None) -
         prod_df = prod_df.loc[countries]
 
     return prod_df
-
-
-if __name__ == '__main__':
-
-    from src.data.geographics.shapes import get_nuts_shapes, get_natural_earth_shapes
-
-    topology = 'NUTS3'
-
-    if topology == 'countries':
-        shapes_ = get_natural_earth_shapes()
-    else:
-        shapes_ = get_nuts_shapes(topology[-1:])
-
-    country_list_ = ['FI', 'ME', 'BG', 'BE', 'CH', 'CZ', 'DE', 'LV', 'AT', 'SK', 'HU', 'PT', 'RS',
-                     'AL', 'PL', 'IE', 'GR', 'ES', 'HR', 'RO', 'IT', 'FR', 'GB', 'SI', 'SE', 'MK']
-
-    tech_ = 'ror'
-
-    df = get_powerplant_df(plant_type=tech_, country_list=country_list_, shapes=shapes_)
-
-    print(df)

@@ -1,10 +1,6 @@
-from os.path import join, dirname, abspath
-
-import pandas as pd
-
 import pypsa
 
-from src.data.technologies import get_costs, get_plant_type
+from src.data.technologies import get_costs, get_info
 
 import logging
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
@@ -35,9 +31,7 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
     capital_cost, marginal_cost = get_costs(tech, len(network.snapshots))
 
     # Get fuel type and efficiency
-    tech_info_fn = join(dirname(abspath(__file__)), "../../data/technologies/tech_info.xlsx")
-    tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
-    fuel, efficiency = tech_info.loc[get_plant_type(tech)][["fuel", "efficiency_ds"]]
+    fuel, efficiency = get_info(tech, ["fuel", "efficiency_ds"])
 
     network.madd("Generator",
                  buses.index,
