@@ -4,19 +4,25 @@ import pickle
 
 import plotly.graph_objs as go
 
+from src.data.technologies import get_config_dict
 from src.resite.resite import Resite
 
 
 class ResitePlotly:
 
     def __init__(self, resite: Resite):
-        self.tech_colors = {"wind_onshore": "rgba(51,100,255,0.5)",  # middle-dark blue
-                            "wind_offshore": "rgba(51,51,255,0.5)",  # dark blue
-                            "wind_floating": "rgba(50,164,255,0.5)",  # middle blue
-                            "pv_utility": "rgba(220,20,60,0.5)",  # red
-                            "pv_residential": "rgba(255,153,255,0.5)",  # pink
-                            }
+        #self.tech_colors = {"wind_onshore": "rgba(51,100,255,0.5)",  # middle-dark blue
+        #                    "wind_offshore": "rgba(51,51,255,0.5)",  # dark blue
+        #                    "wind_floating": "rgba(50,164,255,0.5)",  # middle blue
+        #                    "pv_utility": "rgba(220,20,60,0.5)",  # red
+        #                    "pv_residential": "rgba(255,153,255,0.5)",  # pink
+        #                    }
+        self.tech_colors = get_config_dict(resite.technologies, ["color"])
         self.resite = resite
+        self.data = self.resite.data_dict
+        self.sel_data = self.resite.sel_data_dict
+        self.generation_potential_df = self.data["cap_factor_df"]*self.data["cap_potential_ds"]
+        self.optimal_cap_ds = self.resite.y_ds*self.data["cap_potential_ds"]
 
     def show_points(self, techs: List[str], color_variable: str = "optimal_capacity", auto_open: bool = True,
                     output_dir: str = None):
@@ -42,10 +48,10 @@ class ResitePlotly:
             xs = [x for x, _ in initial_points]
             ys = [y for _, y in initial_points]
 
-            cap_potential_ds = self.resite.cap_potential_ds[tech]
-            avg_cap_factor = self.resite.cap_factor_df[tech].mean(axis=0)
-            existing_cap_ds = self.resite.existing_cap_ds[tech]
-            optimal_cap_ds = self.resite.optimal_cap_ds[tech]
+            cap_potential_ds = self.data["cap_potential_ds"][tech]
+            avg_cap_factor = self.data["cap_factor_df"][tech].mean(axis=0)
+            existing_cap_ds = self.data["existing_cap_ds"][tech]
+            optimal_cap_ds = self.optimal_cap_ds[tech]
 
             # Original points
             fig.add_trace(
@@ -130,7 +136,7 @@ class ResitePlotly:
                             color=color_values[points_without_ex_cap],
                             cmax=color_values.max(),
                             colorbar_title=colorbar_title
-                    )))
+                            )))
 
         if output_dir is not None:
             fig.write_html(join(output_dir, f'{color_variable}_{"-".join(techs)}.html'), auto_open=auto_open)
@@ -177,9 +183,9 @@ class ResitePlotly:
         for tech in techs:
             points = self.resite.tech_points_dict[tech]
             if func == "mean":
-                cap_factors_agg = self.resite.cap_factor_df[tech][points].mean()
+                cap_factors_agg = self.data["cap_factor_df"][tech][points].mean()
             else:
-                cap_factors_agg = self.resite.cap_factor_df[tech][points].median()
+                cap_factors_agg = self.data["cap_factor_df"][tech][points].median()
             cap_factors_max = cap_factors_max if cap_factors_agg.max() <= cap_factors_max else cap_factors_agg.max()
             cap_factors_min = cap_factors_min if cap_factors_agg.min() >= cap_factors_min else cap_factors_agg.min()
 
@@ -188,9 +194,9 @@ class ResitePlotly:
             points = self.resite.tech_points_dict[tech]
 
             if func == "mean":
-                cap_factors_agg = self.resite.cap_factor_df[tech][points].mean()
+                cap_factors_agg = self.data["cap_factor_df"][tech][points].mean()
             else:
-                cap_factors_agg = self.resite.cap_factor_df[tech][points].median()
+                cap_factors_agg = self.data["cap_factor_df"][tech][points].median()
 
             fig.add_trace(go.Scattergeo(
                 mode="markers",
@@ -223,15 +229,15 @@ class ResitePlotly:
                   f"meet_RES_targets_hourly not for {self.resite.formulation}")
 
         # Compute number of time-steps for which the constraint was not feasible
-        print(sum(self.resite.generation_potential_df.sum(axis=1) >
-                  self.resite.formulation_params[0]*self.resite.load_df.sum(axis=1)))
+        print(sum(self.generation_potential_df.sum(axis=1) >
+            self.resite.formulation_params[0]*self.data["load"].sum(axis=1)))
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=self.resite.timestamps,
-                                 y=self.resite.generation_potential_df.sum(axis=1),
+                                 y=self.generation_potential_df.sum(axis=1),
                                  name="Total Generation Potential (GWh)"))
         fig.add_trace(go.Scatter(x=self.resite.timestamps,
-                                 y=self.resite.load_df.sum(axis=1)*0.3,  # *self.resite.formulation_params[0],
+                                 y=self.data["load"].sum(axis=1)*0.3,  # *self.resite.formulation_params[0],
                                  name="Portion of the load to be served (GWh)"))
 
         return fig
@@ -239,7 +245,8 @@ class ResitePlotly:
 
 if __name__ == "__main__":
 
-    """
+    import sys
+    import os
     assert (len(sys.argv) == 2) or (len(sys.argv) == 3), \
         "You need to provide one or two argument: output_dir (and test_number)"
 
@@ -247,25 +254,23 @@ if __name__ == "__main__":
     test_number = sys.argv[2] if len(sys.argv) == 3 else None
     if test_number is None:
         test_number = sorted(os.listdir(main_output_dir))[-1]
-    output_dir = f"{main_output_dir}{test_number}/"
-    """
-    output_dir = "/output/resite_EU_meet_res_agg_use_ex_cap/0.1/"
-    print(output_dir)
+    output_dir_ = f"{main_output_dir}{test_number}/"
+    #output_dir_ = "/output/resite_EU_meet_res_agg_use_ex_cap/0.1/"
+    print(output_dir_)
 
-    resite = pickle.load(open(f"{output_dir}resite_model.p", 'rb'))
-    print(f"Region: {resite.regions}")
-    ro = ResitePlotly(resite)
+    resite_ = pickle.load(open(f"{output_dir_}resite_instance.p", 'rb'))
+    print(f"Region: {resite_.regions}")
+    ro = ResitePlotly(resite_)
 
-    func = "mean"
-    fig = ro.show_initial_capacity_factors_heatmap(["wind_onshore", 'wind_offshore'], func)
-    fig.write_html(join(output_dir, f'cap_factor_heatmap_{func}.html'), auto_open=True)
+    func_ = "mean"
+    fig_ = ro.show_initial_capacity_factors_heatmap(["wind_onshore"], func_)
+    fig_.write_html(join(output_dir_, f'cap_factor_heatmap_{func_}.html'), auto_open=True)
     exit()
-    if resite.modelling != "pyomo" or \
-            (resite.modelling == "pyomo" and str(resite.results.solver.termination_condition) != "infeasible"):
-        ro.show_points("percentage_of_potential", auto_open=True, output_dir=output_dir)
-        ro.show_points("optimal_capacity", auto_open=True, output_dir=output_dir)
+    if resite_.modelling != "pyomo" or \
+            (resite_.modelling == "pyomo" and str(resite_.results.solver.termination_condition) != "infeasible"):
+        ro.show_points("percentage_of_potential", auto_open=True, output_dir=output_dir_)
+        ro.show_points("optimal_capacity", auto_open=True, output_dir=output_dir_)
 
     # Works even if infeasible
-    fig = ro.analyse_feasibility()
-    fig.write_html(join(output_dir, 'infeasibility_study.html'), auto_open=True)
-
+    fig_ = ro.analyse_feasibility()
+    fig_.write_html(join(output_dir_, 'infeasibility_study.html'), auto_open=True)

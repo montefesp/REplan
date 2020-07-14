@@ -2,49 +2,37 @@ from os.path import join, dirname, abspath, isdir
 from os import makedirs
 import yaml
 import pickle
-from typing import List, Dict, Tuple
+from typing import List, Dict
 from time import strftime
+import importlib.util
 
 import pandas as pd
 
 from shapely.ops import unary_union
-from shapely.geometry import MultiPoint
 
 from src.data.legacy import get_legacy_capacity_in_regions
 from src.data.vres_profiles import compute_capacity_factors
 from src.data.vres_potential import get_capacity_potential_for_shapes
 from src.data.load import get_load
-from src.data.geographics import get_shapes, get_subregions
-from src.data.technologies import get_config_dict
+from src.data.geographics import get_shapes, get_subregions, match_points_to_regions
+from src.data.technologies import get_config_dict, get_config_values
 
 from src.resite.grid_cells import get_grid_cells
+from src.resite.models.utils import write_lp_file, solve_model
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
 
 
-# TODO: maybe we should change the word point to 'cell' or 'site'?
-
 class Resite:
     """
     Tool allowing the selection of RES sites.
 
-    Methods
-    -------
-    __init__
-    __del__
-    init_output_folder
-    build_input_data
-    build_model
-    solve_model
-    retrieve_solution
-    retrieve_sites_data
-    save
-
-
-
     """
+
+    # Methods import from other submodules
+    solve_model = solve_model
 
     def __init__(self, regions: List[str], technologies: List[str], timeslice: List[str], spatial_resolution: float):
         """
@@ -53,13 +41,13 @@ class Resite:
         Parameters
         ----------
         regions: List[str]
-            List of regions in which we want to site
+            List of regions in which we want to site.
         technologies: List[str]
-            List of technologies for which we want to site
+            List of technologies for which we want to site.
         timeslice: List[str]
-            List of 2 string containing starting and end date of the time horizon
+            List of 2 string containing starting and end date of the time horizon.
         spatial_resolution: float
-            Spatial resolution at which we want to site
+            Spatial resolution at which we want to site.
         """
 
         self.technologies = technologies
@@ -68,8 +56,19 @@ class Resite:
         self.spatial_res = spatial_resolution
 
         self.instance = None
+        self.data_dict = {}
+        self.sel_data_dict = {}
 
         self.run_start = strftime('%Y%m%d_%H%M%S')
+
+    def __str__(self):
+        return f"Resite instance\n" \
+               f"---------------\n" \
+               f"Scope:\n" \
+               f" - technologies: {self.technologies}\n" \
+               f" - regions: {self.regions}\n" \
+               f" - timeslice: {[str(self.timestamps[0]), str(self.timestamps[-1])]}\n" \
+               f" - spatial resolution: {self.spatial_res}"
 
     def init_output_folder(self, output_folder: str = None) -> str:
         """Initialize an output folder."""
@@ -84,37 +83,38 @@ class Resite:
 
         return output_folder
 
-    def build_input_data(self, use_ex_cap: bool):
+    def build_data(self, use_ex_cap: bool, cap_pot_thresholds: List[float] = None):
         """Preprocess data.
 
         Parameters:
         -----------
         use_ex_cap: bool
-            Whether to compute or not existing capacity and use it in optimization
+            Whether to compute or not existing capacity and use it in optimization.
+        cap_pot_thresholds: List[float] (default: None)
+            List of thresholds per technology. Points with capacity potential under this threshold will be removed.
         """
 
         # Compute total load (in GWh) for each region
         load_df = get_load(timestamps=self.timestamps, regions=self.regions, missing_data='interpolate')
 
         # Get shape of regions and list of subregions
-        regions_shapes = pd.Series(index=self.regions)
-        onshore_shapes = []
-        offshore_shapes = []
+        onshore_technologies = [get_config_values(tech, ["onshore"]) for tech in self.technologies]
+        regions_shapes = pd.DataFrame(columns=["onshore", "offshore"], index=self.regions)
         all_subregions = []
         for region in self.regions:
             subregions = get_subregions(region)
             all_subregions.extend(subregions)
             shapes = get_shapes(subregions, save=True)
-            onshore_shapes.extend(shapes[~shapes['offshore']]['geometry'].values)
-            offshore_shapes.extend(shapes[shapes['offshore']]['geometry'].values)
-            # TODO: this is fucking slow for EU...
-            regions_shapes[region] = unary_union(shapes['geometry'])
-        # TODO: maybe in some cases we could pass this directly?
-        onshore_shape = unary_union(onshore_shapes)
-        offshore_shape = unary_union(offshore_shapes)
+            if any(onshore_technologies):
+                regions_shapes.loc[region, "onshore"] = unary_union(shapes[~shapes['offshore']]['geometry'])
+            if not all(onshore_technologies):
+                regions_shapes.loc[region, "offshore"] = unary_union(shapes[shapes['offshore']]['geometry'])
 
         # Divide the union of all regions shapes into grid cells of a given spatial resolution
-        grid_cells_ds = get_grid_cells(self.technologies, self.spatial_res, onshore_shape, offshore_shape)
+        # TODO: Should the cells be created per regions from the start, would make more sense...
+        onshore_union = unary_union(regions_shapes["onshore"]) if any(onshore_technologies) else None
+        offshore_union = unary_union(regions_shapes["offshore"]) if not all(onshore_technologies) else None
+        grid_cells_ds = get_grid_cells(self.technologies, self.spatial_res, onshore_union, offshore_union)
 
         # Compute capacities potential
         tech_config = get_config_dict(self.technologies, ['filters', 'power_density'])
@@ -127,7 +127,7 @@ class Resite:
         # Compute legacy capacity
         existing_cap_ds = pd.Series(0., index=cap_potential_ds.index)
         if use_ex_cap:
-            # Get existing capacity at initial points, for technologies for which we can compute legacy data
+            # Get existing capacity at initial sites, for technologies for which we can compute legacy data
             techs_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore',
                                                                                'pv_utility', 'pv_residential']))
             for tech in techs_with_legacy_data:
@@ -140,54 +140,49 @@ class Resite:
         underestimated_capacity_indexes = existing_cap_ds > cap_potential_ds
         cap_potential_ds[underestimated_capacity_indexes] = existing_cap_ds[underestimated_capacity_indexes]
 
-        # Remove points that have a potential capacity under the desired value or equal to 0
-        # TODO: this should be passed as an argument
-        # TODO: if we do that though, shouldn't we put that also as a limit of minimum installable capacity per grid cell?
-        potential_cap_thresholds = {tech: 0.01 for tech in self.technologies}
-        points_to_drop = pd.DataFrame(cap_potential_ds).apply(lambda x:
-                                                              x[0] < potential_cap_thresholds[x.name[0]] or x[0] == 0,
-                                                              axis=1)
-        cap_potential_ds = cap_potential_ds[~points_to_drop]
-        existing_cap_ds = existing_cap_ds[~points_to_drop]
-        grid_cells_ds = grid_cells_ds[~points_to_drop]
+        # Remove sites that have a potential capacity under the desired value or equal to 0
+        if cap_pot_thresholds is None:
+            cap_pot_thresholds = [0]*len(self.technologies)
+        assert len(cap_pot_thresholds) == len(self.technologies), \
+            "Error: If you specify threshold on capacity potentials, you need to specify it for each technology."
+        cap_pot_thresh_dict = dict(zip(self.technologies, cap_pot_thresholds))
+        sites_to_drop = pd.DataFrame(cap_potential_ds).apply(lambda x: x[0] < cap_pot_thresh_dict[x.name[0]] or
+                                                             x[0] == 0, axis=1)
+        cap_potential_ds = cap_potential_ds[~sites_to_drop]
+        existing_cap_ds = existing_cap_ds[~sites_to_drop]
+        grid_cells_ds = grid_cells_ds[~sites_to_drop]
 
-        # Compute capacity factors for each point
+        # Compute capacity factors for each site
         tech_points_dict = {}
-        techs = set(existing_cap_ds.index.get_level_values(0))
+        techs = set(grid_cells_ds.index.get_level_values(0))
         for tech in techs:
-            tech_points_dict[tech] = list(existing_cap_ds[tech].index)
+            tech_points_dict[tech] = list(grid_cells_ds[tech].index)
         cap_factor_df = compute_capacity_factors(tech_points_dict, self.spatial_res, self.timestamps)
 
         # Associating coordinates to regions
-        region_tech_points_dict = {region: set() for region in self.regions}
-        for tech, points in tech_points_dict.items():
-            points = MultiPoint(points)
-            for region in self.regions:
-                points_in_region = points.intersection(regions_shapes[region])
-                points_in_region = [(tech, (point.x, point.y)) for point in points_in_region] \
-                    if isinstance(points_in_region, MultiPoint) \
-                    else [(tech, (points_in_region.x, points_in_region.y))]
-                region_tech_points_dict[region] = region_tech_points_dict[region].union(set(points_in_region))
+        tech_points_regions_ds = pd.Series(index=grid_cells_ds.index)
+        sites_index = tech_points_regions_ds.index
+        for tech in set(sites_index.get_level_values(0)):
+            on_off = 'onshore' if get_config_values(tech, ['onshore']) else 'offshore'
+            points = list(sites_index[sites_index.get_level_values(0) == tech].get_level_values(1))
+            tech_points_regions_ds[tech] = match_points_to_regions(points, regions_shapes[on_off]).values
 
         # Save all data in object
         self.use_ex_cap = use_ex_cap
-        # TODO: should actually be obtained from grid cells directly
-        self.tech_points_tuples = existing_cap_ds.index.values
+        self.cap_pot_thresh_dict = cap_pot_thresh_dict
+        self.tech_points_tuples = grid_cells_ds.index.values
         self.tech_points_dict = tech_points_dict
-        self.region_tech_points_dict = region_tech_points_dict
-        # TODO: this should actually be called sth like 'initial_sites_ds'
         self.initial_sites_ds = grid_cells_ds
-        self.load_df = load_df
-        self.cap_potential_ds = cap_potential_ds
-        self.existing_cap_ds = existing_cap_ds
-        self.existing_cap_percentage_ds = existing_cap_ds.divide(cap_potential_ds)
-        self.cap_factor_df = cap_factor_df
-        self.generation_potential_df = cap_factor_df * cap_potential_ds
+        self.tech_points_regions_ds = tech_points_regions_ds
+        self.data_dict["load"] = load_df
+        self.data_dict["cap_potential_ds"] = cap_potential_ds
+        self.data_dict["existing_cap_ds"] = existing_cap_ds
+        self.data_dict["cap_factor_df"] = cap_factor_df
 
-    def build_model(self, modelling: str, formulation: str, formulation_params: List[float],
+    def build_model(self, modelling: str, formulation: str, formulation_params: Dict,
                     write_lp: bool = False, output_folder: str = None):
         """
-        Model build-up.
+        Build model for the given formulation.
 
         Parameters:
         ------------
@@ -195,107 +190,56 @@ class Resite:
             Choice of modelling language
         formulation: str
             Formulation of the optimization problem to solve
-        formulation_params: List[float]
-            Each formulation requires a different set of parameters.
-            For 'meet_RES_targets' formulations, the list must contain the percentage of load that must be met
-            in each region.
-            For 'meet_demand_with_capacity' formulation, the list must contain the capacity (in GW) that is required
-            to be installed for each technology in the model.
-            For 'maximize' formulations, the list must contain the number of sites to be deployed per region.
+        formulation_params: Dict
+            Parameters need by the formulation.
         write_lp : bool (default: False)
             If True, the model is written to an .lp file.
         dir_name: str (default: None)
             Where to write the .lp file
         """
 
-        if formulation == 'meet_demand_with_capacity' and len(self.regions) != 1:
-            raise ValueError('The selected formulation works for one region only!')
-        elif formulation in ['meet_RES_targets_agg', 'meet_RES_targets_hourly', 'meet_RES_targets_daily',
-                             'meet_RES_targets_weekly', 'meet_RES_targets_monthly', 'maximize_generation',
-                             'maximize_aggr_cap_factor'] and len(formulation_params) != len(self.regions):
-            raise ValueError('For the selected formulation, the "regions" and "formulation_params" '
-                             'lists must have the same cardinality!')
+        # Check whether the formulation exists
+        module_name = join(dirname(abspath(__file__)), f"models/{formulation}/")
+        assert isdir(module_name), f"Error: No model exists for formulation {formulation}."
 
-        accepted_modelling = ['pyomo', 'docplex', 'gurobipy']
-        assert modelling in accepted_modelling, f"Error: {modelling} is not available as modelling language. " \
-                                                f"Accepted languages are {accepted_modelling}"
+        # Load formulation module and execute
+        spec = importlib.util.spec_from_file_location("module.name", f"{module_name}model.py")
+        formulation_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(formulation_module)
+        formulation_module.build_model(self, modelling, formulation_params)
 
         if write_lp:
             output_folder = self.init_output_folder(output_folder)
+            write_lp_file(self.instance, modelling, output_folder)
 
         self.modelling = modelling
         self.formulation = formulation
         self.formulation_params = formulation_params
-        if self.modelling == 'pyomo':
-            from src.resite.models.pyomo import build_model as build_pyomo_model
-            build_pyomo_model(self, formulation, formulation_params, write_lp, output_folder)
-        elif self.modelling == 'docplex':
-            from src.resite.models.docplex import build_model as build_docplex_model
-            build_docplex_model(self, formulation, formulation_params, write_lp, output_folder)
-        elif self.modelling == 'gurobipy':
-            from src.resite.models.gurobipy import build_model as build_gurobipy_model
-            build_gurobipy_model(self, formulation, formulation_params, write_lp, output_folder)
 
-    def solve_model(self):
-        """Solve the model built with build_model"""
-        if self.modelling == 'pyomo':
-            from src.resite.models.pyomo import solve_model as solve_pyomo_model
-            return solve_pyomo_model(self)
-        elif self.modelling == 'docplex':
-            from src.resite.models.docplex import solve_model as solve_docplex_model
-            solve_docplex_model(self)
-        elif self.modelling == 'gurobipy':
-            from src.resite.models.gurobipy import solve_model as solve_gurobipy_model
-            solve_gurobipy_model(self)
+    def retrieve_selected_sites_data(self):
+        """Retrieve data for the selected sites and store it."""
+        sel_tech_points_tuples = [(tech, point) for tech, points in self.sel_tech_points_dict.items()
+                                  for point in points]
 
-    def retrieve_solution(self) -> Dict[str, List[Tuple[float, float]]]:
-        """
-        Get points that were selected during the optimization.
+        for name, data in self.data_dict.items():
+            # Retrieve data only for series or dataframe containing per site data
+            if (isinstance(data, pd.Series) and sel_tech_points_tuples[0] in data.index)\
+                    or (isinstance(data, pd.DataFrame) and sel_tech_points_tuples[0] in data.columns):
+                self.sel_data_dict[name] = data[sel_tech_points_tuples]
 
-        Returns
-        -------
-        Dict[str, List[Tuple[float, float]]]
-            Lists of selected points for each technology
+    def __getstate__(self):
+        return (self.timestamps, self.regions, self.spatial_res, self.technologies,
+                self.use_ex_cap, self.cap_pot_thresh_dict,
+                self.formulation, self.formulation_params, self.modelling,
+                self.tech_points_dict, self.data_dict, self.initial_sites_ds,
+                self.sel_tech_points_dict, self.sel_data_dict, self.y_ds)
 
-        """
-        if self.modelling == 'pyomo':
-            from src.resite.models.pyomo import retrieve_solution as retrieve_pyomo_solution
-            self.objective, self.selected_tech_points_dict, self.optimal_cap_ds = retrieve_pyomo_solution(self)
-        elif self.modelling == 'docplex':
-            from src.resite.models.docplex import retrieve_solution as retrieve_docplex_solution
-            self.objective, self.selected_tech_points_dict, self.optimal_cap_ds = retrieve_docplex_solution(self)
-        elif self.modelling == 'gurobipy':
-            from src.resite.models.gurobipy import retrieve_solution as retrieve_gurobipy_solution
-            self.objective, self.selected_tech_points_dict, self.optimal_cap_ds = retrieve_gurobipy_solution(self)
-
-        return self.selected_tech_points_dict
-
-    def retrieve_sites_data(self):
-        """
-        Return data for the optimal sites.
-
-        Returns
-        -------
-        self.selected_existing_capacity_ds: pd.Series
-            Pandas series giving for each (tech, coord) tuple in self.selected_tech_points_dict the existing
-            cap at these positions
-        self.selected_cap_potential_ds: pd.Series
-            Pandas series giving for each (tech, coord) tuple in self.selected_tech_points_dict the capacity
-            potential at these positions .
-        self.selected_cap_factor_df: pd.DataFrame
-            Pandas series indexed by time giving for each (tech, coord) tuple in self.selected_tech_points_dict
-            its cap factors time series
-
-        """
-
-        selected_tech_points_tuples = [(tech, point) for tech, points in self.selected_tech_points_dict.items()
-                                       for point in points]
-
-        self.selected_existing_cap_ds = self.existing_cap_ds.loc[selected_tech_points_tuples]
-        self.selected_cap_potential_ds = self.cap_potential_ds.loc[selected_tech_points_tuples]
-        self.selected_cap_factor_df = self.cap_factor_df[selected_tech_points_tuples]
-
-        return self.selected_existing_cap_ds, self.selected_cap_potential_ds, self.selected_cap_factor_df
+    def __setstate__(self, state):
+        (self.timestamps, self.regions, self.spatial_res, self.technologies,
+         self.use_ex_cap, self.cap_pot_thresh_dict,
+         self.formulation, self.formulation_params, self.modelling,
+         self.tech_points_dict, self.data_dict, self.initial_sites_ds,
+         self.sel_tech_points_dict, self.sel_data_dict, self.y_ds) = state
 
     def save(self, dir_name: str = None):
         """Save all results and parameters."""
@@ -304,11 +248,11 @@ class Resite:
 
         # Save some parameters to facilitate identification of run in directory
         params = {'spatial_resolution': self.spatial_res,
-                  # 'filtering_layers': self.filtering_layers,
                   'timeslice': [str(self.timestamps[0]), str(self.timestamps[-1])],
                   'regions': self.regions,
                   'technologies': self.technologies,
                   'use_ex_cap': self.use_ex_cap,
+                  'cap_pot_thresh_dict': self.cap_pot_thresh_dict,
                   'modelling': self.modelling,
                   'formulation': self.formulation,
                   'formulation_params': self.formulation_params}
@@ -318,26 +262,4 @@ class Resite:
         yaml.dump(get_config_dict(self.technologies), open(f"{output_folder}tech_config.yaml", 'w'))
 
         # Save the attributes
-        resite_output = [
-            self.formulation,
-            self.timestamps,
-            self.regions,
-            self.modelling,
-            self.use_ex_cap,
-            self.spatial_res,
-            self.technologies,
-            self.formulation_params,
-            self.tech_points_dict,
-            self.cap_potential_ds,
-            self.cap_factor_df,
-            self.existing_cap_ds,
-            self.optimal_cap_ds,
-            self.selected_tech_points_dict,
-            self.tech_points_dict,
-            self.generation_potential_df,
-            self.load_df,
-            self.selected_cap_potential_ds,
-            self.selected_cap_factor_df
-        ]
-
-        pickle.dump(resite_output, open(join(output_folder, 'resite_model.p'), 'wb'))
+        pickle.dump(self, open(f"{output_folder}resite_instance.p", 'wb'))

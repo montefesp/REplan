@@ -8,6 +8,8 @@ from shapely.geometry import Polygon, MultiPolygon, GeometryCollection
 
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
+import cartopy.feature as cf
+from vresutils.graph import voronoi_partition_pts
 
 from src.data.geographics import get_points_in_shape, display_polygons
 from src.data.technologies import get_config_dict
@@ -17,25 +19,32 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
-def plot_grid_cells(grid_cells_ds: pd.Series):
+def plot_grid_cells(grid_cells_ds: pd.Series, show=False):
     """Plot grid cells (points and regions)"""
 
+    land_50m = cf.NaturalEarthFeature('physical', 'land', '50m',
+                                      edgecolor='darkgrey',
+                                      facecolor=cf.COLORS['land_alt1'])
+
+    axes = []
     for tech in set(grid_cells_ds.index.get_level_values(0)):
         tech_grid_cells_ds = grid_cells_ds.loc[tech]
         ax = display_polygons(tech_grid_cells_ds.values, fill=False, show=False)
         points = list(tech_grid_cells_ds.index)
-        print(points)
         xs, ys = zip(*points)
-        ax.scatter(xs, ys, transform=ccrs.PlateCarree(), c='k')
+        ax.add_feature(land_50m, linewidth=0.5)
+        ax.add_feature(cf.BORDERS.with_scale('50m'), edgecolor='darkgrey', linewidth=0.5)
+        ax.scatter(xs, ys, transform=ccrs.PlateCarree(), c='k', zorder=10)
+        axes += [ax]
 
-    plt.show()
+    if show:
+        plt.show()
+    return axes
 
 
 def create_grid_cells(shape: Union[Polygon, MultiPolygon], resolution: float) \
         -> (List[Tuple[float, float]], List[Union[Polygon, MultiPolygon]]):
     """Divide a geographical shape by applying voronoi partition."""
-
-    from vresutils.graph import voronoi_partition_pts
 
     points = get_points_in_shape(shape, resolution)
     if len(points) == 0:
@@ -91,6 +100,7 @@ def get_grid_cells(technologies: List[str], resolution: float,
 
     # Divide onshore and offshore shapes at a given resolution
     onshore_points, onshore_grid_cells_shapes = None, None
+    # TODO: why is taking ages on onshore shape of EU compared to offshore?
     if onshore_shape is not None:
         onshore_points, onshore_grid_cells_shapes = create_grid_cells(onshore_shape, resolution)
     offshore_points, offshore_grid_cells_shapes = None, None

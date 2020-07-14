@@ -42,7 +42,6 @@ def add_generators(net: pypsa.Network, countries: List[str],
         warn("Warning: Trying to add nuclear to network without onshore buses.")
         return net
 
-    # TODO: why distance threshold of 50? --> test more in depth
     gens = get_powerplants('nuclear', countries)
     buses_countries = list(onshore_buses.country) if hasattr(onshore_buses, 'country') else None
     gens["bus_id"] = match_powerplants_to_regions(gens, onshore_buses.region,

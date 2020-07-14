@@ -4,15 +4,14 @@ import pandas as pd
 import numpy as np
 
 
-def create_generation_y_dict(y, regions, region_tech_points_dict, generation_potential_df):
+def create_generation_y_dict(y, regions, tech_points_regions_ds, generation_potential_df):
 
     region_generation_y_dict = dict.fromkeys(regions)
     for region in regions:
         # Get generation potential for points in region for each techno
-        region_tech_points = region_tech_points_dict[region]
+        region_tech_points = tech_points_regions_ds[tech_points_regions_ds == region].index
         tech_points_generation_potential = generation_potential_df[region_tech_points]
-        region_ys = pd.Series([y[tech, loc[0], loc[1]] for tech, loc in region_tech_points],
-                              index=pd.MultiIndex.from_tuples(region_tech_points))
+        region_ys = pd.Series([y[tech, loc[0], loc[1]] for tech, loc in region_tech_points], index=region_tech_points)
         region_generation = tech_points_generation_potential.values*region_ys.values
         region_generation_y_dict[region] = np.sum(region_generation, axis=1)
 

@@ -47,11 +47,10 @@ def test_get_powerplants_nuclear():
 def test_get_powerplants_hydro():
     countries_without = ["NL"]
     countries_with = ["BE", "FI", "FR", "GB", "RO"]
-    capacities = [59.02, 1289.60, 5780.85, 824.48, 870.45]
+    capacities = [59.02, 1289.60, 6051.5, 848.48, 870.45]
     df = get_powerplants('ror', countries_without + countries_with)
     assert all(code in df.columns for code in ["Name", "Capacity", "ISO2", "lon", "lat"])
     df_grouped = df[["Capacity", "ISO2"]].groupby("ISO2").sum()
-    print(df_grouped)
     assert all([country not in df_grouped.index for country in countries_without])
     for i, country in enumerate(countries_with):
         assert round(df_grouped.loc[country, "Capacity"], 2) == capacities[i]

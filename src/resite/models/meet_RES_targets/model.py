@@ -1,3 +1,25 @@
+"""
+Formulation Description:
+
+ This formulation aims at selecting sites so as to satisfy a certain percentage of the load
+  for each time step of a certain time resolution in each region while minimizing
+  the capacity deployed to do so.
+
+ - Parameters:
+    - time_resolution: The average production over each time step of this resolution must be
+    greater than the average load over this same time step.
+    Can currently be 'hour', 'day', 'week', 'month' and 'full' (average over the full time range)
+    - perc_per_region (region): Percentage of the load that must be satisfied at each time step.
+
+ - Variables:
+    - y (tech, lon, lat): Portion of capacity potential selected at each site.
+
+ - Objective: Minimize deployed capacity
+
+ - Constraints:
+    - load requirement: generation_t,r >= load_t,r * perc_per_region_r for all r,t
+    - existing capacity: y * potential capacity >= existing capacity; at each site
+"""
 from typing import Dict
 
 import numpy as np
@@ -50,10 +72,11 @@ def build_model_docplex(resite, params: Dict):
     """Model build-up with docplex"""
 
     from docplex.mp.model import Model
-    from src.resite.models.docplex_aux import minimize_deployed_capacity, capacity_bigger_than_existing, \
+    from src.resite.models.docplex_utils import minimize_deployed_capacity, capacity_bigger_than_existing, \
         generation_bigger_than_load_proportion, create_generation_y_dict
 
-    load = resite.load_df.values
+    data = resite.data_dict
+    load = data["load"].values
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in resite.tech_points_tuples]
     regions = resite.regions
     time_slices = define_time_slices(params["time_resolution"], resite.timestamps)
@@ -68,21 +91,21 @@ def build_model_docplex(resite, params: Dict):
     model.y = model.continuous_var_dict(keys=tech_points_tuples, lb=0., ub=1.,
                                         name=lambda k: 'y_%s_%s_%s' % (k[0], k[1], k[2]))
     # Create generation dictionary for building speed up
-    generation_potential_df = resite.cap_factor_df * resite.cap_potential_ds
+    generation_potential_df = data["cap_factor_df"] * data["cap_potential_ds"]
     region_generation_y_dict = \
-        create_generation_y_dict(model, regions, resite.region_tech_points_dict, generation_potential_df)
+        create_generation_y_dict(model, regions, resite.tech_points_regions_ds, generation_potential_df)
 
     # - Constraints - #
     # Impose a certain percentage of the load to be covered over each time slice
     generation_bigger_than_load_proportion(model, region_generation_y_dict, load, regions, time_slices,
                                            load_perc_per_region)
     # Percentage of capacity installed must be bigger than existing percentage
-    existing_cap_percentage_ds = resite.existing_cap_ds.divide(resite.cap_potential_ds)
+    existing_cap_percentage_ds = data["existing_cap_ds"].divide(data["cap_potential_ds"])
     capacity_bigger_than_existing(model, existing_cap_percentage_ds, tech_points_tuples)
 
     # - Objective - #
     # Minimize the capacity that is deployed
-    minimize_deployed_capacity(model, resite.cap_potential_ds)
+    minimize_deployed_capacity(model, data["cap_potential_ds"])
 
     resite.instance = model
 
@@ -91,10 +114,11 @@ def build_model_gurobipy(resite, params: Dict):
     """Model build-up. with gurobipy"""
 
     from gurobipy import Model
-    from src.resite.models.gurobipy_aux import minimize_deployed_capacity, capacity_bigger_than_existing, \
+    from src.resite.models.gurobipy_utils import minimize_deployed_capacity, capacity_bigger_than_existing, \
         generation_bigger_than_load_proportion, create_generation_y_dict
 
-    load = resite.load_df.values
+    data = resite.data_dict
+    load = data["load"].values
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in resite.tech_points_tuples]
     regions = resite.regions
     time_slices = define_time_slices(params["time_resolution"], resite.timestamps)
@@ -108,21 +132,21 @@ def build_model_gurobipy(resite, params: Dict):
     # Portion of capacity at each location for each technology
     y = model.addVars(tech_points_tuples, lb=0., ub=1., name=lambda k: 'y_%s_%s_%s' % (k[0], k[1], k[2]))
     # Create generation dictionary for building speed up
-    generation_potential_df = resite.cap_factor_df * resite.cap_potential_ds
+    generation_potential_df = data["cap_factor_df"] * data["cap_potential_ds"]
     region_generation_y_dict = \
-        create_generation_y_dict(y, regions, resite.region_tech_points_dict, generation_potential_df)
+        create_generation_y_dict(y, regions, resite.tech_points_regions_ds, generation_potential_df)
 
     # - Constraints - #
     # Impose a certain percentage of the load to be covered over each time slice
     generation_bigger_than_load_proportion(model, region_generation_y_dict, load, regions, time_slices,
                                            load_perc_per_region)
     # Percentage of capacity installed must be bigger than existing percentage
-    existing_cap_percentage_ds = resite.existing_cap_ds.divide(resite.cap_potential_ds)
+    existing_cap_percentage_ds = data["existing_cap_ds"].divide(data["cap_potential_ds"])
     capacity_bigger_than_existing(model, y, existing_cap_percentage_ds, tech_points_tuples)
 
     # - Objective - #
     # Minimize the capacity that is deployed
-    obj = minimize_deployed_capacity(model, y, resite.cap_potential_ds)
+    obj = minimize_deployed_capacity(model, y, data["cap_potential_ds"])
 
     resite.instance = model
     resite.y = y
@@ -133,10 +157,11 @@ def build_model_pyomo(resite, params: Dict):
     """Model build-up using pyomo"""
 
     from pyomo.environ import ConcreteModel, NonNegativeReals, Var
-    from src.resite.models.pyomo_aux import capacity_bigger_than_existing, minimize_deployed_capacity, \
+    from src.resite.models.pyomo_utils import capacity_bigger_than_existing, minimize_deployed_capacity, \
         generation_bigger_than_load_proportion, create_generation_y_dict
 
-    load = resite.load_df.values
+    data = resite.data_dict
+    load = data["load"].values
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in resite.tech_points_tuples]
     regions = resite.regions
     time_slices = define_time_slices(params["time_resolution"], resite.timestamps)
@@ -150,9 +175,9 @@ def build_model_pyomo(resite, params: Dict):
     # Portion of capacity at each location for each technology
     model.y = Var(tech_points_tuples, within=NonNegativeReals, bounds=(0, 1))
     # Create generation dictionary for building speed up
-    generation_potential_df = resite.cap_factor_df * resite.cap_potential_ds
+    generation_potential_df = data["cap_factor_df"] * data["cap_potential_ds"]
     region_generation_y_dict = \
-        create_generation_y_dict(model, regions, resite.region_tech_points_dict, generation_potential_df)
+        create_generation_y_dict(model, regions, resite.tech_points_regions_ds, generation_potential_df)
 
     # - Constraints - #
     # Impose a certain percentage of the load to be covered over each time slice
@@ -160,11 +185,11 @@ def build_model_pyomo(resite, params: Dict):
         generation_bigger_than_load_proportion(model, region_generation_y_dict, load, regions, time_slices,
                                                covered_load_perc_per_region)
     # Percentage of capacity installed must be bigger than existing percentage
-    existing_cap_percentage_ds = resite.existing_cap_ds.divide(resite.cap_potential_ds)
+    existing_cap_percentage_ds = data["existing_cap_ds"].divide(data["cap_potential_ds"])
     model.potential_constraint = capacity_bigger_than_existing(model, existing_cap_percentage_ds, tech_points_tuples)
 
     # - Objective - #
     # Minimize the capacity that is deployed
-    model.objective = minimize_deployed_capacity(model, resite.cap_potential_ds)
+    model.objective = minimize_deployed_capacity(model, data["cap_potential_ds"])
 
     resite.instance = model

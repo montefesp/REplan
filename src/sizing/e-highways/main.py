@@ -112,7 +112,7 @@ if __name__ == "__main__":
                                             config["region"], config["res"]["spatial_resolution"],
                                             config["res"]["use_ex_cap"], config["res"]["limit_max_cap"])
             elif strategy == 'siting':
-                net = add_res(net, 'regions', technologies, config['res'], config["region"],
+                net = add_res(net, 'regions', technologies, config["region"], config['res'],
                               config['res']['use_ex_cap'], config['res']['limit_max_cap'],
                               output_dir=f"{output_dir}resite/")
             # elif config['res']['strategy'] == 'bus_test':

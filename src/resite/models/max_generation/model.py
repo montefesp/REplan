@@ -26,8 +26,9 @@ def build_model_pyomo(resite, nb_sites_per_region: List[float]):
     """Model build-up with pyomo"""
 
     from pyomo.environ import ConcreteModel, Binary, Var
-    from src.resite.models.pyomo_aux import limit_number_of_sites_per_region, maximize_production
+    from src.resite.models.pyomo_utils import limit_number_of_sites_per_region, maximize_production
 
+    data = resite.data_dict
     tech_points_tuples = [(tech, coord[0], coord[1]) for tech, coord in resite.tech_points_tuples]
     regions = resite.regions
 
@@ -42,8 +43,9 @@ def build_model_pyomo(resite, nb_sites_per_region: List[float]):
 
     # - Constraints - #
     model.policy_target = limit_number_of_sites_per_region(model, regions,
-                                                           resite.region_tech_points_dict, nb_sites_per_region_dict)
+                                                           resite.tech_points_regions_ds, nb_sites_per_region_dict)
     # - Objective - #
-    model.objective = maximize_production(model, resite.cap_factor_df, tech_points_tuples)
+    generation_potential_df = data["cap_factor_df"] * data["cap_potential_ds"]
+    model.objective = maximize_production(model, generation_potential_df, tech_points_tuples)
 
     resite.instance = model

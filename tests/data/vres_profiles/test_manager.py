@@ -3,13 +3,6 @@ import pytest
 from src.data.vres_profiles.manager import *
 
 
-# def get_converters(techs):
-#     import yaml
-#     tech_config_path = join(dirname(abspath(__file__)), '../../../data/technologies/tech_config.yml')
-#     tech_conf = yaml.load(open(tech_config_path), Loader=yaml.FullLoader)
-#     return {tech: tech_conf[tech]["converter"] for tech in techs}
-
-
 def test_read_resource_database_wrong_spatial_resolution():
     with pytest.raises(AssertionError):
         read_resource_database(2.0)
@@ -28,41 +21,29 @@ def test_read_resource_database_output():
 
 def test_compute_capacity_factors_wrong_resource():
     ts = pd.date_range('2015-01-01T00:00', '2016-01-31T23:00', freq='1H')
-    # converters = {"csp": "DD06M"}
     tech_points = {"csp": [(0, 50)]}
-    with pytest.raises(ValueError):
-        compute_capacity_factors(tech_points, 1.0, ts)  # , converters)
+    with pytest.raises(AssertionError):
+        compute_capacity_factors(tech_points, 1.0, ts)
 
 
 def test_compute_capacity_factors_wrong_spatial_resolution():
     ts = pd.date_range('2015-01-01T00:00', '2016-01-31T23:00', freq='1H')
-    # converters = get_converters(["wind_onshore"])
     tech_points = {"wind_onshore": [(0, 50)]}
     with pytest.raises(AssertionError):
-        compute_capacity_factors(tech_points, 2.0, ts)  # , converters)
+        compute_capacity_factors(tech_points, 2.0, ts)
 
 
 def test_compute_capacity_factors_empty_points_list():
     ts = pd.date_range('2015-01-01T00:00', '2016-01-31T23:00', freq='1H')
-    # converters = get_converters(["wind_onshore", "pv_utility"])
     tech_points = {"wind_onshore": [], "pv_utility": [(0, 50)]}
     with pytest.raises(AssertionError):
-        compute_capacity_factors(tech_points, 1.0, ts)  # , converters)
+        compute_capacity_factors(tech_points, 1.0, ts)
 
 
 def test_compute_capacity_factors_empty_timestamps():
-    # converters = get_converters(["wind_onshore"])
     tech_points = {"wind_onshore": [(0, 50)]}
     with pytest.raises(AssertionError):
-        compute_capacity_factors(tech_points, 1.0, [])  # , converters)
-
-
-def test_compute_capacity_factors_missing_converter():
-    ts = pd.date_range('2015-01-01T00:00', '2016-01-31T23:00', freq='1H')
-    # converters = get_converters(["pv_utility"])
-    tech_points = {"wind_onshore": [(0, 50)]}
-    with pytest.raises(AssertionError):
-        compute_capacity_factors(tech_points, 1.0, ts)  # , converters)
+        compute_capacity_factors(tech_points, 1.0, [])
 
 
 def test_compute_capacity_factors_output_unsmoothed_wind():
@@ -82,7 +63,6 @@ def test_compute_capacity_factors_output_unsmoothed_wind():
 
 def test_compute_capacity_factors_output():
     ts = pd.date_range('2015-01-01T00:00', '2016-01-31T23:00', freq='1H')
-    # converters = get_converters(["wind_onshore", "pv_utility"])
     tech_points_d = {"wind_onshore": [(0, 50), (0, 50.5)], "pv_utility": [(0, 50)]}
     df = compute_capacity_factors(tech_points_d, 0.5, ts)  # , converters)
     assert isinstance(df, pd.DataFrame)

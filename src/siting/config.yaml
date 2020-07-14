@@ -1,16 +1,17 @@
 # Scope parameters
 spatial_resolution: 0.5
-timeslice: ['2015-01-01T00:00', '2015-01-07T23:00']
-regions: ['BENELUX']
-technologies: ['wind_onshore', 'pv_utility', 'pv_residential', 'wind_offshore']
+timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
+regions: ['CWE']
+technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
 
 use_ex_cap: False
 
 # Optimization parameters
 formulation: 'meet_RES_targets' # Type of problem to be solved.
 formulation_params:
-  # cap_per_tech: [0.5, 0.5]
-  perc_per_region: [0.5]
+  #cap_per_tech: [0.5, 0.5]
+  perc_per_region: [0.3]
   time_resolution: 'hour'
-modelling: 'docplex' # Choice of modelling language.
+  nb_sites_per_region: [11]
+modelling: 'pyomo' # Choice of modelling language.
 write_lp: False

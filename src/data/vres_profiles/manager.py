@@ -73,7 +73,6 @@ def read_resource_database(spatial_resolution: float) -> xr.Dataset:
 
 def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float]]],
                              spatial_res: float, timestamps: pd.DatetimeIndex,
-                             # converters: Dict[str, Union[Dict[str, str], str]],
                              smooth_wind_power_curve: bool = True) -> pd.DataFrame:
     """
     Compute capacity factors for a list of points associated to a list of technologies.

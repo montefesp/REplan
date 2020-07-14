@@ -122,8 +122,7 @@ if __name__ == '__main__':
             if strategy == "from_files":
                 net = add_res_from_file(net, "countries", technologies,
                                         args['resite_dir'], args['resite_fn'],
-                                        args['spatial_res'],
-                                        args['power_density'])
+                                        args['spatial_res'], args['power_density'])
             elif strategy == "bus":
                 net = add_res_per_bus(net, 'countries', technologies, config["res"]["use_ex_cap"])
             elif strategy == "no_siting":
@@ -131,7 +130,7 @@ if __name__ == '__main__':
                                             config["region"], config["res"]["spatial_resolution"],
                                             config["res"]["use_ex_cap"], config["res"]["limit_max_cap"])
             elif strategy == 'siting':
-                net = add_res(net, 'countries', technologies, config['res'], config["region"],
+                net = add_res(net, 'countries', technologies, config["region"], config['res'],
                               config['res']['use_ex_cap'], config['res']['limit_max_cap'],
                               output_dir=f"{output_dir}resite/")
 

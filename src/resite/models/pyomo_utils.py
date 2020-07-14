@@ -4,15 +4,14 @@ from numpy import arange
 from pyomo.environ import Constraint, Objective, maximize, minimize
 
 
-def create_generation_y_dict(model, regions, region_tech_points_dict, generation_potential_df):
+def create_generation_y_dict(model, regions, tech_points_regions_ds, generation_potential_df):
 
     region_generation_y_dict = dict.fromkeys(regions)
     for region in regions:
         # Get generation potential for points in region for each techno
-        region_tech_points = region_tech_points_dict[region]
+        region_tech_points = tech_points_regions_ds[tech_points_regions_ds == region].index
         tech_points_generation_potential = generation_potential_df[region_tech_points]
-        region_ys = pd.Series([model.y[tech, loc] for tech, loc in region_tech_points],
-                              index=pd.MultiIndex.from_tuples(region_tech_points))
+        region_ys = pd.Series([model.y[tech, loc] for tech, loc in region_tech_points], index=region_tech_points)
         region_generation = tech_points_generation_potential * region_ys
         region_generation_y_dict[region] = region_generation.sum(axis=1).values
 
@@ -46,9 +45,10 @@ def tech_cap_bigger_than_limit(model, cap_potential_ds, tech_points_dict, techno
     return Constraint(technologies, rule=constraint_rule)
 
 
-def limit_number_of_sites_per_region(model, regions, region_tech_points_dict, nb_sites_per_region):
+def limit_number_of_sites_per_region(model, regions, tech_points_regions_ds, nb_sites_per_region):
     def constraint_rule(model, region):
-        return sum(model.y[tech, lon, lat] for tech, (lon, lat) in region_tech_points_dict[region]) \
+        region_tech_points = tech_points_regions_ds[tech_points_regions_ds == region].index
+        return sum(model.y[tech, lon, lat] for tech, (lon, lat) in region_tech_points) \
                == nb_sites_per_region[region]
     return Constraint(regions, rule=constraint_rule)
 
