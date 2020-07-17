@@ -20,6 +20,7 @@ from src.postprocessing.results_display import *
 
 import logging
 logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
+# logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 def parse_args():
@@ -46,7 +47,7 @@ if __name__ == '__main__':
     # Main directories
     data_dir = join(dirname(abspath(__file__)), "../../../data/")
     tech_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
-    output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/tyndp2018/{strftime('%Y%m%d_%H%M%S')}/")
+    output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/tyndp2018/size_{args['resite_dir']}_{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -57,6 +58,12 @@ if __name__ == '__main__':
         config["solver_options"][config["solver"]]['Threads'] = args['threads']
     else:
         config["solver_options"][config["solver"]]['threads'] = args['threads']
+    config["res"]["spatial_resolution"] = args["spatial_res"]
+    config["res"]["sites_dir"] = args["resite_dir"]
+    config["res"]["sites_fn"] = args["resite_fn"]
+
+    tech_config = get_config_dict()
+    tech_config["wind_offshore"]["power_density"] = args["power_density"]
 
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
@@ -69,7 +76,7 @@ if __name__ == '__main__':
 
     # Save config and parameters files
     yaml.dump(config, open(f"{output_dir}config.yaml", 'w'), sort_keys=False)
-    yaml.dump(get_config_dict(), open(f"{output_dir}tech_config.yaml", 'w'), sort_keys=False)
+    yaml.dump(tech_config, open(f"{output_dir}tech_config.yaml", 'w'), sort_keys=False)
     tech_info.to_csv(f"{output_dir}tech_info.csv")
     fuel_info.to_csv(f"{output_dir}fuel_info.csv")
 
