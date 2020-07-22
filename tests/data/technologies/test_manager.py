@@ -75,15 +75,15 @@ def test_get_config_values():
 
 def test_get_info_empty_params_list():
     with pytest.raises(AssertionError):
-        get_info('nuclear', [])
+        get_tech_info('nuclear', [])
 
 
 def test_get_info_missing_param():
     with pytest.raises(AssertionError):
-        get_info('nuclear', ['missing'])
+        get_tech_info('nuclear', ['missing'])
 
 
 def test_get_info():
     params = ["fuel", "efficiency_ds", "ramp_rate", "base_level"]
-    info = get_info('nuclear', params)
+    info = get_tech_info('nuclear', params)
     assert all([p in info for p in params])

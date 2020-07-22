@@ -2,7 +2,7 @@ import pandas as pd
 
 import pypsa
 
-from src.data.technologies import get_costs, get_config_values, get_info
+from src.data.technologies import get_costs, get_config_values, get_tech_info
 
 import logging
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
@@ -33,7 +33,7 @@ def add_batteries(network: pypsa.Network, battery_type: str) -> pypsa.Network:
     # Get costs and efficiencies
     capital_cost, marginal_cost = get_costs(battery_type, len(network.snapshots))
     efficiency_dispatch, efficiency_store, self_discharge = \
-        get_info(battery_type, ["efficiency_ds", "efficiency_ch", "efficiency_sd"])
+        get_tech_info(battery_type, ["efficiency_ds", "efficiency_ch", "efficiency_sd"])
     self_discharge = round(1 - self_discharge, 4)
 
     # Get max number of hours of storage

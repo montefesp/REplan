@@ -1,6 +1,6 @@
 import pypsa
 
-from src.data.technologies import get_costs, get_info
+from src.data.technologies import get_costs, get_tech_info
 
 import logging
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
@@ -31,7 +31,7 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
     capital_cost, marginal_cost = get_costs(tech, len(network.snapshots))
 
     # Get fuel type and efficiency
-    fuel, efficiency = get_info(tech, ["fuel", "efficiency_ds"])
+    fuel, efficiency = get_tech_info(tech, ["fuel", "efficiency_ds"])
 
     network.madd("Generator",
                  buses.index,

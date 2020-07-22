@@ -75,7 +75,7 @@ def get_config_values(tech_name: str, params: List[str]) -> Union[Any, List[Any]
         return [tech_config_dict[tech_name][param] for param in params]
 
 
-def get_info(tech_name: str, params: List[str]) -> pd.Series:
+def get_tech_info(tech_name: str, params: List[str]) -> pd.Series:
     """
     Return some information about a pre-defined technology.
 
@@ -102,3 +102,30 @@ def get_info(tech_name: str, params: List[str]) -> pd.Series:
         assert param in tech_info, f"Error: There is no parameter {param} for technology {tech_name}."
 
     return tech_info[params]
+
+
+def get_fuel_info(fuel_name: str, params: List[str]) -> pd.Series:
+    """
+    Return some information about a pre-defined fuel.
+
+    Parameters
+    ----------
+    fuel_name: str
+        Fuel name.
+    params: List[str]
+        Name of parameters.
+
+    Returns
+    -------
+    pd.Series
+        Series containing the value for each parameter.
+
+    """
+
+    fuel_info_fn = join(dirname(abspath(__file__)), "../../../data/technologies/fuel_info.xlsx")
+    fuel_info = pd.read_excel(fuel_info_fn, sheet_name='values', index_col=0).loc[fuel_name, :]
+
+    for param in params:
+        assert param in fuel_info, f"Error: There is no parameter {param} for technology {fuel_name}."
+
+    return fuel_info[params]

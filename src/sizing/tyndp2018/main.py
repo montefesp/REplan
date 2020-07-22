@@ -37,7 +37,6 @@ def parse_args():
 
     return parsed_args
 
-NHoursPerYear = 8760.
 
 if __name__ == '__main__':
 
@@ -53,6 +52,7 @@ if __name__ == '__main__':
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
 
+    #TODO: maybe a cleaner options exists to update these parameters in files.
     solver_options = config["solver_options"][config["solver"]]
     if config["solver"] == 'gurobi':
         config["solver_options"][config["solver"]]['Threads'] = args['threads']
@@ -162,28 +162,28 @@ if __name__ == '__main__':
     if config["battery"]["include"]:
         net = add_batteries(net, config["battery"]["type"])
 
-    co2_reference_kt = \
-        get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
-    co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(
-        net.snapshots) / NHoursPerYear
-    net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
+    # co2_reference_kt = \
+    #     get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
+    # co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(
+    #     net.snapshots) / NHoursPerYear
+    # net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
 
     # net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
     #          solver_options=config["solver_options"][config["solver"]],
     #          keep_references=True, keep_shadowprices=["Generator", "Bus"], pyomo=False)
 
     net.lopf(solver_name=config["solver"],
-             solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
+             solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"][config["solver"]],
              extra_functionality=add_extra_functionalities,
              pyomo=True)
 
-    if config['keep_lp']:
-        net.model.write(filename=join(output_dir, 'model.lp'),
-                        format=ProblemFormat.cpxlp,
-                        # io_options={'symbolic_solver_labels': True})
-                        io_options={'symbolic_solver_labels': False})
-        net.model.objective.pprint()
+    # if config['keep_lp']:
+        # net.model.write(filename=join(output_dir, 'model.lp'),
+        #                 format=ProblemFormat.cpxlp,
+        #                 # io_options={'symbolic_solver_labels': True})
+        #                 io_options={'symbolic_solver_labels': False})
+        # net.model.generation_emissions_global.pprint()
 
     # marginal_price = pypsa.linopt.get_dual(net, 'Bus', 'marginal_price')
     # shadow_price = pypsa.linopt.get_dual(net, 'Generator', 'mu_upper')

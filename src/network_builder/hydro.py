@@ -3,7 +3,7 @@ import logging
 import pypsa
 
 from src.data.hydro import *
-from src.data.technologies import get_costs, get_info
+from src.data.technologies import get_costs, get_tech_info
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
@@ -67,7 +67,7 @@ def add_phs_plants(net: pypsa.Network, topology_type: str = "countries",
     # Get cost and efficiencies
     capital_cost, marginal_cost = get_costs('phs', len(net.snapshots))
     efficiency_dispatch, efficiency_store, self_discharge = \
-        get_info('phs', ["efficiency_ds", "efficiency_ch", "efficiency_sd"])
+        get_tech_info('phs', ["efficiency_ds", "efficiency_ch", "efficiency_sd"])
     self_discharge = round(1 - self_discharge, 4)
 
     net.madd("StorageUnit",
@@ -147,7 +147,7 @@ def add_ror_plants(net: pypsa.Network, topology_type: str = "countries",
 
     # Get cost and efficiencies
     capital_cost, marginal_cost = get_costs('ror', len(net.snapshots))
-    efficiency = get_info('ror', ["efficiency_ds"])["efficiency_ds"]
+    efficiency = get_tech_info('ror', ["efficiency_ds"])["efficiency_ds"]
 
     net.madd("Generator",
              bus_pow_cap.index,
@@ -231,7 +231,7 @@ def add_sto_plants(net: pypsa.Network, topology_type: str = "countries",
     capital_cost, marginal_cost = get_costs('sto', len(net.snapshots))
 
     # Get efficiencies
-    efficiency_dispatch = get_info('sto', ['efficiency_ds'])["efficiency_ds"]
+    efficiency_dispatch = get_tech_info('sto', ['efficiency_ds'])["efficiency_ds"]
 
     net.madd("StorageUnit",
              bus_pow_cap.index,

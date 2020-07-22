@@ -3,7 +3,7 @@ from typing import List
 import pypsa
 
 from src.data.generation import get_powerplants, match_powerplants_to_regions
-from src.data.technologies import get_costs, get_info
+from src.data.technologies import get_costs, get_tech_info
 
 from warnings import warn
 import logging
@@ -61,7 +61,8 @@ def add_generators(net: pypsa.Network, countries: List[str],
     capital_cost, marginal_cost = get_costs('nuclear', len(net.snapshots))
 
     # Get fuel type, efficiency and ramp rates
-    fuel, efficiency, ramp_rate, base_level = get_info('nuclear', ["fuel", "efficiency_ds", "ramp_rate", "base_level"])
+    fuel, efficiency, ramp_rate, base_level = \
+        get_tech_info('nuclear', ["fuel", "efficiency_ds", "ramp_rate", "base_level"])
 
     net.madd("Generator",
              "Gen nuclear " + gens.Name + " " + gens.bus_id,
