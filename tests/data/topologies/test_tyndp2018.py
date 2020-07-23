@@ -1,6 +1,6 @@
 import pytest
 
-from src.data.topologies.tyndp2018 import *
+from pyggrid.data.topologies.tyndp2018 import *
 
 
 def test_get_topology_no_countries():
@@ -47,14 +47,14 @@ def test_get_topology_whole():
     n = get_topology(n)
     assert isinstance(n, pypsa.Network)
     # Buses
-    assert len(n.buses) == 38
+    assert len(n.buses) == 37
     assert "x" in n.buses.keys()
     assert "y" in n.buses.keys()
     assert "country" in n.buses.keys()
     assert "region" in n.buses.keys()
     assert "onshore" in n.buses.keys()
     # Links
-    assert len(n.links) == 81
+    assert len(n.links) == 80
     assert all(l["p_min_pu"] == -1 for idx, l in n.links.iterrows())
     assert all(l["p_nom_extendable"] for idx, l in n.links.iterrows())
     assert all(l["capital_cost"] > 0 for idx, l in n.links.iterrows())

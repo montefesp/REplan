@@ -2,7 +2,7 @@ import pandas as pd
 
 import pytest
 
-from src.resite.resite import Resite
+from pyggrid.resite.resite import Resite
 
 
 def test_init():
@@ -91,4 +91,4 @@ def test_solve_model():
         assert tech in technologies
         points = resite.sel_tech_points_dict[tech]
         for point in points:
-            assert (tech, point) in resite.tech_points_tuples.tolist()
+            assert (tech, point[0], point[1]) in resite.tech_points_tuples.tolist()

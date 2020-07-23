@@ -1,6 +1,6 @@
 import pytest
 
-from src.data.load.manager import *
+from pyggrid.data.load.manager import *
 
 
 def test_get_yearly_country_load_missing_country():

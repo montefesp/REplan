@@ -1,6 +1,6 @@
 import pytest
 
-from src.data.topologies.ehighways import *
+from pyggrid.data.topologies.ehighways import *
 
 
 def test_get_ehighway_clusters():

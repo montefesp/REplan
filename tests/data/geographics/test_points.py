@@ -1,7 +1,7 @@
 import pytest
 
-from src.data.geographics.points import *
-from src.data.geographics import get_shapes
+from pyggrid.data.geographics.points import *
+from pyggrid.data.geographics import get_shapes
 
 
 def test_match_points_to_regions_empty_list_of_points():

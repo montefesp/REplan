@@ -1,6 +1,6 @@
 import pytest
 
-from src.data.technologies.manager import *
+from pyggrid.data.technologies.manager import *
 
 
 def test_get_config_dict_empty_list_of_techs():

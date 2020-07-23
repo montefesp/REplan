@@ -1,7 +1,7 @@
 import pytest
 
-from src.data.generation.manager import *
-from src.data.geographics import get_shapes
+from pyggrid.data.generation.manager import *
+from pyggrid.data.geographics import get_shapes
 
 
 def test_get_powerplants_wrong_technology():
@@ -126,37 +126,4 @@ def test_match_powerplants_to_regions_without_shapes():
     ds = match_powerplants_to_regions(df, shapes, [c[:2] for c in regions])
     assert all([c in ds.values for c in ["ES52", "ES42", "ES51"]])
 
-
-def test_get_hydro_production_empty_years():
-    with pytest.raises(AssertionError):
-        get_hydro_production(years=[])
-
-
-def test_get_hydro_production_empty_countries():
-    with pytest.raises(AssertionError):
-        get_hydro_production(countries=[])
-
-
-def test_get_hydro_production_missing_year():
-    with pytest.raises(AssertionError):
-        get_hydro_production(years=[2000, 2050])
-
-
-def test_get_hydro_production_missing_country():
-    with pytest.raises(AssertionError):
-        get_hydro_production(countries=["ZZ"])
-
-
-def test_get_hydro_production_subset():
-    countries = ["BE", "NL", "PL"]
-    years = [2012, 2015, 2017]
-    df = get_hydro_production(countries=countries, years=years)
-    assert isinstance(df, pd.DataFrame)
-    assert not (set(countries).symmetric_difference(set(df.index)))
-    assert not (set(years).symmetric_difference(set(df.columns)))
-
-
-def test_get_hydro_production_whole():
-    df = get_hydro_production()
-    assert isinstance(df, pd.DataFrame)
 
