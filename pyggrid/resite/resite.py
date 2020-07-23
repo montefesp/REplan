@@ -76,9 +76,7 @@ class Resite:
         if output_folder is None:
             output_folder = join(dirname(abspath(__file__)), f"../../output/resite/{self.run_start}/")
         assert output_folder[-1] == "/", "Error: Output folder name must end with '/'"
-        print("init folder")
         if not isdir(output_folder):
-            print("creating folder")
             makedirs(output_folder)
 
         logger.info(f"Output folder path is: {abspath(output_folder)}/")

@@ -298,3 +298,5 @@ def add_extra_functionalities(network: pypsa.Network, snapshots: pd.DatetimeInde
             add_co2_budget_per_country(network)
         elif strategy == 'global':
             add_co2_budget_global(network)
+    if config["functionalities"]["import_limit"]["include"]:
+        add_import_limit_constraint(network)
