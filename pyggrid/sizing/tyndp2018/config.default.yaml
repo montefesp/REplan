@@ -111,8 +111,11 @@ functionalities:
     strategy: ['economic', 10.] # ['technical', 0.], ['technical', 1.], ['economic', 0.], ['economic', 9999.]
   load_shed:
     include: True
-
-# Emissions
-co2_emissions:
-  reference_year: 1990 # The only available point now.
-  mitigation_factor: 0.8
+  import_limit:
+    include: True
+    share: 0.5
+  co2_emissions:
+    include: True
+    strategy: 'country' # country, global
+    reference_year: 1990 # Flat reference across all countries for now.
+    mitigation_factor: 0.9

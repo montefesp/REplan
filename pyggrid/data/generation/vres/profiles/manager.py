@@ -189,7 +189,8 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
                                                      wind_speed_references,
                                                      capacity_factor_references_pu).compute()
 
-                    cap_factor_df[tech][coords_classes] = np.array(power_output)
+                    tech_points_tuples = [(tech, lon, lat) for lon, lat in coords_classes]
+                    cap_factor_df.loc[:, tech_points_tuples] = np.array(power_output)
 
                 else:
 

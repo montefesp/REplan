@@ -7,6 +7,7 @@ import yaml
 from pyggrid.data.technologies import get_fuel_info, get_tech_info
 from pyggrid.data.indicators.emissions import get_co2_emission_level_for_country, \
     get_reference_emission_levels_for_region
+from pyggrid.data.load import get_load
 
 
 def add_snsp_constraint_tyndp(network: pypsa.Network, snapshots: pd.DatetimeIndex):
@@ -221,6 +222,52 @@ def add_co2_budget_global(network: pypsa.Network):
     model.generation_emissions_global = Constraint(rule=generation_emissions_rule)
 
 
+def add_import_limit_constraint(network: pypsa.Network):
+    """
+    Add per-bus constraint on import budgets.
+
+    Parameters
+    ----------
+    network: pypsa.Network
+        A PyPSA Network instance with buses associated to regions
+
+    """
+
+    config_fn = join(dirname(abspath(__file__)), '../sizing/tyndp2018/config.yaml')
+    config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
+
+    timeslice = config['time']['slice']
+    time_resolution = config['time']['resolution']
+    timestamps = pd.date_range(timeslice[0], timeslice[1], freq=f"{time_resolution}H")
+
+    # TODO: to un-comment the line below when topology is included in config.yaml (upon merging the main)
+    # assert topology == 'tyndp', "Error: Only one-node-per-country topologies are supported for this constraint."
+
+    import_share = config["functionalities"]["import_limit"]["share"]
+    # flat value across EU, could be updated to support different values for different countries
+
+    model = network.model
+    buses = network.buses.index
+    links = network.links
+
+    def import_constraint_rule(model, bus):
+
+        load_at_bus = get_load(timestamps=timestamps, countries=[bus], missing_data='interpolate').sum()
+        import_budget = import_share * load_at_bus.values[0]
+
+        links_in = links[links.bus1 == bus].index
+        links_out = links[links.bus0 == bus].index
+
+        imports = 0.
+        if not links_in.empty:
+            imports += sum(model.link_p[e, s] for e in links_in for s in network.snapshots)
+        if not links_out.empty:
+            imports -= sum(model.link_p[e, s] for e in links_out for s in network.snapshots)
+        return imports <= import_budget
+
+    model.import_constraint = Constraint(list(buses), rule=import_constraint_rule)
+
+
 def add_extra_functionalities(network: pypsa.Network, snapshots: pd.DatetimeIndex):
     """
     Wrapper for the inclusion of multiple extra_functionalities.
@@ -251,4 +298,3 @@ def add_extra_functionalities(network: pypsa.Network, snapshots: pd.DatetimeInde
             add_co2_budget_per_country(network)
         elif strategy == 'global':
             add_co2_budget_global(network)
-

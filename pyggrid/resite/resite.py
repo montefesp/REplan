@@ -76,7 +76,9 @@ class Resite:
         if output_folder is None:
             output_folder = join(dirname(abspath(__file__)), f"../../output/resite/{self.run_start}/")
         assert output_folder[-1] == "/", "Error: Output folder name must end with '/'"
+        print("init folder")
         if not isdir(output_folder):
+            print("creating folder")
             makedirs(output_folder)
 
         logger.info(f"Output folder path is: {abspath(output_folder)}/")
@@ -218,28 +220,30 @@ class Resite:
 
     def retrieve_selected_sites_data(self):
         """Retrieve data for the selected sites and store it."""
-        sel_tech_points_tuples = [(tech, point[0], point[1]) for tech, points in self.sel_tech_points_dict.items()
-                                  for point in points]
+        self.sel_tech_points_tuples = [(tech, point[0], point[1]) for tech, points in self.sel_tech_points_dict.items()
+                                       for point in points]
 
         for name, data in self.data_dict.items():
             # Retrieve data only for series or dataframe containing per site data
-            if (isinstance(data, pd.Series) and sel_tech_points_tuples[0] in data.index)\
-                    or (isinstance(data, pd.DataFrame) and sel_tech_points_tuples[0] in data.columns):
-                self.sel_data_dict[name] = data[sel_tech_points_tuples]
+            if (isinstance(data, pd.Series) and self.sel_tech_points_tuples[0] in data.index)\
+                    or (isinstance(data, pd.DataFrame) and self.sel_tech_points_tuples[0] in data.columns):
+                self.sel_data_dict[name] = data[self.sel_tech_points_tuples]
 
     def __getstate__(self):
         return (self.timestamps, self.regions, self.spatial_res, self.technologies,
                 self.use_ex_cap, self.cap_pot_thresh_dict,
                 self.formulation, self.formulation_params, self.modelling,
                 self.tech_points_dict, self.data_dict, self.initial_sites_ds,
-                self.sel_tech_points_dict, self.sel_data_dict, self.y_ds)
+                self.sel_tech_points_tuples, self.sel_tech_points_dict,
+                self.sel_data_dict, self.y_ds)
 
     def __setstate__(self, state):
         (self.timestamps, self.regions, self.spatial_res, self.technologies,
          self.use_ex_cap, self.cap_pot_thresh_dict,
          self.formulation, self.formulation_params, self.modelling,
          self.tech_points_dict, self.data_dict, self.initial_sites_ds,
-         self.sel_tech_points_dict, self.sel_data_dict, self.y_ds) = state
+         self.sel_tech_points_tuples, self.sel_tech_points_dict,
+         self.sel_data_dict, self.y_ds) = state
 
     def save(self, dir_name: str = None):
         """Save all results and parameters."""

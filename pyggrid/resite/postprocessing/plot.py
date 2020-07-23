@@ -56,8 +56,14 @@ if __name__ == '__main__':
     print(output_dir_)
 
     resite_ = pickle.load(open(f"{output_dir_}resite_instance.p", 'rb'))
-    print(f"Region: {resite_.regions}")
+    print(resite_)
 
-    data = resite_.sel_data_dict["cap_potential_ds"] * resite_.y_ds
+    print(resite_.data_dict["load"].sum().sum()*0.32)
+    print((resite_.data_dict["cap_factor_df"].sum()*resite_.data_dict["cap_potential_ds"]*resite_.y_ds).sum())
+
+    data = resite_.data_dict["cap_potential_ds"] * resite_.y_ds
+    print(data)
+    print(data.groupby("Technology Name").sum())
+    exit()
     data_name_ = "Capacity Potential (GW)"
     plot_map(resite_, data, data_name_)
