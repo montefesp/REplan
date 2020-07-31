@@ -18,7 +18,7 @@ def plot_map(resite: Resite, sites_data: pd.Series, data_name: str):
     show_shapes = True
     sites_shapes = resite.initial_sites_ds
     sites_index = sites_data.index
-    for tech in set(sites_index.get_level_values(0)):
+    for tech in sorted(list(set(sites_index.get_level_values(0)))):
         tech_sites_index = sites_index[sites_index.get_level_values(0) == tech]
         points = list(zip(tech_sites_index.get_level_values(1), tech_sites_index.get_level_values(2)))
         xs, ys = zip(*points)
@@ -39,7 +39,7 @@ def plot_map(resite: Resite, sites_data: pd.Series, data_name: str):
                         c=sites_data[tech].values)
         plt.colorbar(sc)
         plt.title(f"{data_name} for {tech}")
-        plt.show()
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -47,12 +47,13 @@ if __name__ == '__main__':
     assert (len(sys.argv) == 2) or (len(sys.argv) == 3), \
         "You need to provide one or two argument: output_dir (and test_number)"
 
-    main_output_dir = sys.argv[1]
-    test_number = sys.argv[2] if len(sys.argv) == 3 else None
-    if test_number is None:
-        test_number = sorted(os.listdir(main_output_dir))[-1]
-    output_dir_ = f"{main_output_dir}{test_number}/"
-    # output_dir_ = "/output/resite_EU_meet_res_agg_use_ex_cap/0.1/"
+    if 0:
+        main_output_dir = sys.argv[1]
+        test_number = sys.argv[2] if len(sys.argv) == 3 else None
+        if test_number is None:
+            test_number = sorted(os.listdir(main_output_dir))[-1]
+        output_dir_ = f"{main_output_dir}{test_number}/"
+    output_dir_ = "/home/utilisateur/Global_Grid/code/pyggrid/output/resite_EU_meet_RES_target/4_hour/"
     print(output_dir_)
 
     resite_ = pickle.load(open(f"{output_dir_}resite_instance.p", 'rb'))
@@ -61,9 +62,6 @@ if __name__ == '__main__':
     print(resite_.data_dict["load"].sum().sum()*0.32)
     print((resite_.data_dict["cap_factor_df"].sum()*resite_.data_dict["cap_potential_ds"]*resite_.y_ds).sum())
 
-    data = resite_.data_dict["cap_potential_ds"] * resite_.y_ds
-    print(data)
-    print(data.groupby("Technology Name").sum())
-    exit()
-    data_name_ = "Capacity Potential (GW)"
+    data = resite_.y_ds
+    data_name_ = "Percentage of use"
     plot_map(resite_, data, data_name_)

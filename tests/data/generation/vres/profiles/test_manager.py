@@ -11,7 +11,7 @@ def test_read_resource_database_wrong_spatial_resolution():
 def test_read_resource_database_output():
     ds = read_resource_database(0.5)
     assert list(ds.data_vars) == ['u100', 'v100', 't2m', 'ssrd', 'fsr']
-    assert len(ds.locations) == 11011
+    assert len(ds.locations) == 14641
     assert round(float(np.mean(ds.u100.sel(locations=(4, 50.5)).values)), 4) == 1.6716
     assert round(float(np.mean(ds.v100.sel(locations=(4, 50.5)).values)), 4) == 1.6835
     assert round(float(np.mean(ds.t2m.sel(locations=(4, 50.5)).values)), 4) == 284.2072
@@ -82,6 +82,12 @@ def test_get_cap_factor_for_countries_wrong_tech():
     ts = pd.date_range('2015-01-01T00:00', '2016-01-31T23:00', freq='1H')
     with pytest.raises(AssertionError):
         get_cap_factor_for_countries("wind", ["BE"], ts)
+
+
+def test_get_cap_factor_for_countries_wrong_tech_plant():
+    ts = pd.date_range('2015-01-01T00:00', '2016-01-31T23:00', freq='1H')
+    with pytest.raises(ValueError):
+        get_cap_factor_for_countries("ccgt", ["BE"], ts)
 
 
 def test_get_cap_factor_for_countries_missing_country():

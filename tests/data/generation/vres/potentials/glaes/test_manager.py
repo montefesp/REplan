@@ -102,7 +102,7 @@ def test_compute_land_availability_gebco():
     filters = {'depth_thresholds': {'low': -50, 'high': -10}}
     init_land_availability_globals(filters)
     availability = compute_land_availability(offshore_shape)
-    assert availability == 2805.86
+    assert availability == 2828.41
 
 
 def test_compute_land_availability_emodnet():

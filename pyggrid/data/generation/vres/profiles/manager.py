@@ -54,18 +54,19 @@ def read_resource_database(spatial_resolution: float) -> xr.Dataset:
         file_list = [file for file in glob.glob(f"{resource_dir}/*.nc") if area in file]
         ds = xr.open_mfdataset(file_list,
                                combine='by_coords',
-                               chunks={'latitude': 20, 'longitude': 20})\
+                               chunks={'latitude': 100, 'longitude': 100})\
             .stack(locations=('longitude', 'latitude')).astype(np.float32)
         datasets.append(ds)
 
     # Concatenate all regions on locations.
     dataset = xr.concat(datasets, dim='locations')
     # Removing duplicates potentially there from previous concat of multiple regions.
+    # TODO: deal with performannce warning
     _, index = np.unique(dataset['locations'], return_index=True)
     dataset = dataset.isel(locations=index)
     # dataset = dataset.sel(locations=~dataset.indexes['locations'].duplicated(keep='first'))
     # Sorting dataset on coordinates (mainly due to xarray peculiarities between concat and merge).
-    dataset = dataset.sortby([dataset.longitude, dataset.latitude])
+    dataset = dataset.sortby('locations')
     # Remove attributes from datasets. No particular use, looks cleaner.
     dataset.attrs = {}
 
@@ -201,6 +202,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
             converter = converters_dict[tech]["converter"]
 
             # Get irradiance in W from J
+            # TODO: getting NANs here... and not always the same number
             irradiance = sub_dataset.ssrd / 3600.
             # Get temperature in C from K
             temperature = sub_dataset.t2m - 273.15
@@ -220,6 +222,9 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
         else:
             raise ValueError(' Profiles for the specified resource is not available yet.')
 
+    # Check that we do not have NANs
+    assert cap_factor_df.isna().to_numpy().sum() == 0, "Error: Some capacity factors are not available."
+
     # Decrease precision of capacity factors
     cap_factor_df = cap_factor_df.round(3)
 
@@ -235,11 +240,11 @@ def get_cap_factor_for_countries(tech: str, countries: List[str], timestamps: pd
     Parameters
     ----------
     tech: str
-        One of the technology among: 'pv_residential', 'pv_utility', 'wind_onshore', 'wind_offshore', 'wind_floating'.
+        One of the technology associated to plant 'PV' or 'Wind' (with type 'Onshore', 'Offshore' or 'Floating').
     countries: List[str]
-        List of ISO codes of countries
+        List of ISO codes of countries.
     timestamps: pd.DatetimeIndex
-        List of time stamps
+        List of time stamps.
     throw_error: bool (default True)
         Whether to throw an error when capacity factors are not available for a given country or
         compute capacity factors from another method.
@@ -251,16 +256,17 @@ def get_cap_factor_for_countries(tech: str, countries: List[str], timestamps: pd
 
     """
 
-    accepted_techs = ['pv_residential', 'pv_utility', 'wind_onshore', 'wind_offshore', 'wind_floating']
-    assert tech in accepted_techs, f"Error: Technology {tech} is not part of {accepted_techs}"
+    plant, plant_type = get_config_values(tech, ["plant", "type"])
 
     profiles_dir = join(dirname(abspath(__file__)), "../../../../../data/generation/vres/profiles/generated/")
-    if tech in ['pv_residential', 'pv_utility']:
+    if plant == 'PV':
         capacity_factors_df = pd.read_csv(f"{profiles_dir}pv_cap_factors.csv", index_col=0)
-    elif tech == "wind_onshore":
+    elif plant == "Wind" and plant_type == "Onshore":
         capacity_factors_df = pd.read_csv(f"{profiles_dir}onshore_wind_cap_factors.csv", index_col=0)
-    else:  # tech in ["wind_offshore", "wind_floating"]
+    elif plant == "Wind" and plant_type in ["Offshore", "Floating"]:
         capacity_factors_df = pd.read_csv(f"{profiles_dir}offshore_wind_cap_factors.csv", index_col=0)
+    else:
+        raise ValueError(f"Error: No capacity factors for technology {tech} of plant {plant} and type {type}.")
 
     capacity_factors_df.index = pd.DatetimeIndex(capacity_factors_df.index)
 

@@ -47,7 +47,7 @@ def test_build_data_one_region():
     regions = ["BENELUX"]
     timeslice = ['2015-01-01T00:00', '2015-01-01T23:00']
     timestamps = pd.date_range(timeslice[0], timeslice[1], freq='1H')
-    nb_sites = [36, 34]
+    nb_sites = [36, 24]
     resite = Resite(regions, technologies, timeslice, 0.5)
     resite.build_data(True, [0.01, 0.01])
     build_data_test(resite, technologies, regions, timestamps, nb_sites)
@@ -58,7 +58,7 @@ def test_build_data_two_regions():
     regions = ["BENELUX", "PT"]
     timeslice = ['2015-01-01T00:00', '2015-01-01T23:00']
     timestamps = pd.date_range(timeslice[0], timeslice[1], freq='1H')
-    nb_sites = [73, 40]
+    nb_sites = [73, 34]
     resite = Resite(regions, technologies, timeslice, 0.5)
     resite.build_data(True)
     build_data_test(resite, technologies, regions, timestamps, nb_sites)

@@ -1,4 +1,5 @@
 from os.path import join, dirname, abspath, isfile
+from os import listdir
 from typing import List, Dict, Union, Any
 from ast import literal_eval
 import yaml
@@ -74,7 +75,7 @@ def init_land_availability_globals(filters: Dict) -> None:
     """
 
     # global in each process of the multiprocessing.Pool
-    global gebco_, clc_, natura_, spatial_ref_, filters_, cargo_, tanker_, cables_, pipelines_
+    global gebcos_, clc_, natura_, spatial_ref_, filters_, cargo_, tanker_, cables_, pipelines_
 
     filters_ = filters
 
@@ -89,8 +90,9 @@ def init_land_availability_globals(filters: Dict) -> None:
 
     # GEBCO dataset (altitude and depth)
     if 'depth_thresholds' in filters or 'altitude_threshold' in filters:
-        gebco_fn = f"{data_dir}source/GEBCO/GEBCO_2019/gebco_2019_n75.0_s30.0_w-20.0_e40.0.tif"
-        gebco_ = gk.raster.loadRaster(gebco_fn)
+        gebco_dir = f"{data_dir}source/GEBCO/"
+        gebco_fns = [f"{gebco_dir}{fn}" for fn in listdir(gebco_dir) if fn.endswith(".tif")]
+        gebcos_ = [gk.raster.loadRaster(fn) for fn in gebco_fns]
 
     # Corine dataset (land use)
     if 'clc' in filters:
@@ -150,8 +152,9 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
     # GLAES priors
     if 'glaes_prior_defaults' in filters_:
         prior_defaults_params = filters_['glaes_prior_defaults']
-        filters_["glaes_priors"] = get_glaes_prior_defaults(prior_defaults_params["config"],
-                                                            prior_defaults_params["priors"])
+        prior_config = prior_defaults_params["config"]
+        priors = prior_defaults_params["priors"] if 'priors' in prior_defaults_params else None
+        filters_["glaes_priors"] = get_glaes_prior_defaults(prior_config, priors)
 
     if 'glaes_priors' in filters_:
         priors_filters = filters_["glaes_priors"]
@@ -173,9 +176,12 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
     if 'depth_thresholds' in filters_:
         depth_thresholds = filters_["depth_thresholds"]
         # Keep points between two depth thresholds
-        ec.excludeRasterType(gebco_, (depth_thresholds["low"], depth_thresholds["high"]), invert=True)
+        for gebco in gebcos_:
+            ec.excludeRasterType(gebco, (-1e4, depth_thresholds["low"]))
+            ec.excludeRasterType(gebco, (depth_thresholds["high"], 0))
     elif 'altitude_threshold' in filters_ and filters_['altitude_threshold'] > 0.:
-        ec.excludeRasterType(gebco_, (filters_['altitude_threshold'], None))
+        for gebco in gebcos_:
+            ec.excludeRasterType(gebco, (filters_['altitude_threshold'], None))
 
     # Corine filters
     if 'clc' in filters_:
@@ -322,3 +328,10 @@ def get_capacity_potential_per_country(countries: List[str], is_onshore: float, 
     land_availability = get_land_availability_for_shapes(shapes, filters, processes)
 
     return pd.Series(land_availability*power_density/1e3, index=shapes.index)
+
+
+if __name__ == '__main__':
+    from pyggrid.data.geographics import get_subregions
+    from pyggrid.data.technologies import get_config_values
+    filters_ = {"depth_thresholds": {"high": -1., "low": -999.}}
+    get_capacity_potential_per_country(get_subregions("ME") + ["TR"], False, filters_, 5, 1)

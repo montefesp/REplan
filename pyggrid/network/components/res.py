@@ -383,7 +383,8 @@ def add_generators_in_grid_cells(net: pypsa.Network, topology_type: str, technol
 
 
 def add_generators_per_bus(net: pypsa.Network, topology_type: str,
-                           technologies: List[str], use_ex_cap: bool = True) -> pypsa.Network:
+                           technologies: List[str], use_ex_cap: bool = True,
+                           bus_ids: List[str] = None) -> pypsa.Network:
     """
     Add VRES generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
 
@@ -398,6 +399,8 @@ def add_generators_per_bus(net: pypsa.Network, topology_type: str,
         Names of VRES technologies to be added.
     use_ex_cap: bool (default: True)
         Whether to take into account existing capacity.
+    bus_ids: List[str]
+        Subset of buses to which the generators must be added.
 
     Returns
     -------
@@ -424,11 +427,17 @@ def add_generators_per_bus(net: pypsa.Network, topology_type: str,
     assert topology_type in accepted_topologies, \
         f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
 
+    # Filter out buses
+    # TODO: to be tested
+    all_buses = net.buses.copy()
+    if bus_ids is not None:
+        all_buses = all_buses.loc[bus_ids]
+
     for attr in ["x", "y", "region", "country"]:
-        assert hasattr(net.buses, attr), f"Error: Buses must contain a '{attr}' attribute."
+        assert hasattr(all_buses, attr), f"Error: Buses must contain a '{attr}' attribute."
 
     # Determine if the network contains offshore buses
-    has_offshore_buses = True if hasattr(net.buses, 'onshore') and sum(~net.buses.onshore) != 0 else False
+    has_offshore_buses = True if (hasattr(all_buses, 'onshore') and sum(~all_buses.onshore) != 0) else False
 
     tech_config_dict = get_config_dict(technologies, ["filters", "power_density", "onshore"])
     for tech in technologies:
@@ -440,7 +449,7 @@ def add_generators_per_bus(net: pypsa.Network, topology_type: str,
                              f" offshore buses are defined.")
 
         # If there are only onshore buses, we add all technologies (including offshore-based ones) to those buses.
-        buses = net.buses.copy()
+        buses = all_buses.copy()
         # If there are offshore buses, we add onshore-based technologies to onshore buses and
         # offshore-based technologies to offshore buses.
         if has_offshore_buses:
@@ -477,6 +486,7 @@ def add_generators_per_bus(net: pypsa.Network, topology_type: str,
                 cap_pot_ds = get_capacity_potential_for_regions({tech: buses_regions_shapes_ds.values})[tech]
                 cap_pot_ds.index = buses.index
         else:
+            # Using GLAES
             filters = tech_config_dict[tech]["filters"]
             power_density = tech_config_dict[tech]["power_density"]
             cap_pot_ds = pd.Series(index=buses.index)

@@ -40,41 +40,46 @@ def get_generators_generation(net: pypsa.Network):
     """Return the total generation (in GWh) over the net.snapshots for each type of generator."""
 
     gens = net.generators
-    types = sorted(list(set(gens.type.values)))
+    tech_types = sorted(list(set(gens.type.values)))
     gens_t = net.generators_t
 
-    generation = dict.fromkeys(types)
+    generation = pd.Series(index=tech_types)
 
-    for tech_type in types:
-        gens_type = gens[gens.type == tech_type]
-        generation[tech_type] = gens_t.p[gens_type.index].to_numpy().sum() * 1e-3
+    for tech_type in tech_types:
+        tech_gens = gens[gens.type == tech_type]
+        generation[tech_type] = gens_t.p[tech_gens.index].to_numpy().sum() * 1e-3
 
     storage_units_t = net.storage_units_t.p
+    # TODO: this is shit
     sto_t = storage_units_t.loc[:, storage_units_t.columns.str.contains("Storage reservoir")]
+    # TODO: wtf is this?
     generation['sto'] = sto_t.to_numpy().sum() * 1e-3
 
-    gen_df = pd.DataFrame.from_dict(generation, orient="index", columns=["generation"]).generation
+    gen_df = generation # pd.DataFrame.from_dict(generation, orient="index", columns=["generation"]).generation
 
     return gen_df.round(2)
 
 
+# TODO: this is shit
 def get_generators_average_usage(net: pypsa.Network):
     """Return the average generation capacity usage (i.e. mean(generation_t/capacity)) of each type of generator"""
 
+    gens = net.generators
+    tech_names = sorted(list(set(gens.type)))
     opt_cap = get_generators_capacity(net)['final']
     tot_gen = get_generators_generation(net)
-    df_capacities_all = net.generators
-    df_cf_per_generator_all = net.generators_t['p_max_pu']
+    cap_factor_df = net.generators_t['p_max_pu']
 
-    df_cf = pd.Series(index=opt_cap.index, dtype=float)
-
+    df_cf = pd.Series(index=tech_names, dtype=float)
     for item in df_cf.index:
 
+        # TODO: why is there a difference?
         if item in ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_residential', 'pv_utility']:
-            df_capacities = df_capacities_all[df_capacities_all.index.str.contains(item)]['p_nom_opt']
-            df_cf_per_generator = \
-                df_cf_per_generator_all.loc[:, df_cf_per_generator_all.columns.str.contains(item)].mean()
-            df_cf.loc[item] = np.average(df_cf_per_generator.values, weights=df_capacities.values)
+            tech_gens_ids = gens.type == item
+            capacities = gens[tech_gens_ids]['p_nom_opt']
+            cf_per_tech = cap_factor_df.loc[:, tech_gens_ids].mean()
+            if sum(capacities) != 0:
+                df_cf.loc[item] = np.average(cf_per_tech.values, weights=capacities.values)
 
         else:
             df_cf.loc[item] = tot_gen.loc[item] * 1e3 / (opt_cap.loc[item] * len(net.snapshots))

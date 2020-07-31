@@ -126,13 +126,10 @@ class Resite:
         # Compute legacy capacity
         existing_cap_ds = pd.Series(0., index=cap_potential_ds.index)
         if use_ex_cap:
-            # Get existing capacity at initial sites, for technologies for which we can compute legacy data
-            techs_with_legacy_data = list(set(self.technologies).intersection(['wind_onshore', 'wind_offshore',
-                                                                               'pv_utility', 'pv_residential']))
-            for tech in techs_with_legacy_data:
+            for tech in self.technologies:
                 tech_existing_cap_ds = \
                     get_legacy_capacity_in_regions(tech, grid_cells_ds.loc[tech].reset_index(drop=True),
-                                                   all_subregions)
+                                                   all_subregions, raise_error=False)
                 existing_cap_ds[tech] = tech_existing_cap_ds.values
 
         # Update capacity potential if existing capacity is bigger

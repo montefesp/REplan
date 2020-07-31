@@ -9,7 +9,7 @@ def retrieve_with_cds_api(regions: Dict[str, str], spatial_resolution: float,
                           years: List[str], months: List[str]) -> None:
 
     directory = join(dirname(abspath(__file__)),
-                     f"../../../data/generation/vres/profiles/source/ERA5/{spatial_resolution}/")
+                     f"../../../../../data/generation/vres/profiles/source/ERA5/{spatial_resolution}/")
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -42,20 +42,20 @@ def retrieve_with_cds_api(regions: Dict[str, str], spatial_resolution: float,
                                  '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'],
                         'format': 'netcdf'
                     },
-                    f"{directory}/{region}_{year}_{month}.nc")
+                    f"{directory}{region}_{year}_{month}.nc")
 
 
 if __name__ == '__main__':
 
-    regions_ = {'EU': '75/-20/30/40'} #,
-                # 'NA': '38/-14/28/25',
-                # 'IC': '66/-25/63/-14',
+    regions_ = {# 'EU': '75/-20/30/40'} #,
+                'NA': '30/-20/15/40'}
+                # 'ME': '45/40/7.5/65',
                 # 'GR': '62/-49/59/-42',
                 # 'US': '50/-125/25/-65'}
 
     years_ = ['2018']
-    months_ = ['10', '11', '12']
+    months_ = ['04', '05', '06', '07', '08', '09', '10', '11', '12']
 
-    spatial_resolution_ = 1.0
+    spatial_resolution_ = 0.5
 
     retrieve_with_cds_api(regions_, spatial_resolution_, years_, months_)

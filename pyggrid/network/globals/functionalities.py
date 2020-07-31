@@ -10,7 +10,7 @@ from pyggrid.data.indicators.emissions import get_co2_emission_level_for_country
 from pyggrid.data.load import get_load
 
 
-def add_snsp_constraint_tyndp(network: pypsa.Network, snapshots: pd.DatetimeIndex):
+def add_snsp_constraint_tyndp(network: pypsa.Network, snapshots: pd.DatetimeIndex, snsp_share: float):
     """
     Add system non-synchronous generation share constraint to the model.
 
@@ -20,18 +20,14 @@ def add_snsp_constraint_tyndp(network: pypsa.Network, snapshots: pd.DatetimeInde
         A PyPSA Network instance with buses associated to regions
     snapshots: pd.DatetimeIndex
         Network snapshots.
+    snsp_share: float
+        Share of system non-synchronous generation.
 
     """
 
-    config_fn = join(dirname(abspath(__file__)), '../sizing/tyndp2018/config.yaml')
-    config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
-
-    snsp_share = config['functionalities']["snsp"]["share"]
-
     model = network.model
-
+    # TODO: check if this still works
     nonsync_techs = ['wind', 'pv', 'Li-ion']
-
     def snsp_rule(model, bus, snapshot):
 
         generators_at_bus = network.generators.index[network.generators.bus == bus]
@@ -48,7 +44,7 @@ def add_snsp_constraint_tyndp(network: pypsa.Network, snapshots: pd.DatetimeInde
     model.snsp = Constraint(list(network.buses.index), list(snapshots), rule=snsp_rule)
 
 
-def add_curtailment_penalty_term(network: pypsa.Network, snapshots: pd.DatetimeIndex):
+def add_curtailment_penalty_term(network: pypsa.Network, snapshots: pd.DatetimeIndex, curtailment_cost: float):
     """
     Add curtailment penalties to the objective function.
 
@@ -58,13 +54,10 @@ def add_curtailment_penalty_term(network: pypsa.Network, snapshots: pd.DatetimeI
         A PyPSA Network instance with buses associated to regions
     snapshots: pd.DatetimeIndex
         Network snapshots.
+    curtailment_cost: float
+        Cost of curtailing in M€/MWh # TODO: to be checked
 
     """
-
-    config_fn = join(dirname(abspath(__file__)), '../sizing/tyndp2018/config.yaml')
-    config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
-
-    curtailment_cost = config["functionalities"]["curtailment"]["strategy"][1]
 
     techs = ['wind', 'pv']
     gens = network.generators.index[network.generators.index.str.contains('|'.join(techs))]
@@ -82,7 +75,7 @@ def add_curtailment_penalty_term(network: pypsa.Network, snapshots: pd.DatetimeI
     model.objective.expr += curtailment_cost * sum(model.generator_c[gen, s] for gen in gens for s in snapshots)
 
 
-def add_curtailment_constraints(network: pypsa.Network, snapshots: pd.DatetimeIndex):
+def add_curtailment_constraints(network: pypsa.Network, snapshots: pd.DatetimeIndex, allowed_curtailment_share: float):
     """
     Add extra constrains limiting curtailment of each generator, at each time step, as a share of p_max_pu*p_nom.
 
@@ -92,13 +85,10 @@ def add_curtailment_constraints(network: pypsa.Network, snapshots: pd.DatetimeIn
         A PyPSA Network instance with buses associated to regions
     snapshots: pd.DatetimeIndex
         Network snapshots.
+    allowed_curtailment_share: float
+        Maximum allowed share of generation that can be curtailed.
 
     """
-
-    config_fn = join(dirname(abspath(__file__)), '../sizing/tyndp2018/config.yaml')
-    config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
-
-    allowed_curtailment_share = config["functionalities"]["curtailment"]["strategy"][1]
 
     model = network.model
     gens_p_max_pu = network.generators_t.p_max_pu
@@ -120,7 +110,7 @@ def add_curtailment_constraints(network: pypsa.Network, snapshots: pd.DatetimeIn
 
 
 #TODO: in this form, this is not valid in the ehighway topology (weights need to be defined for NUTS to country mapping)
-def add_co2_budget_per_country(network: pypsa.Network):
+def add_co2_budget_per_country(network: pypsa.Network, co2_reduction_share: float, co2_reduction_refyear: int):
     """
     Add CO2 budget per country.
 
@@ -128,17 +118,15 @@ def add_co2_budget_per_country(network: pypsa.Network):
     ----------
     network: pypsa.Network
         A PyPSA Network instance with buses associated to regions
+    co2_reduction_share: float
+        Percentage of reduction of emission.
+    co2_reduction_refyear: int
+        Reference year from which the reduction in emission is computed.
 
     """
 
-    config_fn = join(dirname(abspath(__file__)), '../sizing/tyndp2018/config.yaml')
-    config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
-
     # TODO: to un-comment the line below when topology is included in config.yaml (upon merging the main)
     # assert topology == 'tyndp', "Error: Only one-node-per-country topologies are supported for this constraint."
-
-    co2_reduction_share = config["functionalities"]["co2_emissions"]["mitigation_factor"]
-    co2_reduction_refyear = config["functionalities"]["co2_emissions"]["reference_year"]
 
     model = network.model
     buses = network.buses.index
@@ -173,31 +161,30 @@ def add_co2_budget_per_country(network: pypsa.Network):
     model.generation_emissions_per_bus = Constraint(list(buses), rule=generation_emissions_per_bus_rule)
 
 
-def add_co2_budget_global(network: pypsa.Network):
+def add_co2_budget_global(network: pypsa.Network, region: str, co2_reduction_share: float, co2_reduction_refyear: int):
     """
     Add global CO2 budget.
 
     Parameters
     ----------
+    region: str
+        Region over which the network is defined.
     network: pypsa.Network
         A PyPSA Network instance with buses associated to regions
+    co2_reduction_share: float
+        Percentage of reduction of emission.
+    co2_reduction_refyear: int
+        Reference year from which the reduction in emission is computed.
 
     """
-
-    config_fn = join(dirname(abspath(__file__)), '../sizing/tyndp2018/config.yaml')
-    config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
-
-    co2_reduction_share = config["functionalities"]["co2_emissions"]["mitigation_factor"]
-    co2_reduction_refyear = config["functionalities"]["co2_emissions"]["reference_year"]
 
     model = network.model
 
     NHoursPerYear = 8760.
     co2_techs = ['ccgt']
 
-    co2_reference_kt = get_reference_emission_levels_for_region(config["region"], co2_reduction_refyear)
+    co2_reference_kt = get_reference_emission_levels_for_region(region, co2_reduction_refyear)
     co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(network.snapshots) / NHoursPerYear
-    print(co2_budget)
 
     gens = network.generators[(network.generators.type.str.contains('|'.join(co2_techs)))]
 
@@ -213,16 +200,14 @@ def add_co2_budget_global(network: pypsa.Network):
             gen = gens[gens.index.str.contains(tech)]
 
             for g in gen.index.values:
-
                 for s in network.snapshots:
-
                     generator_emissions_sum += model.generator_p[g, s]*fuel_emissions_thermal.values[0]
 
         return generator_emissions_sum <= co2_budget
     model.generation_emissions_global = Constraint(rule=generation_emissions_rule)
 
 
-def add_import_limit_constraint(network: pypsa.Network):
+def add_import_limit_constraint(network: pypsa.Network, snapshots: pd.DatetimeIndex, import_share: float):
     """
     Add per-bus constraint on import budgets.
 
@@ -230,21 +215,21 @@ def add_import_limit_constraint(network: pypsa.Network):
     ----------
     network: pypsa.Network
         A PyPSA Network instance with buses associated to regions
+    # TODO: we actually don't even need to pass this because it's already contained in network
+    snapshots: pd.DatetimeIndex
+        Network snapshots.
+    import_share: float
+        Maximum share of load that can be satisfied via imports.
+
+    Notes
+    -----
+    Using a flat value across EU, could be updated to support different values for different countries
+
 
     """
 
-    config_fn = join(dirname(abspath(__file__)), '../sizing/tyndp2018/config.yaml')
-    config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
-
-    timeslice = config['time']['slice']
-    time_resolution = config['time']['resolution']
-    timestamps = pd.date_range(timeslice[0], timeslice[1], freq=f"{time_resolution}H")
-
     # TODO: to un-comment the line below when topology is included in config.yaml (upon merging the main)
     # assert topology == 'tyndp', "Error: Only one-node-per-country topologies are supported for this constraint."
-
-    import_share = config["functionalities"]["import_limit"]["share"]
-    # flat value across EU, could be updated to support different values for different countries
 
     model = network.model
     buses = network.buses.index
@@ -252,7 +237,7 @@ def add_import_limit_constraint(network: pypsa.Network):
 
     def import_constraint_rule(model, bus):
 
-        load_at_bus = get_load(timestamps=timestamps, countries=[bus], missing_data='interpolate').sum()
+        load_at_bus = get_load(timestamps=snapshots, countries=[bus], missing_data='interpolate').sum()
         import_budget = import_share * load_at_bus.values[0]
 
         links_in = links[links.bus1 == bus].index
@@ -281,22 +266,29 @@ def add_extra_functionalities(network: pypsa.Network, snapshots: pd.DatetimeInde
 
     """
 
-    config_fn = join(dirname(abspath(__file__)), '../sizing/tyndp2018/config.yaml')
+    # TODO: this should be passed as argument... -> cannot do it actually... this is shit.
+    config_fn = join(dirname(abspath(__file__)), '../../sizing/elia/config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
+    conf_func = config["functionalities"]
 
-    if config["functionalities"]["snsp"]["include"]:
-        add_snsp_constraint_tyndp(network, snapshots)
-    if config["functionalities"]["curtailment"]["include"]:
-        strategy = config["functionalities"]["curtailment"]["strategy"][0]
+    if conf_func["snsp"]["include"]:
+        add_snsp_constraint_tyndp(network, snapshots, conf_func["snsp"]["share"])
+
+    if conf_func["curtailment"]["include"]:
+        strategy = conf_func["curtailment"]["strategy"][0]
         if strategy == 'economic':
-            add_curtailment_penalty_term(network, snapshots)
+            add_curtailment_penalty_term(network, snapshots, conf_func["curtailment"]["strategy"][1])
         elif strategy == 'technical':
-            add_curtailment_constraints(network, snapshots)
-    if config["functionalities"]["co2_emissions"]["include"]:
-        strategy = config["functionalities"]["co2_emissions"]["strategy"]
+            add_curtailment_constraints(network, snapshots, conf_func["curtailment"]["strategy"][1])
+
+    if conf_func["co2_emissions"]["include"]:
+        strategy = conf_func["co2_emissions"]["strategy"]
+        mitigation_factor = conf_func["co2_emissions"]["mitigation_factor"]
+        ref_year = conf_func["co2_emissions"]["reference_year"]
         if strategy == 'country':
-            add_co2_budget_per_country(network)
+            add_co2_budget_per_country(network, mitigation_factor, ref_year)
         elif strategy == 'global':
-            add_co2_budget_global(network)
-    if config["functionalities"]["import_limit"]["include"]:
-        add_import_limit_constraint(network)
+            add_co2_budget_global(network, config["region"], mitigation_factor, ref_year)
+
+    if conf_func["import_limit"]["include"]:
+        add_import_limit_constraint(network, conf_func["import_limit"]["share"])

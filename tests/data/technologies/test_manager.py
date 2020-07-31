@@ -57,6 +57,17 @@ def test_get_config_dict_params_subset():
         assert 'type' in tech_conf_dict[tech_name]
 
 
+def test_get_config_dict_params_custom():
+    tech_names = ['wind_onshore_noneu', 'pv_utility_noneu']
+    params = ["onshore", "filters"]
+    tech_conf_dict = get_config_dict(tech_names, params)
+    for tech_name in tech_names:
+        assert tech_name in tech_conf_dict
+        assert 'onshore' in tech_conf_dict[tech_name]
+        assert 'filters' in tech_conf_dict[tech_name]
+        assert tech_conf_dict[tech_name]["filters"] == {"altitude_threshold": 1500.}
+
+
 def test_get_config_values_empty_params_list():
     with pytest.raises(AssertionError):
         get_config_values('nuclear', [])

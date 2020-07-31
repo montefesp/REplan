@@ -11,11 +11,11 @@ from pyggrid.resite.resite import Resite
 class ResitePlotly:
 
     def __init__(self, resite: Resite):
-        #self.tech_colors = {"wind_onshore": "rgba(51,100,255,0.5)",  # middle-dark blue
-        #                    "wind_offshore": "rgba(51,51,255,0.5)",  # dark blue
-        #                    "wind_floating": "rgba(50,164,255,0.5)",  # middle blue
-        #                    "pv_utility": "rgba(220,20,60,0.5)",  # red
-        #                    "pv_residential": "rgba(255,153,255,0.5)",  # pink
+        # self.tech_colors = {"wind_onshore": "rgba(51,100,255,0.5)",  # middle-dark blue
+        #                     "wind_offshore": "rgba(51,51,255,0.5)",  # dark blue
+        #                     "wind_floating": "rgba(50,164,255,0.5)",  # middle blue
+        #                     "pv_utility": "rgba(220,20,60,0.5)",  # red
+        #                     "pv_residential": "rgba(255,153,255,0.5)",  # pink
         #                    }
         self.tech_colors = get_config_dict(resite.technologies, ["color"])
         self.resite = resite

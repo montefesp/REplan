@@ -168,7 +168,7 @@ def test_add_generators_in_grid_cells_offshore():
     net = add_generators_in_grid_cells(net, "countries", [tech], "BENELUX", 0.5)
     gens = net.generators
     assert len(gens[gens.bus == "ONBE"]) == 2
-    assert len(gens[gens.bus == "ONNL"]) == 33
+    assert len(gens[gens.bus == "ONNL"]) == 23
     analyze_gens(net, tech)
     net = net_.copy()
     net = add_generators_in_grid_cells(net, "regions", [tech], "BENELUX", 0.5)

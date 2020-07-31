@@ -1,7 +1,7 @@
 # Scope parameters
 spatial_resolution: 1.0
-timeslice: ['2015-01-01T00:00', '2015-12-31T23:00']
-regions: ['CWE']
+timeslice: ['2016-01-01T00:00', '2016-12-31T23:00']
+regions: ['EU']
 technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
 
 use_ex_cap: False

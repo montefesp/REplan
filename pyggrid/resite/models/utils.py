@@ -31,6 +31,9 @@ def solve_model(resite) -> None:
         print(f"Objective value: {objective}")
     elif resite.modelling == "gurobipy":
         resite.instance.optimize()
+        # from gurobipy import GRB
+        # status = resite.instance.status
+        # if status == GRB.INFEASIBLE
         objective = resite.obj.getValue()
     else:  # resite.modelling == "pyomo":
         from pyomo.opt import SolverFactory
