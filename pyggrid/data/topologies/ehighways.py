@@ -17,7 +17,8 @@ import pypsa
 
 from pyggrid.data.geographics import get_shapes, get_natural_earth_shapes, get_nuts_shapes, replace_iso2_codes
 from pyggrid.data.technologies import get_costs
-from pyggrid.data.topologies.core import plot_topology, voronoi_special
+from pyggrid.data.topologies.core.plot import plot_topology
+from pyggrid.data.topologies.core import voronoi_special
 
 
 def get_ehighway_clusters() -> pd.DataFrame:

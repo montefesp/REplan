@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cf
 
-from pyggrid.data.geographics import display_polygons
+from pyggrid.data.geographics.plot import display_polygons
 from pyggrid.resite.resite import Resite
 
 

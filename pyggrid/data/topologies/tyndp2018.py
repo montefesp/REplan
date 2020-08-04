@@ -12,7 +12,7 @@ import geopy.distance
 
 from pyggrid.data.geographics import get_shapes
 from pyggrid.data.technologies import get_costs
-from pyggrid.data.topologies.core import plot_topology
+from pyggrid.data.topologies.core.plot import plot_topology
 
 
 def preprocess(plotting=True) -> None:

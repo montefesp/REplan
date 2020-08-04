@@ -255,7 +255,7 @@ def get_legacy_capacity_in_countries(tech: str, countries: List[str], raise_erro
 
 
 def get_legacy_capacity_in_regions(tech: str, regions_shapes: pd.Series, countries: List[str],
-                                   raise_error: bool = True) -> pd.Series:
+                                   match_distance: float = 50., raise_error: bool = True) -> pd.Series:
     """
     Return the total existing capacity (in GW) for the given tech for a set of geographical regions.
 
@@ -267,6 +267,8 @@ def get_legacy_capacity_in_regions(tech: str, regions_shapes: pd.Series, countri
         Geographical regions
     countries: List[str]
         List of ISO codes of countries in which the regions are situated
+    match_distance: float (default: 50)
+        Distance threshold (in km) used when associating points to shape.
     raise_error: bool (default: True)
         Whether to raise an error if no legacy data is available for this technology.
 
@@ -292,9 +294,6 @@ def get_legacy_capacity_in_regions(tech: str, regions_shapes: pd.Series, countri
             if countries is not None:
                 data = data[data['ISO code'].isin(countries)]
 
-            if len(data) == 0:
-                return capacities
-
             # Converting from kW to GW
             data['Total power'] *= 1e-6
             data["Location"] = data[["Longitude", "Latitude"]].apply(lambda x: (x.Longitude, x.Latitude), axis=1)
@@ -304,6 +303,9 @@ def get_legacy_capacity_in_regions(tech: str, regions_shapes: pd.Series, countri
                 data = data[data['Area'] != 'Offshore']
             else:  # Offshore
                 data = data[data['Area'] == 'Offshore']
+
+            if len(data) == 0:
+                return capacities
 
         else:  # plant == "PV":
 
@@ -323,7 +325,8 @@ def get_legacy_capacity_in_regions(tech: str, regions_shapes: pd.Series, countri
 
         data = data[["Location", "Total power"]]
 
-        points_region = match_points_to_regions(data["Location"].values, regions_shapes).dropna()
+        points_region = match_points_to_regions(data["Location"].values, regions_shapes,
+                                                distance_threshold=match_distance).dropna()
 
         for region in regions_shapes.index:
             points_in_region = points_region[points_region == region].index.values

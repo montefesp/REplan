@@ -110,14 +110,15 @@ def match_powerplants_to_regions(pp_df: pd.DataFrame, shapes_ds: gpd.GeoSeries,
         try:
             region_code = matched_locs[lon, lat]
             # Need the if because some points are exactly at the same position
-            return region_code if isinstance(region_code, str) else region_code.iloc[0]
+            return region_code if (isinstance(region_code, str) or isinstance(region_code, float)
+                                   or isinstance(region_code, int)) else region_code.iloc[0]
         except (AttributeError, KeyError):
             return None
 
     # Find to which region each plant belongs
-    pp_df["loc"] = pp_df[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1)
     if shapes_countries is None:
-        matched_locs = match_points_to_regions(pp_df["loc"], shapes_ds, distance_threshold=dist_threshold).dropna()
+        plants_locs = pp_df[["lon", "lat"]].apply(lambda xy: (xy[0], xy[1]), axis=1).values
+        matched_locs = match_points_to_regions(plants_locs, shapes_ds, distance_threshold=dist_threshold).dropna()
         plants_region_ds = pp_df[["lon", "lat"]].apply(lambda x: add_region(x[0], x[1]), axis=1)
     else:
         unique_countries = sorted(list(set(pp_df["ISO2"])))

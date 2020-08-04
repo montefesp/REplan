@@ -5,7 +5,8 @@ from shapely.geometry import MultiPolygon
 
 from pyggrid.data.geographics.shapes import *
 
-from pyggrid.data.geographics import get_subregions, display_polygons
+from pyggrid.data.geographics import get_subregions
+from pyggrid.data.geographics.plot import display_polygons
 
 
 def check_series(gs, codes):
