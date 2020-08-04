@@ -4,21 +4,6 @@ from pyggrid.data.generation.vres.legacy.manager import *
 from pyggrid.data.geographics.shapes import get_shapes
 
 
-# TODO: add tests for 'associated_legacy_to_points' and
-#  'get_legacy_capacity_at_points' if we keep these functions
-
-def test_get_legacy_capacity_at_points_wrong_tech():
-    with pytest.raises(AssertionError):
-        get_legacy_capacity_at_points(['zzz'], ['BE'], [(4.5, 50.5), (5, 51)], 0.5)
-
-
-def test_get_legacy_capacity_at_points_wrong_tech_plant_type():
-    with pytest.raises(AssertionError):
-        get_legacy_capacity_at_points(['ccgt'], ['BE'], [(4.5, 50.5), (5, 51)], 0.5)
-    with pytest.raises(AssertionError):
-        get_legacy_capacity_at_points(['wind_floating'], ['BE'], [(4.5, 50.5), (5, 51)], 0.5)
-
-
 def test_get_legacy_capacity_in_countries_wrong_tech():
     with pytest.raises(AssertionError):
         get_legacy_capacity_in_countries('wind', ['BE'])
@@ -56,22 +41,22 @@ def test_get_legacy_capacity_in_countries_output():
     ds = get_legacy_capacity_in_countries('wind_onshore', ['AL', 'CH'])
     assert isinstance(ds, pd.Series)
     assert ds.index.equals(pd.Index(['AL', 'CH']))
-    assert round(ds["AL"]) == 0
+    assert round(ds["AL"], 2) == 0.15
     # Wind offshore
     ds = get_legacy_capacity_in_countries('wind_offshore', ['GR', 'GB'])
     assert isinstance(ds, pd.Series)
     assert ds.index.equals(pd.Index(['GR', 'GB']))
-    assert round(ds["GB"]) == 41
+    assert round(ds["GB"], 2) == 39.64
     # PV utility
     ds = get_legacy_capacity_in_countries('pv_utility', ['BE', 'NL', 'LU'])
     assert isinstance(ds, pd.Series)
     assert ds.index.equals(pd.Index(['BE', 'NL', 'LU']))
-    assert round(ds["NL"]) == 1
+    assert round(ds["NL"], 2) == 0.67
     # PV residential
     ds = get_legacy_capacity_in_countries('pv_residential', ['ME', 'RO'])
     assert isinstance(ds, pd.Series)
     assert ds.index.equals(pd.Index(['ME', 'RO']))
-    assert round(ds["RO"]) == 0
+    assert round(ds["RO"], 2) == 0.04
 
 
 def test_get_legacy_capacity_in_regions_wrong_tech():
@@ -87,9 +72,9 @@ def test_get_legacy_capacity_in_regions_wrong_tech_plant_type():
 
 
 def test_get_legacy_capacity_in_regions_wrong_tech_plant_type_warning():
-    df = get_legacy_capacity_in_regions('ccgt', pd.Series(index=["BE"]), ["BE"], False)
+    df = get_legacy_capacity_in_regions('ccgt', pd.Series(index=["BE"]), ["BE"], raise_error=False)
     assert df.loc["BE"] == 0
-    df = get_legacy_capacity_in_regions('wind_floating', pd.Series(index=["BE"]), ["BE"], False)
+    df = get_legacy_capacity_in_regions('wind_floating', pd.Series(index=["BE"]), ["BE"], raise_error=False)
     assert df.loc["BE"] == 0
 
 
