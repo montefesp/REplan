@@ -12,7 +12,6 @@ import geopy.distance
 
 from pyggrid.data.geographics import get_shapes
 from pyggrid.data.technologies import get_costs
-from pyggrid.data.topologies.core.plot import plot_topology
 
 
 def preprocess(plotting=True) -> None:
@@ -112,6 +111,7 @@ def preprocess(plotting=True) -> None:
         links.loc[idx, "length"] = geopy.distance.geodesic((bus0_y, bus0_x), (bus1_y, bus1_x)).km
 
     if plotting:
+        from pyggrid.data.topologies.core.plot import plot_topology
         plot_topology(buses, links)
         plt.show()
 
