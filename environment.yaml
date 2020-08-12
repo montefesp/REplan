@@ -1,8 +1,9 @@
-name: py_ggrid
+name: pyggrid
 channels:
   - defaults
   - conda-forge
   - ibmdecisionoptimization
+  - http://conda.anaconda.org/gurobi
 dependencies:
   - python
   - pip
