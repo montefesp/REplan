@@ -26,7 +26,7 @@ def add_load_shedding(network: pypsa.Network, load_df: pd.DataFrame) -> pypsa.Ne
         Updated network
     """
 
-    tech_dir = join(dirname(abspath(__file__)), "../../data/technologies/")
+    tech_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
     fuel_info = pd.read_excel(join(tech_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
 
     onshore_bus_indexes = network.buses[network.buses.onshore].index
