@@ -94,7 +94,9 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
-    net = get_topology(net, countries + ["TR"], extend_line_cap=True)
+    if config["add_TR"]:
+        countries = countries + ["TR"]
+    net = get_topology(net, countries, extend_line_cap=True)
 
     # Adding load
     logger.info("Adding load.")
@@ -160,12 +162,16 @@ if __name__ == '__main__':
     #          keep_references=True, keep_shadowprices=["Generator", "Bus"], pyomo=False)
 
     # Adding non-European nodes with generation capacity
-    net = upgrade_topology(net, ["GL", "IS", "NA"])
-    me_countries = get_subregions("NA")
-    net = add_res_per_bus(net, 'countries', ["pv_utility_noneu", "wind_onshore_noneu"],
-                          bus_ids=me_countries)
-    net = add_res_per_bus(net, 'regions', ["wind_onshore_noneu"],
-                          bus_ids=["GL", "IS"])
+    non_eu_res = config["non_eu"]["res"]
+    net = upgrade_topology(net, list(non_eu_res.keys()), True)
+    for region in non_eu_res.keys():
+        if region in ["NA", "ME"]:
+            countries = get_subregions(region)
+        else:
+            countries = [region]
+        topology_type = 'regions' if region == "GL" else 'countries'
+        res_techs = non_eu_res[region]
+        net = add_res_per_bus(net, topology_type, res_techs, bus_ids=countries)
 
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
@@ -187,9 +193,3 @@ if __name__ == '__main__':
     # print(net.dualvalues)
 
     net.export_to_csv_folder(output_dir)
-
-    # Display some results
-    display_generation(net)
-    #display_transmission(net)
-    #display_storage(net)
-    #display_co2(net)

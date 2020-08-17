@@ -66,4 +66,4 @@ def plot_topology(buses: pd.DataFrame, lines: pd.DataFrame = None) -> None:
             color = 'darkred' if 'carrier' in lines.columns and lines.loc[idx].carrier == "DC" else 'navy'
             plt.plot([buses.loc[bus0].x, buses.loc[bus1].x], [buses.loc[bus0].y, buses.loc[bus1].y], c=color, alpha=0.5)
 
-    fig.savefig('topology_tyndp.png', dpi=200, bbox_inches='tight')
+    # fig.savefig('topology_tyndp.png', dpi=200, bbox_inches='tight')

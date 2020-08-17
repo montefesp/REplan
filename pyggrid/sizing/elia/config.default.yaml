@@ -8,7 +8,7 @@ solver_options:
     Threads: 0
     Method: 2
     BarHomogeneous: 1
-    Crossover: 0
+    Crossover: 1
     BarConvTol: 1e-8
   cplex:
     threads: 0
@@ -21,32 +21,26 @@ solver_options:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2015-01-01T00:00', '2015-01-04T10:00']
+  slice: ['2018-01-01T00:00', '2018-12-31T23:00']
   resolution: 1
 
 # Space
 region: "EU"
-# add_offshore: False
 
 # RES
 res:
-  include: True
+  include: False
   # Give which technology should be installed using each strategy
   strategies:
-    from_files: ['wind_offshore']
+    from_files: []
     no_siting: []
     siting: []
-    bus: ['pv_utility', 'wind_onshore']
-
-  # For strategy = max or comp
-  sites_dir: 'EU_wide_off_2015_08'
-  sites_fn: 'max_site_data.p'
-  use_default_capacity: True
+    bus: ['wind_offshore', 'pv_utility', 'pv_residential', 'wind_onshore']
 
   # For strategy = siting or no siting
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 0.5
-  timeslice: ['2015-01-01T00:00', '2015-01-01T23:00']
+  timeslice: ['2018-01-01T00:00', '2018-01-01T23:00']
   use_ex_cap: True
   limit_max_cap: True
 
@@ -75,29 +69,29 @@ dispatch:
 
 # Nuclear
 nuclear:
-  include: False
+  include: True
   use_ex_cap: True # Whether to include existing cap
   extendable: False
 
 # Battery
 battery:
-  include: False
+  include: True
   type: "Li-ion"
 
 # Hydro
 phs:
-  include: False
+  include: True
   use_ex_cap: True
   extendable: False
   cyclic_sof: True
 
 ror:
-  include: False
+  include: True
   use_ex_cap: True
   extendable: False
 
 sto:
-  include: False
+  include: True
   use_ex_cap: True
   extendable: False
   cyclic_sof: True
@@ -107,12 +101,21 @@ functionalities:
     include: False
     share: 0.65
   curtailment:
-    include: True
+    include: False
     strategy: ['economic', 10.] # ['technical', 0.], ['technical', 1.], ['economic', 0.], ['economic', 9999.]
   load_shed:
+    include: False
+  import_limit:
+    include: False
+    share: 0.5
+  co2_emissions:
     include: True
+    strategy: 'global' # country, global
+    reference_year: 1990 # Flat reference across all countries for now.
+    mitigation_factor: 0.9
 
-# Emissions
-co2_emissions:
-  reference_year: 1990 # The only available point now.
-  mitigation_factor: 0.8
+non_eu:
+  res:
+    NA: ["pv_utility_noneu"]
+    GL: ["wind_onshore_noneu"]
+    IS: ["wind_onshore_noneu"]

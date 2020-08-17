@@ -26,11 +26,11 @@ time:
 
 # Space
 region: "EU"
-# add_offshore: False
+add_TR: False
 
 # RES
 res:
-  include: True
+  include: False
   # Give which technology should be installed using each strategy
   strategies:
     from_files: []
@@ -114,3 +114,9 @@ functionalities:
     strategy: 'global' # country, global
     reference_year: 1990 # Flat reference across all countries for now.
     mitigation_factor: 0.9
+
+non_eu:
+  res:
+    NA: ["pv_utility_noneu"]
+    GL: ["wind_onshore_noneu"]
+    IS: ["wind_onshore_noneu"]
