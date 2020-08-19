@@ -152,12 +152,13 @@ if __name__ == '__main__':
         net = add_ror_plants(net, 'countries', config["ror"]["extendable"])
 
     if config["battery"]["include"]:
-        net = add_batteries(net, config["battery"]["type"])
+        net = add_batteries(net, config["battery"]["type"], countries)
 
     # Adding non-European nodes with generation capacity
     non_eu_res = config["non_eu"]["res"]
     if non_eu_res is not None:
         net = upgrade_topology(net, list(non_eu_res.keys()))
+        # Add generation and storage
         for region in non_eu_res.keys():
             if region in ["NA", "ME"]:
                 countries = get_subregions(region)
@@ -166,6 +167,7 @@ if __name__ == '__main__':
             topology_type = 'regions' if region == "GL" else 'countries'
             res_techs = non_eu_res[region]
             net = add_res_per_bus(net, topology_type, res_techs, bus_ids=countries)
+            net = add_batteries(net, config["battery"]["type"], countries)
 
     #co2_reference_kt = \
     #    get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])

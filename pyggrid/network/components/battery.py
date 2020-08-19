@@ -1,3 +1,5 @@
+from typing import List
+
 import pandas as pd
 
 import pypsa
@@ -9,16 +11,18 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %
 logger = logging.getLogger(__name__)
 
 
-def add_batteries(network: pypsa.Network, battery_type: str) -> pypsa.Network:
+def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str]) -> pypsa.Network:
     """
     Add a battery at each node of the network.
 
     Parameters
     ----------
     network: pypsa.Network
-        Pypsa network
+        PyPSA network
     battery_type: str
         Type of battery to add
+    buses_ids: List[str]
+        IDs of the buses at which we want to add batteries.
 
     Returns
     -------
@@ -28,7 +32,11 @@ def add_batteries(network: pypsa.Network, battery_type: str) -> pypsa.Network:
     """
     logger.info(f"Adding {battery_type} storage.")
 
-    onshore_bus_indexes = pd.Index([bus_id for bus_id in network.buses.index if network.buses.loc[bus_id].onshore])
+    buses = network.buses
+    if buses is not None:
+        buses = buses.loc[buses_ids]
+
+    onshore_bus_indexes = pd.Index([bus_id for bus_id in buses.index if buses.loc[bus_id].onshore])
 
     # Get costs and efficiencies
     capital_cost, marginal_cost = get_costs(battery_type, len(network.snapshots))
