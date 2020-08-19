@@ -173,18 +173,19 @@ if __name__ == '__main__':
     #    net.snapshots) / NHoursPerYear
     #net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
 
-    net.lopf(solver_name=config["solver"],
-             solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
-             solver_options=config["solver_options"][config["solver"]],
-             extra_functionality=add_extra_functionalities_nopyomo,
-             keep_references=True,
-             keep_shadowprices=["Generator", "Bus"], pyomo=False)
-
-    #net.lopf(solver_name=config["solver"],
-    #         solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
-    #         solver_options=config["solver_options"][config["solver"]],
-    #         extra_functionality=add_extra_functionalities,
-    #         pyomo=True)
+    if config["get_duals"]:
+        net.lopf(solver_name=config["solver"],
+                 solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
+                 solver_options=config["solver_options"][config["solver"]],
+                 extra_functionality=add_extra_functionalities_nopyomo,
+                 keep_references=True,
+                 keep_shadowprices=["Generator", "Bus"], pyomo=False)
+    else:
+        net.lopf(solver_name=config["solver"],
+                 solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
+                 solver_options=config["solver_options"][config["solver"]],
+                 extra_functionality=add_extra_functionalities,
+                 pyomo=True)
 
     if config['keep_lp']:
         net.model.write(filename=join(output_dir, 'model.lp'),

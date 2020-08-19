@@ -18,6 +18,8 @@ solver_options:
 
   cbc: 0
 
+get_duals: True
+
 # Time
 # Start time and end time for slicing the database.
 time:
