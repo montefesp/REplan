@@ -13,6 +13,9 @@ from pyggrid.data.technologies import get_config_dict
 from pyggrid.network import *
 from pyggrid.postprocessing.results_display import *
 from pyggrid.sizing.elia.utils import upgrade_topology
+from pyggrid.network.globals.functionalities_nopyomo \
+    import add_extra_functionalities as add_extra_functionalities_nopyomo
+
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
@@ -151,16 +154,6 @@ if __name__ == '__main__':
     if config["battery"]["include"]:
         net = add_batteries(net, config["battery"]["type"])
 
-    #co2_reference_kt = \
-    #    get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
-    #co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(
-    #    net.snapshots) / NHoursPerYear
-    #net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
-
-    # net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
-    #          solver_options=config["solver_options"][config["solver"]],
-    #          keep_references=True, keep_shadowprices=["Generator", "Bus"], pyomo=False)
-
     # Adding non-European nodes with generation capacity
     non_eu_res = config["non_eu"]["res"]
     if non_eu_res is not None:
@@ -174,11 +167,24 @@ if __name__ == '__main__':
             res_techs = non_eu_res[region]
             net = add_res_per_bus(net, topology_type, res_techs, bus_ids=countries)
 
+    #co2_reference_kt = \
+    #    get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
+    #co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(
+    #    net.snapshots) / NHoursPerYear
+    #net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
+
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
              solver_options=config["solver_options"][config["solver"]],
-             extra_functionality=add_extra_functionalities,
-             pyomo=True)
+             extra_functionality=add_extra_functionalities_nopyomo,
+             keep_references=True,
+             keep_shadowprices=["Generator", "Bus"], pyomo=False)
+
+    #net.lopf(solver_name=config["solver"],
+    #         solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
+    #         solver_options=config["solver_options"][config["solver"]],
+    #         extra_functionality=add_extra_functionalities,
+    #         pyomo=True)
 
     if config['keep_lp']:
         net.model.write(filename=join(output_dir, 'model.lp'),

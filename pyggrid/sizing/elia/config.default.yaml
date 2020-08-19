@@ -9,12 +9,12 @@ solver_options:
     Method: 2
     BarHomogeneous: 1
     Crossover: 1
-    BarConvTol: 1e-8
+    BarConvTol: 1.0e-8
   cplex:
     threads: 0
     lpmethod: 1
     solutiontype: 2
-    barrier convergetol: 1e-8
+    barrier convergetol: 1.0e-8
 
   cbc: 0
 
@@ -26,6 +26,7 @@ time:
 
 # Space
 region: "EU"
+add_TR: False
 
 # RES
 res:
