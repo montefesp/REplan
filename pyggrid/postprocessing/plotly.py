@@ -60,7 +60,7 @@ class SizingPlotly:
     This class allows to display results from a optimized PyPSA network.
     """
 
-    def __init__(self, output_dir):
+    def __init__(self, output_dir, test_number=None):
 
         self.current_test_number = test_number
         if self.current_test_number is None:

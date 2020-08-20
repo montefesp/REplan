@@ -19,7 +19,6 @@ class SizingResultsSingleNet:
         self.end = end
         self.resolution = resolution
 
-
     def make_plots_one_net(self):
 
         color_dict = {'wind_onshore': 'dodgerblue',
@@ -56,7 +55,6 @@ class SizingResultsSingleNet:
         ens_t_total = ens_t.sum(axis=1)
         ens_t_slice = ens_t_total[start:end]
 
-
         storage_t = self.net.storage_units_t.p.clip(lower=0.)
         storage_t = storage_t.resample(resolution).sum()
         reservoir_total = storage_t.sum(axis=1)
@@ -90,16 +88,12 @@ class SizingResultsSingleNet:
         ax2.set_ylabel('CCGT and ENS [GW]')
         ax2.set_ylim([0, 300])
 
-
         fig.autofmt_xdate()
 
         ax1.legend(loc='upper left')
         ax2.legend(loc='upper right')
 
         plt.show()
-
-
-
 
 
 class SizingResultsCompare:
@@ -115,7 +109,6 @@ class SizingResultsCompare:
         self.resolution = resolution
         self.first_net = first_network
         self.second_net = second_network
-
 
     def make_plots_compare(self):
 
@@ -243,13 +236,12 @@ class SizingResultsCompare:
         plt.show()
 
 
-
 if __name__ == "__main__":
 
     topology = 'tyndp2018'
     main_output_dir = f'../../output/sizing/{topology}/'
 
-    results = 'compare' # 'compare', 'single'
+    results = 'compare'  # 'compare', 'single'
 
     resolution = 'H'
     start = datetime(2015, 12, 13, 0, 0, 0)

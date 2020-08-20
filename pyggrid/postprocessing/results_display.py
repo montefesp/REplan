@@ -107,9 +107,7 @@ if __name__ == '__main__':
 
     from pypsa import Network
 
-    topology = 'tyndp2018'
-    run_id = '20200715_143034'
-    output_dir = f'../../output/sizing/{topology}/{run_id}/'
+    output_dir = f'../../output/from_pan/20200818_094604/'
 
     net_ = Network()
     net_.import_from_csv_folder(output_dir)
@@ -117,4 +115,5 @@ if __name__ == '__main__':
     display_generation(net_)
     display_transmission(net_)
     display_storage(net_)
-    display_co2(net_)
+
+    # display_co2(net_)

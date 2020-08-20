@@ -1,3 +1,4 @@
+from typing import List
 
 import pandas as pd
 import numpy as np
@@ -15,10 +16,16 @@ def get_gen_capital_and_marginal_cost(net: pypsa.Network):
     return gens.capital_cost.mean(), gens.marginal_cost.mean()
 
 
-def get_generators_capacity(net: pypsa.Network):
-    """Return the original, new and optimal generation capacities (in MW) for each type of generator."""
+def get_generators_capacity(net: pypsa.Network, buses: List[str] = None, tech_names: List[str] = None):
+    """Return the original, new and optimal generation capacities (in MW) for each type of
+    generator associated to the given buses."""
 
-    gens = net.generators.groupby(["type"])
+    gens = net.generators
+    if buses is not None:
+        gens = gens[gens.bus.isin(buses)]
+    if tech_names is not None:
+        gens = gens[gens.type.isin(tech_names)]
+    gens = gens.groupby(["type"])
     init_capacities = gens.p_nom.sum()
     opt_capacities = gens.p_nom_opt.sum()
     max_capacities = gens.p_nom_max.sum()
@@ -85,6 +92,25 @@ def get_generators_average_usage(net: pypsa.Network):
             df_cf.loc[item] = tot_gen.loc[item] * 1e3 / (opt_cap.loc[item] * len(net.snapshots))
 
     return df_cf.round(3)
+
+
+def get_generators_cap_factors(net: pypsa.Network, buses: List[str] = None, tech_names: List[str] = None):
+
+    gens = net.generators
+    if buses is not None:
+        gens = gens[gens.bus.isin(buses)]
+    if tech_names is not None:
+        gens = gens[gens.type.isin(tech_names)]
+
+    quantiles = np.linspace(0, 1, 11)
+    cap_factor_per_tech = pd.DataFrame(columns=quantiles, index=tech_names)
+    for tech in tech_names:
+        gens_tech = gens[gens.type == tech]
+        cap_factor_per_tech_mean_over_gens = net.generators_t.p_max_pu[gens_tech.index].mean(axis=1)
+        for q in quantiles:
+            cap_factor_per_tech.loc[tech, q] = cap_factor_per_tech_mean_over_gens.quantile(q)
+
+    return cap_factor_per_tech
 
 
 def get_generators_curtailment(net: pypsa.Network):
@@ -165,6 +191,7 @@ def get_links_capacity(net: pypsa.Network):
 
     links_capacities = pd.concat([links["p_nom"].rename('init [GW]'),
                                   links["p_nom_new"].rename('new [GW]'),
+                                  links["p_nom_opt"].rename('final [GW]'),
                                   init_cap_length.rename(columns={'init_cap_length': 'init [TWkm]'}),
                                   new_cap_length.rename(columns={'new_cap_length': 'new [TWkm]'})], axis=1)
     return links_capacities.round(2)
@@ -282,16 +309,22 @@ def get_storage_capital_and_marginal_cost(net: pypsa.Network):
     return su.capital_cost.mean(), su.marginal_cost.mean()
 
 
-def get_storage_power_capacity(net: pypsa.Network):
+def get_storage_power_capacity(net: pypsa.Network, buses: List[str] = None, tech_names: List[str] = None):
     """countries_url_area_types the original, new and optimal power capacities (in MW) for each type of storage unit."""
 
-    storage_units = net.storage_units.groupby(["type"])
+    storage_units = net.storage_units
+    if buses is not None:
+        storage_units = storage_units[storage_units.bus.isin(buses)]
+    if tech_names is not None:
+        storage_units = storage_units[storage_units.type.isin(tech_names)]
+    storage_units = storage_units.groupby(["type"])
     init_capacities = storage_units.p_nom.sum()
     opt_capacities = storage_units.p_nom_opt.sum()
     new_capacities = opt_capacities - init_capacities
 
     capacities_p = pd.concat([init_capacities.rename('init [GW]'),
-                              new_capacities.rename('new [GW]')], axis=1)
+                              new_capacities.rename('new [GW]'),
+                              opt_capacities.rename('final [GW]')], axis=1)
 
     return capacities_p.round(2)
 
@@ -384,3 +417,7 @@ def get_storage_capex(net: pypsa.Network):
     storage_units["capex"] = storage_units.p_nom_new * storage_units.capital_cost
 
     return storage_units.groupby(["type"]).capex.sum() * 1e-3
+
+
+def get_storage_cost(net: pypsa.Network):
+    return get_storage_opex(net) + get_storage_capex(net)
