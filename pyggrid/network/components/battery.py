@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %
 logger = logging.getLogger(__name__)
 
 
-def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str]) -> pypsa.Network:
+def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str] = None) -> pypsa.Network:
     """
     Add a battery at each node of the network.
 
@@ -33,7 +33,7 @@ def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str
     logger.info(f"Adding {battery_type} storage.")
 
     buses = network.buses
-    if buses is not None:
+    if buses_ids is not None:
         buses = buses.loc[buses_ids]
 
     onshore_bus_indexes = pd.Index([bus_id for bus_id in buses.index if buses.loc[bus_id].onshore])
