@@ -169,6 +169,9 @@ if __name__ == '__main__':
             net = add_res_per_bus(net, topology_type, res_techs, bus_ids=countries)
             net = add_batteries(net, config["battery"]["type"], countries)
 
+    print(net.generators[net.generators.type == "wind_onshore_noneu"].p_nom_max)
+    exit()
+
     #co2_reference_kt = \
     #    get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
     #co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(

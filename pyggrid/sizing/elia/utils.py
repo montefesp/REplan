@@ -30,9 +30,9 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
         #    - still a problem if we want to go offshore -> use region topology?
         #    -> or just need not to download glaes data for above a given latitude
         full_gl_shape = get_shapes(["GL"], "onshore")["geometry"][0]
-        trunc_gl_shape = full_gl_shape.intersection(Polygon([(-49.5, 59.5), (-49.5, 61.5), (-42, 61.5), (-42, 59.5)]))
+        trunc_gl_shape = full_gl_shape.intersection(Polygon([(-44.6, 59.5), (-44.6, 60.6), (-42, 60.6), (-42, 59.5)]))
         buses.loc["GL", "region"] = trunc_gl_shape
-        buses.loc["GL", ["x", "y"]] = (-45., 60.5)
+        buses.loc["GL", ["x", "y"]] = (-44., 60.)
         buses.loc["GL", "country"] = "GL"
         buses.loc["GL", "onshore"] = True
         # Adding link to IS

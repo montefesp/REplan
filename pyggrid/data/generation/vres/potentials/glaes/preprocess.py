@@ -13,7 +13,7 @@ from pyggrid.data.geographics import get_shapes
 def rasterize_natura_vector():
     """Create a rasterize version of the Natura2000 dataset"""
 
-    potential_dir = join(dirname(abspath(__file__)), "../../../data/generation/vres/potentials/generated/GLAES/")
+    potential_dir = join(dirname(abspath(__file__)), "../../../data/generation/vres/potentials/")
     natura = gk.vector.loadVector(f"{potential_dir}source/Natura2000/Natura2000_end2019_epsg3035.shp")
     extent = gk.Extent.fromVector(natura).castTo(3035).fit(100)
     extent.rasterize(natura, pixelWidth=100, pixelHeight=100, output=f"{potential_dir}generated/GLAES/natura2000.tif")

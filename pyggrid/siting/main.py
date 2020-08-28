@@ -16,14 +16,15 @@ if __name__ == '__main__':
     logger.info('Reading input.')
     resite.build_data(params["use_ex_cap"])
 
-    values = ["full", "month", "week", "day", "hour"]
+    values = [0] # ["full", "month", "week", "day", "hour"]
     for i, v in enumerate(values):
-        params['formulation_params']['time_resolution'] = v
-        output_folder = f"/home/utilisateur/Global_Grid/code/pyggrid/output/resite/{i}_{v}/"
+        # params['formulation_params']['time_resolution'] = v
+        output_folder = None  # f"/home/utilisateur/Global_Grid/code/pyggrid/output/resite/{i}_{v}/"
         logger.info('Model being built.')
         resite.build_model(params["modelling"], params['formulation'], params['formulation_params'],
                            params['write_lp'], output_folder)
 
+        exit()
         logger.info('Sending model to solver.')
         results = resite.solve_model()
         logger.info('Retrieving results.')

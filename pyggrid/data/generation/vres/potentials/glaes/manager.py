@@ -134,8 +134,6 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
 
     """
 
-    # import matplotlib.pyplot as plt
-
     poly_wkt = shapely.wkt.dumps(shape)
     poly = ogr.CreateGeometryFromWkt(poly_wkt, spatial_ref_)
 
@@ -181,7 +179,7 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
             ec.excludeRasterType(gebco, (depth_thresholds["high"], 0))
     elif 'altitude_threshold' in filters_ and filters_['altitude_threshold'] > 0.:
         for gebco in gebcos_:
-            ec.excludeRasterType(gebco, (filters_['altitude_threshold'], None))
+            ec.excludeRasterType(gebco, (filters_['altitude_threshold'], 1e6))
 
     # Corine filters
     if 'clc' in filters_:
@@ -211,6 +209,7 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
         ec.excludeVectorType(pipelines_, buffer=filters_['pipelines'])
 
     # ec.draw()
+    # import matplotlib.pyplot as plt
     # plt.show()
 
     return ec.areaAvailable/1e6

@@ -1,13 +1,13 @@
 # Scope parameters
 spatial_resolution: 1.0
-timeslice: ['2016-01-01T00:00', '2016-12-31T23:00']
-regions: ['EU']
-technologies: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+timeslice: ['2016-01-01T00:00', '2016-01-01T23:00']
+regions: ['BENELUX']
+technologies: ['wind_offshore']
 
 use_ex_cap: False
 
 # Optimization parameters
-formulation: 'meet_RES_targets' # Type of problem to be solved.
+formulation: 'complementarity' # Type of problem to be solved.
 formulation_params:
   # cap_per_tech: [0.5, 0.5]
   perc_per_region: [0.32]
