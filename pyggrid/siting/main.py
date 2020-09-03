@@ -24,7 +24,6 @@ if __name__ == '__main__':
         resite.build_model(params["modelling"], params['formulation'], params['formulation_params'],
                            params['write_lp'], output_folder)
 
-        exit()
         logger.info('Sending model to solver.')
         results = resite.solve_model()
         logger.info('Retrieving results.')

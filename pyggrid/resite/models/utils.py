@@ -2,6 +2,7 @@ from os.path import join
 
 import pandas as pd
 
+import logging
 
 def write_lp_file(model, modelling: str, output_folder: str):
     """Save LP file of the model."""
@@ -20,6 +21,7 @@ def write_lp_file(model, modelling: str, output_folder: str):
                     io_options={'symbolic_solver_labels': True})
 
 
+# TODO: should build and solve become one single function?
 def solve_model(resite) -> None:
     """Solve the model and retrieve the solution."""
 
@@ -35,14 +37,17 @@ def solve_model(resite) -> None:
         # status = resite.instance.status
         # if status == GRB.INFEASIBLE
         objective = resite.obj.getValue()
-    else:  # resite.modelling == "pyomo":
+    elif resite.modelling == "pyomo":
         from pyomo.opt import SolverFactory
         from pyomo.environ import value
-        opt = SolverFactory('cbc')
+        opt = SolverFactory('gurobi')
         results = opt.solve(resite.instance, tee=True, keepfiles=False, report_timing=False)
         resite.results = results
         objective = value(resite.instance.objective)
         # if str(results.solver.termination_condition) != "infeasible"):
+    else:
+        logging.info("No implementation has been written for solving with this modelling language.")
+        return
 
     resite.objective = objective
     retrieve_solution(resite)
