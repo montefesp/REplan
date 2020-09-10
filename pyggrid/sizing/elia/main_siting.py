@@ -15,7 +15,13 @@ from pyggrid.postprocessing.results_display import *
 from pyggrid.sizing.elia.utils import upgrade_topology
 from pyggrid.network.globals.functionalities_nopyomo \
     import add_extra_functionalities as add_extra_functionalities_nopyomo
-
+from pyggrid.data.technologies import get_config_values
+from shapely.ops import unary_union
+from pyggrid.data.geographics import get_shapes
+from pyggrid.data.geographics.grid_cells import get_grid_cells
+from pyggrid.data.generation.vres.potentials.glaes import get_capacity_potential_for_shapes
+from pyggrid.data.generation.vres.legacy import get_legacy_capacity_in_regions
+from pyggrid.data.generation.vres.profiles import compute_capacity_factors
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
@@ -87,7 +93,7 @@ if __name__ == '__main__':
     override_comp_attrs["StorageUnit"].loc["x"] = ["float", np.nan, np.nan, "x in position (x;y)", "Input (optional)"]
     override_comp_attrs["StorageUnit"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
 
-    net = pypsa.Network(name="ELIA network", override_component_attrs=override_comp_attrs)
+    net = pypsa.Network(name="ELIA network (with siting)", override_component_attrs=override_comp_attrs)
     net.set_snapshots(timestamps)
 
     # Adding carriers
@@ -96,42 +102,22 @@ if __name__ == '__main__':
 
     # Loading topology
     logger.info("Loading topology.")
-    countries = get_subregions(config["region"])
+    eu_countries = get_subregions(config["region"])
     if config["add_TR"]:
-        countries = countries + ["TR"]
-    net = get_topology(net, countries, extend_line_cap=True)
+        countries = eu_countries + ["TR"]
+    net = get_topology(net, eu_countries, extend_line_cap=True)
 
     # Adding load
     logger.info("Adding load.")
     # onshore_bus_indexes = net.buses[net.buses.onshore].index
-    load = get_load(timestamps=timestamps, countries=countries, missing_data='interpolate')
-    load_indexes = "Load " + pd.Index(countries)
+    load = get_load(timestamps=timestamps, countries=eu_countries, missing_data='interpolate')
+    load_indexes = "Load " + pd.Index(eu_countries)
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
-    net.madd("Load", load_indexes, bus=countries, p_set=loads)
+    net.madd("Load", load_indexes, bus=eu_countries, p_set=loads)
 
     if config["functionalities"]["load_shed"]["include"]:
         logger.info("Adding load shedding generators.")
         net = add_load_shedding(net, loads)
-
-    # Adding pv and wind generators
-    if config['res']['include']:
-        for strategy, technologies in config['res']['strategies'].items():
-            # If no technology is associated to this strategy, continue
-            if not len(technologies):
-                continue
-
-            logger.info(f"Adding RES {technologies} generation with strategy {strategy}.")
-
-            if strategy == "bus":
-                net = add_res_per_bus(net, 'countries', technologies, config["res"]["use_ex_cap"])
-            elif strategy == "no_siting":
-                net = add_res_in_grid_cells(net, 'countries', technologies,
-                                            config["region"], config["res"]["spatial_resolution"],
-                                            config["res"]["use_ex_cap"], config["res"]["limit_max_cap"])
-            elif strategy == 'siting':
-                net = add_res(net, 'countries', technologies, config["region"], config['res'],
-                              config['res']['use_ex_cap'], config['res']['limit_max_cap'],
-                              output_dir=f"{output_dir}resite/")
 
     # Add conventional gen
     if config["dispatch"]["include"]:
@@ -140,7 +126,7 @@ if __name__ == '__main__':
 
     # Adding nuclear
     if config["nuclear"]["include"]:
-        net = add_nuclear(net, countries, config["nuclear"]["use_ex_cap"], config["nuclear"]["extendable"])
+        net = add_nuclear(net, eu_countries, config["nuclear"]["use_ex_cap"], config["nuclear"]["extendable"])
 
     if config["sto"]["include"]:
         net = add_sto_plants(net, 'countries', config["sto"]["extendable"], config["sto"]["cyclic_sof"])
@@ -152,22 +138,103 @@ if __name__ == '__main__':
         net = add_ror_plants(net, 'countries', config["ror"]["extendable"])
 
     if config["battery"]["include"]:
-        net = add_batteries(net, config["battery"]["type"], countries)
+        net = add_batteries(net, config["battery"]["type"], eu_countries)
 
-    # Adding non-European nodes with generation capacity
+    # Adding non-European nodes
     non_eu_res = config["non_eu"]["res"]
     if non_eu_res is not None:
         net = upgrade_topology(net, list(non_eu_res.keys()))
-        # Add generation and storage
+        # Add storage
         for region in non_eu_res.keys():
             if region in ["NA", "ME"]:
-                countries = get_subregions(region)
+                neigh_countries = get_subregions(region)
             else:
-                countries = [region]
-            topology_type = 'regions' if region == "GL" else 'countries'
-            res_techs = non_eu_res[region]
-            net = add_res_per_bus(net, topology_type, res_techs, bus_ids=countries)
-            net = add_batteries(net, config["battery"]["type"], countries)
+                neigh_countries = [region]
+            net = add_batteries(net, config["battery"]["type"], neigh_countries)
+
+    # Adding pv and wind generators
+    if config['res']['include']:
+        for strategy, eu_technologies in config['res']['strategies'].items():
+            # If no technology is associated to this strategy, continue
+            if not len(eu_technologies):
+                continue
+
+            logger.info(f"Adding RES {eu_technologies} generation with strategy {strategy}.")
+
+            # TODO: this could be integrated directly in resite
+            # Creating grid cells for main region
+            onshore_technologies = [get_config_values(tech, ["onshore"]) for tech in eu_technologies]
+            # Divide the union of all regions shapes into grid cells of a given spatial resolution
+            shapes = get_shapes(eu_countries, save=True)
+            onshore_union = unary_union(shapes[~shapes['offshore']]['geometry']) if any(onshore_technologies) else None
+            offshore_union = unary_union(shapes[shapes['offshore']]['geometry']) if not all(onshore_technologies) else None
+            spatial_res = config["res"]["spatial_resolution"]
+            grid_cells_ds = get_grid_cells(eu_technologies, spatial_res, onshore_union, offshore_union)
+
+            # Compute grid_cells for non-eu
+            out_techs = []
+            out_countries = []
+            for region in non_eu_res.keys():
+                if region in ["NA", "ME"]:
+                    neigh_countries = get_subregions(region)
+                else:
+                    neigh_countries = [region]
+                out_countries += neigh_countries
+                res_techs = non_eu_res[region]
+                out_techs += res_techs
+                # Creating grid cells for main region
+                onshore_technologies = [get_config_values(tech, ["onshore"]) for tech in res_techs]
+                # Divide the union of all regions shapes into grid cells of a given spatial resolution
+                shapes = get_shapes(neigh_countries, save=True)
+                onshore_union = unary_union(shapes[~shapes['offshore']]['geometry']) if any(
+                    onshore_technologies) else None
+                offshore_union = unary_union(shapes[shapes['offshore']]['geometry']) if not all(
+                    onshore_technologies) else None
+                spatial_res = config["res"]["spatial_resolution"]
+                grid_cells_out_ds = get_grid_cells(res_techs, spatial_res, onshore_union, offshore_union)
+
+                # Combine the series
+                grid_cells_ds = pd.concat([grid_cells_ds, grid_cells_out_ds])
+
+            # Compute data for grid cells
+            all_techs = eu_technologies + out_techs
+            all_countries = eu_countries + out_countries
+
+            # Compute capacity factors for each site
+            logging.info("Computing capacity factors")
+            tech_points_dict = {}
+            techs = set(grid_cells_ds.index.get_level_values(0))
+            print(techs)
+            for tech in techs:
+                tech_points_dict[tech] = list(grid_cells_ds[tech].index)
+            cap_factor_df = compute_capacity_factors(tech_points_dict, spatial_res, timestamps)
+
+            # Compute capacities potential
+            logging.info("Computing potential capacity")
+            tech_config = get_config_dict(all_techs, ['filters', 'power_density'])
+            cap_potential_ds = pd.Series(index=grid_cells_ds.index)
+            for tech in all_techs:
+                cap_potential_ds[tech] = \
+                    get_capacity_potential_for_shapes(grid_cells_ds[tech].values, tech_config[tech]["filters"],
+                                                      tech_config[tech]["power_density"])
+
+            # Compute legacy capacity
+            logging.info("Computing legacy capacity")
+            existing_cap_ds = pd.Series(0., index=cap_potential_ds.index)
+            use_ex_cap = config["res"]["use_ex_cap"]
+            if use_ex_cap:
+                for tech in all_techs:
+                    tech_existing_cap_ds = \
+                        get_legacy_capacity_in_regions(tech, grid_cells_ds.loc[tech].reset_index(drop=True),
+                                                       all_countries, raise_error=False)
+                    existing_cap_ds[tech] = tech_existing_cap_ds.values
+
+            # Update capacity potential if existing capacity is bigger
+            underestimated_capacity_indexes = existing_cap_ds > cap_potential_ds
+            cap_potential_ds[underestimated_capacity_indexes] = existing_cap_ds[underestimated_capacity_indexes]
+
+            print(cap_factor_df, cap_potential_ds, existing_cap_ds)
+            exit()
 
     #co2_reference_kt = \
     #    get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])

@@ -93,6 +93,7 @@ class Resite:
         cap_pot_thresholds: List[float] (default: None)
             List of thresholds per technology. Points with capacity potential under this threshold will be removed.
         """
+        # TODO: this function needs to take as argument a vector data specifying which data it must compute
 
         # Compute total load (in GWh) for each region
         load_df = get_load(timestamps=self.timestamps, regions=self.regions, missing_data='interpolate')
@@ -111,6 +112,7 @@ class Resite:
                 regions_shapes.loc[region, "offshore"] = unary_union(shapes[shapes['offshore']]['geometry'])
 
         # Divide the union of all regions shapes into grid cells of a given spatial resolution
+        # TODO: this is shitty because you cannot add different technologies in separate regions
         onshore_union = unary_union(regions_shapes["onshore"]) if any(onshore_technologies) else None
         offshore_union = unary_union(regions_shapes["offshore"]) if not all(onshore_technologies) else None
         grid_cells_ds = get_grid_cells(self.technologies, self.spatial_res, onshore_union, offshore_union)
