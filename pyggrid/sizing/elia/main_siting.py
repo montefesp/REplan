@@ -204,7 +204,6 @@ if __name__ == '__main__':
             logging.info("Computing capacity factors")
             tech_points_dict = {}
             techs = set(grid_cells_ds.index.get_level_values(0))
-            print(techs)
             for tech in techs:
                 tech_points_dict[tech] = list(grid_cells_ds[tech].index)
             cap_factor_df = compute_capacity_factors(tech_points_dict, spatial_res, timestamps)
@@ -236,8 +235,10 @@ if __name__ == '__main__':
             # Build a resite object
             from pyggrid.resite.resite import Resite
             resite = Resite([config["region"]], all_techs, config['time']['slice'], spatial_res)
+
             # TODO: change
-            resite.data_dict["load"] = net.loads
+            resite.data_dict["load"] = pd.DataFrame(columns=[config["region"]], index=timestamps)
+            resite.data_dict["load"][config["region"]] = net.loads_t['p_set'].sum(axis=1)
 
             resite.data_dict["cap_potential_ds"] = cap_potential_ds
             resite.data_dict["existing_cap_ds"] = existing_cap_ds
