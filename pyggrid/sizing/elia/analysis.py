@@ -2,45 +2,86 @@ from os.path import join, dirname, abspath
 
 import matplotlib.pyplot as plt
 
+from shapely.ops import unary_union
+
 from pyggrid.postprocessing.results_display import *
 from pyggrid.postprocessing.plotly import SizingPlotly
 from pyggrid.data.topologies.core.plot import plot_topology
 from pyggrid.postprocessing.utils import *
+from pyggrid.data.geographics import get_shapes
+from pyggrid.data.geographics.plot import display_polygons
+
 
 if __name__ == '__main__':
 
     from pypsa import Network
-    output_dir_na = join(dirname(abspath(__file__)), f'../../../output/from_pan/20200818_094604/')
-    net_na = Network()
-    net_na.import_from_csv_folder(output_dir_na)
-    output_dir_eu = join(dirname(abspath(__file__)), f'../../../output/from_pan/20200818_170748/')
-    net_eu = Network()
-    net_eu.import_from_csv_folder(output_dir_eu)
+
+    year = 2016
+
+    techs = ["ccgt", "pv_residential_national", "pv_utility_national",
+             "wind_offshore_national", "wind_onshore_national",
+             "AC", "DC", "Li-ion"]
+    techs_generic = ["ccgt", "pv_residential", "pv_utility",
+                     "wind_offshore", "wind_onshore",
+                     "AC", "DC", "Li-ion"]
+    cases = ["EU", "EUNA", "EUGLIS", "EUNAGLIS"]
+
+    capacities_df = pd.DataFrame(columns=cases, index=techs_generic)
+    for case in cases:
+        output_dir = join(dirname(abspath(__file__)), f'../../../output/from_pan/{case}_{year}/')
+        net = Network()
+        net.import_from_csv_folder(output_dir)
+
+        #sp = SizingPlotly(output_dir)
+        #fig = sp.show_topology_heatmap()
+        #fig.write_html(f"{output_dir_na}topology_heatmap.html", auto_open=True)
+        #exit()
+
+        # display_generation(net)
+        # display_transmission(net)
+        # display_storage(net)
+        # display_co2(net)
+
+        # Compare objectives (i.e. total cost of the system)
+        cost = get_generators_cost(net).sum() + get_links_capex(net).sum() + get_storage_cost(net).sum()
+        print(f"Generator cost {get_generators_cost(net).sum():.3f} (B€)")
+        print(f"Link cost {get_links_capex(net).sum():.3f} (B€)")
+        print(f"Storage cost {get_storage_cost(net).sum():.3f} (B€)")
+
+        # Compare total capacities installed
+        capacities = pd.concat([get_generators_capacity(net)["new"],
+                                get_links_capacity(net)["new [TWkm]"],
+                                get_storage_power_capacity(net)["new [GW]"]])
+        capacities_df[case] = capacities[techs].round().values
+
+        # TODO: what if we limited potential in NA? Because for now, considering the full territory is accessible
+        # and not adding connection cost is not very representative
+        # TODO: actually we have kind of the same problem with northen countries...
+        print(net.generators[net.generators.type == "pv_utility_noneu"][["p_nom_new", "p_nom_max"]].round())
+        print(net.generators[net.generators.type == "wind_onshore_noneu"][["p_nom_new", "p_nom_max"]].round())
 
 
+        # TODO: could try to test a case where we increase greenland capacity potential?
+        # --> it is super interesting to see that GL is actually use even if the average performance of the signal
+        # are less good than for IS --> complementarity appearing?
+        print(net.generators_t.p_max_pu[net.generators[net.generators.type == "wind_onshore_noneu"].index].mean())
+        print(net.generators_t.p_max_pu[net.generators[net.generators.type == "wind_onshore_noneu"].index].median())
 
-    #sp = SizingPlotly(output_dir_full)
-    #fig = sp.plot_topology()
-    #fig.write_html(f"{output_dir_full}topology.html", auto_open=True)
+        # --> We clearly see that LY capacity factory are worse than any others
+        if 0:
+            countries = ["DZ", "EG", "MA", "LY", "TN"]
+            quantiles = np.linspace(0, 1, 11)
+            cap_factor_in_na_countries = pd.DataFrame(columns=quantiles, index=countries)
+            for c in countries:
+                cap_factor_in_na_countries.loc[c] = get_generators_cap_factors(net, [c], ["pv_utility_noneu"]).loc["pv_utility_noneu"]
+            print(cap_factor_in_na_countries)
+            ax = cap_factor_in_na_countries.T.plot()
+            plt.show()
 
-    # display_generation(net)
-    # display_transmission(net)
-    # display_storage(net)
-    # display_co2(net)
 
-    # Compare objectives (i.e. total cost of the system)
-    eu_cost = get_generators_cost(net_eu).sum() + get_links_capex(net_eu).sum() + get_storage_cost(net_eu).sum()
-    na_cost = get_generators_cost(net_na).sum() + get_links_capex(net_na).sum() + get_storage_cost(net_na).sum()
-    print(f"EU alone: {eu_cost:.3f} vs EU+NA: {na_cost:.3f} (B€)")
-
-    # Compare total capacities installed
-    capacities_eu = pd.concat([get_generators_capacity(net_eu)["final"],
-                               get_links_capacity(net_eu)["final [GW]"],
-                               get_storage_power_capacity(net_eu)["final [GW]"]])
-    capacities_na = pd.concat([get_generators_capacity(net_na)["final"],
-                               get_links_capacity(net_na)["final [GW]"],
-                               get_storage_power_capacity(net_na)["final [GW]"]])
-    print(pd.concat([capacities_eu, capacities_na], axis=1, sort=True))
+    capacities_df.plot(kind="bar", title=f"Year {year}")
+    plt.xticks(rotation="45")
+    plt.savefig(f"capacities_{year}.png", bbox_inches="tight")
 
     # See capacity distribution
     regions_dict = {'Iberia': ['ES', 'PT'],
@@ -53,8 +94,16 @@ if __name__ == '__main__':
     techs = ["ccgt", "pv_residential_national", "pv_utility_national",
              "wind_offshore_national", "wind_onshore_national"]
 
-    # Total
+    # Plot map of regions
+    if 0:
+        region_shapes = []
+        for region in regions_dict.keys():
+            region_shape = unary_union(get_shapes(regions_dict[region], "onshore")["geometry"].values)
+            region_shapes += [region_shape]
+        print(region_shapes)
+        display_polygons(region_shapes, show=True)
 
+    # Total
     capacities_per_region_eu_tot = pd.DataFrame(index=techs, columns=regions_dict.keys())
     for region in regions_dict.keys():
         cap_df = get_generators_capacity(net_eu, regions_dict[region], techs)["final"]
@@ -72,6 +121,8 @@ if __name__ == '__main__':
         capacities_per_region_eu_new.loc[cap_df.index, region] = cap_df
     ax = capacities_per_region_eu_new.T.plot(kind="bar")
     capacities_per_region_eu_tot.T.plot(ax=ax, kind="bar", alpha=0.5)
+    ax.set_ylim([0, 275])
+    ax.grid()
 
     capacities_per_region_na_new = pd.DataFrame(index=techs, columns=regions_dict.keys())
     for region in regions_dict.keys():
@@ -79,7 +130,10 @@ if __name__ == '__main__':
         capacities_per_region_na_new.loc[cap_df.index, region] = cap_df
     ax = capacities_per_region_na_new.T.plot(kind="bar")
     capacities_per_region_na_tot.T.plot(ax=ax, kind="bar", alpha=0.5)
+    ax.set_ylim([0, 275])
+    ax.grid()
 
+    plt.show()
 
     # Distribution of capacity in NA
     # --> very intriguing that some capacity is installed in EG rather than in LY -> solar so good there?
@@ -94,14 +148,6 @@ if __name__ == '__main__':
     ax = capacities_in_na_countries.plot(kind="bar")
     # capacities_in_na_countries_max.plot(ax=ax, kind="bar", alpha=0.5)
 
-    # --> We clearly see that LY capacity factory are worse than any others
-    quantiles = np.linspace(0, 1, 11)
-    cap_factor_in_na_countries = pd.DataFrame(columns=quantiles, index=countries)
-    for c in countries:
-        cap_factor_in_na_countries.loc[c] = get_generators_cap_factors(net_na, [c], ["pv_utility_noneu"]).loc["pv_utility_noneu"]
-    print(cap_factor_in_na_countries)
-    plt.figure()
-    ax = cap_factor_in_na_countries.T.plot()
 
     # --> Question: could it be that capacity is installed at bus only where the higher quantiles are the highest?
     countries = ["ES", "PT", "GR", "IT"]
@@ -136,7 +182,6 @@ if __name__ == '__main__':
     ax = capacities_per_region_eu_max.T.plot(ax=ax, kind="bar", alpha=0.5)
 
     plt.show()
-
 
     # TODO: need to generate results with duals if I want to have marginal prices
     # marginal_price = pypsa.linopt.get_dual(net_, 'Bus', 'marginal_price')

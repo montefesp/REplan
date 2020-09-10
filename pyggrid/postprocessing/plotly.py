@@ -181,12 +181,12 @@ class SizingPlotly:
             avg_uses = (self.net.links_t.p0.abs() > limit_perc*self.net.links.p_nom_opt).mean(axis=0)
             cmax = 1
             colorbar_title = f"Percentage of time where power<br>is above {limit_perc} of capacity"
-        if 1:
+        if 0:
             limit_perc = 0.9
             avg_uses = (self.net.links_t.p0.abs() > limit_perc*self.net.links.p_nom_opt).sum(axis=0)
             cmax = 8760.
             colorbar_title = f"Number of hours where power<br>is above {limit_perc} of capacity"
-        if 0:
+        if 1:
             avg_uses = self.net.links.p_nom_opt - self.net.links.p_nom
             avg_uses = avg_uses.round(2)
             cmax = max(avg_uses.values)
@@ -194,7 +194,7 @@ class SizingPlotly:
 
         avg_uses_big_enough = avg_uses[avg_uses > 0]
         nb_ranges = 51
-        avg_uses_hist = np.histogram(avg_uses, bins=51)
+        avg_uses_hist = np.histogram(avg_uses, bins=nb_ranges)
 
         op = 0.5
         colors = []
@@ -218,11 +218,9 @@ class SizingPlotly:
 
                 avg_use = avg_uses[idx]
                 # color = f'rgba(0,0,255,{round(avg_use/cmax, 2)})'
-                print(avg_use)
-                print(sum(avg_use > avg_uses_hist[1]))
                 color = colors[sum(avg_use > avg_uses_hist[1])]
                 print(color)
-
+                # print(color)
 
                 text = ["", f"{avg_use}", ""]
                 width = 5
@@ -247,9 +245,9 @@ class SizingPlotly:
                              color='rgba(102, 102, 102)'
                         ),
                         colorscale=colorscale,
-                        cmin=avg_uses_big_enough.min(),
+                        cmin=0, #avg_uses_big_enough.min(),
                         color=f"rgba(138,43,226,0.5)", #[avg_use]*3,
-                        cmax=avg_uses_big_enough.max(),
+                        cmax=200,#avg_uses_big_enough.max(),
                         colorbar_title=colorbar_title,
                         colorbar_ticksuffix=' GW',
                     ),

@@ -284,10 +284,10 @@ if __name__ == '__main__':
 
                 # Associate sites to buses
                 onshore_tech = get_config_values(tech, ['onshore'])
-                regions = net.buses.region
+                regions_ds = net.buses.region
                 if not onshore_tech:
-                    regions = get_shapes(list(net.buses.index), which="offshore", save=True)
-                associated_buses = match_points_to_regions(points, regions).dropna()
+                    regions_ds = get_shapes(list(net.buses.index), which="offshore", save=True)["geometry"]
+                associated_buses = match_points_to_regions(points, regions_ds).dropna()
                 points = list(associated_buses.index)
 
                 p_nom_max = 'inf'
