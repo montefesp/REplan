@@ -232,14 +232,24 @@ if __name__ == '__main__':
             underestimated_capacity_indexes = existing_cap_ds > cap_potential_ds
             cap_potential_ds[underestimated_capacity_indexes] = existing_cap_ds[underestimated_capacity_indexes]
 
+            # Remove sites that have a potential capacity under the desired value or equal to 0
+            cap_pot_thresholds = None
+            if cap_pot_thresholds is None:
+                cap_pot_thresholds = [0] * len(all_techs)
+            assert len(cap_pot_thresholds) == len(all_techs), \
+                "Error: If you specify threshold on capacity potentials, you need to specify it for each technology."
+            cap_pot_thresh_dict = dict(zip(all_techs, cap_pot_thresholds))
+            sites_to_drop = pd.DataFrame(cap_potential_ds).apply(lambda x: x[0] < cap_pot_thresh_dict[x.name[0]] or
+                                                                           x[0] == 0, axis=1)
+            cap_potential_ds = cap_potential_ds[~sites_to_drop]
+            existing_cap_ds = existing_cap_ds[~sites_to_drop]
+            grid_cells_ds = grid_cells_ds[~sites_to_drop]
+
             # Build a resite object
             from pyggrid.resite.resite import Resite
             resite = Resite([config["region"]], all_techs, config['time']['slice'], spatial_res)
-
-            # TODO: change
             resite.data_dict["load"] = pd.DataFrame(columns=[config["region"]], index=timestamps)
             resite.data_dict["load"][config["region"]] = net.loads_t['p_set'].sum(axis=1)
-
             resite.data_dict["cap_potential_ds"] = cap_potential_ds
             resite.data_dict["existing_cap_ds"] = existing_cap_ds
             resite.data_dict["cap_factor_df"] = cap_factor_df
@@ -248,7 +258,7 @@ if __name__ == '__main__':
             resite.use_ex_cap = use_ex_cap
             resite.initial_sites_ds = grid_cells_ds
             resite.tech_points_regions_ds = pd.Series(config["region"], index=grid_cells_ds.index)
-            resite.cap_pot_thresh_dict = None
+            resite.cap_pot_thresh_dict = cap_pot_thresh_dict
 
             logger.info('resite model being built.')
             siting_params = config['res']
