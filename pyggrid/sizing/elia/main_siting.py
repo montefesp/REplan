@@ -218,15 +218,15 @@ if __name__ == '__main__':
                     get_capacity_potential_for_shapes(grid_cells_ds[tech].values, tech_config[tech]["filters"],
                                                       tech_config[tech]["power_density"])
 
-            # Compute legacy capacity
+            # Compute legacy capacity (only in main region, don't loose much in other regions)
             logging.info("Computing legacy capacity")
             existing_cap_ds = pd.Series(0., index=cap_potential_ds.index)
             use_ex_cap = config["res"]["use_ex_cap"]
             if use_ex_cap:
-                for tech in all_techs:
+                for tech in eu_technologies:
                     tech_existing_cap_ds = \
                         get_legacy_capacity_in_regions(tech, grid_cells_ds.loc[tech].reset_index(drop=True),
-                                                       all_countries, raise_error=False)
+                                                       eu_countries, raise_error=False)
                     existing_cap_ds[tech] = tech_existing_cap_ds.values
 
             # Update capacity potential if existing capacity is bigger
