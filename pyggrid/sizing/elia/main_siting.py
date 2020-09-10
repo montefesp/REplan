@@ -235,7 +235,7 @@ if __name__ == '__main__':
 
             # Build a resite object
             from pyggrid.resite.resite import Resite
-            resite = Resite([config["region"]], all_techs, timestamps, spatial_res)
+            resite = Resite([config["region"]], all_techs, config['timeslice'], spatial_res)
             # TODO: change
             resite.data_dict["load"] = net.loads
 
@@ -269,6 +269,7 @@ if __name__ == '__main__':
             logger.info("Saving resite results")
             resite.save(output_dir)
 
+            # TODO: for now they are always equal
             if not resite.timestamps.equals(net.snapshots):
                 # If network snapshots is a subset of resite snapshots just crop the data
                 missing_timestamps = set(net.snapshots) - set(resite.timestamps)
