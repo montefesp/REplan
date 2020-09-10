@@ -282,12 +282,12 @@ if __name__ == '__main__':
 
             for tech, points in tech_location_dict.items():
 
-
                 # Associate sites to buses
                 onshore_tech = get_config_values(tech, ['onshore'])
-                buses = net.buses.copy()
-                buses = buses[buses.onshore == onshore_tech]
-                associated_buses = match_points_to_regions(points, buses.region).dropna()
+                regions = net.buses.regions
+                if not onshore_tech:
+                    regions = get_shapes(list(net.buses.index), which="offshore", save=True)
+                associated_buses = match_points_to_regions(points, regions).dropna()
                 points = list(associated_buses.index)
 
                 p_nom_max = 'inf'
