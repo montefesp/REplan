@@ -247,6 +247,7 @@ if __name__ == '__main__':
             resite.use_ex_cap = use_ex_cap
             resite.initial_sites_ds = grid_cells_ds
             resite.tech_points_regions_ds = pd.Series(config["region"], index=grid_cells_ds.index)
+            resite.cap_pot_thresh_dict = None
 
             logger.info('resite model being built.')
             siting_params = config['res']
