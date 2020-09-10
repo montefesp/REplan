@@ -17,7 +17,7 @@ from pyggrid.network.globals.functionalities_nopyomo \
     import add_extra_functionalities as add_extra_functionalities_nopyomo
 from pyggrid.data.technologies import get_config_values
 from shapely.ops import unary_union
-from pyggrid.data.geographics import get_shapes
+from pyggrid.data.geographics import get_shapes, match_points_to_regions
 from pyggrid.data.geographics.grid_cells import get_grid_cells
 from pyggrid.data.generation.vres.potentials.glaes import get_capacity_potential_for_shapes
 from pyggrid.data.generation.vres.legacy import get_legacy_capacity_in_regions
@@ -257,25 +257,65 @@ if __name__ == '__main__':
             logger.info('Sending resite to solver.')
             resite.solve_model()
 
-    #co2_reference_kt = \
-    #    get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
-    #co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(
-    #    net.snapshots) / NHoursPerYear
-    #net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
+            # Add solution to network
+            logger.info('Retrieving resite results.')
+            tech_location_dict = resite.sel_tech_points_dict
+            resite.retrieve_selected_sites_data()
+            existing_cap_ds = resite.sel_data_dict["existing_cap_ds"]
+            cap_potential_ds = resite.sel_data_dict["cap_potential_ds"]
+            cap_factor_df = resite.sel_data_dict["cap_factor_df"]
 
-    if config["get_duals"]:
-        net.lopf(solver_name=config["solver"],
-                 solver_logfile=f"{output_dir}solver.log",
-                 solver_options=config["solver_options"][config["solver"]],
-                 extra_functionality=add_extra_functionalities_nopyomo,
-                 keep_references=True,
-                 keep_shadowprices=["Generator", "Bus"], pyomo=False)
-    else:
-        net.lopf(solver_name=config["solver"],
-                 solver_logfile=f"{output_dir}solver.log",
-                 solver_options=config["solver_options"][config["solver"]],
-                 extra_functionality=add_extra_functionalities,
-                 pyomo=True)
+            logger.info("Saving resite results")
+            resite.save(output_dir)
+
+            if not resite.timestamps.equals(net.snapshots):
+                # If network snapshots is a subset of resite snapshots just crop the data
+                missing_timestamps = set(net.snapshots) - set(resite.timestamps)
+                if not missing_timestamps:
+                    cap_factor_df = cap_factor_df.loc[net.snapshots]
+                else:
+                    # In other case, need to recompute capacity factors
+                    raise NotImplementedError(
+                        "Error: Network snapshots must currently be a subset of resite snapshots.")
+
+            for tech, points in tech_location_dict.items():
+
+
+                # Associate sites to buses
+                onshore_tech = get_config_values(tech, ['onshore'])
+                buses = net.buses.copy()
+                buses = buses[buses.onshore == onshore_tech]
+                associated_buses = match_points_to_regions(points, buses.region).dropna()
+                points = list(associated_buses.index)
+
+                p_nom_max = 'inf'
+                if config["res"]["limit_max_cap"]:
+                    p_nom_max = cap_potential_ds[tech][points].values
+                p_nom = existing_cap_ds[tech][points].values
+                p_max_pu = cap_factor_df[tech][points].values
+
+                capital_cost, marginal_cost = get_costs(tech, len(net.snapshots))
+
+                net.madd("Generator",
+                         pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
+                         bus=associated_buses.values,
+                         p_nom_extendable=True,
+                         p_nom_max=p_nom_max,
+                         p_nom=p_nom,
+                         p_nom_min=p_nom,
+                         p_min_pu=0.,
+                         p_max_pu=p_max_pu,
+                         type=tech,
+                         x=[x for x, _ in points],
+                         y=[y for _, y in points],
+                         marginal_cost=marginal_cost,
+                         capital_cost=capital_cost)
+
+    net.lopf(solver_name=config["solver"],
+             solver_logfile=f"{output_dir}solver.log",
+             solver_options=config["solver_options"][config["solver"]],
+             extra_functionality=add_extra_functionalities,
+             pyomo=True)
 
     if config['keep_lp']:
         net.model.write(filename=join(output_dir, 'model.lp'),
@@ -283,11 +323,5 @@ if __name__ == '__main__':
                         # io_options={'symbolic_solver_labels': True})
                         io_options={'symbolic_solver_labels': False})
         net.model.objective.pprint()
-
-    # marginal_price = pypsa.linopt.get_dual(net, 'Bus', 'marginal_price')
-    # shadow_price = pypsa.linopt.get_dual(net, 'Generator', 'mu_upper')
-    # print((shadow_price < 0).sum())
-    # print((pypsa.linopt.get_dual(net, 'Generator', 'mu_lower') < 0).sum())
-    # print(net.dualvalues)
 
     net.export_to_csv_folder(output_dir)
