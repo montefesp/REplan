@@ -233,8 +233,29 @@ if __name__ == '__main__':
             underestimated_capacity_indexes = existing_cap_ds > cap_potential_ds
             cap_potential_ds[underestimated_capacity_indexes] = existing_cap_ds[underestimated_capacity_indexes]
 
-            print(cap_factor_df, cap_potential_ds, existing_cap_ds)
-            exit()
+            # Build a resite object
+            from pyggrid.resite.resite import Resite
+            resite = Resite(config["region"], all_techs, timestamps, spatial_res)
+            # TODO: change
+            resite.data_dict["load"] = net.loads
+
+            resite.data_dict["cap_potential_ds"] = cap_potential_ds
+            resite.data_dict["existing_cap_ds"] = existing_cap_ds
+            resite.data_dict["cap_factor_df"] = cap_factor_df
+            resite.tech_points_tuples = grid_cells_ds.index.values
+            resite.tech_points_dict = tech_points_dict
+            resite.use_ex_cap = use_ex_cap
+            resite.initial_sites_ds = grid_cells_ds
+            resite.tech_points_regions_ds = None
+
+            logger.info('resite model being built.')
+            siting_params = config['res']
+            resite.build_model(siting_params["modelling"], siting_params['formulation'],
+                               siting_params['formulation_params'],
+                               siting_params['write_lp'], output_dir)
+
+            logger.info('Sending resite to solver.')
+            resite.solve_model()
 
     #co2_reference_kt = \
     #    get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
