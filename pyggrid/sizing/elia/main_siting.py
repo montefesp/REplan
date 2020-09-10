@@ -200,14 +200,6 @@ if __name__ == '__main__':
             all_techs = eu_technologies + out_techs
             all_countries = eu_countries + out_countries
 
-            # Compute capacity factors for each site
-            logging.info("Computing capacity factors")
-            tech_points_dict = {}
-            techs = set(grid_cells_ds.index.get_level_values(0))
-            for tech in techs:
-                tech_points_dict[tech] = list(grid_cells_ds[tech].index)
-            cap_factor_df = compute_capacity_factors(tech_points_dict, spatial_res, timestamps)
-
             # Compute capacities potential
             logging.info("Computing potential capacity")
             tech_config = get_config_dict(all_techs, ['filters', 'power_density'])
@@ -244,6 +236,14 @@ if __name__ == '__main__':
             cap_potential_ds = cap_potential_ds[~sites_to_drop]
             existing_cap_ds = existing_cap_ds[~sites_to_drop]
             grid_cells_ds = grid_cells_ds[~sites_to_drop]
+
+            # Compute capacity factors for each site
+            logging.info("Computing capacity factors")
+            tech_points_dict = {}
+            techs = set(grid_cells_ds.index.get_level_values(0))
+            for tech in techs:
+                tech_points_dict[tech] = list(grid_cells_ds[tech].index)
+            cap_factor_df = compute_capacity_factors(tech_points_dict, spatial_res, timestamps)
 
             # Build a resite object
             from pyggrid.resite.resite import Resite
