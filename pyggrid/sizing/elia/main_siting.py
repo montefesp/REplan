@@ -235,7 +235,7 @@ if __name__ == '__main__':
 
             # Build a resite object
             from pyggrid.resite.resite import Resite
-            resite = Resite([config["region"]], all_techs, config['timeslice'], spatial_res)
+            resite = Resite([config["region"]], all_techs, config['time']['slice'], spatial_res)
             # TODO: change
             resite.data_dict["load"] = net.loads
 
