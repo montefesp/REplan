@@ -235,7 +235,7 @@ if __name__ == '__main__':
 
             # Build a resite object
             from pyggrid.resite.resite import Resite
-            resite = Resite(config["region"], all_techs, timestamps, spatial_res)
+            resite = Resite([config["region"]], all_techs, timestamps, spatial_res)
             # TODO: change
             resite.data_dict["load"] = net.loads
 
@@ -249,7 +249,7 @@ if __name__ == '__main__':
             resite.tech_points_regions_ds = None
 
             logger.info('resite model being built.')
-            siting_params = [config['res']]
+            siting_params = config['res']
             resite.build_model(siting_params["modelling"], siting_params['formulation'],
                                siting_params['formulation_params'],
                                siting_params['write_lp'], output_dir)
