@@ -5,10 +5,12 @@ from shapely.geometry import Polygon
 
 import matplotlib.pyplot as plt
 
+import geopy.distance
 import pypsa
 
 from pyggrid.data.geographics import get_shapes
 from pyggrid.data.topologies.core.plot import plot_topology
+from pyggrid.data.technologies import get_costs
 
 
 def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False) -> pypsa.Network:
@@ -112,7 +114,26 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
     buses = buses.infer_objects()
     net.madd("Bus", buses.index, region=buses.region,
              x=buses.x, y=buses.y, country=buses.country, onshore=buses.onshore)
-    net.madd("Link", links.index, bus0=links.bus0, bus1=links.bus1, carrier=links.carrier, p_nom_extendable=True)
+
+    # Adding length to the lines
+    links["length"] = pd.Series([0]*len(links.index), index=links.index)
+    for idx in links.index:
+        bus0_id = links.loc[idx]["bus0"]
+        bus1_id = links.loc[idx]["bus1"]
+        bus0_x = net.buses.loc[bus0_id]["x"]
+        bus0_y = net.buses.loc[bus0_id]["y"]
+        bus1_x = net.buses.loc[bus1_id]["x"]
+        bus1_y = net.buses.loc[bus1_id]["y"]
+        links.loc[idx, "length"] = geopy.distance.geodesic((bus0_y, bus0_x), (bus1_y, bus1_x)).km
+
+    links['capital_cost'] = pd.Series(index=links.index)
+    for idx in links.index:
+        carrier = links.loc[idx].carrier
+        cap_cost, _ = get_costs(carrier, len(net.snapshots))
+        links.loc[idx, ('capital_cost', )] = cap_cost * links.length.loc[idx]
+
+    net.madd("Link", links.index, bus0=links.bus0, bus1=links.bus1, carrier=links.carrier, p_nom_extendable=True,
+             length=links.length, capital_cost=links.capital_cost)
 
     if plot:
         plot_topology(net.buses, net.links)
