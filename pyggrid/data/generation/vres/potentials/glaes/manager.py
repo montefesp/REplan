@@ -41,7 +41,7 @@ def get_glaes_prior_defaults(config: List[str], priors: List[str] = None) -> Dic
     # Get the main configuration file
     assert len(config) != 0
     exclusions_fn = join(dirname(abspath(__file__)), f"../../../../../../data/generation/vres/potentials/source/"
-                                                     f"GLAES/exclusions/{config[0]}.yaml")
+                                                     f"GLAES/exclusions/{config[0]}.yml")
     assert isfile(exclusions_fn), f"Error: No exclusion configuration named {config[0]}. File {exclusions_fn} not found"
     prior_threshold_dict = yaml.load(open(exclusions_fn, 'r'), Loader=yaml.FullLoader)
 
@@ -137,6 +137,8 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
     poly_wkt = shapely.wkt.dumps(shape)
     poly = ogr.CreateGeometryFromWkt(poly_wkt, spatial_ref_)
 
+    print(filters_)
+
     # Compute rooftop area using ESM (European Settlement Map)
     if filters_.get("esm", 0):
         path_cop = join(dirname(abspath(__file__)), f"../../../../../../data/generation/vres/potentials/"
@@ -208,9 +210,9 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
     if 'pipelines' in filters_:
         ec.excludeVectorType(pipelines_, buffer=filters_['pipelines'])
 
-    # ec.draw()
-    # import matplotlib.pyplot as plt
-    # plt.show()
+    ec.draw()
+    import matplotlib.pyplot as plt
+    plt.show()
 
     return ec.areaAvailable/1e6
 
@@ -262,7 +264,7 @@ def get_land_availability_for_shapes(shapes: List[Union[Polygon, MultiPolygon]],
     Returns
     -------
     np.array
-        Land availability (in km) for each shape
+        Land availability (in km2) for each shape
 
     """
 
@@ -295,7 +297,9 @@ def get_capacity_potential_for_shapes(shapes: List[Union[Polygon, MultiPolygon]]
     np.array
         Array of capacity potentials (GW)
     """
-    return get_land_availability_for_shapes(shapes, filters, processes) * power_density / 1e3
+    available_area = get_land_availability_for_shapes(shapes, filters, processes)
+    print(available_area)
+    return available_area * power_density / 1e3
 
 
 def get_capacity_potential_per_country(countries: List[str], is_onshore: float, filters: Dict,

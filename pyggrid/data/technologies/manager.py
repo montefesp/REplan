@@ -5,6 +5,8 @@ import yaml
 
 import pandas as pd
 
+from copy import deepcopy
+
 
 def get_config_dict(tech_names: List[str] = None, params: Union[List[str], List[List[str]]] = None) -> Dict[str, Any]:
     """
@@ -38,6 +40,7 @@ def get_config_dict(tech_names: List[str] = None, params: Union[List[str], List[
 
     # Add custom technologies
     custom_tech_dir = join(dirname(abspath(__file__)), '../../../data/technologies/custom/')
+    print(custom_tech_dir)
     for fn in listdir(custom_tech_dir):
         custom_techs_dict = yaml.load(open(f"{custom_tech_dir}{fn}", 'r'), Loader=yaml.FullLoader)
         for tech in custom_techs_dict:
@@ -48,10 +51,10 @@ def get_config_dict(tech_names: List[str] = None, params: Union[List[str], List[
                 parent_tech = custom_techs_dict[tech]["parent"]
                 assert parent_tech in all_techs_dict, \
                     f"Error: Parent technology {parent_tech} of technology {tech} is undefined."
-                all_techs_dict[tech] = all_techs_dict[parent_tech]
+                all_techs_dict[tech] = deepcopy(all_techs_dict[parent_tech])
             # Replace parameters that are defined in the children
             for param in custom_techs_dict[tech]:
-                all_techs_dict[tech][param] = custom_techs_dict[tech][param]
+                all_techs_dict[tech][param] = deepcopy(custom_techs_dict[tech][param])
 
     if tech_names is None:
         tech_names = list(all_techs_dict.keys())
