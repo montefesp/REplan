@@ -40,7 +40,6 @@ def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]], fill=Tru
 
     for polygons in polygons_list:
         c = (random(), random(), random())
-        print(c)
         if isinstance(polygons, Polygon):
             polygons = [polygons]
         for poly in polygons:

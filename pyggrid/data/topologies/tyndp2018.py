@@ -8,6 +8,7 @@ import pypsa
 
 import matplotlib.pyplot as plt
 import shapely.wkt
+from shapely.geometry import Polygon
 import geopy.distance
 
 from pyggrid.data.geographics import get_shapes
@@ -72,6 +73,7 @@ def preprocess(plotting=True) -> None:
 
     # Get shape of each country
     buses.region = get_shapes(buses.index.values, which='onshore', save=True)["geometry"]
+
     centroids = [region.centroid for region in buses.region]
     buses.x = [c.x for c in centroids]
     buses.y = [c.y for c in centroids]
@@ -98,6 +100,12 @@ def preprocess(plotting=True) -> None:
         elif item == 'FI':
             buses.loc[item, 'x'] = 24.82
             buses.loc[item, 'y'] = 61.06
+
+    # TODO: warning this might not stay
+    # Crop regions going to far north
+    nordics = ["FI", "NO", "SE"]
+    intersection_poly = Polygon([(0., 50.), (0., 66.5), (40., 66.5), (40., 50.)])
+    buses.loc[nordics, "region"] = buses.loc[nordics, "region"].apply(lambda x: x.intersection(intersection_poly))
 
     # Adding length to the lines
     links["length"] = pd.Series([0]*len(links.index), index=links.index)
@@ -210,6 +218,7 @@ def get_topology(network: pypsa.Network, countries: List[str] = None, add_offsho
     network.import_components_from_dataframe(links, "Link")
 
     if plot:
+        from pyggrid.data.topologies.core.plot import plot_topology
         plot_topology(buses, links)
         plt.show()
 

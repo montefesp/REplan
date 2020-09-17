@@ -152,7 +152,7 @@ def get_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
 
     Returns
     -------
-    points: List[(float, float)]
+    points_in_shape: List[(float, float)]
 
     """
     if points is None:
@@ -167,6 +167,12 @@ def get_points_in_shape(shape: Union[Polygon, MultiPolygon], resolution: float,
         ys = np.linspace(miny, maxy, num=int((maxy - miny) / resolution) + 1)
         points = list(product(xs, ys))
     points = MultiPoint(points)
-    points = [(point.x, point.y) for point in points.intersection(shape)]
+    points_in_shape = points.intersection(shape)
+    if points.is_empty:
+        points_in_shape = []
+    elif isinstance(points_in_shape, Point):
+        points_in_shape = [(points_in_shape.x, points_in_shape.y)]
+    else:
+        points_in_shape = [(point.x, point.y) for point in points_in_shape]
 
-    return points
+    return points_in_shape

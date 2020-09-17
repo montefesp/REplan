@@ -45,10 +45,10 @@ def plot_topology(buses: pd.DataFrame, lines: pd.DataFrame = None) -> None:
             if isinstance(region, MultiPolygon):
                 for polygon in region:
                     x, y = get_xy(polygon)
-                    ax.fill(x, y, c='none', alpha=0.3)
+                    ax.fill(x, y, c='k', alpha=0.3)
             elif isinstance(region, Polygon):
                 x, y = get_xy(region)
-                ax.fill(x, y, c='none', alpha=0.3)
+                ax.fill(x, y, c='k', alpha=0.3)
 
         # Plot the bus position
         ax.scatter(buses.loc[idx].x, buses.loc[idx].y, c='grey', marker="o", s=10)

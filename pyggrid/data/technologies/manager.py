@@ -40,7 +40,6 @@ def get_config_dict(tech_names: List[str] = None, params: Union[List[str], List[
 
     # Add custom technologies
     custom_tech_dir = join(dirname(abspath(__file__)), '../../../data/technologies/custom/')
-    print(custom_tech_dir)
     for fn in listdir(custom_tech_dir):
         custom_techs_dict = yaml.load(open(f"{custom_tech_dir}{fn}", 'r'), Loader=yaml.FullLoader)
         for tech in custom_techs_dict:
