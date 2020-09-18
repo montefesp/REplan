@@ -31,8 +31,11 @@ def parse_args():
     parser.add_argument('-lpd', '--line_price_div', type=float, help='Value by which DC price will be divided')
     parser.add_argument('-owp', '--onshore_wind_price', type=float,
                         help='Value by which onshore wind in Europe will be multiplied')
-    parser.add_argument('-elc', '--extend_line_cap', type=bool,
-                        help='Whether lines can be extended or not', default=True)
+
+    def to_bool(string):
+        return string == "true"
+    parser.add_argument('-elc', '--extend_line_cap', type=to_bool,
+                        help='Whether lines can be extended or not', default='true')
     parser.add_argument('-lem', '--line_extension_multiplier', type=float, help='Value indicating how to limit '
                         'transmission investment in Europe')
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=1)
@@ -47,6 +50,7 @@ if __name__ == '__main__':
 
     args = parse_args()
     logger.info(args)
+    exit()
 
     # Main directories
     data_dir = join(dirname(abspath(__file__)), "../../../data/")
