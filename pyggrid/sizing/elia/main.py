@@ -28,11 +28,15 @@ def parse_args():
 
     parser = argparse.ArgumentParser(description='Command line arguments.')
 
-    parser.add_argument('-sr', '--spatial_res', type=float, help='Spatial resolution')
-    parser.add_argument('-pd', '--power_density', type=float, help='Offshore power density')
-    parser.add_argument('-dir', '--resite_dir', type=str, help='resite directory')
-    parser.add_argument('-fn', '--resite_fn', type=str, help='resite file name')
+    parser.add_argument('-lpd', '--line_price_div', type=float, help='Value by which DC price will be divided')
+    parser.add_argument('-owp', '--onshore_wind_price', type=float,
+                        help='Value by which onshore wind in Europe will be multiplied')
+    parser.add_argument('-elc', '--extend_line_cap', type=bool,
+                        help='Whether lines can be extended or not', default=True)
+    parser.add_argument('-lem', '--line_extension_multiplier', type=float, help='Value indicating how to limit '
+                        'transmission investment in Europe')
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=1)
+    parser.add_argument('-neu', '--non_eu', type=dict, help='Which technology to add outside Europe')
 
     parsed_args = vars(parser.parse_args())
 
@@ -52,12 +56,14 @@ if __name__ == '__main__':
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
+    # Add args to config
+    config = {**config, **args}
 
     solver_options = config["solver_options"][config["solver"]]
     if config["solver"] == 'gurobi':
-        config["solver_options"][config["solver"]]['Threads'] = args['threads']
+        config["solver_options"][config["solver"]]['Threads'] = config['threads']
     else:
-        config["solver_options"][config["solver"]]['threads'] = args['threads']
+        config["solver_options"][config["solver"]]['threads'] = config['threads']
 
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
@@ -99,7 +105,14 @@ if __name__ == '__main__':
     countries = get_subregions(config["region"])
     if config["add_TR"]:
         countries = countries + ["TR"]
-    net = get_topology(net, countries, extend_line_cap=True)
+
+    net = get_topology(net, countries, extend_line_cap=config["extend_line_cap"],
+                       extension_multiplier=config["line_extension_multiplier"], plot=True)
+
+    # Divide DC transmission price
+    if config["line_price_div"] is not None:
+        dc_links = net.links.carrier == "DC"
+        net.links.loc[dc_links, "capital_cost"] /= args["line_price_div"]
 
     # Adding load
     logger.info("Adding load.")
@@ -133,6 +146,11 @@ if __name__ == '__main__':
                               config['res']['use_ex_cap'], config['res']['limit_max_cap'],
                               output_dir=f"{output_dir}resite/")
 
+    # Increase wind onshore price
+    if config["onshore_wind_price"] is not None:
+        onshore_wind_gens = net.generators.type.str.startswith("wind_onshore")
+        net.generators.loc[onshore_wind_gens, "capital_cost"] *= config["onshore_wind_price"]
+
     # Add conventional gen
     if config["dispatch"]["include"]:
         tech = config["dispatch"]["tech"]
@@ -155,7 +173,7 @@ if __name__ == '__main__':
         net = add_batteries(net, config["battery"]["type"], countries)
 
     # Adding non-European nodes with generation capacity
-    non_eu_res = config["non_eu"]["res"]
+    non_eu_res = config["non_eu"] #["res"]
     if non_eu_res is not None:
         net = upgrade_topology(net, list(non_eu_res.keys()))
         # Add generation and storage
@@ -168,12 +186,6 @@ if __name__ == '__main__':
             res_techs = non_eu_res[region]
             net = add_res_per_bus(net, topology_type, res_techs, bus_ids=countries)
             net = add_batteries(net, config["battery"]["type"], countries)
-
-    #co2_reference_kt = \
-    #    get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
-    #co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(
-    #    net.snapshots) / NHoursPerYear
-    #net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
 
     if config["get_duals"]:
         net.lopf(solver_name=config["solver"],
@@ -195,11 +207,5 @@ if __name__ == '__main__':
                         # io_options={'symbolic_solver_labels': True})
                         io_options={'symbolic_solver_labels': False})
         net.model.objective.pprint()
-
-    # marginal_price = pypsa.linopt.get_dual(net, 'Bus', 'marginal_price')
-    # shadow_price = pypsa.linopt.get_dual(net, 'Generator', 'mu_upper')
-    # print((shadow_price < 0).sum())
-    # print((pypsa.linopt.get_dual(net, 'Generator', 'mu_lower') < 0).sum())
-    # print(net.dualvalues)
 
     net.export_to_csv_folder(output_dir)

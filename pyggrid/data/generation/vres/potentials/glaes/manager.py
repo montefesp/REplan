@@ -134,7 +134,7 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
 
     """
 
-    # import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
 
     poly_wkt = shapely.wkt.dumps(shape)
     poly = ogr.CreateGeometryFromWkt(poly_wkt, spatial_ref_)
@@ -148,7 +148,6 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
         return ec.areaAvailable/1e6
 
     ec = gl.ExclusionCalculator(poly, pixelRes=1000)
-    ec.draw()
 
     # GLAES priors
     if 'glaes_prior_defaults' in filters_:
@@ -210,6 +209,9 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
 
     if 'pipelines' in filters_:
         ec.excludeVectorType(pipelines_, buffer=filters_['pipelines'])
+
+    # ax = ec.draw()
+    # ec.pruneIsolatedAreas(0.9*1e6, 50)
 
     # ec.draw()
     # plt.show()
@@ -340,8 +342,6 @@ if __name__ == '__main__':
     filters_ = get_config_values("wind_onshore_national", ["filters"])
     print(filters_)
     # filters_ = {"depth_thresholds": {"high": -1., "low": -999.}}
-    full_gl_shape = get_shapes(["FI"], "onshore")["geometry"][0]
+    full_gl_shape = get_shapes(["BE"], "onshore")["geometry"][0]
     trunc_gl_shape = full_gl_shape.intersection(Polygon([(0., 50.), (0., 66.5), (40., 66.5), (40., 50.)]))
-    from pyggrid.data.geographics.plot import display_polygons
-    display_polygons([trunc_gl_shape])
     print(get_capacity_potential_for_shapes([trunc_gl_shape], filters_, 5), 1)

@@ -129,7 +129,7 @@ def preprocess(plotting=True) -> None:
 
 
 def get_topology(network: pypsa.Network, countries: List[str] = None, add_offshore: bool = False,
-                 extend_line_cap: bool = True, use_ex_line_cap: bool = True,
+                 extend_line_cap: bool = True, extension_multiplier: float = None, use_ex_line_cap: bool = True,
                  plot: bool = False) -> pypsa.Network:
     """
     Load the e-highway network topology (buses and links) using PyPSA.
@@ -142,8 +142,10 @@ def get_topology(network: pypsa.Network, countries: List[str] = None, add_offsho
         List of ISO codes of countries for which we want the tyndp topology.
     add_offshore: bool (default: False)
         Whether to include offshore nodes
-    extend_line_cap: bool (default True)
+    extend_line_cap: bool (default: True)
         Whether line capacity is allowed to be expanded
+    extension_multiplier: float (default: 1.)
+        By how much the capacity can be extended if extendable
     use_ex_line_cap: bool (default True)
         Whether to use existing line capacity
     plot: bool (default: False)
@@ -208,6 +210,8 @@ def get_topology(network: pypsa.Network, countries: List[str] = None, add_offsho
     links['p_nom_min'] = links['p_nom']
     links['p_min_pu'] = -1.  # Making the link bi-directional
     links['p_nom_extendable'] = extend_line_cap
+    if extend_line_cap and extension_multiplier is not None:
+        links['p_nom_max'] = links['p_nom']*extension_multiplier
     links['capital_cost'] = pd.Series(index=links.index)
     for idx in links.index:
         carrier = links.loc[idx].carrier
