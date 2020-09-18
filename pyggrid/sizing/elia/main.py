@@ -16,6 +16,7 @@ from pyggrid.sizing.elia.utils import upgrade_topology
 from pyggrid.network.globals.functionalities_nopyomo \
     import add_extra_functionalities as add_extra_functionalities_nopyomo
 
+from copy import copy
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
@@ -46,7 +47,7 @@ def parse_args():
         techs = techs.strip("[]").split(",")
         dict = {}
         for country in countries:
-            dict[country] = techs
+            dict[country] = copy(techs)
         return dict
     parser.add_argument('-neu', '--non_eu', type=to_dict, help='Which technology to add outside Europe')
 
@@ -59,6 +60,7 @@ if __name__ == '__main__':
 
     args = parse_args()
     logger.info(args)
+
 
     # Main directories
     data_dir = join(dirname(abspath(__file__)), "../../../data/")
