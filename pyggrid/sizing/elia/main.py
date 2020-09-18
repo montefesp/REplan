@@ -39,7 +39,16 @@ def parse_args():
     parser.add_argument('-lem', '--line_extension_multiplier', type=float, help='Value indicating how to limit '
                         'transmission investment in Europe')
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=1)
-    parser.add_argument('-neu', '--non_eu', type=dict, help='Which technology to add outside Europe')
+
+    def to_dict(string):
+        countries, techs = string.split(":")
+        countries = countries.strip("[]").split(",")
+        techs = techs.strip("[]").split(",")
+        dict = {}
+        for country in countries:
+            dict[country] = techs
+        return dict
+    parser.add_argument('-neu', '--non_eu', type=to_dict, help='Which technology to add outside Europe')
 
     parsed_args = vars(parser.parse_args())
 
@@ -50,6 +59,8 @@ if __name__ == '__main__':
 
     args = parse_args()
     logger.info(args)
+
+    exit()
 
     # Main directories
     data_dir = join(dirname(abspath(__file__)), "../../../data/")
