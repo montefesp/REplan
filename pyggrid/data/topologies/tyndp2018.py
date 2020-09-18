@@ -37,7 +37,9 @@ def preprocess(plotting=True) -> None:
                           names=["link", "in", "out"])
 
     # Get NTC as the minimum capacity between the two flow directions.
-    links["NTC"] = links[["in", "out"]].min(axis=1)
+    #links["NTC"] = links[["in", "out"]].min(axis=1)
+    # TODO: warning this changed
+    links["NTC"] = links[["in", "out"]].max(axis=1)
     links["bus0"] = links.index.str[:2]
     links["bus1"] = [i[1][:2] for i in links.index.str.split('-')]
 
