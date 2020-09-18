@@ -165,36 +165,53 @@ if __name__ == '__main__':
             # Creating grid cells for main region
             onshore_technologies = [get_config_values(tech, ["onshore"]) for tech in eu_technologies]
             # Divide the union of all regions shapes into grid cells of a given spatial resolution
-            shapes = get_shapes(eu_countries, save=True)
-            onshore_union = unary_union(shapes[~shapes['offshore']]['geometry']) if any(onshore_technologies) else None
-            offshore_union = unary_union(shapes[shapes['offshore']]['geometry']) if not all(onshore_technologies) else None
-            spatial_res = config["res"]["spatial_resolution"]
-            grid_cells_ds = get_grid_cells(eu_technologies, spatial_res, onshore_union, offshore_union)
+            grid_cells_ds_list = []
+            for country in eu_countries:
+                print(country)
+                shapes = get_shapes([country], save=True)
+                onshore_union = shapes[~shapes['offshore']].loc[country, 'geometry'] if any(onshore_technologies) else None
+                offshore_union = None
+                if country in shapes[shapes['offshore']].index and not all(onshore_technologies):
+                    offshore_union = shapes[shapes['offshore']].loc[country, 'geometry']
+                    techs_for_country = eu_technologies
+                else:
+                    # Remove offshore techs
+                    techs_for_country = [tech for i, tech in enumerate(eu_technologies) if onshore_technologies[i]]
+                spatial_res = config["res"]["spatial_resolution"]
+                country_grid_cells_ds = get_grid_cells(techs_for_country, spatial_res, onshore_union, offshore_union)
+
+                # Combine the series
+                grid_cells_ds_list += [country_grid_cells_ds]
+
+            grid_cells_ds = pd.concat(grid_cells_ds_list).sort_index()
+            print(grid_cells_ds)
+            exit()
 
             # Compute grid_cells for non-eu
             out_techs = []
             out_countries = []
-            for region in non_eu_res.keys():
-                if region in ["NA", "ME"]:
-                    neigh_countries = get_subregions(region)
-                else:
-                    neigh_countries = [region]
-                out_countries += neigh_countries
-                res_techs = non_eu_res[region]
-                out_techs += res_techs
-                # Creating grid cells for main region
-                onshore_technologies = [get_config_values(tech, ["onshore"]) for tech in res_techs]
-                # Divide the union of all regions shapes into grid cells of a given spatial resolution
-                shapes = get_shapes(neigh_countries, save=True)
-                onshore_union = unary_union(shapes[~shapes['offshore']]['geometry']) if any(
-                    onshore_technologies) else None
-                offshore_union = unary_union(shapes[shapes['offshore']]['geometry']) if not all(
-                    onshore_technologies) else None
-                spatial_res = config["res"]["spatial_resolution"]
-                grid_cells_out_ds = get_grid_cells(res_techs, spatial_res, onshore_union, offshore_union)
+            if non_eu_res is not None:
+                for region in non_eu_res.keys():
+                    if region in ["NA", "ME"]:
+                        neigh_countries = get_subregions(region)
+                    else:
+                        neigh_countries = [region]
+                    out_countries += neigh_countries
+                    res_techs = non_eu_res[region]
+                    out_techs += res_techs
+                    # Creating grid cells for main region
+                    onshore_technologies = [get_config_values(tech, ["onshore"]) for tech in res_techs]
+                    # Divide the union of all regions shapes into grid cells of a given spatial resolution
+                    shapes = get_shapes(neigh_countries, save=True)
+                    onshore_union = unary_union(shapes[~shapes['offshore']]['geometry']) if any(
+                        onshore_technologies) else None
+                    offshore_union = unary_union(shapes[shapes['offshore']]['geometry']) if not all(
+                        onshore_technologies) else None
+                    spatial_res = config["res"]["spatial_resolution"]
+                    grid_cells_out_ds = get_grid_cells(res_techs, spatial_res, onshore_union, offshore_union)
 
-                # Combine the series
-                grid_cells_ds = pd.concat([grid_cells_ds, grid_cells_out_ds])
+                    # Combine the series
+                    grid_cells_ds = pd.concat([grid_cells_ds, grid_cells_out_ds])
 
             # Compute data for grid cells
             all_techs = eu_technologies + out_techs

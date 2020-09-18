@@ -60,9 +60,14 @@ class SizingPlotly:
     This class allows to display results from a optimized PyPSA network.
     """
 
-    def __init__(self, net):
+    def __init__(self, output_dir, test_number=None):
 
-        self.net = net
+        self.current_test_number = test_number
+        if self.current_test_number is None:
+            self.current_test_number = sorted(os.listdir(output_dir))[-1]
+        self.output_dir = output_dir
+        self.net = Network()
+        self.net.import_from_csv_folder(self.output_dir)
         self.opacity = 1.0
         self.tech_colors = {"All": f"rgba(138,43,226,{self.opacity})",  # purple
                             "nuclear": f"rgba(255,140,0,{self.opacity})",  # orange
@@ -163,91 +168,7 @@ class SizingPlotly:
 
         return fig
 
-    def plot_capacity(self, which="init"):
-
-        fig = self.get_bounded_map()
-
-        if which == "init":
-            p_nom_ds = self.net.links.p_nom.round(3)
-        elif which == "new":
-            p_nom_ds = (self.net.links.p_nom_opt - self.net.links.p_nom).round(3)
-        elif which == "final":
-            p_nom_ds = self.net.links.p_nom_opt.round(3)
-        else:
-            raise ValueError("Wrong argument.")
-
-        cmax = max(p_nom_ds.values)
-        colorbar_title = "Increase in Capacity"
-
-        # Create colormap
-        # avg_uses_big_enough = avg_uses[avg_uses > 0]
-        nb_ranges = 51
-        p_nom_hist = np.histogram(p_nom_ds, bins=nb_ranges)
-        op = 0.5
-        colors = []
-        for i in range(nb_ranges+1):
-            colors += [f"rgba({255-i*(255/nb_ranges)}, 0, {i*(255/nb_ranges)}, {op})"]
-        colors.reverse()
-        colorscale = []
-        for i, color in enumerate(colors):
-            colorscale += [[1.0/(len(colors))*i, color], [1.0/(len(colors))*(i+1), color]]
-
-        # Adding links to map
-        if len(self.net.links) != 0:
-            for i, idx in enumerate(self.net.links.index):
-                # Getting coordinates
-                bus0_id = self.net.links.loc[idx, "bus0"]
-                bus1_id = self.net.links.loc[idx, "bus1"]
-                bus0_x = self.net.buses.loc[bus0_id, "x"]
-                bus0_y = self.net.buses.loc[bus0_id, "y"]
-                bus1_x = self.net.buses.loc[bus1_id, "x"]
-                bus1_y = self.net.buses.loc[bus1_id, "y"]
-
-                # Getting value to be translated into a color
-                p_nom = p_nom_ds[idx]
-                # color = f'rgba(0,0,255,{round(avg_use/cmax, 2)})'
-                color = colors[sum(p_nom > p_nom_hist[1])]
-
-                text = ["", f"{p_nom}", ""]
-                width = 5
-                #if avg_use < 0.01:
-                #    width = 5
-                #    text=""
-
-                fig.add_trace(go.Scattergeo(
-                    mode='lines+markers',
-                    lon=[bus0_x, (bus0_x + bus1_x) / 2, bus1_x],
-                    lat=[bus0_y, (bus0_y + bus1_y) / 2, bus1_y],
-                    line=dict(
-                        width=width,  # avg_use,  # np.log(1 + p_nom_mul)/2,
-                        color=color),
-                    # marker=dict(
-                    #     size=[0, 0, 0],
-                    #     reversescale=False,
-                    #     autocolorscale=False,
-                    #     symbol='circle',
-                    #     line=dict(
-                    #          width=0,
-                    #          color='rgba(102, 102, 102)'
-                    #     ),
-                    #     colorscale=colorscale,
-                    #     cmin=0, #avg_uses_big_enough.min(),
-                    #     color=f"rgba(138,43,226,0.5)", #[avg_use]*3,
-                    #     cmax=1,#avg_uses_big_enough.max(),
-                    #     colorbar_title=colorbar_title,
-                    #     colorbar_ticksuffix=' GW',
-                    # ),
-                    text=text,
-                    textfont=dict(size=15, color='black'),
-                    hoverinfo="text",
-                    name=f"{p_nom}"
-                ))
-
-        return fig
-
-
-
-    def plot_transmission_heatmap(self):
+    def show_topology_heatmap(self):
 
         fig = self.get_bounded_map()
 
@@ -255,7 +176,7 @@ class SizingPlotly:
             avg_uses = self.net.links_t.p0.abs().mean(axis=0)/self.net.links.p_nom_opt
             cmax = 1
             colorbar_title = "Mean (Power/Capacity) over time"
-        if 0:
+        if 1:
             limit_perc = 0.8
             avg_uses = (self.net.links_t.p0.abs() > limit_perc*self.net.links.p_nom_opt).mean(axis=0)
             cmax = 1
@@ -270,13 +191,6 @@ class SizingPlotly:
             avg_uses = avg_uses.round(2)
             cmax = max(avg_uses.values)
             colorbar_title = "Increase in Capacity"
-        if 1:
-            p_nom = self.net.links.p_nom.replace(0, 1)
-            avg_uses = self.net.links.p_nom_opt/p_nom
-
-            avg_uses = avg_uses.round(2)
-            cmax = max(avg_uses.values)
-            colorbar_title = "Increase (multiplicative) in Capacity"
 
         avg_uses_big_enough = avg_uses[avg_uses > 0]
         nb_ranges = 51
@@ -293,8 +207,8 @@ class SizingPlotly:
 
         # Adding links to map
         if len(self.net.links) != 0:
+            # Get max p_nom_opt
             for i, idx in enumerate(self.net.links.index):
-                # Getting coordinates
                 bus0_id = self.net.links.loc[idx, "bus0"]
                 bus1_id = self.net.links.loc[idx, "bus1"]
                 bus0_x = self.net.buses.loc[bus0_id, "x"]
@@ -302,10 +216,11 @@ class SizingPlotly:
                 bus1_x = self.net.buses.loc[bus1_id, "x"]
                 bus1_y = self.net.buses.loc[bus1_id, "y"]
 
-                # Getting value to be translated into a color
                 avg_use = avg_uses[idx]
                 # color = f'rgba(0,0,255,{round(avg_use/cmax, 2)})'
                 color = colors[sum(avg_use > avg_uses_hist[1])]
+                print(color)
+                # print(color)
 
                 text = ["", f"{avg_use}", ""]
                 width = 5
@@ -320,22 +235,22 @@ class SizingPlotly:
                     line=dict(
                         width=width,  # avg_use,  # np.log(1 + p_nom_mul)/2,
                         color=color),
-                    # marker=dict(
-                    #     size=[0, 0, 0],
-                    #     reversescale=False,
-                    #     autocolorscale=False,
-                    #     symbol='circle',
-                    #     line=dict(
-                    #          width=0,
-                    #          color='rgba(102, 102, 102)'
-                    #     ),
-                    #     colorscale=colorscale,
-                    #     cmin=0, #avg_uses_big_enough.min(),
-                    #     color=f"rgba(138,43,226,0.5)", #[avg_use]*3,
-                    #     cmax=1,#avg_uses_big_enough.max(),
-                    #     colorbar_title=colorbar_title,
-                    #     colorbar_ticksuffix=' GW',
-                    # ),
+                    marker=dict(
+                        size=[0, 0, 0],
+                        reversescale=False,
+                        autocolorscale=False,
+                        symbol='circle',
+                        line=dict(
+                             width=0,
+                             color='rgba(102, 102, 102)'
+                        ),
+                        colorscale=colorscale,
+                        cmin=0, #avg_uses_big_enough.min(),
+                        color=f"rgba(138,43,226,0.5)", #[avg_use]*3,
+                        cmax=1,#avg_uses_big_enough.max(),
+                        colorbar_title=colorbar_title,
+                        colorbar_ticksuffix=' GW',
+                    ),
                     text=text,
                     textfont=dict(size=15, color='black'),
                     hoverinfo="text",

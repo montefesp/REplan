@@ -180,14 +180,31 @@ def get_link_types(net: pypsa.Network):
     return set(net.links.type)
 
 
-def get_links_capacity(net: pypsa.Network):
-    """countries_url_area_types the original, new and optimal transmission capacities (in MW) for links."""
+def get_links_capacity(net: pypsa.Network, buses_to_remove: List[str] = None):
+    """
+    Return the original, new and optimal transmission capacities (in MW) for links.
 
-    links = net.links[["carrier", "p_nom", "p_nom_opt"]].groupby("carrier").sum()
+    Parameters
+    ----------
+    net: pypsa.Network
+        A PyPSA network instance
+    buses_to_remove: List[str]
+        Links adjacent to one buses of this link will not be taken into account.
+    Returns
+    -------
+
+    """
+
+    links = net.links
+    if buses_to_remove is not None:
+        links = links[~links.bus0.isin(buses_to_remove)]
+        links = links[~links.bus1.isin(buses_to_remove)]
+
+    links = links[["carrier", "p_nom", "p_nom_opt"]].groupby("carrier").sum()
     links["p_nom_new"] = links["p_nom_opt"] - links["p_nom"]
 
-    init_cap_length = get_links_init_cap_length(net)
-    new_cap_length = get_links_new_cap_length(net)
+    init_cap_length = get_links_init_cap_length(net, buses_to_remove)
+    new_cap_length = get_links_new_cap_length(net, buses_to_remove)
 
     links_capacities = pd.concat([links["p_nom"].rename('init [GW]'),
                                   links["p_nom_new"].rename('new [GW]'),
@@ -286,15 +303,28 @@ def get_links_length(net: pypsa.Network):
     return net.links[["carrier", "length"]].groupby(["carrier"]).sum().length
 
 
-def get_links_init_cap_length(net: pypsa.Network):
-    net.links["init_cap_length"] = net.links.length * net.links.p_nom
-    init_cap_length = net.links[["init_cap_length", "carrier"]].groupby("carrier").sum()
+def get_links_init_cap_length(net: pypsa.Network, buses_to_remove: List[str] = None):
+
+    links = net.links
+    if buses_to_remove is not None:
+        links = links[~links.bus0.isin(buses_to_remove)]
+        links = links[~links.bus1.isin(buses_to_remove)]
+
+    links["init_cap_length"] = links.length * links.p_nom
+    init_cap_length = links[["init_cap_length", "carrier"]].groupby("carrier").sum()
     return init_cap_length * 1e-3
 
 
-def get_links_new_cap_length(net: pypsa.Network):
-    net.links["new_cap_length"] = net.links.length * (net.links.p_nom_opt - net.links.p_nom)
-    new_cap_length = net.links[["new_cap_length", "carrier"]].groupby("carrier").sum()
+def get_links_new_cap_length(net: pypsa.Network, buses_to_remove: List[str] = None):
+
+    links = net.links
+    if buses_to_remove is not None:
+        links = links[~links.bus0.isin(buses_to_remove)]
+        links = links[~links.bus1.isin(buses_to_remove)]
+
+    links["new_cap_length"] = links.length * (links.p_nom_opt - links.p_nom)
+
+    new_cap_length = links[["new_cap_length", "carrier"]].groupby("carrier").sum()
     return new_cap_length * 1e-3
 
 

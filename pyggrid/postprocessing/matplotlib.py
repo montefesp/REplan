@@ -38,8 +38,7 @@ class SizingResultsSingleNet:
 
         self.plot_selected_generation(start, end, resolution, generation_t, generation_techs, color_dict)
 
-    def plot_selected_generation(self, start, end, resolution,
-                                 timeseries, techs, colors):
+    def plot_selected_generation(self, start, end, resolution, timeseries, techs, colors):
 
         demand_t = self.net.loads_t.p.resample(resolution).sum()
         demand_total = demand_t.sum(axis=1)
