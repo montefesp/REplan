@@ -56,7 +56,8 @@ if __name__ == '__main__':
         config["solver_options"][config["solver"]]['Threads'] = args['threads']
     else:
         config["solver_options"][config["solver"]]['threads'] = args['threads']
-    config["res"]["spatial_resolution"] = args["spatial_res"]
+    if args["spatial_res"] is not None:
+        config["res"]["spatial_resolution"] = args["spatial_res"]
     config["res"]["sites_dir"] = args["resite_dir"]
     config["res"]["sites_fn"] = args["resite_fn"]
 

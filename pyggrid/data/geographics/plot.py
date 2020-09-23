@@ -38,8 +38,13 @@ def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]], fill=Tru
     ax.add_feature(land_50m, linewidth=0.5, zorder=-1)
     ax.add_feature(cf.BORDERS.with_scale('50m'), edgecolor='darkgrey', linewidth=0.5, zorder=-1)
 
-    for polygons in polygons_list:
-        c = (random(), random(), random())
+    from matplotlib import cm
+    cmap = cm.get_cmap('viridis')
+
+    import numpy as np
+    norm = np.linspace(0.3, 1, len(polygons_list))
+    for i, polygons in enumerate(polygons_list):
+        c = cmap(norm[i])#(random(), random(), random())
         if isinstance(polygons, Polygon):
             polygons = [polygons]
         for poly in polygons:
@@ -48,13 +53,13 @@ def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]], fill=Tru
             if not fill:
                 ax.plot(longitudes, latitudes, transform=ccrs.PlateCarree(), color='k', zorder=0)
             else:
-                ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color=c, zorder=0)
+                ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color=c, zorder=0, alpha=0.5)
                 # Remove interior
-                interior_polys = list(poly.interiors)
-                for i_poly in interior_polys:
-                    longitudes = [i[0] for i in i_poly.coords]
-                    latitudes = [i[1] for i in i_poly.coords]
-                    ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color='white', zorder=0)
+                #interior_polys = list(poly.interiors)
+                #for i_poly in interior_polys:
+                #    longitudes = [i[0] for i in i_poly.coords]
+                #    latitudes = [i[1] for i in i_poly.coords]
+                #    ax.fill(longitudes, latitudes, transform=ccrs.PlateCarree(), color='white', zorder=0)
 
     if show:
         plt.show()

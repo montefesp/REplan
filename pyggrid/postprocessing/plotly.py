@@ -33,7 +33,7 @@ def get_map_layout(title: str, map_coords: List[float] = None, showcountries=Tru
     return go.Figure(
         layout=go.Layout(
             showlegend=False,
-            title=dict(text=title, xanchor="center", xref='paper', x=0.5, font=dict(size=30)),
+            # title=dict(text=title, xanchor="center", xref='paper', x=0.5, font=dict(size=30)),
             legend=dict(itemsizing="trace"),
             geo=dict(
                 fitbounds=fitbounds,
@@ -209,7 +209,7 @@ class SizingPlotly:
                 color = colors[sum(p_nom > p_nom_hist[1])]
 
                 text = ["", f"{p_nom}", ""]
-                width = 5
+                width = 3
                 #if avg_use < 0.01:
                 #    width = 5
                 #    text=""
@@ -221,22 +221,22 @@ class SizingPlotly:
                     line=dict(
                         width=width,  # avg_use,  # np.log(1 + p_nom_mul)/2,
                         color=color),
-                    # marker=dict(
-                    #     size=[0, 0, 0],
-                    #     reversescale=False,
-                    #     autocolorscale=False,
-                    #     symbol='circle',
-                    #     line=dict(
-                    #          width=0,
-                    #          color='rgba(102, 102, 102)'
-                    #     ),
-                    #     colorscale=colorscale,
-                    #     cmin=0, #avg_uses_big_enough.min(),
-                    #     color=f"rgba(138,43,226,0.5)", #[avg_use]*3,
-                    #     cmax=1,#avg_uses_big_enough.max(),
-                    #     colorbar_title=colorbar_title,
-                    #     colorbar_ticksuffix=' GW',
-                    # ),
+                    marker=dict(
+                         size=[0, 0, 0],
+                         reversescale=False,
+                         autocolorscale=False,
+                         symbol='circle',
+                         line=dict(
+                              width=0,
+                              color='rgba(102, 102, 102)'
+                         ),
+                         colorscale=colorscale,
+                         cmin=p_nom_ds.min(),
+                         color=f"rgba(138,43,226,0.5)", #[avg_use]*3,
+                         cmax=p_nom_ds.max(),
+                         #colorbar_title=colorbar_title,
+                         colorbar_ticksuffix=' GW',
+                    ),
                     text=text,
                     textfont=dict(size=15, color='black'),
                     hoverinfo="text",

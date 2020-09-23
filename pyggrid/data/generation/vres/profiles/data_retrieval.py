@@ -47,16 +47,16 @@ def retrieve_with_cds_api(regions: Dict[str, str], spatial_resolution: float,
 
 if __name__ == '__main__':
 
-    regions_ = {# 'EU': '75/-20/30/40'},
+    regions_ = {'EU': '75/-20/30/40'}
                 # 'NA': '30/-20/15/40'}
                 # 'ME': '45/40/7.5/65'}
                 # 'GL': '61.5/-49.5/59.5/-42'}
-                'IS': '67/-25/63/-13'}
+                # 'IS': '67/-25/63/-13'}
                 # 'US': '50/-125/25/-65'}
 
-    years_ = ['2018']
+    years_ = ['2016', '2017', '2018']
     months_ = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
 
-    spatial_resolution_ = 0.5
+    spatial_resolution_ = 0.28
 
     retrieve_with_cds_api(regions_, spatial_resolution_, years_, months_)
