@@ -44,7 +44,7 @@ if __name__ == '__main__':
     # Main directories
     data_dir = join(dirname(abspath(__file__)), "../../../data/")
     tech_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
-    output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/tyndp2018/size_{args['resite_dir']}_{strftime('%Y%m%d_%H%M%S')}/")
+    output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/tyndp2018/{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
