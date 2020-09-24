@@ -26,7 +26,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Command line arguments.')
 
     parser.add_argument('-sr', '--spatial_res', type=float, help='Spatial resolution')
-    parser.add_argument('-pd', '--power_density', type=float, help='Offshore power density')
+    parser.add_argument('-yr', '--year', type=str, help='Year of run')
     parser.add_argument('-dir', '--resite_dir', type=str, help='resite directory')
     parser.add_argument('-fn', '--resite_fn', type=str, help='resite file name')
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=1)
@@ -58,11 +58,14 @@ if __name__ == '__main__':
         config["solver_options"][config["solver"]]['threads'] = args['threads']
     if args["spatial_res"] is not None:
         config["res"]["spatial_resolution"] = args["spatial_res"]
+    if args['year'] is not None:
+        config['time']['slice'][0] = args['year'] + config['time']['slice'][0][4:]
+        config['time']['slice'][1] = args['year'] + config['time']['slice'][1][4:]
     config["res"]["sites_dir"] = args["resite_dir"]
     config["res"]["sites_fn"] = args["resite_fn"]
 
     tech_config = get_config_dict()
-    tech_config["wind_offshore"]["power_density"] = args["power_density"]
+    # tech_config["wind_offshore"]["power_density"] = args["power_density"]
 
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
