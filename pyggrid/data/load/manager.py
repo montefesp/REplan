@@ -1,10 +1,11 @@
 from typing import List
-from os.path import join, dirname, abspath
 from os import listdir
 
 import pandas as pd
 
 from pyggrid.data.geographics import get_subregions, get_nuts_area
+
+from pyggrid.data import data_path
 
 
 def get_yearly_country_load(country: str, year: int) -> int:
@@ -24,7 +25,7 @@ def get_yearly_country_load(country: str, year: int) -> int:
         Yearly load (in GWh)
     """
 
-    iea_load_dir = join(dirname(abspath(__file__)), "../../../data/load/source/iea/")
+    iea_load_dir = f"{data_path}load/source/iea/"
     available_countries = [c.strip(".csv") for c in listdir(iea_load_dir) if c.endswith(".csv")]
     assert country in available_countries, f"Error: Data is not available for country {country}." \
                                            f"Please download data."
@@ -53,7 +54,7 @@ def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
     countries: List[str] (default: None)
         ISO codes of countries
     regions: List[str] (default: None)
-        List of codes referring to regions made of several countries defined in data/geographics/region_definition.csv
+        List of codes referring to regions made of several countries defined in 'data_path'/geographics/region_definition.csv
     missing_data: str (default: error)
         Defines how to deal with missing data. If value is 'error', throws an error. If value is 'interpolate', uses
         data from another country
@@ -77,7 +78,7 @@ def get_load(timestamps: pd.DatetimeIndex = None, years_range: List[int] = None,
     if years_range is not None:
         timestamps = pd.date_range(f"{years_range[0]}-01-01 00:00:00", f"{years_range[1]}-12-31 23:00:00", freq='1H')
 
-    opsd_load_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
+    opsd_load_fn = f"{data_path}load/generated/opsd_load.csv"
     load = pd.read_csv(opsd_load_fn, index_col=0, engine='python')
     load.index = pd.DatetimeIndex(load.index)
     missing_timestamps = set(timestamps) - set(load.index)
@@ -122,7 +123,7 @@ def get_load_from_source_country(target_countries: List[str], timestamps: pd.Dat
     Compute load for a list of countries.
 
     The load is obtained by retrieving the load for another country
-    (listed in data/load/source_load_countries.csv) and then resizing it
+    (listed in 'data_path'/load/source_load_countries.csv) and then resizing it
     proportionally to yearly load of the source and target countries.
 
     Parameters
@@ -139,7 +140,7 @@ def get_load_from_source_country(target_countries: List[str], timestamps: pd.Dat
 
     """
 
-    opsd_load_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
+    opsd_load_fn = f"{data_path}load/generated/opsd_load.csv"
     load = pd.read_csv(opsd_load_fn, index_col=0, engine='python')
     load.index = pd.DatetimeIndex(load.index)
     load = load*1e-3
@@ -150,7 +151,7 @@ def get_load_from_source_country(target_countries: List[str], timestamps: pd.Dat
         "Error: This function only works for year 2015 to 2018"
 
     # Load the file indicating if load information is available for the given regions
-    load_info_fn = join(dirname(abspath(__file__)), "../../../data/load/source_load_countries.csv")
+    load_info_fn = f"{data_path}load/source_load_countries.csv"
     load_info = pd.read_csv(load_info_fn, index_col="Code")
     load_info = load_info.dropna()
 
@@ -215,14 +216,14 @@ def get_load_from_nuts_codes(nuts_codes_lists: List[List[str]], timestamps: pd.D
     for i, nuts_codes in enumerate(nuts_codes_lists):
         assert isinstance(nuts_codes, list), "Error: 'nuts_codes_lists' must be a list of lists"
         assert len(nuts_codes) != 0, f"Error: NUTS codes list number {i} is empty"
-    pop_dens_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/demo_r_d3dens.xls")
+    pop_dens_fn = f"{data_path}geographics/source/eurostat/demo_r_d3dens.xls"
     pop_dens = pd.read_excel(pop_dens_fn, header=8, index_col=0)[:2213]
     pop_dens.index.name = 'code'
 
     area = get_nuts_area()
     area.index.name = 'code'
 
-    # gdp_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/nama_10r_3gdp.xls")
+    # gdp_fn = f"{data_path}geographics/source/eurostat/nama_10r_3gdp.xls"
     # gdp = pd.read_excel(gdp_fn, header=8, index_col=0)[:1945]
     # gdp.index.name = 'code'
 

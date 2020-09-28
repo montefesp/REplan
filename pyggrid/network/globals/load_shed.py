@@ -1,8 +1,10 @@
-from os.path import join, dirname, abspath
+from os.path import join
 
 import pypsa
 
 import pandas as pd
+
+from pyggrid.data import data_path
 
 import logging
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
@@ -26,7 +28,7 @@ def add_load_shedding(network: pypsa.Network, load_df: pd.DataFrame) -> pypsa.Ne
         Updated network
     """
 
-    tech_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
+    tech_dir = f"{data_path}technologies/"
     fuel_info = pd.read_excel(join(tech_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
 
     onshore_bus_indexes = network.buses[network.buses.onshore].index

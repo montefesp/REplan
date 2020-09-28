@@ -1,6 +1,6 @@
-from os.path import join, dirname, abspath
 import cdsapi
 
+from pyggrid.data import data_path
 
 """
 Note
@@ -29,7 +29,7 @@ def retrieve_with_cds_api(category: str, spatial_resolution: float, year: int):
     month = 12
     day = 31
 
-    data_dir = join(dirname(abspath(__file__)), "../../../data/land_data/source/ERA5/")
+    data_dir = f"{data_path}land_data/source/ERA5/"
     c = cdsapi.Client()
     c.retrieve(
         'reanalysis-era5-single-levels',

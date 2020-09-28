@@ -1,4 +1,3 @@
-from os.path import join, dirname, abspath
 import time
 
 import pandas as pd
@@ -6,11 +5,12 @@ import numpy as np
 
 import requests
 
+from pyggrid.data import data_path
+
 
 def download_iea_electricity_consumption(countries, start_year, end_year):
 
-    data_dir = join(dirname(abspath(__file__)), "../../../data/")
-    countries_df = pd.read_csv(f"{data_dir}geographics/countries-codes.csv", index_col="Code")
+    countries_df = pd.read_csv(f"{data_path}geographics/countries-codes.csv", index_col="Code")
 
     years = list(range(start_year, end_year + 1))
     for country in countries:
@@ -31,7 +31,7 @@ def download_iea_electricity_consumption(countries, start_year, end_year):
                         value = np.nan
                     consumption.loc[year, "Electricity Consumption (GWh)"] = value
                     break
-        consumption.to_csv(f"{data_dir}load/source/iea/{country}.csv")
+        consumption.to_csv(f"{data_path}load/source/iea/{country}.csv")
 
 
 if __name__ == '__main__':

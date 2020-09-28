@@ -1,4 +1,3 @@
-from os.path import join, dirname, abspath
 import geokit as gk
 from datetime import datetime as dt
 from osgeo import osr, ogr
@@ -9,11 +8,13 @@ import shapely.wkt
 from pyggrid.data.generation.vres.potentials.glaes.create_priors import edgesByProximity, writeEdgeFile
 from pyggrid.data.geographics import get_shapes
 
+from pyggrid.data import data_path
+
 
 def rasterize_natura_vector():
     """Create a rasterize version of the Natura2000 dataset"""
 
-    potential_dir = join(dirname(abspath(__file__)), "../../../data/generation/vres/potentials/")
+    potential_dir = f"{data_path}generation/vres/potentials/"
     natura = gk.vector.loadVector(f"{potential_dir}source/Natura2000/Natura2000_end2019_epsg3035.shp")
     extent = gk.Extent.fromVector(natura).castTo(3035).fit(100)
     extent.rasterize(natura, pixelWidth=100, pixelHeight=100, output=f"{potential_dir}generated/GLAES/natura2000.tif")
@@ -45,7 +46,7 @@ def create_shore_proximity_prior():
     reg = gk.RegionMask.load(poly, pixelRes=1000)
 
     # Create a geometry list from the osm files
-    potential_dir = join(dirname(abspath(__file__)), "../../../data/generation/vres/potentials/")
+    potential_dir = f"{data_path}generation/vres/potentials/"
     gebco = gk.vector.loadVector(f"{potential_dir}source/GEBCO/GEBCO_2019/gebco_2019_n75.0_s30.0_w-20.0_e40.0.tif")
     indicated = reg.indicateValues(gebco, value='(0-]', applyMask=False) > 0.5
     geom = gk.geom.polygonizeMask(indicated, bounds=reg.extent.xyXY, srs=reg.srs)

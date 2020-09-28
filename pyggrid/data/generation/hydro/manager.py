@@ -1,10 +1,11 @@
-from os.path import join, dirname, abspath
 from os import listdir
 from typing import Tuple, Union, List
 
 import pandas as pd
 
 from pyggrid.data.topologies.ehighways import get_ehighway_clusters
+
+from pyggrid.data import data_path
 
 
 def get_hydro_capacities(aggregation_level: str, plant_type: str) -> Union[pd.Series, Tuple[pd.Series, pd.Series]]:
@@ -31,7 +32,7 @@ def get_hydro_capacities(aggregation_level: str, plant_type: str) -> Union[pd.Se
     assert plant_type in accepted_plant_types, \
         f"Error: Accepted plant types are {accepted_plant_types}, received {plant_type}"
 
-    hydro_dir = join(dirname(abspath(__file__)), "../../../../data/generation/hydro/generated/")
+    hydro_dir = f"{data_path}generation/hydro/generated/"
 
     available_levels = \
         [fn.split("_")[-1].split(".")[0] for fn in listdir(hydro_dir) if fn.startswith("hydro_capacities_per_")]
@@ -78,7 +79,7 @@ def get_hydro_inflows(aggregation_level: str, plant_type: str, timestamps: pd.Da
     assert plant_type in accepted_plant_types, \
         f"Error: Accepted plant types are {accepted_plant_types}, received {plant_type}"
 
-    hydro_dir = join(dirname(abspath(__file__)), "../../../../data/generation/hydro/generated/")
+    hydro_dir = f"{data_path}generation/hydro/generated/"
 
     available_levels = [fn.split("_")[-2] for fn in listdir(hydro_dir) if "time_series" in fn]
     assert aggregation_level in available_levels, \
@@ -288,7 +289,7 @@ def get_hydro_production(countries: List[str] = None, years: List[int] = None) -
     assert countries is None or len(countries) != 0, "Error: List of countries is empty."
     assert years is None or len(years) != 0, "Error: List of years is empty."
 
-    prod_dir = join(dirname(abspath(__file__)), "../../../../data/generation/misc/source/")
+    prod_dir = f"{data_path}generation/misc/source/"
     # Data from eurostat
     eurostat_fn = f"{prod_dir}eurostat/nrg_ind_peh.xls"
     eurostat_df = pd.read_excel(eurostat_fn, skiprows=12, index_col=0, na_values=":")[:-3]

@@ -14,6 +14,8 @@ import geopy.distance
 from pyggrid.data.geographics import get_shapes
 from pyggrid.data.technologies import get_costs
 
+from pyggrid.data import data_path
+
 
 def preprocess(plotting=True) -> None:
     """
@@ -25,13 +27,12 @@ def preprocess(plotting=True) -> None:
         Whether to plot the results
     """
 
-    generated_dir = join(dirname(abspath(__file__)), "../../../data/topologies/tyndp2018/generated/")
+    generated_dir = f"{data_path}topologies/tyndp2018/generated/"
     if not isdir(generated_dir):
         makedirs(generated_dir)
 
     # Create links
-    link_data_fn = join(dirname(abspath(__file__)),
-                        "../../../data/topologies/tyndp2018/source/Input Data.xlsx")
+    link_data_fn = f"{data_path}topologies/tyndp2018/source/Input Data.xlsx"
     # Read TYNDP2018 (NTC 2027, reference grid) data
     links = pd.read_excel(link_data_fn, sheet_name="NTC", index_col=0, skiprows=[0, 2], usecols=[0, 3, 4],
                           names=["link", "in", "out"])
@@ -162,7 +163,7 @@ def get_topology(network: pypsa.Network, countries: List[str] = None, add_offsho
     assert countries is None or len(countries) != 0, "Error: Countries list must not be empty. If you want to " \
                                                      "obtain, the full topology, don't pass anything as argument."
 
-    topology_dir = join(dirname(abspath(__file__)), "../../../data/topologies/tyndp2018/generated/")
+    topology_dir = f"{data_path}topologies/tyndp2018/generated/"
     buses_fn = f"{topology_dir}buses.csv"
     assert isfile(buses_fn), f"Error: Buses are undefined. Please run 'preprocess'."
     buses = pd.read_csv(buses_fn, index_col='id')

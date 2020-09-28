@@ -16,6 +16,8 @@ from pyggrid.sizing.elia.utils import upgrade_topology
 from pyggrid.network.globals.functionalities_nopyomo \
     import add_extra_functionalities as add_extra_functionalities_nopyomo
 
+from pyggrid.data import data_path
+
 from copy import copy
 
 import logging
@@ -61,10 +63,9 @@ if __name__ == '__main__':
     args = parse_args()
     logger.info(args)
 
-
     # Main directories
-    data_dir = join(dirname(abspath(__file__)), "../../../data/")
-    tech_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
+    data_dir = f"{data_path}"
+    tech_dir = f"{data_path}technologies/"
     output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/elia/{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config

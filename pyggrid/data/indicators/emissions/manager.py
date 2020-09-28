@@ -1,9 +1,10 @@
-from os.path import join, abspath, dirname
 from os import listdir
 
 import pandas as pd
 
 from pyggrid.data.geographics import get_subregions, convert_country_codes
+
+from pyggrid.data import data_path
 
 import warnings
 
@@ -27,7 +28,7 @@ def get_co2_emission_level_for_country(country_code: str, year: int) -> float:
     """
 
     assert 1990 <= year <= 2018, "Error: Data is only available for the period 1990-2018"
-    emission_src_dir = join(dirname(abspath(__file__)), "../../../../data/indicators/emissions/source/")
+    emission_src_dir = f"{data_path}indicators/emissions/source/"
     iea_available_countries = [c.strip(".csv") for c in listdir(f"{emission_src_dir}iea/") if c.endswith(".csv")]
     assert country_code in iea_available_countries, f"Error: Data is not available for country {country_code}"
 
@@ -42,8 +43,7 @@ def get_co2_emission_level_for_country(country_code: str, year: int) -> float:
 
         co2_intensity = eea_emission_df[eea_emission_df["Country"] == country_name].loc[year, "co2 (g/kWh)"]
         # Multiply by production to obtain total co2 emissions (in kT)
-        iea_production_fn = join(dirname(abspath(__file__)),
-                                 f"../../../../data/generation/misc/source/iea/total/{country_code}.csv")
+        iea_production_fn = f"{data_path}generation/misc/source/iea/total/{country_code}.csv"
         iea_production_df = pd.read_csv(iea_production_fn, index_col=0)
         return co2_intensity*iea_production_df.loc[year, "Electricity Production (GWh)"]*1e6/1e9
     else:

@@ -1,15 +1,15 @@
 from typing import Dict, List
-from os.path import join, dirname, abspath
 import os
 
 import cdsapi
+
+from pyggrid.data import data_path
 
 
 def retrieve_with_cds_api(regions: Dict[str, str], spatial_resolution: float,
                           years: List[str], months: List[str]) -> None:
 
-    directory = join(dirname(abspath(__file__)),
-                     f"../../../../../data/generation/vres/profiles/source/ERA5/{spatial_resolution}/")
+    directory = f"{data_path}generation/vres/profiles/source/ERA5/{spatial_resolution}/"
     if not os.path.exists(directory):
         os.makedirs(directory)
 

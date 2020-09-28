@@ -23,6 +23,8 @@ from pyggrid.data.generation.vres.potentials.glaes import get_capacity_potential
 from pyggrid.data.generation.vres.legacy import get_legacy_capacity_in_regions
 from pyggrid.data.generation.vres.profiles import compute_capacity_factors
 
+from pyggrid.data import data_path
+
 import logging
 logging.basicConfig(level=logging.DEBUG, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -51,8 +53,8 @@ if __name__ == '__main__':
     logger.info(args)
 
     # Main directories
-    data_dir = join(dirname(abspath(__file__)), "../../../data/")
-    tech_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
+    data_dir = f"{data_path}"
+    tech_dir = f"{data_path}technologies/"
     output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/elia/{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config

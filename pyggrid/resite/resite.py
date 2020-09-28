@@ -83,14 +83,14 @@ class Resite:
 
         return output_folder
 
-    def build_data(self, use_ex_cap: bool, cap_pot_thresholds: List[float] = None):
+    def build_data(self, use_ex_cap: bool, min_cap_pot: List[float] = None):
         """Preprocess data.
 
         Parameters:
         -----------
         use_ex_cap: bool
             Whether to compute or not existing capacity and use it in optimization.
-        cap_pot_thresholds: List[float] (default: None)
+        min_cap_pot: List[float] (default: None)
             List of thresholds per technology. Points with capacity potential under this threshold will be removed.
         """
         # TODO: this function needs to take as argument a vector data specifying which data it must compute
@@ -139,13 +139,16 @@ class Resite:
         cap_potential_ds[underestimated_capacity_indexes] = existing_cap_ds[underestimated_capacity_indexes]
 
         # Remove sites that have a potential capacity under the desired value or equal to 0
-        if cap_pot_thresholds is None:
-            cap_pot_thresholds = [0]*len(self.technologies)
-        assert len(cap_pot_thresholds) == len(self.technologies), \
+        if min_cap_pot is None:
+            min_cap_pot = [0]*len(self.technologies)
+        assert len(min_cap_pot) == len(self.technologies), \
             "Error: If you specify threshold on capacity potentials, you need to specify it for each technology."
-        cap_pot_thresh_dict = dict(zip(self.technologies, cap_pot_thresholds))
-        sites_to_drop = pd.DataFrame(cap_potential_ds).apply(lambda x: x[0] < cap_pot_thresh_dict[x.name[0]] or
+        min_cap_pot_dict = dict(zip(self.technologies, min_cap_pot))
+        sites_to_drop = pd.DataFrame(cap_potential_ds).apply(lambda x: x[0] < min_cap_pot_dict[x.name[0]] or
                                                              x[0] == 0, axis=1)
+        # Don't drop sites with existing capacity
+        # TODO: this is probably a shitty way to do it
+        sites_to_drop = pd.DataFrame(sites_to_drop).apply(lambda x: (existing_cap_ds[x.name] == 0 and x[0]), axis=1)
         cap_potential_ds = cap_potential_ds[~sites_to_drop]
         existing_cap_ds = existing_cap_ds[~sites_to_drop]
         grid_cells_ds = grid_cells_ds[~sites_to_drop]
@@ -168,7 +171,7 @@ class Resite:
 
         # Save all data in object
         self.use_ex_cap = use_ex_cap
-        self.cap_pot_thresh_dict = cap_pot_thresh_dict
+        self.min_cap_pot_dict = min_cap_pot_dict
         self.tech_points_tuples = grid_cells_ds.index.values
         self.tech_points_dict = tech_points_dict
         self.initial_sites_ds = grid_cells_ds
@@ -228,7 +231,7 @@ class Resite:
 
     def __getstate__(self):
         return (self.timestamps, self.regions, self.spatial_res, self.technologies,
-                self.use_ex_cap, self.cap_pot_thresh_dict,
+                self.use_ex_cap, self.min_cap_pot_dict,
                 self.formulation, self.formulation_params, self.modelling,
                 self.tech_points_dict, self.data_dict, self.initial_sites_ds,
                 self.sel_tech_points_tuples, self.sel_tech_points_dict,
@@ -236,7 +239,7 @@ class Resite:
 
     def __setstate__(self, state):
         (self.timestamps, self.regions, self.spatial_res, self.technologies,
-         self.use_ex_cap, self.cap_pot_thresh_dict,
+         self.use_ex_cap, self.min_cap_pot_dict,
          self.formulation, self.formulation_params, self.modelling,
          self.tech_points_dict, self.data_dict, self.initial_sites_ds,
          self.sel_tech_points_tuples, self.sel_tech_points_dict,
@@ -253,7 +256,7 @@ class Resite:
                   'regions': self.regions,
                   'technologies': self.technologies,
                   'use_ex_cap': self.use_ex_cap,
-                  'cap_pot_thresh_dict': self.cap_pot_thresh_dict,
+                  'min_cap_pot_dict': self.min_cap_pot_dict,
                   'modelling': self.modelling,
                   'formulation': self.formulation,
                   'formulation_params': self.formulation_params}

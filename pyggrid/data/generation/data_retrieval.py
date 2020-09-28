@@ -1,4 +1,3 @@
-from os.path import join, dirname, abspath
 import time
 
 import pandas as pd
@@ -6,11 +5,12 @@ import numpy as np
 
 import requests
 
+from pyggrid.data import data_path
+
 
 def download_iea_electricity_production(countries, start_year, end_year):
 
-    data_dir = join(dirname(abspath(__file__)), "../../../data/")
-    countries_df = pd.read_csv(f"{data_dir}geographics/countries-codes.csv", index_col="Code")
+    countries_df = pd.read_csv(f"{data_path}geographics/countries-codes.csv", index_col="Code")
 
     years = list(range(start_year, end_year + 1))
     for country in countries:
@@ -31,13 +31,12 @@ def download_iea_electricity_production(countries, start_year, end_year):
                         value = np.nan
                     production.loc[year, "Electricity Production (GWh)"] = value
                     break
-        production.to_csv(f"{data_dir}generation/misc/source/iea/total/{country}.csv")
+        production.to_csv(f"{data_path}generation/misc/source/iea/total/{country}.csv")
 
 
 def download_iea_hydro_electricity_production(countries, start_year, end_year):
 
-    data_dir = join(dirname(abspath(__file__)), "../../../data/")
-    countries_df = pd.read_csv(f"{data_dir}geographics/countries-codes.csv", index_col="Code")
+    countries_df = pd.read_csv(f"{data_path}geographics/countries-codes.csv", index_col="Code")
 
     years = list(range(start_year, end_year + 1))
     for country in countries:
@@ -59,7 +58,7 @@ def download_iea_hydro_electricity_production(countries, start_year, end_year):
                         value = np.nan
                     production.loc[year, name] = value
                     break
-        production.to_csv(f"{data_dir}generation/misc/source/iea/hydro/{country}.csv")
+        production.to_csv(f"{data_path}generation/misc/source/iea/hydro/{country}.csv")
 
 
 if __name__ == '__main__':

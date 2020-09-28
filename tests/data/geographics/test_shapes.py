@@ -229,7 +229,7 @@ def remove_saved_file(codes):
     # Remove saved file
     sorted_name = "".join(sorted(codes))
     hash_name = hashlib.sha224(bytes(sorted_name, 'utf-8')).hexdigest()[:10]
-    fn = join(dirname(abspath(__file__)), f"../../../data/geographics/generated/{hash_name}.geojson")
+    fn = f"{data_path}geographics/generated/{hash_name}.geojson"
     os.remove(fn)
 
 

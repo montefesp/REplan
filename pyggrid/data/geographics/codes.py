@@ -1,10 +1,11 @@
-from os.path import join, dirname, abspath
 from typing import List
 
 import numpy as np
 import pandas as pd
 
 import pycountry as pyc
+
+from pyggrid.data import data_path
 
 
 def convert_country_codes(source_codes: List[str], source_format: str, target_format: str,
@@ -51,12 +52,12 @@ def remove_landlocked_countries(country_list: List[str]) -> List[str]:
 
 def get_subregions(region: str) -> List[str]:
     """
-    Return the list of the subregions composing one of the region defined in data/geographics/region_definition.csv.
+    Return the list of the subregions composing one of the region defined in 'data_path'/geographics/region_definition.csv.
 
     Parameters
     ----------
     region: str
-        Code of a geographical region defined in data/geographics/region_definition.csv.
+        Code of a geographical region defined in 'data_path'/geographics/region_definition.csv.
 
     Returns
     -------
@@ -64,7 +65,7 @@ def get_subregions(region: str) -> List[str]:
         List of subregion codes, if no subregions, returns [region]
     """
 
-    region_definition_fn = join(dirname(abspath(__file__)), '../../../data/geographics/region_definition.csv')
+    region_definition_fn = f"{data_path}geographics/region_definition.csv"
     region_definition = pd.read_csv(region_definition_fn, index_col=0, keep_default_na=False)
 
     if region in region_definition.index:
@@ -148,7 +149,7 @@ def revert_old_country_names(c: str) -> str:
 #     assert nuts_level in available_nuts_levels, \
 #         f"Error: NUTS level must be one of {available_nuts_levels}, received {nuts_level}"
 #
-#     nuts_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/NUTS2013-NUTS2016.xlsx")
+#     nuts_fn = f"{data_path}geographics/source/eurostat/NUTS2013-NUTS2016.xlsx"
 #     nuts_codes = pd.read_excel(nuts_fn, sheet_name="NUTS2013-NUTS2016", usecols=[1, 2], header=1)
 #     nuts_codes = nuts_codes[f"Code {year}"].dropna()
 #

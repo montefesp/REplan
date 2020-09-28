@@ -1,4 +1,3 @@
-from os.path import join, dirname, abspath
 from os import listdir
 from typing import List, Dict, Any, Union
 import yaml
@@ -6,6 +5,8 @@ import yaml
 import pandas as pd
 
 from copy import deepcopy
+
+from pyggrid.data import data_path
 
 
 def get_config_dict(tech_names: List[str] = None, params: Union[List[str], List[List[str]]] = None) -> Dict[str, Any]:
@@ -35,11 +36,11 @@ def get_config_dict(tech_names: List[str] = None, params: Union[List[str], List[
         assert len(params) != 0, "Error: List of parameters is empty."
 
     # Get all technologies
-    default_tech_fn = join(dirname(abspath(__file__)), '../../../data/technologies/tech_config.yml')
+    default_tech_fn = f"{data_path}technologies/tech_config.yml"
     all_techs_dict = yaml.load(open(default_tech_fn, 'r'), Loader=yaml.FullLoader)
 
     # Add custom technologies
-    custom_tech_dir = join(dirname(abspath(__file__)), '../../../data/technologies/custom/')
+    custom_tech_dir = f"{data_path}technologies/custom/"
     for fn in listdir(custom_tech_dir):
         custom_techs_dict = yaml.load(open(f"{custom_tech_dir}{fn}", 'r'), Loader=yaml.FullLoader)
         for tech in custom_techs_dict:
@@ -101,7 +102,7 @@ def get_config_dict_old(tech_names: List[str] = None, params: Union[List[str], L
     if params is not None:
         assert len(params) != 0, "Error: List of parameters is empty."
 
-    tech_conf_path = join(dirname(abspath(__file__)), '../../../data/technologies/tech_config.yml')
+    tech_conf_path = f"{data_path}technologies/tech_config.yml"
     tech_conf_all = yaml.load(open(tech_conf_path, 'r'), Loader=yaml.FullLoader)
 
     if tech_names is None:
@@ -167,7 +168,7 @@ def get_tech_info(tech_name: str, params: List[str]) -> pd.Series:
     """
     assert len(params) != 0, "Error: List of parameters is empty."
 
-    tech_info_fn = join(dirname(abspath(__file__)), "../../../data/technologies/tech_info.xlsx")
+    tech_info_fn = f"{data_path}technologies/tech_info.xlsx"
     plant, plant_type = get_config_values(tech_name, ["plant", "type"])
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1]).loc[plant, plant_type]
 
@@ -195,7 +196,7 @@ def get_fuel_info(fuel_name: str, params: List[str]) -> pd.Series:
 
     """
 
-    fuel_info_fn = join(dirname(abspath(__file__)), "../../../data/technologies/fuel_info.xlsx")
+    fuel_info_fn = f"{data_path}technologies/fuel_info.xlsx"
     fuel_info = pd.read_excel(fuel_info_fn, sheet_name='values', index_col=0).loc[fuel_name, :]
 
     for param in params:

@@ -1,16 +1,16 @@
 from typing import List
 import time
-import os
 
 import pandas as pd
 
 import requests
 
+from pyggrid.data import data_path
+
 
 def download_iea_co2_by_electricity_and_heat(countries: List[str]):
 
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../data/")
-    countries_df = pd.read_csv(f"{data_dir}geographics/countries-codes.csv", index_col="Code")
+    countries_df = pd.read_csv(f"{data_path}geographics/countries-codes.csv", index_col="Code")
 
     for country in countries:
         production = pd.DataFrame(columns=["CO2 from electricity and heat producers (MT)"])
@@ -27,7 +27,7 @@ def download_iea_co2_by_electricity_and_heat(countries: List[str]):
 
         print(production)
 
-        production.to_csv(f"{data_dir}emission/source/iea/{country}.csv")
+        production.to_csv(f"{data_path}emission/source/iea/{country}.csv")
 
 
 if __name__ == '__main__':

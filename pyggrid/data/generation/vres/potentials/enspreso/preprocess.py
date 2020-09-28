@@ -1,10 +1,12 @@
 """
 All these functions are computing potentials based on NUTS2 or NUTS0 aggregated potentials
 """
-from os.path import join, dirname, abspath, isdir
+from os.path import join, isdir
 from os import makedirs
 
 import pandas as pd
+
+from pyggrid.data import data_path
 
 
 def get_non_eu28_potential(tech: str) -> pd.Series:
@@ -26,7 +28,7 @@ def get_non_eu28_potential(tech: str) -> pd.Series:
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
     # Load capacity potential per non-EU28 country (GW)
-    path_potential_data = join(dirname(abspath(__file__)), '../../../../data/generation/vres/potentials/source')
+    path_potential_data = f"{data_path}generation/vres/potentials/source"
     capacity_potential_non_eu28 = pd.read_excel(join(path_potential_data, 'RES_potential_non_EU.xlsx'), index_col=0)
     capacity_potential_non_eu28 = capacity_potential_non_eu28[tech].dropna()
 
@@ -35,8 +37,7 @@ def get_non_eu28_potential(tech: str) -> pd.Series:
         # For onshore technologies, divide capacity among NUTS2 regions proportionally (for pv_residential)
         # or inversely proportional (for wind_onshore and pv_utility) to population
         # ODO: will need to use some more reliable data source or at least reference this one better
-        pop_dens_fn = join(dirname(abspath(__file__)),
-                           "../../../../data/indicators/population/generated/pop_dens_nuts2.csv")
+        pop_dens_fn = f"{data_path}indicators/population/generated/pop_dens_nuts2.csv"
         nuts2_pop_dens = pd.read_csv(pop_dens_fn, index_col=0, sep=';')
 
         # Compute NUTS2 capacities country by country
@@ -201,8 +202,7 @@ def get_capacity_potential_from_enspreso(tech: str) -> pd.Series:
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
-    path_potential_data = join(dirname(abspath(__file__)),
-                               '../../../../data/generation/vres/potentials/source/ENSPRESO')
+    path_potential_data = f"{data_path}generation/vres/potentials/source/ENSPRESO"
     # For wind, summing over all wind conditions is similar to considering taking all available land and a capacity per
     #  area of 5MW/km2
     if tech == 'wind_onshore':
@@ -280,8 +280,7 @@ def get_capacity_potential_from_enspreso(tech: str) -> pd.Series:
 def built_capacity_potential_files():
     """Saves capacity potentials (in GW) for NUTS2 and NUTS0 (2016 version) and EEZ regions."""
 
-    path_potential_data = join(dirname(abspath(__file__)),
-                               '../../../../data/generation/vres/potentials/generated/ENSPRESO/')
+    path_potential_data = f"{data_path}generation/vres/potentials/generated/ENSPRESO/"
     if not isdir(path_potential_data):
         makedirs(path_potential_data)
 

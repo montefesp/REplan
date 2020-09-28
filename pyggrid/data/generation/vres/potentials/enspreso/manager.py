@@ -1,7 +1,6 @@
 """
 All these functions are computing potentials based on NUTS2 or NUTS0 aggregated potentials
 """
-from os.path import join, dirname, abspath
 from typing import List, Dict, Tuple, Union
 
 import numpy as np
@@ -12,6 +11,8 @@ from shapely.errors import TopologicalError
 
 from pyggrid.data.geographics import get_shapes, match_points_to_regions
 from pyggrid.data.indicators.population import load_population_density_data
+
+from pyggrid.data import data_path
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -24,8 +25,7 @@ def get_available_regions(region_type: str) -> List[str]:
     accepted_types = ["nuts2", "nuts0", "eez"]
     assert region_type in accepted_types, f"Error: region_type {region_type} is not in {accepted_types}"
 
-    path_potential_data = join(dirname(abspath(__file__)),
-                               '../../../../../../data/generation/vres/potentials/generated/ENSPRESO/')
+    path_potential_data = f"{data_path}generation/vres/potentials/generated/ENSPRESO/"
 
     # Onshore, return NUTS (0 or 2) capacity potentials
     if region_type in ["nuts2", "nuts0"]:
@@ -56,8 +56,7 @@ def read_capacity_potential(tech: str, nuts_type: str = "nuts0") -> pd.Series:
     accepted_techs = ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_utility', 'pv_residential']
     assert tech in accepted_techs, f"Error: tech {tech} is not in {accepted_techs}"
 
-    path_potential_data = join(dirname(abspath(__file__)),
-                               '../../../../../../data/generation/vres/potentials/generated/ENSPRESO/')
+    path_potential_data = f"{data_path}generation/vres/potentials/generated/ENSPRESO/"
 
     # Onshore, return NUTS (0 or 2) capacity potentials
     if tech in ['wind_onshore', 'pv_utility', 'pv_residential']:

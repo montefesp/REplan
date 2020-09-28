@@ -1,7 +1,7 @@
 from typing import List, Tuple
 from datetime import datetime
 from os import listdir
-from os.path import join, abspath, dirname, isdir
+from os.path import join, isdir
 
 import yaml
 import geopy.distance
@@ -16,6 +16,8 @@ from pyggrid.data.geographics import match_points_to_regions, get_nuts_shapes, g
     replace_iso2_codes, convert_country_codes, revert_old_country_names, convert_old_country_names
 from pyggrid.data.generation import get_powerplants, match_powerplants_to_regions
 from pyggrid.data.generation.hydro import get_hydro_production
+
+from pyggrid.data import data_path
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -38,7 +40,7 @@ def read_runoff_data(resolution: float, timestamps: pd.DatetimeIndex) -> xr.Data
      runoff_dataset: xr.Dataset
 
      """
-    runoff_dir = join(dirname(abspath(__file__)), f"../../../../data/generation/hydro/source/ERA5/runoff/{resolution}")
+    runoff_dir = f"{data_path}generation/hydro/source/ERA5/runoff/{resolution}"
     assert isdir(runoff_dir), f"Error: No data found for resolution {resolution} (directory {runoff_dir} not found)."
     runoff_files = [join(runoff_dir, fn) for fn in listdir(runoff_dir) if fn.endswith(".nc")]
     runoff_dataset = xr.open_mfdataset(runoff_files, combine='by_coords')
@@ -109,8 +111,7 @@ def get_phs_storage_capacities(phs_capacity_df: pd.DataFrame, default_phs_durati
 
      """
 
-    phs_geth_fn = join(dirname(abspath(__file__)),
-                       "../../../../data/generation/hydro/source/Geth_2015_EU_PHS_review.xlsx")
+    phs_geth_fn = f"{data_path}generation/hydro/source/Geth_2015_EU_PHS_review.xlsx"
     phs_geth_all = pd.read_excel(phs_geth_fn, sheet_name='overall', index_col=0).dropna(subset=['Estor [GWh]'])
 
     # Iterate through all PHS plants
@@ -217,8 +218,7 @@ def build_ror_data(ror_capacity_ds: pd.Series, timestamps: pd.DatetimeIndex,
         ROR inflow time-series (p.u. of power capacity) for each region.
     """
 
-    ror_thresholds_fn = join(dirname(abspath(__file__)),
-                             "../../../../data/generation/hydro/source/ror_flood_event_thresholds.csv")
+    ror_thresholds_fn = f"{data_path}generation/hydro/source/ror_flood_event_thresholds.csv"
     ror_thresholds = pd.read_csv(ror_thresholds_fn, index_col=0)
 
     ror_capacity_ds = ror_capacity_ds.groupby(ror_capacity_ds.index).sum() * 1e-3
@@ -259,7 +259,7 @@ def get_country_storage_from_grand(country_name: str) -> float:
 
     """
 
-    source_dir = join(dirname(abspath(__file__)), "../../../../data/generation/hydro/source/GDW/GRanD_Version_1_3/")
+    source_dir = f"{data_path}generation/hydro/source/GDW/GRanD_Version_1_3/"
     grand_reservoirs_fn = f"{source_dir}GRanD_reservoirs_v1_3.shp"
     reservoirs_df = pd.DataFrame(gpd.read_file(grand_reservoirs_fn)).set_index('GRAND_ID')
     # See get_nuts_storage_distribution_from_grand for explanation
@@ -300,7 +300,7 @@ def get_nuts_storage_distribution_from_grand(nuts_codes: List[str]) -> pd.Series
     assert len(nuts_codes) != 0, "Error: Empty list of NUTS codes."
 
     # Read GRanD database
-    source_dir = join(dirname(abspath(__file__)), "../../../../data/generation/hydro/source/GDW/GRanD_Version_1_3/")
+    source_dir = f"{data_path}generation/hydro/source/GDW/GRanD_Version_1_3/"
     grand_reservoirs_fn = f"{source_dir}GRanD_reservoirs_v1_3.shp"
     reservoirs_df = pd.DataFrame(gpd.read_file(grand_reservoirs_fn)).set_index('GRAND_ID')
     # A particular reservoir is manually removed (others could follow). The Vanern lake (SE) is labeled as a reservoir
@@ -361,7 +361,7 @@ def compute_storage_capacities(sto_capacity_ds: pd.Series) -> pd.Series:
          DataFrame containing STO energy storage ratings.
 
     """
-    source_dir = join(dirname(abspath(__file__)), "../../../../data/hydro/source/")
+    source_dir = f"{data_path}hydro/source/"
     # Initially reading modelled data from Hartel et. al (2017)
     hydro_storage_capacities_fn = f"{source_dir}Hartel_2017_EU_hydro_storage_capacities.xlsx"
     hydro_storage_energy_cap_ds = pd.read_excel(hydro_storage_capacities_fn, skiprows=1,
@@ -569,7 +569,7 @@ def generate_eu_hydro_files(resolution: float, topology_unit: str,
     shapes_countries = replace_iso2_codes([code[:2] for code in shapes.index])
     countries = sorted(list(set(shapes_countries)))
 
-    tech_dir = join(dirname(abspath(__file__)), "../../../../data/technologies/")
+    tech_dir = f"{data_path}technologies/"
     tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
 
     # Runoff data
@@ -622,7 +622,7 @@ def generate_eu_hydro_files(resolution: float, topology_unit: str,
     sto_inflows_df = sto_inflows_df[capacities_df['STO_CAP [GW]'].dropna().index]
 
     # Saving files
-    save_dir = join(dirname(abspath(__file__)), "../../../../data/hydro/generated/")
+    save_dir = f"{data_path}hydro/generated/"
     capacities_df.to_csv(f"{save_dir}hydro_capacities_per_{topology_unit}.csv")
     ror_inflows_df.to_csv(f"{save_dir}hydro_ror_time_series_per_{topology_unit}_pu.csv")
     sto_inflows_df.to_csv(f"{save_dir}hydro_sto_inflow_time_series_per_{topology_unit}_GWh.csv")

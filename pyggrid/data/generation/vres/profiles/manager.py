@@ -1,4 +1,4 @@
-from os.path import join, dirname, abspath, isfile
+from os.path import join, isfile
 from os import listdir
 import glob
 from ast import literal_eval
@@ -17,6 +17,8 @@ import windpowerlib
 from pyggrid.data.technologies import get_config_dict, get_config_values
 from pyggrid.data.geographics import get_shapes
 
+from pyggrid.data import data_path
+
 
 def read_resource_database(spatial_resolution: float) -> xr.Dataset:
     """
@@ -33,7 +35,7 @@ def read_resource_database(spatial_resolution: float) -> xr.Dataset:
 
     """
 
-    main_resource_dir = join(dirname(abspath(__file__)), f"../../../../../data/generation/vres/profiles/source/ERA5/")
+    main_resource_dir = f"{data_path}generation/vres/profiles/source/ERA5/"
     available_res = listdir(main_resource_dir)
     assert str(spatial_resolution) in available_res, f"Error: Available resolutions are {available_res}," \
                                                      f" given {spatial_resolution} "
@@ -111,7 +113,7 @@ def compute_capacity_factors(tech_points_dict: Dict[str, List[Tuple[float, float
     #        defined below (I, II, III, IV), the name of the converter as a string
     converters_dict = get_config_dict(list(tech_points_dict.keys()), ["converter"])
 
-    vres_profiles_dir = join(dirname(abspath(__file__)), "../../../../../data/generation/vres/profiles/source/")
+    vres_profiles_dir = f"{data_path}generation/vres/profiles/source/"
     transfer_function_dir = f"{vres_profiles_dir}transfer_functions/"
     data_converter_wind = pd.read_csv(f"{transfer_function_dir}data_wind_turbines.csv", sep=';', index_col=0)
     data_converter_pv = pd.read_csv(f"{transfer_function_dir}data_pv_modules.csv", sep=';', index_col=0)
@@ -258,7 +260,7 @@ def get_cap_factor_for_countries(tech: str, countries: List[str], timestamps: pd
 
     plant, plant_type = get_config_values(tech, ["plant", "type"])
 
-    profiles_dir = join(dirname(abspath(__file__)), "../../../../../data/generation/vres/profiles/generated/")
+    profiles_dir = f"{data_path}generation/vres/profiles/generated/"
     if plant == 'PV':
         capacity_factors_df = pd.read_csv(f"{profiles_dir}pv_cap_factors.csv", index_col=0)
     elif plant == "Wind" and plant_type == "Onshore":
@@ -328,7 +330,7 @@ def get_cap_factor_for_countries(tech: str, countries: List[str], timestamps: pd
 #     assert start_month <= end_month, \
 #         "ERROR: The number of the end month must be superior to the number of the start month"
 #
-#     cutout_dir = join(dirname(abspath(__file__)), "../../../data/cutouts/")
+#     cutout_dir = f"{data_path}cutouts/"
 #
 #     cutout_params = dict(years=[2013], months=list(range(start_month, end_month+1)))
 #     cutout = atlite.Cutout("europe-2013-era5", cutout_dir=cutout_dir, **cutout_params)

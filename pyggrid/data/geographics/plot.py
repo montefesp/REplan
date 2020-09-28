@@ -41,7 +41,6 @@ def display_polygons(polygons_list: List[Union[Polygon, MultiPolygon]], fill=Tru
     from matplotlib import cm
     cmap = cm.get_cmap('viridis')
 
-    import numpy as np
     norm = np.linspace(0.3, 1, len(polygons_list))
     for i, polygons in enumerate(polygons_list):
         c = cmap(norm[i])#(random(), random(), random())

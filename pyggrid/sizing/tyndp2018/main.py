@@ -13,6 +13,8 @@ from pyggrid.data.technologies import get_config_dict
 from pyggrid.network import *
 from pyggrid.postprocessing.results_display import *
 
+from pyggrid.data import data_path
+
 import logging
 logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
 # logging.disable(logging.CRITICAL)
@@ -42,8 +44,8 @@ if __name__ == '__main__':
     logger.info(args)
 
     # Main directories
-    data_dir = join(dirname(abspath(__file__)), "../../../data/")
-    tech_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
+    data_dir = f"{data_path}"
+    tech_dir = f"{data_path}technologies/"
     output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/tyndp2018/{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config
@@ -137,7 +139,8 @@ if __name__ == '__main__':
             elif strategy == "no_siting":
                 net = add_res_in_grid_cells(net, 'countries', technologies,
                                             config["region"], config["res"]["spatial_resolution"],
-                                            config["res"]["use_ex_cap"], config["res"]["limit_max_cap"])
+                                            config["res"]["use_ex_cap"], config["res"]["limit_max_cap"],
+                                            config["res"]["min_cap_pot"])
             elif strategy == 'siting':
                 net = add_res(net, 'countries', technologies, config["region"], config['res'],
                               config['res']['use_ex_cap'], config['res']['limit_max_cap'],

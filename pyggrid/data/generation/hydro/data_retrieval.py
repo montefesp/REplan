@@ -1,14 +1,15 @@
-from os.path import join, dirname, abspath
 import os
 from typing import Dict, List
 
 import cdsapi
 
+from pyggrid.data import data_path
+
 
 def retrieve_with_cds_api(regions: Dict[str, str], spatial_resolution: float,
                           years: List[str], months: List[str]) -> None:
 
-    directory = join(dirname(abspath(__file__)), f"../../../../data/generation/hydro/source/ERA5/runoff/")
+    directory = f"{data_path}generation/hydro/source/ERA5/runoff/"
     if not os.path.exists(directory):
         os.makedirs(directory)
 

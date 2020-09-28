@@ -1,4 +1,4 @@
-from os.path import join, dirname, abspath, isfile
+from os.path import isfile
 from typing import List
 
 from six.moves import reduce
@@ -11,6 +11,8 @@ from shapely.ops import unary_union
 import hashlib
 
 from pyggrid.data.geographics.codes import convert_country_codes, replace_iso2_codes, remove_landlocked_countries
+
+from pyggrid.data import data_path
 
 
 def correct_shapes(shapes: gpd.GeoSeries) -> gpd.GeoSeries:
@@ -37,9 +39,7 @@ def get_natural_earth_shapes_2(iso_codes: List[str] = None) -> gpd.GeoSeries:
         Series containing desired shapes.
     """
 
-    natearth_fn = join(dirname(abspath(__file__)),
-                       "../../../data/geographics/source/naturalearth/"
-                       "ne_10m_admin_0_map_units/ne_10m_admin_0_map_units.shp")
+    natearth_fn = f"{data_path}geographics/source/naturalearth/ne_10m_admin_0_map_units/ne_10m_admin_0_map_units.shp"
     shapes = gpd.read_file(natearth_fn)
 
     # Names are a hassle in naturalearth, several fields are combined.
@@ -85,8 +85,7 @@ def get_natural_earth_shapes(iso_codes: List[str] = None) -> gpd.GeoSeries:
         Series containing desired shapes.
     """
 
-    natearth_fn = join(dirname(abspath(__file__)),
-                       "../../../data/geographics/source/naturalearth/countries/ne_10m_admin_0_countries.shp")
+    natearth_fn = f"{data_path}geographics/source/naturalearth/countries/ne_10m_admin_0_countries.shp"
     shapes = gpd.read_file(natearth_fn)
 
     # Names are a hassle in naturalearth, several fields are combined.
@@ -134,7 +133,7 @@ def get_nuts_shapes(nuts_level: str, nuts_codes: List[str] = None) -> gpd.GeoSer
     assert nuts_codes is None or all([len(code) == required_len for code in nuts_codes]), \
         f"Error: All NUTS{nuts_level} codes must be of length {required_len}."
 
-    eurostat_dir = join(dirname(abspath(__file__)), "../../../data/geographics/source/eurostat/")
+    eurostat_dir = f"{data_path}geographics/source/eurostat/"
     nuts_fn = f"{eurostat_dir}NUTS_RG_01M_2016_4326_LEVL_{nuts_level}.geojson"
     shapes = gpd.read_file(nuts_fn)
 
@@ -207,7 +206,7 @@ def get_offshore_shapes(iso_codes: List[str]) -> gpd.GeoSeries:
     # Remove landlocked countries for which there is no offshore shapes
     iso_codes = remove_landlocked_countries(iso_codes)
 
-    eez_fn = join(dirname(abspath(__file__)), "../../../data/geographics/source/eez/World_EEZ_v8_2014.shp")
+    eez_fn = f"{data_path}geographics/source/eez/World_EEZ_v8_2014.shp"
     eez_shapes = gpd.read_file(eez_fn)
 
     eez_shapes = eez_shapes[pd.notnull(eez_shapes['ISO_3digit'])]
@@ -250,8 +249,7 @@ def get_eez_and_land_union_shapes(iso2_codes: List[str]) -> pd.Series:
      for French Guyana and France are associated to different entries.
     """
 
-    shape_fn = join(dirname(abspath(__file__)),
-                    "../../../data/geographics/source/EEZ_land_union/EEZ_Land_v3_202030.shp")
+    shape_fn = f"{data_path}geographics/source/EEZ_land_union/EEZ_Land_v3_202030.shp"
     shapes = gpd.read_file(shape_fn)
 
     # Convert country ISO2 codes to ISO3
@@ -296,7 +294,7 @@ def get_shapes(region_codes: List[str], which: str = 'onshore_offshore', save: b
     # If shapes for those codes were previously computed, output is returned directly from file.
     sorted_name = "".join(sorted(region_codes))
     hash_name = hashlib.sha224(bytes(sorted_name, 'utf-8')).hexdigest()[:10]
-    fn = join(dirname(abspath(__file__)), f"../../../data/geographics/generated/{hash_name}.geojson")
+    fn = f"{data_path}geographics/generated/{hash_name}.geojson"
     if isfile(fn):
         shapes = gpd.read_file(fn).set_index('name')
         if which == 'onshore':

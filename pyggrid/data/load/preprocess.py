@@ -1,5 +1,3 @@
-from os.path import join, dirname, abspath
-
 import pandas as pd
 import numpy as np
 from scipy import stats
@@ -7,6 +5,8 @@ from scipy import stats
 import matplotlib.pyplot as plt
 
 from pyggrid.data.load import get_load
+
+from pyggrid.data import data_path
 
 
 def filter_outliers(time_series: pd.Series) -> pd.Series:
@@ -105,12 +105,11 @@ def preprocess():
     Preprocess load data.
 
     Build a complete and easy to use database of load by formatting and
-    correcting some open-source data contained in the folder data/load/source.
-    The results are saved in the folder data/load/generated.
+    correcting some open-source data contained in the folder 'data_path'/load/source.
+    The results are saved in the folder 'data_path'/load/generated.
     """
 
-    source_data_fn = join(dirname(abspath(__file__)),
-                          "../../../data/load/source/time_series_60min_singleindex_filtered.csv")
+    source_data_fn = f"{data_path}load/source/time_series_60min_singleindex_filtered.csv"
     source_data = pd.read_csv(source_data_fn, index_col='utc_timestamp')
     source_data = source_data.drop(["cet_cest_timestamp"], axis=1)
     source_data = source_data[1:-23]
@@ -148,15 +147,15 @@ def preprocess():
         final_data[key] = correct_time_series(final_data[key], True)
 
     final_data.index = final_data.index.strftime('%Y-%m-%d %H:%M:%S')
-    final_data_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
+    final_data_fn = f"{data_path}load/generated/opsd_load.csv"
     final_data.to_csv(final_data_fn)
 
 
 def get_load_full_years_range(save: bool = False) -> pd.DataFrame:
     """
-    Compute (and optionally save) for each region for which we have load data in data/load/opsd_load.csv,
+    Compute (and optionally save) for each region for which we have load data in 'data_path'/load/opsd_load.csv,
      the first and last year for which we have hourly data for everyday of the year.
-    Note that data/load/opsd_load.csv is supposed to contain only contiguous time series
+    Note that 'data_path'/load/opsd_load.csv is supposed to contain only contiguous time series
     (i.e. no NaN values in the middle of it).
 
     Parameters
@@ -171,7 +170,7 @@ def get_load_full_years_range(save: bool = False) -> pd.DataFrame:
 
     """
 
-    opsd_load_fn = join(dirname(abspath(__file__)), "../../../data/load/generated/opsd_load.csv")
+    opsd_load_fn = f"{data_path}load/generated/opsd_load.csv"""
     load = pd.read_csv(opsd_load_fn, index_col=0)
     load.index = pd.DatetimeIndex(load.index)
 
@@ -188,7 +187,7 @@ def get_load_full_years_range(save: bool = False) -> pd.DataFrame:
         load_full_years_range.loc[key, 'end'] = max(load_end_indexes).year
 
     if save:
-        load_dir = join(dirname(abspath(__file__)), "../../../data/load/generated/")
+        load_dir = f"{data_path}load/generated/"
         load_full_years_range.to_csv(f"{load_dir}available_load_years.csv")
 
     return load_full_years_range
@@ -204,7 +203,7 @@ def create_countries_load_files():
     available_years = get_load_full_years_range()
     available_years_countries = available_years[[len(idx) == 2 for idx in available_years.index]]
 
-    load_dir = join(dirname(abspath(__file__)), "../../../data/load/generated/")
+    load_dir = f"{data_path}load/generated/"
 
     load_2015_2018_countries = available_years_countries[(available_years_countries.start <= 2015) &
                                                          (available_years_countries.end >= 2018)].index

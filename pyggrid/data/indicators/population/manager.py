@@ -1,7 +1,7 @@
-from os.path import join, dirname, abspath
-
 import xarray as xr
 import numpy as np
+
+from pyggrid.data import data_path
 
 
 def load_population_density_data(spatial_resolution: float) -> xr.DataArray:
@@ -13,7 +13,7 @@ def load_population_density_data(spatial_resolution: float) -> xr.DataArray:
     degree_res_vn = "30 arc-minutes" if spatial_resolution == 0.5 else "1 degree"
 
     # Load population density dataset
-    pop_density_dir = join(dirname(abspath(__file__)), '../../../../data/indicators/population/source/')
+    pop_density_dir = f"{data_path}indicators/population/source/"
     pop_density_dataset = \
         xr.open_dataset(f"{pop_density_dir}gpw_v4_population_density_adjusted_rev11_{degree_res_fn}.nc")
     pop_density_dataset = pop_density_dataset.sel(raster=5)

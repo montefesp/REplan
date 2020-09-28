@@ -1,4 +1,4 @@
-from os.path import join, dirname, abspath
+from os.path import join
 from typing import List
 import warnings
 
@@ -7,6 +7,8 @@ import pandas as pd
 from pyggrid.data.geographics.grid_cells import get_grid_cells
 from pyggrid.data.geographics import get_shapes, match_points_to_regions, convert_country_codes
 from pyggrid.data.technologies import get_config_values
+
+from pyggrid.data import data_path
 
 
 def get_legacy_capacity_in_regions_from_non_open(tech: str, regions_shapes: pd.Series, countries: List[str],
@@ -36,7 +38,7 @@ def get_legacy_capacity_in_regions_from_non_open(tech: str, regions_shapes: pd.S
 
     """
 
-    path_legacy_data = join(dirname(abspath(__file__)), '../../../../../data/generation/vres/legacy/source/')
+    path_legacy_data = f"{data_path}generation/vres/legacy/source/"
 
     capacities = pd.Series(0., index=regions_shapes.index)
     plant, plant_type = get_config_values(tech, ["plant", "type"])
@@ -172,7 +174,7 @@ def aggregate_legacy_capacity(spatial_resolution: float):
     capacities_df = capacities_df.drop("Technology Name", axis=1)
     capacities_df = capacities_df.set_index(["Plant", "Type", "Longitude", "Latitude"])
 
-    legacy_dir = join(dirname(abspath(__file__)), '../../../../../data/generation/vres/legacy/generated/')
+    legacy_dir = f"{data_path}generation/vres/legacy/generated/"
     capacities_df.round(4).to_csv(f"{legacy_dir}aggregated_capacity.csv",
                                   header=True, columns=["ISO2", "Capacity (GW)"])
 

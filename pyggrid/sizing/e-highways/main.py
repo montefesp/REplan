@@ -10,6 +10,8 @@ from pyggrid.data.technologies import get_config_dict
 from pyggrid.network import *
 from pyggrid.postprocessing.results_display import *
 
+from pyggrid.data import data_path
+
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
@@ -19,8 +21,8 @@ NHoursPerYear = 8760.
 if __name__ == "__main__":
 
     # Main directories
-    data_dir = join(dirname(abspath(__file__)), "../../../data/")
-    tech_dir = join(dirname(abspath(__file__)), "../../../data/technologies/")
+    data_dir = f"{data_path}"
+    tech_dir = f"{data_path}technologies/"
     output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/e-highways/{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config

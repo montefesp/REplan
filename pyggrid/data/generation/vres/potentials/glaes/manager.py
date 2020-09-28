@@ -1,4 +1,4 @@
-from os.path import join, dirname, abspath, isfile
+from os.path import isfile
 from os import listdir
 from typing import List, Dict, Union, Any
 from ast import literal_eval
@@ -17,7 +17,7 @@ import progressbar as pgb
 import shapely.wkt
 from shapely.geometry import Polygon, MultiPolygon
 
-from pyggrid.data.geographics import get_shapes
+from pyggrid.data import data_path
 
 
 def get_glaes_prior_defaults(config: List[str], priors: List[str] = None) -> Dict[str, Any]:
@@ -40,8 +40,7 @@ def get_glaes_prior_defaults(config: List[str], priors: List[str] = None) -> Dic
 
     # Get the main configuration file
     assert len(config) != 0
-    exclusions_fn = join(dirname(abspath(__file__)), f"../../../../../../data/generation/vres/potentials/source/"
-                                                     f"GLAES/exclusions/{config[0]}.yml")
+    exclusions_fn = f"{data_path}generation/vres/potentials/source/GLAES/exclusions/{config[0]}.yml"
     assert isfile(exclusions_fn), f"Error: No exclusion configuration named {config[0]}. File {exclusions_fn} not found"
     prior_threshold_dict = yaml.load(open(exclusions_fn, 'r'), Loader=yaml.FullLoader)
 
@@ -82,7 +81,7 @@ def init_land_availability_globals(filters: Dict) -> None:
     spatial_ref_ = osr.SpatialReference()
     spatial_ref_.ImportFromEPSG(4326)
 
-    data_dir = join(dirname(abspath(__file__)), "../../../../../../data/generation/vres/potentials/")
+    data_dir = f"{data_path}generation/vres/potentials/"
 
     # Natura dataset (protected areas in Europe)
     if "natura" in filters:
@@ -141,8 +140,7 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
 
     # Compute rooftop area using ESM (European Settlement Map)
     if filters_.get("esm", 0):
-        path_cop = join(dirname(abspath(__file__)), f"../../../../../../data/generation/vres/potentials/"
-                                                    f"source/ESM/ESM_class50_100m/ESM_class50_100m.tif")
+        path_cop = f"{data_path}generation/vres/potentials/source/ESM/ESM_class50_100m/ESM_class50_100m.tif"
         ec = gl.ExclusionCalculator(poly, pixelRes=1000, initialValue=path_cop)
 
         return ec.areaAvailable/1e6
@@ -167,6 +165,11 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
                 prior_value = [prior_value]
             for value in prior_value:
                 ec.excludePrior(prior_name, value=value)
+
+            #ec.draw()
+            #plt.title(prior_name)
+            #print(prior_name)
+            #plt.show()
 
     # Exclude protected areas
     if 'natura' in filters_:
@@ -301,7 +304,6 @@ def get_capacity_potential_for_shapes(shapes: List[Union[Polygon, MultiPolygon]]
         Array of capacity potentials (GW)
     """
     available_area = get_land_availability_for_shapes(shapes, filters, processes)
-    print(available_area)
     return available_area * power_density / 1e3
 
 
@@ -339,9 +341,10 @@ def get_capacity_potential_per_country(countries: List[str], is_onshore: float, 
 if __name__ == '__main__':
     from pyggrid.data.geographics import get_shapes
     from pyggrid.data.technologies import get_config_values
-    filters_ = get_config_values("wind_onshore_national", ["filters"])
+    filters_ = get_config_values("pv_utility_national", ["filters"])
     print(filters_)
-    # filters_ = {"depth_thresholds": {"high": -1., "low": -999.}}
-    full_gl_shape = get_shapes(["BE"], "onshore")["geometry"][0]
-    trunc_gl_shape = full_gl_shape.intersection(Polygon([(0., 50.), (0., 66.5), (40., 66.5), (40., 50.)]))
-    print(get_capacity_potential_for_shapes([trunc_gl_shape], filters_, 5), 1)
+    # filters_ = {"depth_thresholds": {"high": -200, "low": None}}
+    full_gl_shape = get_shapes(["PL"], "onshore")["geometry"][0]
+    filters_ = {"glaes_priors": {"ghi_threshold": (0, 4.5)}}
+    # trunc_gl_shape = full_gl_shape.intersection(Polygon([(11.5, 52.5), (11.5, 53.5), (12.5, 53.5), (12.5, 52.5)]))
+    print(get_capacity_potential_for_shapes([full_gl_shape], filters_, 5), None)

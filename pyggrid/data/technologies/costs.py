@@ -1,9 +1,10 @@
-from os.path import join, dirname, abspath
 from typing import Tuple
 
 import pandas as pd
 
 from .manager import get_config_values
+
+from pyggrid.data import data_path
 
 NHoursPerYear = 8760.0
 
@@ -73,11 +74,11 @@ def get_costs(tech: str, nb_hours: float) -> Tuple[float, float]:
     Capital cost (M€/GWel or M€/GWel/km) and marginal cost (M€/GWhel)
 
     """
-    tech_info_fn = join(dirname(abspath(__file__)), "../../../data/technologies/tech_info.xlsx")
+    tech_info_fn = f"{data_path}technologies/tech_info.xlsx"
     tech_info = pd.read_excel(tech_info_fn, sheet_name='values', index_col=[0, 1])
     plant, plant_type = get_config_values(tech, ["plant", "type"])
     tech_info = tech_info.loc[plant, plant_type]
-    fuel_info_fn = join(dirname(abspath(__file__)), "../../../data/technologies/fuel_info.xlsx")
+    fuel_info_fn = f"{data_path}technologies/fuel_info.xlsx"
     fuel_info = pd.read_excel(fuel_info_fn, sheet_name='values', index_col=0)
 
     capital_cost = compute_capital_cost(tech_info["FOM"], tech_info["CAPEX"], tech_info["lifetime"], nb_hours)

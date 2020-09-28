@@ -1,4 +1,3 @@
-from os.path import join, dirname, abspath
 from typing import List
 import warnings
 
@@ -6,6 +5,8 @@ import pandas as pd
 
 from pyggrid.data.geographics import match_points_to_regions
 from pyggrid.data.technologies import get_config_values
+
+from pyggrid.data import data_path
 
 
 def get_legacy_capacity_in_countries(tech: str, countries: List[str], raise_error: bool = True) -> pd.Series:
@@ -33,7 +34,7 @@ def get_legacy_capacity_in_countries(tech: str, countries: List[str], raise_erro
     assert len(countries) != 0, "Error: List of countries is empty."
 
     # Read per grid cell capacity file
-    legacy_dir = join(dirname(abspath(__file__)), '../../../../../data/generation/vres/legacy/generated/')
+    legacy_dir = f"{data_path}/generation/vres/legacy/generated/"
     capacities_df = pd.read_csv(f"{legacy_dir}aggregated_capacity.csv", index_col=[0, 1])
 
     plant, plant_type = get_config_values(tech, ["plant", "type"])
@@ -80,7 +81,7 @@ def get_legacy_capacity_in_regions(tech: str, regions_shapes: pd.Series, countri
     """
 
     # Read per grid cell capacity file
-    legacy_dir = join(dirname(abspath(__file__)), '../../../../../data/generation/vres/legacy/generated/')
+    legacy_dir = f"{data_path}generation/vres/legacy/generated/"
     capacities_df = pd.read_csv(f"{legacy_dir}aggregated_capacity.csv", index_col=[0, 1])
 
     plant, plant_type = get_config_values(tech, ["plant", "type"])

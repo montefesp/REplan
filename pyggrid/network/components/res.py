@@ -1,4 +1,4 @@
-from os.path import join, dirname, abspath
+from os.path import join
 import pickle
 from typing import List, Dict, Any
 
@@ -16,6 +16,8 @@ from pyggrid.data.generation.vres.potentials.glaes import get_capacity_potential
 from pyggrid.data.generation.vres.profiles import compute_capacity_factors, get_cap_factor_for_countries
 from pyggrid.data.technologies import get_costs, get_config_values, get_config_dict
 from pyggrid.resite.resite import Resite
+
+from pyggrid.data import data_path
 
 import logging
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
@@ -66,7 +68,7 @@ def add_generators_from_file(net: pypsa.Network, topology_type: str, technologie
     countries = list(net.buses.country.dropna())
 
     # Load site data
-    resite_data_path = join(dirname(abspath(__file__)), f"../../data/resite/generated/{sites_dir}/")
+    resite_data_path = f"{data_path}resite/generated/{sites_dir}/"
     resite_data_fn = join(resite_data_path, sites_fn)
     tech_points_cap_factor_df = pickle.load(open(resite_data_fn, "rb"))
 
@@ -277,7 +279,8 @@ def add_generators_using_siting(net: pypsa.Network, topology_type: str, technolo
 
 def add_generators_in_grid_cells(net: pypsa.Network, topology_type: str, technologies: List[str],
                                  region: str, spatial_resolution: float,
-                                 use_ex_cap: bool = True, limit_max_cap: bool = True) -> pypsa.Network:
+                                 use_ex_cap: bool = True, limit_max_cap: bool = True,
+                                 min_cap_pot: List[float] = None) -> pypsa.Network:
     """
     Create VRES generators in every grid cells obtained from dividing a certain number of regions.
 
@@ -291,13 +294,16 @@ def add_generators_in_grid_cells(net: pypsa.Network, topology_type: str, technol
     technologies: List[str]
         Which technologies to add.
     region: str
-        Region code defined in data/geographics/region_definition.csv over which the network is defined.
+        Region code defined in 'data_path'/geographics/region_definition.csv over which the network is defined.
     spatial_resolution: float
         Spatial resolution at which to define grid cells.
     use_ex_cap: bool (default: True)
         Whether to take into account existing capacity.
     limit_max_cap: bool (default: True)
         Whether to limit capacity expansion at each grid cell to a certain capacity potential.
+    min_cap_pot: List[float] (default: None)
+        List of thresholds per technology. Points with capacity potential under this threshold will be removed.
+
 
     Returns
     -------
@@ -334,7 +340,7 @@ def add_generators_in_grid_cells(net: pypsa.Network, topology_type: str, technol
 
     # Generate deployment sites using resite
     resite = Resite([region], technologies, [net.snapshots[0], net.snapshots[-1]], spatial_resolution)
-    resite.build_data(use_ex_cap)
+    resite.build_data(use_ex_cap, min_cap_pot)
 
     for tech in technologies:
 

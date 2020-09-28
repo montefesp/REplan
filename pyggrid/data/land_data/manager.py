@@ -1,4 +1,3 @@
-from os.path import join, dirname, abspath
 from typing import List, Tuple, Dict, Any
 from copy import copy
 
@@ -12,6 +11,8 @@ import geopy.distance
 
 from pyggrid.data.generation.vres.profiles import read_resource_database
 from pyggrid.data.indicators.population import load_population_density_data
+
+from pyggrid.data import data_path
 
 
 def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, float]],
@@ -34,8 +35,7 @@ def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, floa
         Points filtered via land/water mask.
     """
 
-    path_land_data = join(dirname(abspath(__file__)),
-                          f"../../../data/land_data/source/ERA5/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
+    path_land_data = f"{data_path}land_data/source/ERA5/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc"
     dataset = xr.open_dataset(path_land_data)
     dataset = dataset.sortby([dataset.longitude, dataset.latitude])
     dataset = dataset.assign_coords(longitude=(((dataset.longitude + 180) % 360) - 180)).sortby('longitude')
@@ -109,8 +109,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
         protected_areas_selection = filters_dict['protected_areas_selection']
         threshold_distance = filters_dict['protected_areas_distance_threshold']
 
-        path_land_data = join(dirname(abspath(__file__)),
-                              '../../../data/land_data/source/WDPA/WDPA_Apr2020-shapefile-points.shp')
+        path_land_data = f"{data_path}land_data/source/WDPA/WDPA_Apr2020-shapefile-points.shp"
         dataset = gpd.read_file(path_land_data)
 
         # Retrieve the geopandas Point objects and their coordinates
@@ -150,8 +149,8 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
 
     elif filter_name == 'orography':
 
-        dataset_name = join(dirname(abspath(__file__)), f"../../../data/land_data/source/ERA5/"
-                            f"ERA5_orography_characteristics_20181231_{spatial_resolution}.nc")
+        dataset_name = f"{data_path}land_data/source/ERA5/" \
+                       f"ERA5_orography_characteristics_20181231_{spatial_resolution}.nc"
         dataset = read_filter_database(dataset_name, points)
 
         altitude_threshold = filters_dict['altitude_threshold']
@@ -171,8 +170,8 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
 
     elif filter_name == 'forestry':
 
-        dataset_name = join(dirname(abspath(__file__)), f"../../../data/land_data/source/ERA5/"
-                            f"ERA5_surface_characteristics_20181231_{spatial_resolution}.nc")
+        dataset_name = f"{data_path}land_data/source/ERA5/" \
+                       f"ERA5_surface_characteristics_20181231_{spatial_resolution}.nc"
         dataset = read_filter_database(dataset_name, points)
 
         forestry_threshold = filters_dict['forestry_ratio_threshold']
@@ -186,8 +185,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
 
     elif filter_name == 'water_mask':
 
-        dataset_name = join(dirname(abspath(__file__)),
-                            f"../../../data/land_data/source/ERA5/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
+        dataset_name = f"{data_path}land_data/source/ERA5/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc"
         dataset = read_filter_database(dataset_name, points)
 
         array_watermask = dataset['lsm']
@@ -199,8 +197,7 @@ def filter_points_by_layer(filter_name: str, points: List[Tuple[float, float]], 
 
     elif filter_name == 'bathymetry':
 
-        dataset_name = join(dirname(abspath(__file__)),
-                            f"../../../data/land_data/source/ERA5/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc")
+        dataset_name = f"{data_path}land_data/source/ERA5/ERA5_land_sea_mask_20181231_{spatial_resolution}.nc"
         dataset = read_filter_database(dataset_name, points)
 
         depth_threshold_low = filters_dict['depth_thresholds']['low']
