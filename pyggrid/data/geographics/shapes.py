@@ -10,7 +10,8 @@ from shapely.ops import unary_union
 
 import hashlib
 
-from pyggrid.data.geographics.codes import convert_country_codes, replace_iso2_codes, remove_landlocked_countries
+from pyggrid.data.geographics.codes import convert_country_codes, replace_iso2_codes, \
+    remove_landlocked_countries, convert_old_country_names
 
 from pyggrid.data import data_path
 
@@ -24,7 +25,7 @@ def correct_shapes(shapes: gpd.GeoSeries) -> gpd.GeoSeries:
     return shapes
 
 
-def get_natural_earth_shapes_2(iso_codes: List[str] = None) -> gpd.GeoSeries:
+def get_arcgis_shapes(iso_codes: List[str] = None) -> gpd.GeoSeries:
     """
     Return onshore shapes from naturalearth data (ISO_2 codes).
 
@@ -39,19 +40,11 @@ def get_natural_earth_shapes_2(iso_codes: List[str] = None) -> gpd.GeoSeries:
         Series containing desired shapes.
     """
 
-    natearth_fn = f"{data_path}geographics/source/naturalearth/ne_10m_admin_0_map_units/ne_10m_admin_0_map_units.shp"
-    shapes = gpd.read_file(natearth_fn)
-
-    # Names are a hassle in naturalearth, several fields are combined.
-    field_names = [shapes[x].where(lambda s: s != "-99") for x in ('ISO_A2', 'WB_A2', 'ADM0_A3')]
-    field_names[2] = pd.Series(convert_country_codes(field_names[2].values, "alpha_3", "alpha_2"))
-
-    # assert 'GB' in field_names[0].index
-
-    # Fill in NA values by using the other codes
-    shapes["iso2"] = reduce(lambda x, y: x.fillna(y), field_names)
-    shapes = shapes[shapes['scalerank'] == 0]
-    # Remove remaining NA
+    arcgis_fn = f"{data_path}geographics/source/Longitude_Graticules_and_World_Countries_Boundaries-shp/" \
+                f"99bfd9e7-bb42-4728-87b5-07f8c8ac631c2020328-1-1vef4ev.lu5nk.shp"
+    shapes = gpd.read_file(arcgis_fn)
+    shapes["CNTRY_NAME"] = shapes["CNTRY_NAME"].apply(convert_old_country_names)
+    shapes["iso2"] = pd.Series(convert_country_codes(shapes["CNTRY_NAME"].values, "name", "alpha_2"))
     shapes = shapes[pd.notnull(shapes["iso2"])]
     shapes = shapes.set_index("iso2")['geometry']
 
@@ -61,11 +54,11 @@ def get_natural_earth_shapes_2(iso_codes: List[str] = None) -> gpd.GeoSeries:
                                   f"following codes: {sorted(list(missing_codes))}"
         shapes = shapes[iso_codes]
 
-    shapes_final = gpd.GeoSeries(index=set(shapes.index))
-    for idx in set(shapes.index):
-        shapes_final[idx] = unary_union(shapes[idx])
+    #shapes_final = gpd.GeoSeries(index=set(shapes.index))
+    #for idx in set(shapes.index):
+    #    shapes_final[idx] = unary_union(shapes[idx])
 
-    shapes = correct_shapes(shapes_final)
+    # shapes = correct_shapes(shapes_final)
 
     return shapes
 
@@ -176,7 +169,7 @@ def get_onshore_shapes(region_list: List[str]) -> gpd.GeoSeries:
 
     # ISO codes
     if code_length == 2:
-        return get_natural_earth_shapes(region_list)
+        return get_arcgis_shapes(region_list)
     # NUTS codes
     else:
         nuts_level = str(code_length - 2)
