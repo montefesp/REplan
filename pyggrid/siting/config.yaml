@@ -1,45 +1,59 @@
 # Scope parameters
 spatial_resolution: 0.5
 timeslice: ['2016-01-01T00:00', '2016-01-01T4:00']
-regions: ['BE', 'NL', 'LU']
-technologies: ['wind_offshore']
+regions: ['BENELUX']
+technologies: ['wind_onshore']
 
 use_ex_cap: False
 
 # Optimization parameters
-formulation: 'complementarity' # Type of problem to be solved.
+formulation: 'meet_RES_targets' # Type of problem to be solved.
 formulation_params:
   # cap_per_tech: [0.5, 0.5]
-  #perc_per_region: [0.32]
-  #time_resolution: 'hour'
+  perc_per_region: [0.001]
+  time_resolution: 'hour'
   # nb_sites_per_region: [11]
-  c: 1
-  solution_method:
-    BB:
-      set: False
-      solver: 'gurobi'
-      mipgap: 0.05
-      timelimit: 1800
-      threads: 0
-    HEU:
-      set: True
-      neighborhood: 1
-      no_iterations: 150
-      no_epochs: 500
-      initial_temp: 200.
-      no_runs: 5
-      algorithm: 'SALS' #'GLS'
-      which_sol: 'max' #'rand'
+  #c: 1
+  #solution_method:
+  #  BB:
+  #    set: False
+  #    solver: 'gurobi'
+  #    mipgap: 0.05
+  #    timelimit: 1800
+  #    threads: 0
+  #  HEU:
+  #    set: True
+  #    neighborhood: 1
+  #    no_iterations: 150
+  #    no_epochs: 500
+  #    initial_temp: 200.
+  #    no_runs: 5
+  #    algorithm: 'SALS' #'GLS'
+  #    which_sol: 'max' #'rand'
 
-  deployment_vector: {'BE':{'wind_offshore':1},
-                      'NL':{'wind_offshore':2}}
+  #deployment_vector: {'BE':{'wind_offshore':1},
+  #                    'NL':{'wind_offshore':2}}
   # Assessment measure for each time window. Available: mean, median or percentiles.
-  smooth_measure: 'mean'
+  #smooth_measure: 'mean'
   # Defines how \alpha is considered in space and time.
-  alpha: 'load_central'
+  #alpha: 'load_central'
   # Normalization procedures (detailed in tools.py). (min, max)
-  norm_type: 'max'
+  #norm_type: 'max'
   # Time-window length used to compute the criticality indicator. Integer value.
-  delta: 1
-modelling: 'julia' # Choice of modelling language.
+  #delta: 1
+
+modelling: 'pyomo' # Choice of modelling language.
+solver: 'gurobi'
+solver_options:
+  # Gurobi:
+  Threads: 0
+  Method: 2
+  BarHomogeneous: 1
+  Crossover: 0
+  BarConvTol: 1e-8
+  # Cplex:
+  #threads: 0
+  #lpmethod: 1
+  #solutiontype: 2
+  #barrier convergetol: 1e-8
 write_lp: False

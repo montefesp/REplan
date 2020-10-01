@@ -25,7 +25,7 @@ if __name__ == '__main__':
                            params['write_lp'], output_folder)
 
         logger.info('Sending model to solver.')
-        results = resite.solve_model()
+        results = resite.solve_model(solver_options=params['solver_options'], solver=params["solver"])
         logger.info('Retrieving results.')
         resite.retrieve_selected_sites_data()
 

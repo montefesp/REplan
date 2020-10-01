@@ -141,11 +141,11 @@ def compute_land_availability(shape: Union[Polygon, MultiPolygon]) -> float:
     # Compute rooftop area using ESM (European Settlement Map)
     if filters_.get("esm", 0):
         path_cop = f"{data_path}generation/vres/potentials/source/ESM/ESM_class50_100m/ESM_class50_100m.tif"
-        ec = gl.ExclusionCalculator(poly, pixelRes=1000, initialValue=path_cop)
+        ec = gl.ExclusionCalculator(poly, pixelRes=100, initialValue=path_cop)
 
         return ec.areaAvailable/1e6
 
-    ec = gl.ExclusionCalculator(poly, pixelRes=1000)
+    ec = gl.ExclusionCalculator(poly, pixelRes=100)
 
     # GLAES priors
     if 'glaes_prior_defaults' in filters_:
@@ -341,10 +341,10 @@ def get_capacity_potential_per_country(countries: List[str], is_onshore: float, 
 if __name__ == '__main__':
     from pyggrid.data.geographics import get_shapes
     from pyggrid.data.technologies import get_config_values
-    filters_ = get_config_values("pv_utility_national", ["filters"])
+    filters_ = get_config_values("wind_onshore_national", ["filters"])
     print(filters_)
     # filters_ = {"depth_thresholds": {"high": -200, "low": None}}
-    full_gl_shape = get_shapes(["PL"], "onshore")["geometry"][0]
-    filters_ = {"glaes_priors": {"interior_shore_proximity": (None, 1500)}}
+    full_gl_shape = get_shapes(["DE"], "onshore")["geometry"][0]
+    # filters_ = {"glaes_priors": {"settlement_proximity": (None, 500)}}
     # trunc_gl_shape = full_gl_shape.intersection(Polygon([(11.5, 52.5), (11.5, 53.5), (12.5, 53.5), (12.5, 52.5)]))
-    print(get_capacity_potential_for_shapes([full_gl_shape], filters_, 5), None)
+    print(get_capacity_potential_for_shapes([full_gl_shape], filters_, 5))
