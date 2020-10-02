@@ -40,6 +40,7 @@ def parse_args():
         return string == "true"
     parser.add_argument('-excap', "--use_ex_cap", type=to_bool, help="Whether to use existing capacity",
                         default='false')
+    parser.add_argument('-site', '--siting', type=to_bool, default='false', help="Whether to site or not.")
 
     parsed_args = vars(parser.parse_args())
 
@@ -85,6 +86,10 @@ if __name__ == '__main__':
         config['res']["formulation_params"]["time_resolution"] = args["time_resolution"]
     # config["res"]["sites_dir"] = args["resite_dir"]
     # config["res"]["sites_fn"] = args["resite_fn"]
+    if args['siting']:
+        config["res"]["strategies"]["siting"] = config["res"]["techs"]
+    else:
+        config["res"]["strategies"]["no_siting"] = config["res"]["techs"]
 
     tech_config = get_config_dict()
     # tech_config["wind_offshore"]["power_density"] = args["power_density"]
