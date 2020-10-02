@@ -328,6 +328,12 @@ def get_shapes(region_codes: List[str], which: str = 'onshore_offshore', save: b
         return x['geometry'].intersection(union_shape)
     shapes['geometry'] = shapes.apply(lambda x: filter_shape(x), axis=1)
 
+    # TODO: warning this must not stay
+    # Crop regions going too far north
+    nordics = ["FI", "NO", "SE"]
+    intersection_poly = Polygon([(0., 50.), (0., 66.5), (40., 66.5), (40., 50.)])
+    shapes.loc[nordics, "geometry"] = shapes.loc[nordics, "geometry"].apply(lambda x: x.intersection(intersection_poly))
+
     if save:
         shapes["name"] = shapes.index
         shapes.to_file(fn, driver='GeoJSON', encoding='utf-8')

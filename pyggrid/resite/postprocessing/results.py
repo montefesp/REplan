@@ -35,8 +35,8 @@ class ResiteResults:
         return count
 
     def get_existing_points_number(self):
-        count = pd.Series(0, index=sorted(list(set(self.existing_nodes.droplevel(1)))), dtype=int)
-        for tech, point in self.existing_nodes:
+        count = pd.Series(0, index=sorted(list(set(self.existing_nodes.droplevel([1, 2])))), dtype=int)
+        for tech, lon, lat in self.existing_nodes:
             count.loc[tech] += 1
         return count
 

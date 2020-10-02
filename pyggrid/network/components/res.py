@@ -212,8 +212,8 @@ def add_generators_using_siting(net: pypsa.Network, topology_type: str, technolo
     resite.solve_model(solver_options=siting_params['solver_options'], solver=siting_params['solver'])
 
     logger.info('Retrieving resite results.')
-    tech_location_dict = resite.sel_tech_points_dict
     resite.retrieve_selected_sites_data()
+    tech_location_dict = resite.sel_tech_points_dict
     existing_cap_ds = resite.sel_data_dict["existing_cap_ds"]
     cap_potential_ds = resite.sel_data_dict["cap_potential_ds"]
     cap_factor_df = resite.sel_data_dict["cap_factor_df"]
