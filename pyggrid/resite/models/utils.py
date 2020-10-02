@@ -88,6 +88,10 @@ def retrieve_solution(resite) -> None:
         else:  # modelling == "pyomo":
             y_value = resite.instance.y[tech, lon, lat].value
 
+        # Keep the location only if the capacity installed is not too small
+        if y_value * resite.data_dict["cap_potential_ds"].loc[tech, lon, lat] < resite.min_cap_if_selected:
+            y_value = 0
+
         y_ds[tech, lon, lat] = y_value
         if y_value > 0.:
             sel_tech_points_dict[tech] += [(lon, lat)]

@@ -34,7 +34,8 @@ class Resite:
     # Methods import from other submodules
     solve_model = solve_model
 
-    def __init__(self, regions: List[str], technologies: List[str], timeslice: List[str], spatial_resolution: float):
+    def __init__(self, regions: List[str], technologies: List[str], timeslice: List[str],
+                 spatial_resolution: float, min_cap_if_selected: float = 0.):
         """
         Constructor
 
@@ -48,12 +49,16 @@ class Resite:
             List of 2 string containing starting and end date of the time horizon.
         spatial_resolution: float
             Spatial resolution at which we want to site.
+        # TODO: should that be here?
+        min_cap_if_selected: float
+            Selected sites with less than this capacity are not taken into account
         """
 
         self.technologies = technologies
         self.regions = regions
         self.timestamps = pd.date_range(timeslice[0], timeslice[1], freq='1H')
         self.spatial_res = spatial_resolution
+        self.min_cap_if_selected = min_cap_if_selected
 
         self.instance = None
         self.data_dict = {}
@@ -93,8 +98,8 @@ class Resite:
         min_cap_pot: List[float] (default: None)
             List of thresholds per technology. Points with capacity potential under this threshold will be removed.
         """
-        # TODO: this function needs to take as argument a vector data specifying which data it must compute
 
+        # TODO: this function needs to take as argument a vector data specifying which data it must compute
         # Compute total load (in GWh) for each region
         load_df = get_load(timestamps=self.timestamps, regions=self.regions, missing_data='interpolate')
 
@@ -231,7 +236,7 @@ class Resite:
 
     def __getstate__(self):
         return (self.timestamps, self.regions, self.spatial_res, self.technologies,
-                self.use_ex_cap, self.min_cap_pot_dict,
+                self.min_cap_if_selected, self.use_ex_cap, self.min_cap_pot_dict,
                 self.formulation, self.formulation_params, self.modelling,
                 self.tech_points_dict, self.data_dict, self.initial_sites_ds,
                 self.sel_tech_points_tuples, self.sel_tech_points_dict,
@@ -239,7 +244,7 @@ class Resite:
 
     def __setstate__(self, state):
         (self.timestamps, self.regions, self.spatial_res, self.technologies,
-         self.use_ex_cap, self.min_cap_pot_dict,
+         self.min_cap_if_selected, self.use_ex_cap, self.min_cap_pot_dict,
          self.formulation, self.formulation_params, self.modelling,
          self.tech_points_dict, self.data_dict, self.initial_sites_ds,
          self.sel_tech_points_tuples, self.sel_tech_points_dict,

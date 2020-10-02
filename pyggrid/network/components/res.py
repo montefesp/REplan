@@ -201,7 +201,8 @@ def add_generators_using_siting(net: pypsa.Network, topology_type: str, technolo
         assert param in siting_params, f"Error: Missing parameter {param} for siting."
 
     logger.info('Setting up resite.')
-    resite = Resite([region], technologies, siting_params["timeslice"], siting_params["spatial_resolution"])
+    resite = Resite([region], technologies, siting_params["timeslice"], siting_params["spatial_resolution"],
+                    siting_params["min_cap_if_selected"])
     resite.build_data(use_ex_cap)
 
     logger.info('resite model being built.')

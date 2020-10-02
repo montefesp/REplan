@@ -332,7 +332,9 @@ def get_shapes(region_codes: List[str], which: str = 'onshore_offshore', save: b
     # Crop regions going too far north
     nordics = ["FI", "NO", "SE"]
     intersection_poly = Polygon([(0., 50.), (0., 66.5), (40., 66.5), (40., 50.)])
-    shapes.loc[nordics, "geometry"] = shapes.loc[nordics, "geometry"].apply(lambda x: x.intersection(intersection_poly))
+    for c in nordics:
+        if c in shapes.index:
+            shapes.loc[c, "geometry"] = shapes.loc[c, "geometry"].apply(lambda x: x.intersection(intersection_poly))
 
     if save:
         shapes["name"] = shapes.index
