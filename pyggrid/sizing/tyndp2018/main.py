@@ -29,9 +29,17 @@ def parse_args():
 
     parser.add_argument('-sr', '--spatial_res', type=float, help='Spatial resolution')
     parser.add_argument('-yr', '--year', type=str, help='Year of run')
-    parser.add_argument('-dir', '--resite_dir', type=str, help='resite directory')
-    parser.add_argument('-fn', '--resite_fn', type=str, help='resite file name')
-    parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=1)
+    # parser.add_argument('-dir', '--resite_dir', type=str, help='resite directory')
+    # parser.add_argument('-fn', '--resite_fn', type=str, help='resite file name')
+    parser.add_argument('-th', '--threads', type=int, help='Number of threads')
+    parser.add_argument('-fp-perc', '--perc_per_region', type=float,
+                        help="Percentage of penetration of renewables for siting")
+    parser.add_argument('-fp-tm', '--time_resolution', type=str, help="Time resolution to use for the siting.")
+
+    def to_bool(string):
+        return string == "true"
+    parser.add_argument('-excap', "--use_ex_cap", type=to_bool, help="Whether to use existing capacity",
+                        default='false')
 
     parsed_args = vars(parser.parse_args())
 
@@ -54,17 +62,29 @@ if __name__ == '__main__':
 
     # TODO: maybe a cleaner options exists to update these parameters in files.
     solver_options = config["solver_options"][config["solver"]]
-    if config["solver"] == 'gurobi':
-        config["solver_options"][config["solver"]]['Threads'] = args['threads']
-    else:
-        config["solver_options"][config["solver"]]['threads'] = args['threads']
+    if args["threads"] is not None:
+        if config["solver"] == 'gurobi':
+            config["solver_options"][config["solver"]]['Threads'] = args['threads']
+        else:
+            config["solver_options"][config["solver"]]['threads'] = args['threads']
+        if config["res"]["solver"] == 'gurobi':
+            config["res"]["solver_options"]['Threads'] = args['threads']
+        else:
+            config["res"]["solver_options"]['threads'] = args['threads']
     if args["spatial_res"] is not None:
         config["res"]["spatial_resolution"] = args["spatial_res"]
     if args['year'] is not None:
         config['time']['slice'][0] = args['year'] + config['time']['slice'][0][4:]
         config['time']['slice'][1] = args['year'] + config['time']['slice'][1][4:]
-    config["res"]["sites_dir"] = args["resite_dir"]
-    config["res"]["sites_fn"] = args["resite_fn"]
+        config['res']['timeslice'][0] = args['year'] + config['res']['timeslice'][0][4:]
+        config['res']['timeslice'][1] = args['year'] + config['res']['timeslice'][1][4:]
+    config["res"]["use_ex_cap"] = args['use_ex_cap']
+    if args["perc_per_region"]:
+        config['res']["formulation_params"]["perc_per_region"] = [args["perc_per_region"]]
+    if args["time_resolution"]:
+        config['res']["formulation_params"]["time_resolution"] = args["time_resolution"]
+    # config["res"]["sites_dir"] = args["resite_dir"]
+    # config["res"]["sites_fn"] = args["resite_fn"]
 
     tech_config = get_config_dict()
     # tech_config["wind_offshore"]["power_density"] = args["power_density"]
