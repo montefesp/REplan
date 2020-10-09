@@ -2,6 +2,8 @@ from os.path import isdir
 from os import makedirs
 from time import strftime
 
+import resource
+
 from pyomo.opt import ProblemFormat
 import argparse
 
@@ -21,6 +23,11 @@ logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime
 logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
+
+
+def memory_limit():
+    rsrc = resource.RLIMIT_AS
+    resource.setrlimit(rsrc, (200e9, 200e9))
 
 
 def parse_args():
@@ -48,6 +55,9 @@ def parse_args():
 
 
 if __name__ == '__main__':
+
+    # Limit memory usage
+    memory_limit()
 
     args = parse_args()
     logger.info(args)
