@@ -36,11 +36,16 @@ def read_resource_database(spatial_resolution: float) -> xr.Dataset:
     """
 
     main_resource_dir = f"{data_path}generation/vres/profiles/source/ERA5/"
-    available_res = listdir(main_resource_dir)
-    assert str(spatial_resolution) in available_res, f"Error: Available resolutions are {available_res}," \
-                                                     f" given {spatial_resolution} "
+    available_res = sorted([float(res) for res in  listdir(main_resource_dir)])
+    # Find the dataset with the least precise resolution that can accommodate the desired resolution
+    dataset_resolution = None
+    for spatial_res in available_res:
+        if int(spatial_resolution*1e6)%int(spatial_res*1e6) == 0:
+            dataset_resolution = spatial_res
+    assert dataset_resolution is not None, f"Error: Given resolution {spatial_resolution} is not a multiplier of one" \
+                                           f" of the available resolutions {available_res}"
 
-    resource_dir = f"{main_resource_dir}{spatial_resolution}"
+    resource_dir = f"{main_resource_dir}{dataset_resolution}"
 
     # Read through all files, extract the first 2 characters (giving the
     # macro-region) and append in a list that will keep the unique elements.
