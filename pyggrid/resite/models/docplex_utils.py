@@ -26,6 +26,16 @@ def generation_bigger_than_load_proportion(model, region_generation_y_dict, load
                           for region in regions for u in np.arange(len(time_slices)))
 
 
+def generation_bigger_than_load_proportion_with_slack(model, region_generation_y_dict, load, regions, time_slices,
+                                                      load_perc_per_region):
+    model.add_constraints((model.sum(region_generation_y_dict[region][t] for t in time_slices[u]) +
+                           model.sum(model.ens[region, t] for t in time_slices[u])
+                           >= model.sum(load[t, regions.index(region)] for t in time_slices[u]) *
+                           load_perc_per_region[region],
+                           'generation_bigger_than_load_proportion_%s_%s' % (region, u))
+                          for region in regions for u in np.arange(len(time_slices)))
+
+
 def generation_bigger_than_load_x(model, region_generation_y_dict, load, regions, timestamps_idxs):
     model.add_constraints((region_generation_y_dict[region][t] >= load[t, regions.index(region)] * model.x[region, t],
                            'generation_bigger_than_load_x_%s_%s' % (region, t))
@@ -57,3 +67,11 @@ def maximize_load_proportion(model, regions, timestamps_idxs):
     model.ratio_served_demand = model.sum(model.x[region, t] for region in regions for t in timestamps_idxs)
     model.add_kpi(model.ratio_served_demand)
     model.maximize(model.ratio_served_demand)
+
+
+def minimize_cost(model, cap_potential_ds, regions, timestamps_idx, cost_dict):
+    model.cost = model.sum(model.y[tech, lon, lat] * cap_potential_ds[tech, lon, lat] * cost_dict[tech]
+                   for tech, lon, lat in cap_potential_ds.keys()) + \
+                 model.sum(model.ens[region, t] * cost_dict['ens'] for region in regions for t in timestamps_idx)
+    model.add_kpi(model.cost)
+    model.minimize(model.cost)

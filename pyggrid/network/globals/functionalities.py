@@ -209,7 +209,7 @@ def add_co2_budget_global(network: pypsa.Network, region: str, co2_reduction_sha
     model.generation_emissions_global = Constraint(rule=generation_emissions_rule)
 
 
-def add_import_limit_constraint(network: pypsa.Network, snapshots: pd.DatetimeIndex, import_share: float):
+def add_import_limit_constraint(network: pypsa.Network, import_share: float):
     """
     Add per-bus constraint on import budgets.
 
@@ -217,9 +217,6 @@ def add_import_limit_constraint(network: pypsa.Network, snapshots: pd.DatetimeIn
     ----------
     network: pypsa.Network
         A PyPSA Network instance with buses associated to regions
-    # TODO: we actually don't even need to pass this because it's already contained in network
-    snapshots: pd.DatetimeIndex
-        Network snapshots.
     import_share: float
         Maximum share of load that can be satisfied via imports.
 
@@ -236,6 +233,7 @@ def add_import_limit_constraint(network: pypsa.Network, snapshots: pd.DatetimeIn
     model = network.model
     buses = network.buses.index
     links = network.links
+    snapshots = network.snapshots
 
     def import_constraint_rule(model, bus):
 

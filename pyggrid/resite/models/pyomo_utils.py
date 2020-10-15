@@ -26,6 +26,15 @@ def generation_bigger_than_load_proportion(model, region_generation_y_dict, load
     return Constraint(regions, arange(len(time_slices)), rule=generation_check_rule)
 
 
+def generation_bigger_than_load_proportion_with_slack(model, region_generation_y_dict, load, regions,
+                                                      time_slices, load_perc_per_region):
+    def generation_check_rule(model, region, u):
+        return sum(region_generation_y_dict[region][t] for t in time_slices[u]) + \
+               sum(model.ens[region, t] for t in time_slices[u]) >= \
+               sum(load[t, regions.index(region)] for t in time_slices[u]) * load_perc_per_region[region]
+    return Constraint(regions, arange(len(time_slices)), rule=generation_check_rule)
+
+
 def generation_bigger_than_load_x(model, region_generation_y_dict, load, regions, timestamps_idxs):
     def generation_check_rule(model, region, t):
         return region_generation_y_dict[region][t] >= load[t, regions.index(region)] * model.x[region, t]
@@ -72,3 +81,11 @@ def maximize_production(model, production_df, tech_points_tuples):
         return sum(model.y[tech, lon, lat] * production_df[tech, lon, lat].sum()
                    for tech, lon, lat in tech_points_tuples)
     return Objective(rule=objective_rule, sense=maximize)
+
+
+def minimize_cost(model, cap_potential_ds, regions, timestamps_idx, cost_dict):
+    def objective_rule(model):
+        return sum(model.y[tech, lon, lat] * cap_potential_ds[tech, lon, lat] * cost_dict[tech]
+                   for tech, lon, lat in cap_potential_ds.keys()) + \
+               sum(model.ens[region, t] * cost_dict['ens'] for region in regions for t in timestamps_idx)
+    return Objective(rule=objective_rule, sense=minimize)

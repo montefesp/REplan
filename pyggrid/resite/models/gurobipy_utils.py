@@ -19,6 +19,15 @@ def create_generation_y_dict(y, regions, tech_points_regions_ds, generation_pote
     return region_generation_y_dict
 
 
+def generation_bigger_than_load_proportion_with_slack(model, region_generation_y_dict, ens, load, regions, time_slices,
+                                           load_perc_per_region):
+    model.addConstrs((sum(region_generation_y_dict[region][t] for t in time_slices[u]) +
+                      sum(ens[region, t] for t in time_slices[u]) >=
+                      sum(load[t, regions.index(region)] for t in time_slices[u]) * load_perc_per_region[region]
+                      for region in regions for u in np.arange(len(time_slices))),
+                     name='generation_bigger_than_load_proportion')
+
+
 def generation_bigger_than_load_proportion(model, region_generation_y_dict, load, regions, time_slices,
                                            load_perc_per_region):
     model.addConstrs((sum(region_generation_y_dict[region][t] for t in time_slices[u]) >=
@@ -55,4 +64,11 @@ def minimize_deployed_capacity(model, y, cap_potential_ds):
 def maximize_load_proportion(model, x, regions, timestamps_idxs):
     obj = sum(x[region, t] for region in regions for t in timestamps_idxs)
     model.setObjective(obj, GRB.MAXIMIZE)
+    return obj
+
+def minimize_cost(model, y, ens, cap_potential_ds, regions, timestamps_idx, cost_dict):
+    obj = sum(y[tech, lon, lat] * cap_potential_ds[tech, lon, lat] * cost_dict[tech]
+              for tech, lon, lat in cap_potential_ds.keys()) + \
+          sum(ens[region, t] * cost_dict['ens'] for region in regions for t in timestamps_idx)
+    model.setObjective(obj, GRB.MINIMIZE)
     return obj
