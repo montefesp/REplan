@@ -5,6 +5,8 @@ regions: ['BENELUX']
 technologies: ['wind_onshore']
 
 use_ex_cap: False
+min_cap_if_selected: 0 # in GW
+
 
 # Optimization parameters
 formulation: 'meet_RES_targets' # Type of problem to be solved.

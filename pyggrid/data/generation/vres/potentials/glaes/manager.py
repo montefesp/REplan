@@ -345,6 +345,6 @@ if __name__ == '__main__':
     print(filters_)
     # filters_ = {"depth_thresholds": {"high": -200, "low": None}}
     full_gl_shape = get_shapes(["DE"], "onshore")["geometry"][0]
-    # filters_ = {"glaes_priors": {"settlement_proximity": (None, 500)}}
+    filters_ = {"glaes_priors": {"": (None, 500)}}
     # trunc_gl_shape = full_gl_shape.intersection(Polygon([(11.5, 52.5), (11.5, 53.5), (12.5, 53.5), (12.5, 52.5)]))
     print(get_capacity_potential_for_shapes([full_gl_shape], filters_, 5))

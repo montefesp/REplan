@@ -165,6 +165,7 @@ class ResiteResults:
 
 if __name__ == "__main__":
 
+    """
     assert (len(sys.argv) == 2) or (len(sys.argv) == 3), \
         "You need to provide one or two argument: output_dir (and test_number)"
 
@@ -174,8 +175,9 @@ if __name__ == "__main__":
         test_number = sorted(listdir(main_output_dir))[-1]
     output_dir = f"{main_output_dir}{test_number}/"
     print(output_dir)
-
-    resite_ = pickle.load(open(f"{output_dir}resite_instance.p", 'rb'))
+    """
+    output_dir = "/home/utilisateur/Global_Grid/code/replan/output/resite/20201002_104339"
+    resite_ = pickle.load(open(f"{output_dir}/resite_instance.p", 'rb'))
 
     ro = ResiteResults(resite_)
     ro.print_summary()

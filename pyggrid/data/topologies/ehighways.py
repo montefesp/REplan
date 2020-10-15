@@ -319,6 +319,7 @@ def get_topology(network: pypsa.Network, countries: List[str] = None, add_offsho
     # network.import_components_from_dataframe(lines, "Line") for dc-opf
 
     if plot:
+        from pyggrid.data.topologies.core.plot import plot_topology
         plot_topology(buses, lines)
         plt.show()
 

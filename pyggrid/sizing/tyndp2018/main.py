@@ -142,7 +142,7 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
-    net = get_topology(net, countries, extend_line_cap=True)
+    net = get_topology(net, countries, extend_line_cap=True, plot=True)
 
     # Adding load
     logger.info("Adding load.")
