@@ -8,7 +8,6 @@ import xarray as xr
 import xarray.ufuncs as xu
 import numpy as np
 import pandas as pd
-import dask.array as da
 
 from shapely.geometry import Point, Polygon
 import atlite
@@ -18,6 +17,10 @@ from pyggrid.data.technologies import get_config_dict, get_config_values
 from pyggrid.data.geographics import get_shapes
 
 from pyggrid.data import data_path
+
+import dask.array as da
+import dask
+dask.config.set({"array.slicing.split_large_chunks": True})
 
 
 def read_resource_database(spatial_resolution: float) -> xr.Dataset:

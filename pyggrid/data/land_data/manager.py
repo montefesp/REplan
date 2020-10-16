@@ -4,7 +4,6 @@ from copy import copy
 import xarray as xr
 import numpy as np
 import xarray.ufuncs as xu
-import dask.array as da
 import geopandas as gpd
 import scipy.spatial
 import geopy.distance
@@ -13,6 +12,10 @@ from pyggrid.data.generation.vres.profiles import read_resource_database
 from pyggrid.data.indicators.population import load_population_density_data
 
 from pyggrid.data import data_path
+
+import dask.array as da
+import dask
+dask.config.set({"array.slicing.split_large_chunks": True})
 
 
 def filter_onshore_offshore_points(onshore: bool, points: List[Tuple[float, float]],
