@@ -210,8 +210,7 @@ def add_generators_using_siting(net: pypsa.Network, topology_type: str, technolo
                        siting_params['write_lp'], output_dir)
 
     logger.info('Sending resite to solver.')
-    resite.solve_model(solver_options=siting_params['solver_options'][siting_params['solver']],
-                       solver=siting_params['solver'])
+    resite.solve_model(solver_options=siting_params['solver_options'], solver=siting_params['solver'])
 
     logger.info('Retrieving resite results.')
     resite.retrieve_selected_sites_data()
