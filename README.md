@@ -15,5 +15,5 @@ The repository is organized as follows:
 ## Dependencies
 
 - <a href="https://github.com/PyPSA/PyPSA">PyPSA</a> >= 0.17.0
-- <a href="https://github.com/montefesp/iepy"iepy</a>
-- <a href="https://github.com/montefesp/resite"resite</a>
+- <a href="https://github.com/montefesp/iepy">iepy</a>
+- <a href="https://github.com/montefesp/resite">resite</a>
