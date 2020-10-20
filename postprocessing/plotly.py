@@ -14,8 +14,8 @@ import plotly.graph_objs as go
 
 from pypsa import Network
 
-from pyggrid.data.geographics import get_shapes
-from pyggrid.data.generation.vres.potentials.enspreso import get_capacity_potential_for_regions
+from iepy.geographics import get_shapes
+from iepy.generation.vres.potentials.enspreso import get_capacity_potential_for_regions
 
 
 def get_map_layout(title: str, map_coords: List[float] = None, showcountries=True):

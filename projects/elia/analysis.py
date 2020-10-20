@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 
 from shapely.ops import unary_union
 
-from pyggrid.postprocessing.results_display import *
-from pyggrid.postprocessing.plotly import SizingPlotly
-from pyggrid.data.topologies.core.plot import plot_topology
-from pyggrid.postprocessing.utils import *
-from pyggrid.data.geographics import get_shapes
-from pyggrid.data.geographics.plot import display_polygons
+from postprocessing.results_display import *
+from postprocessing.plotly import SizingPlotly
+from iepy.topologies.core.plot import plot_topology
+from postprocessing.utils import *
+from iepy.geographics import get_shapes
+from iepy.geographics.plot import display_polygons
 
 
 if __name__ == '__main__':
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     woff_per_region_final = pd.DataFrame(0., index=regions_dict.keys(), columns=cases)
 
     for case in cases:
-        output_dir = join(dirname(abspath(__file__)), f'../../../output/from_pan/{case}_{year}/')
+        output_dir = f'output/{case}_{year}/'
         net = Network()
         net.import_from_csv_folder(output_dir)
 

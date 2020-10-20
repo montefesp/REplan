@@ -5,25 +5,25 @@ from time import strftime
 from pyomo.opt import ProblemFormat
 import argparse
 
-from pyggrid.data.indicators.emissions import get_reference_emission_levels_for_region
-from pyggrid.data.topologies.tyndp2018 import get_topology
-from pyggrid.data.geographics import get_subregions
-from pyggrid.data.load import get_load
-from pyggrid.data.technologies import get_config_dict
-from pyggrid.network import *
-from pyggrid.postprocessing.results_display import *
-from pyggrid.sizing.elia.utils import upgrade_topology
-from pyggrid.network.globals.functionalities_nopyomo \
+from iepy.indicators.emissions import get_reference_emission_levels_for_region
+from iepy.topologies.tyndp2018 import get_topology
+from iepy.geographics import get_subregions
+from iepy.load import get_load
+from iepy.technologies import get_config_dict
+from network import *
+from postprocessing.results_display import *
+from projects.elia.utils import upgrade_topology
+from network.globals.functionalities_nopyomo \
     import add_extra_functionalities as add_extra_functionalities_nopyomo
-from pyggrid.data.technologies import get_config_values
+from iepy.technologies import get_config_values
 from shapely.ops import unary_union
-from pyggrid.data.geographics import get_shapes, match_points_to_regions
-from pyggrid.data.geographics.grid_cells import get_grid_cells
-from pyggrid.data.generation.vres.potentials.glaes import get_capacity_potential_for_shapes
-from pyggrid.data.generation.vres.legacy import get_legacy_capacity_in_regions
-from pyggrid.data.generation.vres.profiles import compute_capacity_factors
+from iepy.geographics import get_shapes, match_points_to_regions
+from iepy.geographics.grid_cells import get_grid_cells
+from iepy.generation.vres.potentials.glaes import get_capacity_potential_for_shapes
+from iepy.generation.vres.legacy import get_legacy_capacity_in_regions
+from iepy.generation.vres.profiles import compute_capacity_factors
 
-from pyggrid.data import data_path
+from iepy import data_path
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     # Main directories
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
-    output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/elia/{strftime('%Y%m%d_%H%M%S')}/")
+    output_dir = join(dirname(abspath(__file__)), f"../../output/elia/{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -265,7 +265,7 @@ if __name__ == '__main__':
             cap_factor_df = compute_capacity_factors(tech_points_dict, spatial_res, timestamps)
 
             # Build a resite object
-            from pyggrid.resite.resite import Resite
+            from resite.resite import Resite
             resite = Resite([config["region"]], all_techs, config['time']['slice'], spatial_res)
             resite.data_dict["load"] = pd.DataFrame(columns=[config["region"]], index=timestamps)
             resite.data_dict["load"][config["region"]] = net.loads_t['p_set'].sum(axis=1)

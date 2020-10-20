@@ -2,15 +2,15 @@ from os.path import isdir
 from os import makedirs
 from time import strftime
 
-from pyggrid.data.indicators.emissions import get_reference_emission_levels_for_region
-from pyggrid.data.load import get_load_from_nuts_codes
-from pyggrid.data.topologies.ehighways import get_topology
-from pyggrid.data.geographics import get_subregions
-from pyggrid.data.technologies import get_config_dict
-from pyggrid.network import *
-from pyggrid.postprocessing.results_display import *
+from iepy.indicators.emissions import get_reference_emission_levels_for_region
+from iepy.load import get_load_from_nuts_codes
+from iepy.topologies.ehighways import get_topology
+from iepy.geographics import get_subregions
+from iepy.technologies import get_config_dict
+from network import *
+from postprocessing.results_display import *
 
-from pyggrid.data import data_path
+from iepy import data_path
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
@@ -23,7 +23,7 @@ if __name__ == "__main__":
     # Main directories
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
-    output_dir = join(dirname(abspath(__file__)), f"../../../output/sizing/e-highways/{strftime('%Y%m%d_%H%M%S')}/")
+    output_dir = join(dirname(abspath(__file__)), f"../../output/e-highways/{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')

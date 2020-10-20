@@ -107,7 +107,7 @@ if __name__ == '__main__':
 
     from pypsa import Network
 
-    output_dir = f'../../output/from_pan/20200818_094604/'
+    output_dir = f'../output/from_pan/20200818_094604/'
 
     net_ = Network()
     net_.import_from_csv_folder(output_dir)

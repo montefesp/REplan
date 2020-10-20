@@ -187,7 +187,7 @@ if __name__ == '__main__':
 
     topology = 'tyndp2018'
 
-    runs_fn = join(f'../../output/sizing/{topology}/', 'run_dict.yaml')
+    runs_fn = join(f'../output/{topology}/', 'run_dict.yaml')
     run_dict = yaml.load(open(runs_fn, 'r'), Loader=yaml.FullLoader)
 
     run_id = 'commit_test'
@@ -198,7 +198,7 @@ if __name__ == '__main__':
 
     for run_id in run_ids:
 
-        output_dir = f'../../output/sizing/{topology}/{run_id}/'
+        output_dir = f'../output/{topology}/{run_id}/'
         config_fn = join(output_dir, 'config.yaml')
 
         config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)

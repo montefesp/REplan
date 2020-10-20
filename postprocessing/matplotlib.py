@@ -238,7 +238,7 @@ class SizingResultsCompare:
 if __name__ == "__main__":
 
     topology = 'tyndp2018'
-    main_output_dir = f'../../output/sizing/{topology}/'
+    main_output_dir = f'../output/{topology}/'
 
     results = 'compare'  # 'compare', 'single'
 

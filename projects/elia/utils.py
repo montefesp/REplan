@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 import geopy.distance
 import pypsa
 
-from pyggrid.data.geographics import get_shapes
-from pyggrid.data.topologies.core.plot import plot_topology
-from pyggrid.data.technologies import get_costs
+from iepy.geographics import get_shapes
+from iepy.topologies.core.plot import plot_topology
+from iepy.technologies import get_costs
 
 
 def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False) -> pypsa.Network:

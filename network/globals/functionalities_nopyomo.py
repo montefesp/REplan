@@ -71,7 +71,7 @@ def add_extra_functionalities(network: pypsa.Network, snapshots: pd.DatetimeInde
     """
 
     # TODO: this should be passed as argument... -> cannot do it actually... this is shit.
-    config_fn = join(dirname(abspath(__file__)), '../../sizing/elia/config.yaml')
+    config_fn = join(dirname(abspath(__file__)), '../../projects/elia/config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
     conf_func = config["functionalities"]
 

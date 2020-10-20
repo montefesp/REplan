@@ -21,22 +21,22 @@ solver_options:
 # Time
 # Start time and end time for slicing the database.
 time:
-  slice: ['2018-01-01T00:00', '2018-01-01T02:00']
+  slice: ['2016-01-01T00:00', '2016-01-01T04:00']
   resolution: 1
 
 # Space
-region: "Nordics"
-# add_offshore: False
+region: "BENELUX"
 
 # RES
 res:
   include: True
   # Give which technology should be installed using each strategy
+  techs: ['wind_onshore']
   strategies:
-    from_files: []
-    siting: ['wind_onshore_national']
+    # from_files: []
     no_siting: []
-    bus: []
+    siting: []
+    # bus: []
 
   min_cap_pot: [0]
 
@@ -48,9 +48,10 @@ res:
   # For strategy = siting or no siting
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 1.0
-  timeslice: ['2018-01-01T00:00', '2018-01-01T02:00']
+  timeslice: ['2016-01-01T00:00', '2016-01-01T04:00']
   use_ex_cap: True
   limit_max_cap: True
+  min_cap_if_selected: 1.0e-3
 
   # For strategy = siting
   modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
@@ -66,7 +67,7 @@ res:
   # Type of problem to be solved. Check resite.py for a full list.
   formulation: 'meet_RES_targets'
   formulation_params:
-    perc_per_region: [ 0.32 ]
+    perc_per_region: [0.32]
     time_resolution: 'hour'
   # Keeping files at the end of the run.
   keep_files: True

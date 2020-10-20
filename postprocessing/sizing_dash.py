@@ -12,9 +12,6 @@ import plotly.graph_objs as go
 
 from pypsa import Network
 
-import sys
-sys.path.append("../py_grid_exp/")
-
 
 tech_colors = {"All": "rgba(138,43,226,0.5)",  # purple
                     "nuclear": "rgba(255,140,0,0.5)",  # orange
