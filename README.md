@@ -1,3 +1,6 @@
+<a href="https://www.montefiore.uliege.be/"><img src="https://www.montefiore.uliege.be/upload/docs/image/svg-xml/2019-04/montefiore_institute.svg" alt="University of Liège - Montefiore institute" width="230px"></a>
+
+
 # replan
 
 REplan provides a set of tools to ease the set up and simulation of grid expansion planning.
