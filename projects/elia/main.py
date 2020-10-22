@@ -5,10 +5,8 @@ from time import strftime
 from pyomo.opt import ProblemFormat
 import argparse
 
-from iepy.indicators.emissions import get_reference_emission_levels_for_region
 from iepy.topologies.tyndp2018 import get_topology
 from iepy.geographics import get_subregions
-from iepy.load import get_load
 from iepy.technologies import get_config_dict
 from network import *
 from postprocessing.results_display import *
@@ -83,7 +81,6 @@ if __name__ == '__main__':
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
     fuel_info = pd.read_excel(join(tech_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
-    # tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
 
     # Compute and save results
     if not isdir(output_dir):
@@ -167,25 +164,30 @@ if __name__ == '__main__':
         net.generators.loc[onshore_wind_gens, "capital_cost"] *= config["onshore_wind_price"]
 
     # Add conventional gen
-    if config["dispatch"]["include"]:
-        tech = config["dispatch"]["tech"]
-        net = add_conventional(net, tech)
+    if "dispatch" in config["techs"]:
+        net = add_conventional(net, config["techs"]["dispatch"]["tech"])
 
     # Adding nuclear
-    if config["nuclear"]["include"]:
-        net = add_nuclear(net, countries, config["nuclear"]["use_ex_cap"], config["nuclear"]["extendable"])
+    if "nuclear" in config["techs"]:
+        net = add_nuclear(net, countries,
+                          config["techs"]["nuclear"]["use_ex_cap"],
+                          config["techs"]["nuclear"]["extendable"])
 
-    if config["sto"]["include"]:
-        net = add_sto_plants(net, 'countries', config["sto"]["extendable"], config["sto"]["cyclic_sof"])
+    if "sto" in config["techs"]:
+        net = add_sto_plants(net, 'countries',
+                             config["techs"]["sto"]["extendable"],
+                             config["techs"]["sto"]["cyclic_sof"])
 
-    if config["phs"]["include"]:
-        net = add_phs_plants(net, 'countries', config["phs"]["extendable"], config["phs"]["cyclic_sof"])
+    if "phs" in config["techs"]:
+        net = add_phs_plants(net, 'countries',
+                             config["techs"]["phs"]["extendable"],
+                             config["techs"]["phs"]["cyclic_sof"])
 
-    if config["ror"]["include"]:
-        net = add_ror_plants(net, 'countries', config["ror"]["extendable"])
+    if "ror" in config["techs"]:
+        net = add_ror_plants(net, 'countries', config["techs"]["ror"]["extendable"])
 
-    if config["battery"]["include"]:
-        net = add_batteries(net, config["battery"]["type"], countries)
+    if "battery" in config["techs"]:
+        net = add_batteries(net, config["techs"]["battery"]["type"], countries)
 
     # Adding non-European nodes with generation capacity
     non_eu_res = config["non_eu"] #["res"]

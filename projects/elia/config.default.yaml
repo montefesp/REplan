@@ -4,30 +4,27 @@ keep_lp: False
 # solver
 solver: 'gurobi'
 solver_options:
-  gurobi:
-    Threads: 0
-    Method: 2
-    BarHomogeneous: 1
-    Crossover: 1
-    BarConvTol: 1.0e-8
-  cplex:
-    threads: 0
-    lpmethod: 1
-    solutiontype: 2
-    barrier convergetol: 1.0e-8
+  # gurobi
+  Threads: 0
+  Method: 2
+  BarHomogeneous: 1
+  Crossover: 0
+  BarConvTol: 1e-8
+  # cplex
+  # threads: 0
+  # lpmethod: 1
+  # solutiontype: 2
+  # barrier convergetol: 1e-8
 
-  cbc: 0
-
-get_duals: True
+get_duals: False
 
 # Time
-# Start time and end time for slicing the database.
 time:
-  slice: ['2018-01-01T00:00', '2018-12-31T23:00']
+  slice: ['2018-01-01T00:00', '2018-01-01T23:00']
   resolution: 1
 
 # Space
-region: "EU"
+region: "BENELUX"
 add_TR: False
 
 # RES
@@ -35,10 +32,11 @@ res:
   include: False
   # Give which technology should be installed using each strategy
   strategies:
-    from_files: []
     no_siting: []
     siting: []
     bus: ['wind_offshore', 'pv_utility', 'pv_residential', 'wind_onshore']
+
+  min_cap_pot: [0, 0, 0, 0]
 
   # For strategy = siting or no siting
   # Various data layers to be taken into account in potential site selection.
@@ -51,53 +49,48 @@ res:
   modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
   solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
   solver_options:
-    gurobi:
-      Threads: 0
-      Method: 1
-    cplex:
-      solutiontype: 1
-    cbc: 0
+    # gurobi
+    Threads: 0
+    Method: 2
+    BarHomogeneous: 1
+    Crossover: 0
+    BarConvTol: 1e-8
+    # cplex:
+    # solutiontype: 1
   write_lp: False
   write_log: False
-  # Type of problem to be solved. Check resite.py for a full list.
-  formulation: 'meet_RES_targets_agg' # 'meet_RES_targets_hourly' # 'meet_demand_with_capacity' #
-  formulation_params: [0.1] # [0.5, 0.5, 0.5, 0.5]
+  # Type of problem to be solved. Check resite for a full list.
+  formulation: 'meet_RES_targets'
+  formulation_params:
+    perc_per_region: [0.32]
+    time_resolution: 'hour'
   # Keeping files at the end of the run.
   keep_files: True
 
-# Conventional generation
-dispatch:
-  include: True
-  tech: "ccgt"
+techs:
+  dispatch:
+    tech: "ccgt"
 
-# Nuclear
-nuclear:
-  include: True
-  use_ex_cap: True # Whether to include existing cap
-  extendable: False
+  # nuclear:
+  #  use_ex_cap: True # Whether to include existing cap
+  #  extendable: False
 
-# Battery
-battery:
-  include: True
-  type: "Li-ion"
+  battery:
+    type: "Li-ion"
 
-# Hydro
-phs:
-  include: True
-  use_ex_cap: True
-  extendable: False
-  cyclic_sof: True
+  phs:
+    use_ex_cap: True
+    extendable: False
+    cyclic_sof: True
 
-ror:
-  include: True
-  use_ex_cap: True
-  extendable: False
+  ror:
+    use_ex_cap: True
+    extendable: False
 
-sto:
-  include: True
-  use_ex_cap: True
-  extendable: False
-  cyclic_sof: True
+  sto:
+    use_ex_cap: True
+    extendable: False
+    cyclic_sof: True
 
 functionalities:
   snsp:
