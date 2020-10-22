@@ -4,13 +4,10 @@ from time import strftime
 
 import resource
 
-from pyomo.opt import ProblemFormat
 import argparse
 
-from iepy.indicators.emissions import get_reference_emission_levels_for_region
 from iepy.topologies.tyndp2018 import get_topology
 from iepy.geographics import get_subregions
-from iepy.load import get_load
 from iepy.technologies import get_config_dict
 from network import *
 from postprocessing.results_display import *
@@ -36,8 +33,6 @@ def parse_args():
 
     parser.add_argument('-sr', '--spatial_res', type=float, help='Spatial resolution')
     parser.add_argument('-yr', '--year', type=str, help='Year of run')
-    # parser.add_argument('-dir', '--resite_dir', type=str, help='resite directory')
-    # parser.add_argument('-fn', '--resite_fn', type=str, help='resite file name')
     parser.add_argument('-th', '--threads', type=int, help='Number of threads')
     parser.add_argument('-fp-perc', '--perc_per_region', type=float,
                         help="Percentage of penetration of renewables for siting")
@@ -101,7 +96,21 @@ if __name__ == '__main__':
     else:
         config["res"]["strategies"]["no_siting"] = config["res"]["techs"]
 
-    tech_config = get_config_dict()
+    # TODO: change
+    techs = config["res"]["techs"].copy()
+    if config["dispatch"]["include"]:
+        techs += [config["dispatch"]["tech"]]
+    if config["nuclear"]["include"]:
+        techs += ["nuclear"]
+    if config["battery"]["include"]:
+        techs += [config["battery"]["type"]]
+    if config["phs"]["include"]:
+        techs += ["phs"]
+    if config["ror"]["include"]:
+        techs += ["ror"]
+    if config["sto"]["include"]:
+        techs += ["sto"]
+    tech_config = get_config_dict(techs)
     # tech_config["wind_offshore"]["power_density"] = args["power_density"]
 
     # Parameters
@@ -165,11 +174,7 @@ if __name__ == '__main__':
 
             logger.info(f"Adding RES {technologies} generation with strategy {strategy}.")
 
-            if strategy == "from_files":
-                net = add_res_from_file(net, "countries", technologies,
-                                        args['resite_dir'], args['resite_fn'],
-                                        args['spatial_res'], args['power_density'])
-            elif strategy == "bus":
+            if strategy == "bus":
                 net = add_res_per_bus(net, 'countries', technologies, config["res"]["use_ex_cap"])
             elif strategy == "no_siting":
                 net = add_res_in_grid_cells(net, 'countries', technologies,
@@ -202,39 +207,16 @@ if __name__ == '__main__':
     if config["battery"]["include"]:
         net = add_batteries(net, config["battery"]["type"])
 
-    # co2_reference_kt = \
-    #     get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
-    # co2_budget = co2_reference_kt * (1 - config["co2_emissions"]["mitigation_factor"]) * len(
-    #     net.snapshots) / NHoursPerYear
-    # net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
-
-    # net.lopf(solver_name=config["solver"], solver_logfile=f"{output_dir}solver.log".replace('/', '\\'),
-    #          solver_options=config["solver_options"][config["solver"]],
-    #          keep_references=True, keep_shadowprices=["Generator", "Bus"], pyomo=False)
-
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"][config["solver"]],
              extra_functionality=add_extra_functionalities,
              pyomo=True)
 
-    # if config['keep_lp']:
-        # net.model.write(filename=join(output_dir, 'model.lp'),
-        #                 format=ProblemFormat.cpxlp,
-        #                 # io_options={'symbolic_solver_labels': True})
-        #                 io_options={'symbolic_solver_labels': False})
-        # net.model.generation_emissions_global.pprint()
-
-    # marginal_price = pypsa.linopt.get_dual(net, 'Bus', 'marginal_price')
-    # shadow_price = pypsa.linopt.get_dual(net, 'Generator', 'mu_upper')
-    # print((shadow_price < 0).sum())
-    # print((pypsa.linopt.get_dual(net, 'Generator', 'mu_lower') < 0).sum())
-    # print(net.dualvalues)
-
     net.export_to_csv_folder(output_dir)
 
     # Display some results
-    display_generation(net)
-    display_transmission(net)
-    display_storage(net)
-    display_co2(net)
+    # display_generation(net)
+    # display_transmission(net)
+    # display_storage(net)
+    # display_co2(net)
