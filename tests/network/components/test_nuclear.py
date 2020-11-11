@@ -10,11 +10,7 @@ net_ = define_simple_network()
 def test_add_generators_missing_attributes():
     net = net_.copy()
     countries = ["BE", "LU", "NL"]
-    net.buses = net.buses.drop('onshore', axis=1)
-    with pytest.raises(AssertionError):
-        add_generators(net, countries)
-    net = net_.copy()
-    net.buses = net.buses.drop('region', axis=1)
+    net.buses = net.buses.drop('onshore_region', axis=1)
     with pytest.raises(AssertionError):
         add_generators(net, countries)
 
@@ -27,18 +23,17 @@ def test_add_generators_empty_country_list():
 
 def test_add_generators_no_onshore_buses():
     net = net_.copy()
-    countries = ["BE", "LU", "NL"]
+    countries = ["BE", "LU", "NL", "FR"]
     net.buses = net.buses.drop("ONBE")
     net.buses = net.buses.drop("ONLU")
     net.buses = net.buses.drop("ONNL")
+    net.buses = net.buses.drop("ONFR")
     net = add_generators(net, countries)
     assert len(net.generators) == 0
 
 
 def test_add_generators():
     net = net_.copy()
-    shape_fr = get_shapes(["FR"], "onshore").loc["FR", "geometry"]
-    net.madd("Bus", ["ONFR"], country="FR", region=[shape_fr], onshore=True)
     countries = ["BE", "NL", "LU", "FR"]
     net = add_generators(net, countries, True, True)
     assert len(net.generators) == 29
@@ -56,8 +51,6 @@ def test_add_generators():
 def test_add_generators_without_country_attr_and_without_ex_cap():
     net = net_.copy()
     net.buses = net.buses.drop('country', axis=1)
-    shape_fr = get_shapes(["FR"], "onshore").loc["FR", "geometry"]
-    net.madd("Bus", ["ONFR"], region=[shape_fr], onshore=True)
     countries = ["BE", "NL", "LU", "FR"]
     net = add_generators(net, countries, False, True)
     assert len(net.generators) == 29

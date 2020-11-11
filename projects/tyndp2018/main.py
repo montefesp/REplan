@@ -111,12 +111,10 @@ if __name__ == '__main__':
     if config["sto"]["include"]:
         techs += ["sto"]
     tech_config = get_config_dict(techs)
-    # tech_config["wind_offshore"]["power_density"] = args["power_density"]
 
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
     fuel_info = pd.read_excel(join(tech_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
-    # tech_config = yaml.load(open(join(tech_dir, 'tech_config.yml')), Loader=yaml.FullLoader)
 
     # Compute and save results
     if not isdir(output_dir):
@@ -151,15 +149,14 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
-    net = get_topology(net, countries, extend_line_cap=True)
+    net = get_topology(net, countries, extend_line_cap=True, plot=False)
 
     # Adding load
     logger.info("Adding load.")
-    onshore_bus_indexes = net.buses[net.buses.onshore].index
     load = get_load(timestamps=timestamps, countries=countries, missing_data='interpolate')
-    load_indexes = "Load " + onshore_bus_indexes
+    load_indexes = "Load " + net.buses.index
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
-    net.madd("Load", load_indexes, bus=onshore_bus_indexes, p_set=loads)
+    net.madd("Load", load_indexes, bus=net.buses.index, p_set=loads)
 
     if config["functionalities"]["load_shed"]["include"]:
         logger.info("Adding load shedding generators.")
@@ -175,9 +172,9 @@ if __name__ == '__main__':
             logger.info(f"Adding RES {technologies} generation with strategy {strategy}.")
 
             if strategy == "bus":
-                net = add_res_per_bus(net, 'countries', technologies, config["res"]["use_ex_cap"])
+                net = add_res_per_bus(net, technologies, config["res"]["use_ex_cap"])
             elif strategy == "no_siting":
-                net = add_res_in_grid_cells(net, 'countries', technologies,
+                net = add_res_in_grid_cells(net, technologies,
                                             config["region"], config["res"]["spatial_resolution"],
                                             config["res"]["use_ex_cap"], config["res"]["limit_max_cap"],
                                             config["res"]["min_cap_pot"])

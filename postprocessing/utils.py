@@ -34,7 +34,7 @@ def get_generators_capacity(net: pypsa.Network, buses: List[str] = None, tech_na
     capacities = pd.concat([init_capacities.rename('init'), new_capacities.rename('new'),
                             opt_capacities.rename('final'), max_capacities.rename('max')], axis=1)
     if "load" in capacities:
-        capacities = capacities.drop(['load']).round(2)
+        capacities = capacities.drop(['load'])
 
     return capacities
 
@@ -64,7 +64,7 @@ def get_generators_generation(net: pypsa.Network):
 
     gen_df = generation # pd.DataFrame.from_dict(generation, orient="index", columns=["generation"]).generation
 
-    return gen_df.round(2)
+    return gen_df
 
 
 # TODO: this is shit
@@ -91,7 +91,7 @@ def get_generators_average_usage(net: pypsa.Network):
         else:
             df_cf.loc[item] = tot_gen.loc[item] * 1e3 / (opt_cap.loc[item] * len(net.snapshots))
 
-    return df_cf.round(3)
+    return df_cf
 
 
 def get_generators_cap_factors(net: pypsa.Network, buses: List[str] = None, tech_names: List[str] = None):
@@ -140,7 +140,7 @@ def get_generators_curtailment(net: pypsa.Network):
         else:
             df_curtailment.loc[item] = np.nan
 
-    return df_curtailment.round(3)
+    return df_curtailment
 
 
 def get_generators_opex(net: pypsa.Network):
@@ -211,7 +211,7 @@ def get_links_capacity(net: pypsa.Network, buses_to_remove: List[str] = None):
                                   links["p_nom_opt"].rename('final [GW]'),
                                   init_cap_length.rename(columns={'init_cap_length': 'init [TWkm]'}),
                                   new_cap_length.rename(columns={'new_cap_length': 'new [TWkm]'})], axis=1)
-    return links_capacities.round(2)
+    return links_capacities
 
 
 # def get_lines_power(net: pypsa.Network):
@@ -254,7 +254,7 @@ def get_links_power(net: pypsa.Network):
         power_total = power.to_numpy().sum()
         df_power.loc[carrier] = power_total * 1e-3
 
-    return df_power.round(2)
+    return df_power
 
 
 # def get_lines_usage(net: pypsa.Network):
@@ -272,7 +272,7 @@ def get_links_usage(net: pypsa.Network):
     links_power = get_links_power(net)
     df_cf = (links_power * 1e3) / (opt_capacities_gw * len(net.snapshots))
 
-    return df_cf.round(3)
+    return df_cf
 
 
 # def get_lines_capex(net: pypsa.Network):
@@ -293,7 +293,7 @@ def get_links_capex(net: pypsa.Network):
 
     df_capex = links.groupby(["carrier"]).capex.sum() * 1e-3
 
-    return df_capex.round(2)
+    return df_capex
 
 
 # def get_lines_length(net: pypsa.Network):
@@ -356,7 +356,7 @@ def get_storage_power_capacity(net: pypsa.Network, buses: List[str] = None, tech
                               new_capacities.rename('new [GW]'),
                               opt_capacities.rename('final [GW]')], axis=1)
 
-    return capacities_p.round(2)
+    return capacities_p
 
 
 def get_storage_energy_capacity(net: pypsa.Network):
@@ -373,7 +373,7 @@ def get_storage_energy_capacity(net: pypsa.Network):
     capacities_e = pd.concat([init_capacities.rename('init [GWh]'),
                               new_capacities.rename('new [GWh]')], axis=1)
 
-    return capacities_e.round(2)
+    return capacities_e
 
 
 def get_storage_power(net: pypsa.Network):

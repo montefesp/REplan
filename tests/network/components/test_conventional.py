@@ -17,8 +17,8 @@ def test_add_generators():
     net = add_generators(net_, 'ccgt')
     assert isinstance(net, pypsa.Network)
     gens = net.generators
-    assert len(gens) == 3
-    for bus in ["ONBE", "ONNL", "ONLU"]:
+    assert len(gens) == 4
+    for bus in ["ONBE", "ONNL", "ONLU", "ONFR"]:
         idx = f"{bus} Gen ccgt"
         assert idx in gens.index
         assert gens.loc[idx, "type"] == "ccgt"

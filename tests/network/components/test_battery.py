@@ -17,8 +17,8 @@ def test_add_batteries():
     net = add_batteries(net_, 'Li-ion')
     assert isinstance(net, pypsa.Network)
     su = net.storage_units
-    assert len(su) == 3
-    for bus in ["ONBE", "ONNL", "ONLU"]:
+    assert len(su) == 4
+    for bus in ["ONBE", "ONNL", "ONLU", "ONFR"]:
         idx = f"{bus} StorageUnit Li-ion"
         assert idx in su.index
         assert su.loc[idx, "type"] == "Li-ion"

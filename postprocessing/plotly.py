@@ -467,6 +467,7 @@ class SizingPlotly:
         feature_collection = []
         onshore_buses = self.net.buses.loc[buses_onshore_index]
         for idx in buses_onshore_index:
+            # TODO: onshore-region?
             region = shapely.wkt.loads(onshore_buses.region[idx])
             if isinstance(region, sPolygon):
                 feature_collection += [Feature(geometry=Polygon([list(region.exterior.coords)]), id=idx)]
@@ -523,6 +524,7 @@ class SizingPlotly:
                 total_max_capacity_per_bus[idx] = self.net.generators.loc[offshore_generators_index, 'p_nom_max'].values.sum()
             print(total_max_capacity_per_bus)
 
+            # TODO: onshore-region?
             offshore_bus_region_shapes = self.net.buses.loc[offshore_buses_index].region
 
         feature_collection = []
@@ -538,6 +540,7 @@ class SizingPlotly:
             buses_index = self.net.buses.loc[[idx for idx in self.net.buses.index if idx[2:4] in regions]].index
 
             # Agglomerate regions together
+            # TODO: onshore-region?
             region_shape = \
                 cascaded_union([shapely.wkt.loads(self.net.buses.loc[bus_id].region) for bus_id in buses_index])
 

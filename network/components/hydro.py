@@ -35,13 +35,14 @@ def add_phs_plants(net: pypsa.Network, topology_type: str = "countries",
     assert topology_type in accepted_topologies, \
         f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
 
-    comp_attrs = ["x", "y", "onshore"]
+    comp_attrs = ["x", "y", "onshore_region"]
     comp_attrs += ["country"] if topology_type == "countries" else []
     for attr in comp_attrs:
         assert hasattr(net.buses, attr), f"Error: Buses must contain a '{attr}' attribute."
 
     # Hydro generators can only be added onshore
-    buses_onshore = net.buses[net.buses.onshore]
+    # buses_onshore = net.buses[net.buses.onshore]
+    buses_onshore = net.buses.dropna(subset=["onshore_region"], axis=0)
 
     # Load capacities
     aggr_level = "countries" if topology_type == "countries" else "NUTS3"
@@ -115,13 +116,14 @@ def add_ror_plants(net: pypsa.Network, topology_type: str = "countries",
     assert topology_type in accepted_topologies, \
         f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
 
-    comp_attrs = ["x", "y", "onshore"]
+    comp_attrs = ["x", "y", "onshore_region"]
     comp_attrs += ["country"] if topology_type == "countries" else []
     for attr in comp_attrs:
         assert hasattr(net.buses, attr), f"Error: Buses must contain a '{attr}' attribute."
 
     # Hydro generators can only be added onshore
-    buses_onshore = net.buses[net.buses.onshore]
+    # buses_onshore = net.buses[net.buses.onshore]
+    buses_onshore = net.buses.dropna(subset=["onshore_region"], axis=0)
 
     # Load capacities and inflows
     aggr_level = "countries" if topology_type == "countries" else "NUTS3"
@@ -194,13 +196,14 @@ def add_sto_plants(net: pypsa.Network, topology_type: str = "countries",
     assert topology_type in accepted_topologies, \
         f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
 
-    comp_attrs = ["x", "y", "onshore"]
+    comp_attrs = ["x", "y", "onshore_region"]
     comp_attrs += ["country"] if topology_type == "countries" else []
     for attr in comp_attrs:
         assert hasattr(net.buses, attr), f"Error: Buses must contain a '{attr}' attribute."
 
     # Hydro generators can only be added onshore
-    buses_onshore = net.buses[net.buses.onshore]
+    # buses_onshore = net.buses[net.buses.onshore]
+    buses_onshore = net.buses.dropna(subset=["onshore_region"], axis=0)
 
     # Load capacities and inflows
     aggr_level = "countries" if topology_type == "countries" else "NUTS3"

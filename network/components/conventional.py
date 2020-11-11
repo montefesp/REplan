@@ -25,8 +25,12 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
     """
     logger.info(f"Adding {tech} generation.")
 
+    assert hasattr(network.buses, "onshore_region"), "Error: some buses must be associated to an onshore region to add" \
+                                                     "conventional generators."
+
     # Filter to keep only onshore buses
-    buses = network.buses[network.buses.onshore]
+    # buses = network.buses[network.buses.onshore]
+    buses = network.buses.dropna(subset=["onshore_region"], axis=0)
 
     capital_cost, marginal_cost = get_costs(tech, len(network.snapshots))
 

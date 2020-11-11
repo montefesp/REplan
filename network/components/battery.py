@@ -36,7 +36,9 @@ def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str
     if buses_ids is not None:
         buses = buses.loc[buses_ids]
 
-    onshore_bus_indexes = pd.Index([bus_id for bus_id in buses.index if buses.loc[bus_id].onshore])
+    # buses = network.buses[network.buses.onshore]
+    # onshore_bus_indexes = pd.Index([bus_id for bus_id in buses.index if buses.loc[bus_id].onshore])
+    onshore_buses = network.buses.dropna(subset=["onshore_region"], axis=0)
 
     # Get costs and efficiencies
     capital_cost, marginal_cost = get_costs(battery_type, len(network.snapshots))
@@ -48,10 +50,10 @@ def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str
     max_hours = get_config_values(battery_type, ["max_hours"])
 
     network.madd("StorageUnit",
-                 onshore_bus_indexes,
+                 onshore_buses.index,
                  suffix=f" StorageUnit {battery_type}",
                  type=battery_type,
-                 bus=onshore_bus_indexes,
+                 bus=onshore_buses.index,
                  p_nom_extendable=True,
                  max_hours=max_hours,
                  capital_cost=capital_cost,

@@ -1,6 +1,7 @@
 import pytest
 
 from network.components.hydro import *
+from iepy.geographics import get_shapes
 from tests.network.utils import define_simple_network
 
 net_ = define_simple_network()
@@ -12,10 +13,11 @@ def define_ehighway_network():
                 "23FR", "24FR", "25FR", "26FR", "27FR", "28BE", "29LU", "30NL"]
 
     # Add buses
-    buses = pd.DataFrame(index=buses_id, columns=["x", "y", "onshore"])
+    # TODO: onshore-region?
+    buses = pd.DataFrame(index=buses_id, columns=["x", "y", "onshore_region"])
     buses["x"] = [0]*len(buses_id)
     buses["y"] = [0]*len(buses_id)
-    buses["onshore"] = [True]*len(buses_id)
+    buses["onshore_region"] = [True]*len(buses_id)
     net.import_components_from_dataframe(buses, "Bus")
 
     # Time
@@ -32,11 +34,7 @@ def test_add_phs_plants_wrong_topology():
 
 def test_add_phs_plants_missing_attributes():
     net = net_.copy()
-    net.buses = net.buses.drop('onshore', axis=1)
-    with pytest.raises(AssertionError):
-        add_phs_plants(net, 'countries')
-    net = net_.copy()
-    net.buses = net.buses.drop('country', axis=1)
+    net.buses = net.buses.drop('onshore_region', axis=1)
     with pytest.raises(AssertionError):
         add_phs_plants(net, 'countries')
     net = net_.copy()
@@ -51,7 +49,6 @@ def test_add_phs_plants_missing_attributes():
 
 def test_add_phs_plants_countries():
     net = net_.copy()
-    net.madd("Bus", ["ONFR"], country="FR", onshore=True)
     net = add_phs_plants(net, 'countries')
     sus = net.storage_units
     idxs = ['ONBE Storage PHS', 'ONFR Storage PHS']
@@ -102,11 +99,7 @@ def test_add_ror_plants_wrong_topology():
 
 def test_add_ror_plants_missing_attributes():
     net = net_.copy()
-    net.buses = net.buses.drop('onshore', axis=1)
-    with pytest.raises(AssertionError):
-        add_ror_plants(net, 'countries')
-    net = net_.copy()
-    net.buses = net.buses.drop('country', axis=1)
+    net.buses = net.buses.drop('onshore_region', axis=1)
     with pytest.raises(AssertionError):
         add_ror_plants(net, 'countries')
     net = net_.copy()
@@ -121,7 +114,6 @@ def test_add_ror_plants_missing_attributes():
 
 def test_add_ror_plants_countries():
     net = net_.copy()
-    net.madd("Bus", ["ONFR"], country="FR", onshore=True)
     net = add_ror_plants(net, 'countries')
     gens = net.generators
     idxs = ['ONBE Generator ror', 'ONFR Generator ror']
@@ -166,11 +158,7 @@ def test_add_sto_plants_wrong_topology():
 
 def test_add_sto_plants_missing_attributes():
     net = net_.copy()
-    net.buses = net.buses.drop('onshore', axis=1)
-    with pytest.raises(AssertionError):
-        add_ror_plants(net, 'countries')
-    net = net_.copy()
-    net.buses = net.buses.drop('country', axis=1)
+    net.buses = net.buses.drop('onshore_region', axis=1)
     with pytest.raises(AssertionError):
         add_ror_plants(net, 'countries')
     net = net_.copy()
@@ -185,7 +173,6 @@ def test_add_sto_plants_missing_attributes():
 
 def test_add_sto_plants_countries():
     net = net_.copy()
-    net.madd("Bus", ["ONFR"], country="FR", onshore=True)
     net = add_sto_plants(net, 'countries')
     sus = net.storage_units
     idxs = ['ONBE Storage reservoir', 'ONFR Storage reservoir']

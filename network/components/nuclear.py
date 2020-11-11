@@ -33,18 +33,19 @@ def add_generators(net: pypsa.Network, countries: List[str],
         Updated network
     """
 
-    for attr in ["onshore", "region"]:
+    for attr in ["onshore_region"]:
         assert hasattr(net.buses, attr), f"Error: Buses must contain a '{attr}' attribute."
 
     # Nuclear plants can only be added onshore
-    onshore_buses = net.buses[net.buses.onshore]
+    # onshore_buses = net.buses[net.buses.onshore]
+    onshore_buses = net.buses.dropna(subset=["onshore_region"], axis=0)
     if len(onshore_buses) == 0:
         warn("Warning: Trying to add nuclear to network without onshore buses.")
         return net
 
     gens = get_powerplants('nuclear', countries)
     buses_countries = list(onshore_buses.country) if hasattr(onshore_buses, 'country') else None
-    gens["bus_id"] = match_powerplants_to_regions(gens, onshore_buses.region,
+    gens["bus_id"] = match_powerplants_to_regions(gens, onshore_buses.onshore_region,
                                                   shapes_countries=buses_countries, dist_threshold=50.0)
 
     # If no plants in the chosen countries, return directly the network

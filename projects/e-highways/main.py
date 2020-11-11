@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     # Adding load
     logger.info("Adding load.")
-    onshore_bus_indexes = net.buses[net.buses.onshore].index
+    onshore_bus_indexes = net.buses.dropna(subset=["onshore_region"])
     load = get_load_from_nuts_codes(
         [eh_clusters.loc[bus_id].codes.split(',') for bus_id in onshore_bus_indexes], net.snapshots)
     load_indexes = "Load " + onshore_bus_indexes
@@ -97,28 +97,23 @@ if __name__ == "__main__":
 
             logger.info(f"Adding RES {technologies} generation with strategy {strategy}.")
 
-            if strategy == "from_files":
-                net = add_res_from_file(net, 'regions', technologies,
-                                        config["res"]["sites_dir"], config["res"]["sites_fn"],
-                                        config["res"]["spatial_resolution"],
-                                        config["res"]["use_default_capacity"], config["res"]["area_per_site"])
-            elif strategy == "bus":
+            if strategy == "bus":
                 # converters = {tech: tech_config[tech]["converter"] for tech in technologies}
-                net = add_res_per_bus(net, 'regions', technologies, config["res"]["use_ex_cap"])
+                net = add_res_per_bus(net, technologies, config["res"]["use_ex_cap"])
             elif strategy == "no_siting":
-                net = add_res_in_grid_cells(net, 'regions', technologies,
+                net = add_res_in_grid_cells(net, technologies,
                                             config["region"], config["res"]["spatial_resolution"],
                                             config["res"]["use_ex_cap"], config["res"]["limit_max_cap"])
             elif strategy == 'siting':
-                net = add_res(net, 'regions', technologies, config["region"], config['res'],
+                net = add_res(net, technologies, config["region"], config['res'],
                               config['res']['use_ex_cap'], config['res']['limit_max_cap'],
                               output_dir=f"{output_dir}resite/")
             # elif config['res']['strategy'] == 'bus_test':
             #    net = add_generators_at_bus_test(net, config['res'], tech_config, config["region"], output_dir)
 
     # Remove offshore locations that have no RES generators associated to them
-    for bus_id in net.buses.index:
-        if not net.buses.loc[bus_id].onshore and len(net.generators[net.generators.bus == bus_id]) == 0:
+    for bus_id in net.buses.dropna(subset=["offshore_region"]).index:
+        if len(net.generators[net.generators.bus == bus_id]) == 0:
             # Remove the bus
             net.remove("Bus", bus_id)
             # Remove the lines associated to the bus
