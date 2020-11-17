@@ -189,7 +189,7 @@ if __name__ == '__main__':
         non_eu_res = config["non_eu"]
         if non_eu_res is not None:
             for region in non_eu_res.keys():
-                if region in ["NA", "ME"]:
+                if region in ["na", "me"]:
                     remote_countries = get_subregions(region)
                 else:
                     remote_countries = [region]
