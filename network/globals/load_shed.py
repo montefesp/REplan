@@ -48,4 +48,4 @@ def add_load_shedding(net: pypsa.Network, load_df: pd.DataFrame) -> pypsa.Networ
              y=net.buses.loc[onshore_buses.index].y.values,
              marginal_cost=fuel_info.loc["load", "cost"])
 
-    return network
+    return net
