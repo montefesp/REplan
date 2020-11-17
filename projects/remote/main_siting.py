@@ -14,12 +14,7 @@ from projects.remote.utils import upgrade_topology
 from network.globals.functionalities_nopyomo \
     import add_extra_functionalities as add_extra_functionalities_nopyomo
 from iepy.technologies import get_config_values
-from shapely.ops import unary_union
-from iepy.geographics import get_shapes, match_points_to_regions
-from iepy.geographics.grid_cells import get_grid_cells
-from iepy.generation.vres.potentials.glaes import get_capacity_potential_for_shapes
-from iepy.generation.vres.legacy import get_legacy_capacity_in_regions
-from iepy.generation.vres.profiles import compute_capacity_factors
+from iepy.geographics import match_points_to_regions
 
 from iepy import data_path
 
@@ -166,7 +161,7 @@ if __name__ == '__main__':
         net = upgrade_topology(net, list(non_eu_res.keys()))
         # Add storage
         for region in non_eu_res.keys():
-            if region in ["NA", "ME"]:
+            if region in ["na", "me"]:
                 neigh_countries = get_subregions(region)
             else:
                 neigh_countries = [region]
