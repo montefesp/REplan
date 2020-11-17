@@ -35,7 +35,7 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
         # Adding link to IS
         links.loc["GL-IS", ["bus0", "bus1", "carrier"]] = ["GL", "IS", "DC"]
 
-    if "NA" in regions:
+    if "na" in regions:
         countries = ["DZ", "EG", "LY", "MA", "TN"]
         shapes = get_shapes(countries, "onshore")["geometry"]
         for c in countries:
@@ -58,7 +58,7 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
         if "IT" in net.buses.index:
             links.loc["TN-IT", ["bus0", "bus1", "carrier"]] = ["TN", "IT", "DC"]
 
-    if "ME" in regions:
+    if "me" in regions:
         countries = ["AE", "BH", "CY", "IL", "IQ", "IR", "JO", "KW", "LB", "OM", "QA", "SA", "SY"]  # , "YE"]
         shapes = get_shapes(countries, "onshore")["geometry"]
         for c in countries:
