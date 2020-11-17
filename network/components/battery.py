@@ -38,7 +38,7 @@ def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str
 
     # buses = network.buses[network.buses.onshore]
     # onshore_bus_indexes = pd.Index([bus_id for bus_id in buses.index if buses.loc[bus_id].onshore])
-    onshore_buses = network.buses.dropna(subset=["onshore_region"], axis=0)
+    onshore_buses = buses.dropna(subset=["onshore_region"], axis=0)
 
     # Get costs and efficiencies
     capital_cost, marginal_cost = get_costs(battery_type, len(network.snapshots))

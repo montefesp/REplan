@@ -11,6 +11,8 @@ dependencies:
   - pypsa
   - atlite
 
+  - gdal==2.4.4
+
   - pycountry
 
   - xarray

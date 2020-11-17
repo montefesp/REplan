@@ -433,7 +433,7 @@ def get_storage_opex(net: pypsa.Network):
     """Returns the capital expenses for building the new capacity for each type of storage unit."""
 
     storage_units = net.storage_units
-    total_power = net.storage_units_t.p.abs().sum(axis=0)
+    total_power = net.storage_units_t.p[net.storage_units_t.p > 0].fillna(0).sum(axis=0)
     storage_units["opex"] = total_power * storage_units.marginal_cost
 
     return storage_units.groupby(["type"]).opex.sum() * 1e-3
