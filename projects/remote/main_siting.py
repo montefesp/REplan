@@ -181,7 +181,9 @@ if __name__ == '__main__':
 
         # Build sites for EU
         r_europe = Resite(eu_countries, eu_technologies, [net.snapshots[0], net.snapshots[-1]], spatial_res)
-        r_europe.build_data(use_ex_cap, min_cap_pot)
+        regions_shapes = net.buses.loc[eu_countries, ["onshore_region", 'offshore_region']]
+        regions_shapes.columns = ['onshore', 'offshore']
+        r_europe.build_data(use_ex_cap, min_cap_pot, regions_shapes=regions_shapes)
 
         # Build sites for other regions
         non_eu_res = config["non_eu"]
@@ -194,7 +196,10 @@ if __name__ == '__main__':
                 remote_techs = non_eu_res[region]
                 r_remote = Resite(remote_countries, remote_techs, [net.snapshots[0], net.snapshots[-1]], spatial_res)
                 # TODO: set add load to True for IS?
-                r_remote.build_data(use_ex_cap, [0]*len(remote_countries), compute_load=False)
+                regions_shapes = net.buses.loc[remote_countries, ["onshore_region", 'offshore_region']]
+                regions_shapes.columns = ['onshore', 'offshore']
+                r_remote.build_data(use_ex_cap, [0]*len(remote_countries),
+                                    compute_load=False, regions_shapes=regions_shapes)
 
                 # Add sites to European ones
                 r_europe.regions += r_remote.regions
