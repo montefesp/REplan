@@ -114,7 +114,10 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     eu_countries = get_subregions(config["region"])
+    if config["add_TR"]:
+        eu_countries = eu_countries + ["TR"]
     net = get_topology(net, eu_countries, extend_line_cap=True)
+
 
     # Adding load
     logger.info("Adding load.")
@@ -158,7 +161,7 @@ if __name__ == '__main__':
     non_eu_res = config["non_eu"]
     all_remote_countries = []
     if non_eu_res is not None:
-        net = upgrade_topology(net, list(non_eu_res.keys()))
+        net = upgrade_topology(net, list(non_eu_res.keys()), plot=True)
         # Add storage
         for region in non_eu_res.keys():
             if region in ["na", "me"]:
