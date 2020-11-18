@@ -205,7 +205,7 @@ if __name__ == '__main__':
 
                 # Add sites to European ones
                 r_europe.regions += r_remote.regions
-                r_europe.technologies += r_remote.technologies
+                r_europe.technologies = list(set(r_europe.technologies).union(r_remote.technologies))
                 r_europe.min_cap_pot_dict = {**r_europe.min_cap_pot_dict, **r_remote.min_cap_pot_dict}
                 r_europe.tech_points_tuples = np.concatenate((r_europe.tech_points_tuples, r_remote.tech_points_tuples))
                 r_europe.tech_points_dict = {**r_europe.tech_points_dict, **r_remote.tech_points_dict}
