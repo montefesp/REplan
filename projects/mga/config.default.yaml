@@ -1,0 +1,125 @@
+# model
+keep_lp: False
+
+# solver
+solver: 'gurobi'
+solver_options:
+  gurobi:
+    Threads: 0
+    Method: 2
+    BarHomogeneous: 1
+    Crossover: 0
+    BarConvTol: 1e-8
+  cplex:
+    threads: 0
+    lpmethod: 1
+    solutiontype: 2
+    barrier convergetol: 1e-8
+
+  cbc: 0
+
+# Time
+# Start time and end time for slicing the database.
+time:
+  slice: ['2016-01-01T00:00', '2016-01-01T04:00']
+  resolution: 1
+
+# Space
+region: "BENELUX"
+
+# RES
+res:
+  include: True
+  # Give which technology should be installed using each strategy
+  techs: ['wind_onshore']
+  strategies:
+    # from_files: []
+    no_siting: []
+    siting: []
+    # bus: []
+
+  min_cap_pot: [0]
+
+  # For strategy = max or comp
+  sites_dir: 'EU_wide_off_2015_08'
+  sites_fn: 'max_site_data.p'
+  use_default_capacity: True
+
+  # For strategy = siting or no siting
+  # Various data layers to be taken into account in potential site selection.
+  spatial_resolution: 1.0
+  timeslice: ['2016-01-01T00:00', '2016-01-01T04:00']
+  use_ex_cap: True
+  limit_max_cap: True
+  min_cap_if_selected: 1.0e-3
+
+  # For strategy = siting
+  modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
+  solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
+  solver_options:
+    Threads: 0
+    Method: 2
+    BarHomogeneous: 1
+    Crossover: 0
+    BarConvTol: 1e-8
+  write_lp: False
+  write_log: False
+  # Type of problem to be solved. Check resite.py for a full list.
+  formulation: 'meet_RES_targets'
+  formulation_params:
+    perc_per_region: [0.32]
+    time_resolution: 'hour'
+  # Keeping files at the end of the run.
+  keep_files: True
+
+# Conventional generation
+dispatch:
+  include: True
+  tech: "ccgt"
+
+# Nuclear
+nuclear:
+  include: False
+  use_ex_cap: True # Whether to include existing cap
+  extendable: False
+
+# Battery
+battery:
+  include: True
+  type: "Li-ion"
+
+# Hydro
+phs:
+  include: True
+  use_ex_cap: True
+  extendable: False
+  cyclic_sof: True
+
+ror:
+  include: True
+  use_ex_cap: True
+  extendable: False
+
+sto:
+  include: True
+  use_ex_cap: True
+  extendable: False
+  cyclic_sof: True
+
+functionalities:
+  snsp:
+    include: False
+    share: 0.65
+  curtailment:
+    include: False
+    strategy: ['economic', 10.] # ['technical', 0.], ['technical', 1.], ['economic', 0.], ['economic', 9999.]
+  load_shed:
+    include: False
+  import_limit:
+    include: False
+    share: 0.5
+  co2_emissions:
+    include: True
+    strategy: 'global' # country, global
+    reference_year: 1990 # Flat reference across all countries for now.
+    mitigation_factor: 0.9

@@ -107,13 +107,13 @@ if __name__ == '__main__':
 
     from pypsa import Network
 
-    output_dir = f'../output/from_pan/20200818_094604/'
+    output_dir = f'../output/mga/20201113_173523/'
 
     net_ = Network()
     net_.import_from_csv_folder(output_dir)
 
-    display_generation(net_)
-    display_transmission(net_)
+    #display_generation(net_)
+    #display_transmission(net_)
     display_storage(net_)
 
     # display_co2(net_)
