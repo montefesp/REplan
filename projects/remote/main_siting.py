@@ -270,9 +270,6 @@ if __name__ == '__main__':
 
         for tech, points in tech_location_dict.items():
 
-            print(tech)
-            print(sorted(points))
-
             onshore_tech = get_config_values(tech, ['onshore'])
 
             # Associate sites to buses (using the associated shapes)
@@ -305,17 +302,11 @@ if __name__ == '__main__':
                      marginal_cost=marginal_cost,
                      capital_cost=capital_cost)
 
+    net.config = config
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"],
-             #extra_functionality=add_extra_functionalities,
+             extra_functionality=add_extra_functionalities_nopyomo,
              pyomo=False)
-
-    if config['keep_lp']:
-        net.model.write(filename=join(output_dir, 'model.lp'),
-                        format=ProblemFormat.cpxlp,
-                        # io_options={'symbolic_solver_labels': True})
-                        io_options={'symbolic_solver_labels': False})
-        net.model.objective.pprint()
 
     net.export_to_csv_folder(output_dir)
