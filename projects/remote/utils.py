@@ -69,6 +69,7 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
             buses.loc[c, "country"] = c
         # buses.loc["AE", ["x", "y"]] = (54.5, 24.5)  # UAE, Abu Dhabi
         # buses.loc["BH", ["x", "y"]] = (50.35, 26.13)  # Bahrain, Manama
+        buses.loc["TR", ["X", "Y"]] = buses.loc["TR", "onshore_region"].centroid
         buses.loc["CY", ["x", "y"]] = (33.21, 35.1)  # Cyprus, Nicosia
         buses.loc["IL", ["x", "y"]] = (34.76, 32.09)  # Tel-Aviv, Jerusalem
         # if 'TR' in net.buses.index:
