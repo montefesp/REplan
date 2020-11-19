@@ -46,7 +46,7 @@ def parse_args():
             tech, regions = tech_regions.split(":")
             regions = regions.strip("[]").split(",")
             for region in regions:
-                dict[region] = [copy(tech)]
+                dict[region] = [tech]
         return dict
     parser.add_argument('-neu', '--non_eu', type=to_dict, help='Which technology to add outside Europe')
 
