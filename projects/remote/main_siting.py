@@ -2,7 +2,7 @@ from os.path import isdir
 from os import makedirs
 from time import strftime
 
-from pyomo.opt import ProblemFormat
+from copy import copy
 import argparse
 
 from iepy.topologies.tyndp2018 import get_topology
@@ -31,9 +31,24 @@ def parse_args():
 
     parser = argparse.ArgumentParser(description='Command line arguments.')
 
+    parser.add_argument('-epm', '--eu_prices_multiplier', type=float,
+                        help='Value by which onshore wind and pv utility price in Europe will be multiplied')
     parser.add_argument('-sr', '--spatial_res', type=float, help='Spatial resolution')
     parser.add_argument('-pd', '--power_density', type=float, help='Offshore power density')
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=1)
+
+    # argument must be of the format tech1:[region1, region2]/tech2:[region2, region3]
+    # only on technology accepted per region for now
+    def to_dict(string):
+        techs_regions = string.split("/")
+        dict = {}
+        for tech_regions in techs_regions:
+            tech, regions = tech_regions.split(":")
+            regions = regions.strip("[]").split(",")
+            for region in regions:
+                dict[region] = [tech]
+        return dict
+    parser.add_argument('-neu', '--non_eu', type=to_dict, help='Which technology to add outside Europe')
 
     parsed_args = vars(parser.parse_args())
 
@@ -53,6 +68,8 @@ if __name__ == '__main__':
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
+    # Add args to config
+    config = {**config, **args}
 
     solver_options = config["solver_options"]
     if config["solver"] == 'gurobi':
@@ -114,8 +131,6 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     eu_countries = get_subregions(config["region"])
-    if config["add_TR"]:
-        eu_countries = eu_countries + ["TR"]
     net = get_topology(net, eu_countries, extend_line_cap=True)
 
     # Adding load
@@ -301,6 +316,13 @@ if __name__ == '__main__':
                      y=[y for _, y in points],
                      marginal_cost=marginal_cost,
                      capital_cost=capital_cost)
+
+    # Increase EU wind onshore and pv utility price
+    if config["eu_prices_multiplier"] is not None:
+        gens = (net.generators.bus.isin(get_subregions(config["region"])))
+        gens = gens & ((net.generators.type.str.startswith("pv_utility")) |
+                       (net.generators.type.str.startswith("wind_onshore")))
+        net.generators.loc[gens, "capital_cost"] *= config["eu_prices_multiplier"]
 
     net.config = config
     net.lopf(solver_name=config["solver"],

@@ -103,8 +103,8 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
         if "EG" in buses.index:
             links.loc["EG-IL", ["bus0", "bus1", "carrier"]] = ["EG", "IL", "AC"]
             links.loc["SA-EG", ["bus0", "bus1", "carrier"]] = ["SA", "EG", "AC"]
-        if "TR" in net.buses.index:
-            links.loc["SY-TR", ["bus0", "bus1", "carrier"]] = ["SY", "TR", "AC"]
+        #if "TR" in net.buses.index:
+        links.loc["SY-TR", ["bus0", "bus1", "carrier"]] = ["SY", "TR", "AC"]
             # links.loc["IQ-TR", ["bus0", "bus1", "carrier"]] = ["IQ", "TR", "AC"]
             # links.loc["IR-TR", ["bus0", "bus1", "carrier"]] = ["IR", "TR", "AC"]
             # links.loc["IR-IQ", ["bus0", "bus1", "carrier"]] = ["IR", "IQ", "AC"]
