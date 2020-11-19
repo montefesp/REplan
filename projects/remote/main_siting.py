@@ -118,7 +118,6 @@ if __name__ == '__main__':
         eu_countries = eu_countries + ["TR"]
     net = get_topology(net, eu_countries, extend_line_cap=True)
 
-
     # Adding load
     logger.info("Adding load.")
     load = get_load(timestamps=timestamps, countries=eu_countries, missing_data='interpolate')
@@ -161,7 +160,7 @@ if __name__ == '__main__':
     non_eu_res = config["non_eu"]
     all_remote_countries = []
     if non_eu_res is not None:
-        net = upgrade_topology(net, list(non_eu_res.keys()), plot=True)
+        net = upgrade_topology(net, list(non_eu_res.keys()))
         # Add storage
         for region in non_eu_res.keys():
             if region in ["na", "me"]:
@@ -208,7 +207,6 @@ if __name__ == '__main__':
                 r_europe.technologies = list(set(r_europe.technologies).union(r_remote.technologies))
                 r_europe.min_cap_pot_dict = {**r_europe.min_cap_pot_dict, **r_remote.min_cap_pot_dict}
                 r_europe.tech_points_tuples = np.concatenate((r_europe.tech_points_tuples, r_remote.tech_points_tuples))
-                r_europe.tech_points_dict = {**r_europe.tech_points_dict, **r_remote.tech_points_dict}
                 r_europe.initial_sites_ds = r_europe.initial_sites_ds.append(r_remote.initial_sites_ds)
                 r_europe.tech_points_regions_ds = \
                     r_europe.tech_points_regions_ds.append(r_remote.tech_points_regions_ds)
@@ -219,6 +217,13 @@ if __name__ == '__main__':
                     r_europe.data_dict["existing_cap_ds"].append(r_remote.data_dict["existing_cap_ds"])
                 r_europe.data_dict["cap_factor_df"] = \
                     pd.concat([r_europe.data_dict["cap_factor_df"], r_remote.data_dict["cap_factor_df"]], axis=1)
+
+        # Update dictionary
+        tech_points_dict = {}
+        techs = set(r_europe.initial_sites_ds.index.get_level_values(0))
+        for tech in techs:
+            tech_points_dict[tech] = list(r_europe.initial_sites_ds[tech].index)
+        r_europe.tech_points_dict = tech_points_dict
 
         # Do siting if required
         if config["res"]["strategy"] == "siting":
@@ -264,6 +269,9 @@ if __name__ == '__main__':
             cap_factor_df = r_europe.data_dict["cap_factor_df"]
 
         for tech, points in tech_location_dict.items():
+
+            print(tech)
+            print(sorted(points))
 
             onshore_tech = get_config_values(tech, ['onshore'])
 
