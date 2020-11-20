@@ -31,7 +31,7 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
         trunc_gl_shape = full_gl_shape.intersection(Polygon([(-44.6, 59.5), (-44.6, 60.6), (-42, 60.6), (-42, 59.5)]))
         buses.loc["GL", "onshore_region"] = trunc_gl_shape
         buses.loc["GL", ["x", "y"]] = (-44., 60.)
-        buses.loc["GL", "country"] = "GL"
+        # buses.loc["GL", "country"] = "GL"
         # Adding link to IS
         links.loc["GL-IS", ["bus0", "bus1", "carrier"]] = ["GL", "IS", "DC"]
 
@@ -41,7 +41,7 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
         trunc_shape = Polygon([(-14, 27.7), (-14, 40), (40, 40), (40, 27.7)])
         for c in countries:
             buses.loc[c, "onshore_region"] = shapes.loc[c].intersection(trunc_shape)
-            buses.loc[c, "country"] = c
+            # buses.loc[c, "country"] = c
         buses.loc["DZ", ["x", "y"]] = (3, 36.5)  # Algeria, Alger
         buses.loc["EG", ["x", "y"]] = (31., 30.)  # Egypt, Cairo
         buses.loc["LY", ["x", "y"]] = (22, 32) #(13., 32.5)  # Libya, Tripoli
@@ -66,7 +66,7 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
         trunc_shape = Polygon([(25, 27.7), (25, 60), (60, 60), (60, 27.7)])
         for c in countries:
             buses.loc[c, "onshore_region"] = shapes.loc[c].intersection(trunc_shape)
-            buses.loc[c, "country"] = c
+            # buses.loc[c, "country"] = c
         # buses.loc["AE", ["x", "y"]] = (54.5, 24.5)  # UAE, Abu Dhabi
         # buses.loc["BH", ["x", "y"]] = (50.35, 26.13)  # Bahrain, Manama
         buses.loc["TR", ["x", "y"]] = buses.loc["TR", "onshore_region"].centroid
@@ -141,7 +141,8 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
              length=links.length, capital_cost=links.capital_cost)
 
     # from tyndp
-    net.links.loc[["TR-BG", "TR-GR"], "p_nom"] = [1.2, 0.66]
+    if "TR" in net.buses.index:
+        net.links.loc[["TR-BG", "TR-GR"], "p_nom"] = [1.2, 0.66]
 
     if plot:
         plot_topology(net.buses, net.links)
