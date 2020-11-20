@@ -22,6 +22,7 @@ from resite.resite import Resite
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
+logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
@@ -175,7 +176,7 @@ if __name__ == '__main__':
     non_eu_res = config["non_eu"]
     all_remote_countries = []
     if non_eu_res is not None:
-        net = upgrade_topology(net, list(non_eu_res.keys()))
+        net = upgrade_topology(net, list(non_eu_res.keys()), plot=True)
         # Add storage
         for region in non_eu_res.keys():
             if region in ["na", "me"]:

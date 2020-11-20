@@ -63,7 +63,7 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
         # countries = ["AE", "BH", "CY", "IL", "IQ", "IR", "JO", "KW", "LB", "OM", "QA", "SA", "SY"]  # , "YE"]
         countries = get_subregions("me")
         shapes = get_shapes(countries, "onshore")["geometry"]
-        trunc_shape = Polygon([(30, 27.7), (30, 60), (60, 60), (60, 27.7)])
+        trunc_shape = Polygon([(25, 27.7), (25, 60), (60, 60), (60, 27.7)])
         for c in countries:
             buses.loc[c, "onshore_region"] = shapes.loc[c].intersection(trunc_shape)
             buses.loc[c, "country"] = c
@@ -111,6 +111,10 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
             # links.loc["IR-IQ", ["bus0", "bus1", "carrier"]] = ["IR", "IQ", "AC"]
         if "GR" in net.buses.index:
             links.loc["CY-GR", ["bus0", "bus1", "carrier", "length"]] = ["CY", "GR", "DC", 850]
+            # From TYNDP
+            links.loc["TR-GR", ["bus0", "bus1", "carrier", "length"]] = ["TR", "GR", "DC", 1173.53]  # p_nom = 0.66
+        if "BG" in net.buses.index:
+            links.loc["TR-BG", ["bus0", "bus1", "carrier", "length"]] = ["TR", "BG", "AC", 932.16]  # p_nom = 1.2
 
     buses = buses.infer_objects()
     net.madd("Bus", buses.index,
@@ -135,6 +139,9 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
 
     net.madd("Link", links.index, bus0=links.bus0, bus1=links.bus1, carrier=links.carrier, p_nom_extendable=True,
              length=links.length, capital_cost=links.capital_cost)
+
+    # from tyndp
+    net.links.loc[["TR-BG", "TR-GR"], "p_nom"] = [1.2, 0.66]
 
     if plot:
         plot_topology(net.buses, net.links)
