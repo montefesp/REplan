@@ -72,6 +72,9 @@ if __name__ == '__main__':
     # Add args to config
     config = {**config, **args}
 
+    if args["spatial_res"] is not None:
+        config["res"]["spatial_resolution"] = args["spatial_res"]
+
     solver_options = config["solver_options"]
     if config["solver"] == 'gurobi':
         config["solver_options"]['Threads'] = args['threads']
