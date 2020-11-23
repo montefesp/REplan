@@ -114,7 +114,6 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
 
     """
 
-    # TODO: this should be passed as argument... -> cannot do it actually... this is shit.
     conf_func = net.config["functionalities"]
 
     if conf_func["co2_emissions"]["include"]:

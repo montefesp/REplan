@@ -1,6 +1,3 @@
-from os.path import join, abspath, dirname
-import yaml
-
 import pandas as pd
 
 from pyomo.environ import Constraint, Var, NonNegativeReals
@@ -253,42 +250,39 @@ def add_import_limit_constraint(network: pypsa.Network, import_share: float):
     model.import_constraint = Constraint(list(buses), rule=import_constraint_rule)
 
 
-def add_extra_functionalities(network: pypsa.Network, snapshots: pd.DatetimeIndex):
+def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
     """
     Wrapper for the inclusion of multiple extra_functionalities.
 
     Parameters
     ----------
-    network: pypsa.Network
+    net: pypsa.Network
         A PyPSA Network instance with buses associated to regions
     snapshots: pd.DatetimeIndex
         Network snapshots.
 
     """
 
-    # TODO: this should be passed as argument... -> cannot do it actually... this is shit.
-    config_fn = join(dirname(abspath(__file__)), '../../projects/tyndp2018/config.yaml')
-    config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
-    conf_func = config["functionalities"]
+    conf_func = net.config["functionalities"]
 
     if conf_func["snsp"]["include"]:
-        add_snsp_constraint_tyndp(network, snapshots, conf_func["snsp"]["share"])
+        add_snsp_constraint_tyndp(net, snapshots, conf_func["snsp"]["share"])
 
     if conf_func["curtailment"]["include"]:
         strategy = conf_func["curtailment"]["strategy"][0]
         if strategy == 'economic':
-            add_curtailment_penalty_term(network, snapshots, conf_func["curtailment"]["strategy"][1])
+            add_curtailment_penalty_term(net, snapshots, conf_func["curtailment"]["strategy"][1])
         elif strategy == 'technical':
-            add_curtailment_constraints(network, snapshots, conf_func["curtailment"]["strategy"][1])
+            add_curtailment_constraints(net, snapshots, conf_func["curtailment"]["strategy"][1])
 
     if conf_func["co2_emissions"]["include"]:
         strategy = conf_func["co2_emissions"]["strategy"]
         mitigation_factor = conf_func["co2_emissions"]["mitigation_factor"]
         ref_year = conf_func["co2_emissions"]["reference_year"]
         if strategy == 'country':
-            add_co2_budget_per_country(network, mitigation_factor, ref_year)
+            add_co2_budget_per_country(net, mitigation_factor, ref_year)
         elif strategy == 'global':
-            add_co2_budget_global(network, config["region"], mitigation_factor, ref_year)
+            add_co2_budget_global(net, net.config["region"], mitigation_factor, ref_year)
 
     if conf_func["import_limit"]["include"]:
-        add_import_limit_constraint(network, conf_func["import_limit"]["share"])
+        add_import_limit_constraint(net, conf_func["import_limit"]["share"])
