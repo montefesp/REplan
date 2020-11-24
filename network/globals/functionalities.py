@@ -1,3 +1,5 @@
+from typing import Dict
+
 import pandas as pd
 
 from pyomo.environ import Constraint, Var, NonNegativeReals
@@ -6,6 +8,7 @@ import pypsa
 from iepy.technologies import get_fuel_info, get_tech_info
 from iepy.indicators.emissions import get_co2_emission_level_for_country, \
     get_reference_emission_levels_for_region
+from iepy.geographics import get_subregions
 from iepy.load import get_load
 
 
@@ -108,38 +111,34 @@ def add_curtailment_constraints(network: pypsa.Network, snapshots: pd.DatetimeIn
     model.limit_curtailment = Constraint(list(gens), list(snapshots), rule=curtailment_rule)
 
 
-#TODO: in this form, this is not valid in the ehighway topology (weights need to be defined for NUTS to country mapping)
-def add_co2_budget_per_country(network: pypsa.Network, co2_reduction_share: float, co2_reduction_refyear: int):
+def add_co2_budget_per_country(net: pypsa.Network,
+                               co2_reduction_shares_dict: Dict[str, float],
+                               co2_reduction_refyear: int):
     """
     Add CO2 budget per country.
 
     Parameters
     ----------
-    network: pypsa.Network
+    net pypsa.Network
         A PyPSA Network instance with buses associated to regions
-    co2_reduction_share: float
-        Percentage of reduction of emission.
+    co2_reduction_shares_dict: Dict[str, float]
+        Percentage of reduction of emission for each country.
     co2_reduction_refyear: int
         Reference year from which the reduction in emission is computed.
 
     """
 
-    # TODO: to un-comment the line below when topology is included in config.yaml (upon merging the main)
-    # assert topology == 'tyndp', "Error: Only one-node-per-country topologies are supported for this constraint."
+    model = net.model
 
-    model = network.model
-    buses = network.buses.index
-
-    NHoursPerYear = 8760.
-    co2_techs = ['ccgt']
+    # TODO: this is shitty
+    co2_techs = ['ccgt', 'ocgt', 'ccgt_ccs']
 
     def generation_emissions_per_bus_rule(model, bus):
 
         bus_emission_reference = get_co2_emission_level_for_country(bus, co2_reduction_refyear)
-        bus_emission_target = (1-co2_reduction_share) * bus_emission_reference * len(network.snapshots) / NHoursPerYear
+        bus_emission_target = (1-co2_reduction_shares_dict[bus]) * bus_emission_reference * len(net.snapshots) / 8760.
 
-        gens = network.generators[(network.generators.bus == bus) &
-                                  (network.generators.type.str.contains('|'.join(co2_techs)))]
+        bus_gens = net.generators[net.generators.bus == bus]
 
         generator_emissions_sum = 0.
         for tech in co2_techs:
@@ -148,16 +147,14 @@ def add_co2_budget_per_country(network: pypsa.Network, co2_reduction_share: floa
             fuel_emissions_el = get_fuel_info(fuel, ['CO2'])
             fuel_emissions_thermal = fuel_emissions_el/efficiency
 
-            gen = gens[gens.index.str.contains(tech)]
+            gens = bus_gens[bus_gens.type == tech]
 
-            for g in gen.index.values:
-
-                for s in network.snapshots:
-
+            for g in gens.index.values:
+                for s in net.snapshots:
                     generator_emissions_sum += model.generator_p[g, s]*fuel_emissions_thermal.values[0]
 
         return generator_emissions_sum <= bus_emission_target
-    model.generation_emissions_per_bus = Constraint(list(buses), rule=generation_emissions_per_bus_rule)
+    model.generation_emissions_per_bus = Constraint(list(net.buses.index), rule=generation_emissions_per_bus_rule)
 
 
 def add_co2_budget_global(network: pypsa.Network, region: str, co2_reduction_share: float, co2_reduction_refyear: int):
@@ -179,11 +176,9 @@ def add_co2_budget_global(network: pypsa.Network, region: str, co2_reduction_sha
 
     model = network.model
 
-    NHoursPerYear = 8760.
-    co2_techs = ['ccgt']
-
+    co2_techs = ['ccgt', 'ocgt', 'ccgt_ccs']
     co2_reference_kt = get_reference_emission_levels_for_region(region, co2_reduction_refyear)
-    co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(network.snapshots) / NHoursPerYear
+    co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(network.snapshots) / 8760.
 
     gens = network.generators[(network.generators.type.str.contains('|'.join(co2_techs)))]
 
@@ -280,7 +275,12 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
         mitigation_factor = conf_func["co2_emissions"]["mitigation_factor"]
         ref_year = conf_func["co2_emissions"]["reference_year"]
         if strategy == 'country':
-            add_co2_budget_per_country(net, mitigation_factor, ref_year)
+            # TODO: this is shitty
+            countries = get_subregions(net.config['region'])
+            assert len(countries) == len(mitigation_factor), \
+                "Error: a co2 emission reduction share must be given for each country in the main region."
+            mitigation_factor_dict = dict(zip(countries, mitigation_factor))
+            add_co2_budget_per_country(net, mitigation_factor_dict, ref_year)
         elif strategy == 'global':
             add_co2_budget_global(net, net.config["region"], mitigation_factor, ref_year)
 
