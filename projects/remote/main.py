@@ -11,8 +11,8 @@ from iepy.geographics import get_subregions
 from iepy.technologies import get_config_dict
 from network import *
 from projects.remote.utils import upgrade_topology
-from network.globals.functionalities_nopyomo \
-    import add_extra_functionalities as add_extra_functionalities_nopyomo
+from network.globals.functionalities \
+    import add_extra_functionalities as add_extra_functionalities
 
 from iepy import data_path
 
@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument('-sr', '--spatial_res', type=float, help='Spatial resolution')
     parser.add_argument('-pd', '--power_density', type=float, help='Offshore power density')
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=1)
+    parser.add_argument('-lm', '--link_multiplier', type=float, help='Links extension multiplier', default=None)
 
     #def to_bool(string):
     #    return string == "true"
@@ -141,7 +142,7 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     eu_countries = get_subregions(config["region"])
-    net = get_topology(net, eu_countries, extend_line_cap=True)
+    net = get_topology(net, eu_countries, extend_line_cap=True, extension_multiplier=args['lm'])
 
     # Adding load
     logger.info("Adding load.")
@@ -216,7 +217,14 @@ if __name__ == '__main__':
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"],
-             extra_functionality=add_extra_functionalities_nopyomo,
-             pyomo=False)
+             extra_functionality=add_extra_functionalities,
+             pyomo=True)
+
+    # from pyomo.opt import ProblemFormat
+    # if config['keep_lp']:
+    #     net.model.write(filename=join(output_dir, 'model.lp'),
+    #                     format=ProblemFormat.cpxlp,
+    #                     io_options={'symbolic_solver_labels': True})
+    #     net.model.write(filename=join(output_dir, 'model.mps'))
 
     net.export_to_csv_folder(output_dir)

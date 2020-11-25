@@ -30,20 +30,17 @@ def add_snsp_constraint_tyndp(network: pypsa.Network, snapshots: pd.DatetimeInde
     model = network.model
     # TODO: check if this still works
     nonsync_techs = ['wind', 'pv', 'Li-ion']
-    def snsp_rule(model, bus, snapshot):
+    def snsp_rule(model, snapshot):
 
-        generators_at_bus = network.generators.index[network.generators.bus == bus]
-        generation_at_bus_nonsync = generators_at_bus[generators_at_bus.str.contains('|'.join(nonsync_techs))]
+        generation_nonsync = network.generators.index[network.generators.index.str.contains('|'.join(nonsync_techs))]
+        storage_nonsync = network.storage_units.index[network.storage_units.index.str.contains('|'.join(nonsync_techs))]
 
-        storage_at_bus = network.storage_units.index[network.storage_units.bus == bus]
-        storage_at_bus_nonsync = storage_at_bus[storage_at_bus.str.contains('|'.join(nonsync_techs))]
+        return (sum(model.generator_p[gen, snapshot] for gen in generation_nonsync) +
+                sum(model.storage_p_dispatch[gen, snapshot] for gen in storage_nonsync)) <= \
+                snsp_share * (sum(model.generator_p[gen, snapshot] for gen in network.generators) +
+                              sum(model.storage_p_dispatch[gen, snapshot] for gen in network.storage_units))
 
-        return (sum(model.generator_p[gen,snapshot] for gen in generation_at_bus_nonsync) +
-                sum(model.storage_p_dispatch[gen,snapshot] for gen in storage_at_bus_nonsync)) <= \
-                snsp_share * (sum(model.generator_p[gen, snapshot] for gen in generators_at_bus) +
-                                              sum(model.storage_p_dispatch[gen, snapshot] for gen in storage_at_bus))
-
-    model.snsp = Constraint(list(network.buses.index), list(snapshots), rule=snsp_rule)
+    model.snsp = Constraint(list(snapshots), rule=snsp_rule)
 
 
 def add_curtailment_penalty_term(network: pypsa.Network, snapshots: pd.DatetimeIndex, curtailment_cost: float):
