@@ -116,18 +116,18 @@ def add_curtailment_constraints(network: pypsa.Network, snapshots: pd.DatetimeIn
 
 
 def add_co2_budget_per_country(net: pypsa.Network,
-                               co2_reduction_shares_dict: Dict[str, float],
-                               co2_reduction_refyear: int):
+                               reduction_share_per_country: Dict[str, float],
+                               refyear: int):
     """
     Add CO2 budget per country.
 
     Parameters
     ----------
-    net pypsa.Network
+    net: pypsa.Network
         A PyPSA Network instance with buses associated to regions
-    co2_reduction_shares_dict: Dict[str, float]
+    reduction_share_per_country: Dict[str, float]
         Percentage of reduction of emission for each country.
-    co2_reduction_refyear: int
+    refyear: int
         Reference year from which the reduction in emission is computed.
 
     """
@@ -139,8 +139,8 @@ def add_co2_budget_per_country(net: pypsa.Network,
 
     def generation_emissions_per_bus_rule(model, bus):
 
-        bus_emission_reference = get_co2_emission_level_for_country(bus, co2_reduction_refyear)
-        bus_emission_target = (1-co2_reduction_shares_dict[bus]) * bus_emission_reference * len(net.snapshots) / 8760.
+        bus_emission_reference = get_co2_emission_level_for_country(bus, refyear)
+        bus_emission_target = (1-reduction_share_per_country[bus]) * bus_emission_reference * len(net.snapshots) / 8760.
 
         bus_gens = net.generators[net.generators.bus == bus]
 
@@ -158,7 +158,8 @@ def add_co2_budget_per_country(net: pypsa.Network,
                     generator_emissions_sum += model.generator_p[g, s]*fuel_emissions_thermal.values[0]
 
         return generator_emissions_sum <= bus_emission_target
-    model.generation_emissions_per_bus = Constraint(list(net.buses.index), rule=generation_emissions_per_bus_rule)
+    model.generation_emissions_per_bus = Constraint(list(reduction_share_per_country.keys()),
+                                                    rule=generation_emissions_per_bus_rule)
 
 
 def add_co2_budget_global(network: pypsa.Network, region: str, co2_reduction_share: float, co2_reduction_refyear: int):

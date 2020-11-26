@@ -197,7 +197,8 @@ if __name__ == '__main__':
                 neigh_countries = get_subregions(region)
             else:
                 neigh_countries = [region]
-            net = add_batteries(net, config["techs"]["battery"]["type"], neigh_countries)
+            for tech_type in config["techs"]["battery"]["types"]:
+                net = add_batteries(net, tech_type, neigh_countries)
             if config["res"]["strategy"] == "bus":
                 res_techs = non_eu_res[region]
                 net = add_res_per_bus(net, res_techs, bus_ids=neigh_countries)
