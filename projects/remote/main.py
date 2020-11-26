@@ -1,13 +1,13 @@
-from os.path import isdir
+from os.path import isdir, join, dirname, abspath
 from os import makedirs
 from time import strftime
+import yaml
 
 import argparse
 
 import numpy as np
 
 from iepy.topologies.tyndp2018 import get_topology
-from iepy.geographics import get_subregions
 from iepy.technologies import get_config_dict
 from network import *
 from projects.remote.utils import upgrade_topology
@@ -37,13 +37,7 @@ def parse_args():
     parser.add_argument('-pd', '--power_density', type=float, help='Offshore power density')
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=1)
     parser.add_argument('-lm', '--link_multiplier', type=float, help='Links extension multiplier', default=None)
-
-    #def to_bool(string):
-    #    return string == "true"
-    #parser.add_argument('-elc', '--extend_line_cap', type=to_bool,
-    #                    help='Whether lines can be extended or not', default='true')
-    #parser.add_argument('-lem', '--line_extension_multiplier', type=float, help='Value indicating how to limit '
-    #                                                                            'transmission investment in Europe')
+    parser.add_argument('-yr', '--year', type=str, help='Year of run')
 
     # argument must be of the format tech1:[region1, region2]/tech2:[region2, region3]
     # only on technology accepted per region for now
@@ -81,6 +75,11 @@ if __name__ == '__main__':
 
     if args["spatial_res"] is not None:
         config["res"]["spatial_resolution"] = args["spatial_res"]
+    if args['year'] is not None:
+        config['time']['slice'][0] = args['year'] + config['time']['slice'][0][4:]
+        config['time']['slice'][1] = args['year'] + config['time']['slice'][1][4:]
+        config['res']['timeslice'][0] = args['year'] + config['res']['timeslice'][0][4:]
+        config['res']['timeslice'][1] = args['year'] + config['res']['timeslice'][1][4:]
 
     solver_options = config["solver_options"]
     if config["solver"] == 'gurobi':
@@ -101,11 +100,11 @@ if __name__ == '__main__':
     if config["res"]["include"]:
         techs += config["res"]["techs"].copy()
     if 'dispatch' in config["techs"]:
-        techs += [config["techs"]["dispatch"]["tech"]]
+        techs += config["techs"]["dispatch"]["types"]
     if "nuclear" in config["techs"]:
         techs += ["nuclear"]
     if "battery" in config["techs"]:
-        techs += [config["techs"]["battery"]["type"]]
+        techs += config["techs"]["battery"]["types"]
     if "phs" in config["techs"]:
         techs += ["phs"]
     if "ror" in config["techs"]:
@@ -157,8 +156,8 @@ if __name__ == '__main__':
 
     # Add conventional gen
     if 'dispatch' in config["techs"]:
-        tech = config["techs"]["dispatch"]["tech"]
-        net = add_conventional(net, tech)
+        for tech_type in config["techs"]["dispatch"]["types"]:
+            net = add_conventional(net, tech_type)
 
     # Adding nuclear
     if "nuclear" in config["techs"]:
@@ -180,7 +179,8 @@ if __name__ == '__main__':
         net = add_ror_plants(net, 'countries', config["techs"]["ror"]["extendable"])
 
     if "battery" in config["techs"]:
-        net = add_batteries(net, config["techs"]["battery"]["type"], eu_countries)
+        for tech_type in config["techs"]["battery"]["types"]:
+            net = add_batteries(net, tech_type, eu_countries)
 
     # Adding pv and wind generators at bus
     if config['res']['include'] and config['res']['strategy'] == "bus":

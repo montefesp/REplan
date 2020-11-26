@@ -1,6 +1,3 @@
-from os.path import join, abspath, dirname
-import yaml
-
 import pandas as pd
 
 import pypsa
@@ -28,9 +25,6 @@ def add_co2_budget_global(net: pypsa.Network, region: str, co2_reduction_share: 
     """
 
     # TODO: this is coded like shit
-
-    NHoursPerYear = 8760.
-
     # Get different techs co2 emissions
     co2_techs = ['ccgt']
     co2_techs_emissions = dict.fromkeys(co2_techs)
@@ -42,7 +36,7 @@ def add_co2_budget_global(net: pypsa.Network, region: str, co2_reduction_share: 
         co2_techs_emissions[tech] = fuel_emissions_thermal.values[0]
 
     co2_reference_kt = get_reference_emission_levels_for_region(region, co2_reduction_refyear)
-    co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(net.snapshots) / NHoursPerYear
+    co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(net.snapshots) / 8760.
 
     gens = net.generators[(net.generators.type.str.contains('|'.join(co2_techs)))]
 
@@ -73,9 +67,6 @@ def add_import_limit_constraint(net: pypsa.Network, import_share: float):
     -----
     Using a flat value across EU, could be updated to support different values for different countries
     """
-
-    # TODO: to un-comment the line below when topology is included in config.yaml (upon merging the main)
-    # assert topology == 'tyndp', "Error: Only one-node-per-country topologies are supported for this constraint."
 
     # Get links flow variables
     links_p = get_var(net, 'Link', 'p')
@@ -121,6 +112,7 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
         mitigation_factor = conf_func["co2_emissions"]["mitigation_factor"]
         ref_year = conf_func["co2_emissions"]["reference_year"]
         if strategy == 'country':
+            # TODO: to be implemented
             add_co2_budget_per_country(net, mitigation_factor, ref_year)
         elif strategy == 'global':
             add_co2_budget_global(net, net.config["region"], mitigation_factor, ref_year)
