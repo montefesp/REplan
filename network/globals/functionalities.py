@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 
 import pandas as pd
 
@@ -206,7 +206,7 @@ def add_co2_budget_global(network: pypsa.Network, region: str, co2_reduction_sha
     model.generation_emissions_global = Constraint(rule=generation_emissions_rule)
 
 
-def add_import_limit_constraint(network: pypsa.Network, import_share: float):
+def add_import_limit_constraint(network: pypsa.Network, import_share: float, countries: List[str]):
     """
     Add per-bus constraint on import budgets.
 
@@ -216,19 +216,16 @@ def add_import_limit_constraint(network: pypsa.Network, import_share: float):
         A PyPSA Network instance with buses associated to regions
     import_share: float
         Maximum share of load that can be satisfied via imports.
+    countries: List[str]
+        ISO2 codes of countries on which to impose import limit constraints
 
     Notes
     -----
-    Using a flat value across EU, could be updated to support different values for different countries
-
+    Using a flat value across EU, could be updated to support different values for different countries.
 
     """
 
-    # TODO: to un-comment the line below when topology is included in config.yaml (upon merging the main)
-    # assert topology == 'tyndp', "Error: Only one-node-per-country topologies are supported for this constraint."
-
     model = network.model
-    buses = network.buses.index
     links = network.links
     snapshots = network.snapshots
 
@@ -247,7 +244,8 @@ def add_import_limit_constraint(network: pypsa.Network, import_share: float):
             imports -= sum(model.link_p[e, s] for e in links_out for s in network.snapshots)
         return imports <= import_budget
 
-    model.import_constraint = Constraint(list(buses), rule=import_constraint_rule)
+    # TODO: based on the assumption that the bus is associated to a country
+    model.import_constraint = Constraint(countries, rule=import_constraint_rule)
 
 
 def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
@@ -280,7 +278,7 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
         mitigation_factor = conf_func["co2_emissions"]["mitigation_factor"]
         ref_year = conf_func["co2_emissions"]["reference_year"]
         if strategy == 'country':
-            # TODO: this is shitty
+            # TODO: this is not very robust
             countries = get_subregions(net.config['region'])
             assert len(countries) == len(mitigation_factor), \
                 "Error: a co2 emission reduction share must be given for each country in the main region."
@@ -290,4 +288,6 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
             add_co2_budget_global(net, net.config["region"], mitigation_factor, ref_year)
 
     if conf_func["import_limit"]["include"]:
-        add_import_limit_constraint(net, conf_func["import_limit"]["share"])
+        # TODO: this is not very robust
+        countries = get_subregions(net.config['region'])
+        add_import_limit_constraint(net, conf_func["import_limit"]["share"], countries)
