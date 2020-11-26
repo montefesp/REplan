@@ -12,13 +12,13 @@ from iepy.geographics import get_subregions
 from iepy.load import get_load
 
 
-def add_snsp_constraint_tyndp(network: pypsa.Network, snapshots: pd.DatetimeIndex, snsp_share: float):
+def add_snsp_constraint_tyndp(net: pypsa.Network, snapshots: pd.DatetimeIndex, snsp_share: float):
     """
     Add system non-synchronous generation share constraint to the model.
 
     Parameters
     ----------
-    network: pypsa.Network
+    net: pypsa.Network
         A PyPSA Network instance with buses associated to regions
     snapshots: pd.DatetimeIndex
         Network snapshots.
@@ -27,18 +27,25 @@ def add_snsp_constraint_tyndp(network: pypsa.Network, snapshots: pd.DatetimeInde
 
     """
 
-    model = network.model
-    # TODO: check if this still works
-    nonsync_techs = ['wind', 'pv', 'Li-ion']
+    model = net.model
+    nonsync_gen_types = 'wind|pv'
+    nonsync_gen_ids = net.generators.index[net.generators.type.str.contains(nonsync_gen_types)]
+    nonsync_storage_ids = net.storage_units.index[net.storage_units.type == "Li-ion"]
+
+    # Impose for each time step the non-synchronous production be lower than a part of the total production
     def snsp_rule(model, snapshot):
 
-        generation_nonsync = network.generators.index[network.generators.index.str.contains('|'.join(nonsync_techs))]
-        storage_nonsync = network.storage_units.index[network.storage_units.index.str.contains('|'.join(nonsync_techs))]
+        # Non-synchronous 'production'
+        nonsync_gen_p = sum(model.generator_p[idx, snapshot] for idx in nonsync_gen_ids)\
+            if len(nonsync_gen_ids) != 0 else 0
+        nonsync_storage_dispatch = sum(model.storage_p_dispatch[idx, snapshot] for idx in nonsync_gen_ids)\
+            if len(nonsync_storage_ids) != 0 else 0
 
-        return (sum(model.generator_p[gen, snapshot] for gen in generation_nonsync) +
-                sum(model.storage_p_dispatch[gen, snapshot] for gen in storage_nonsync)) <= \
-                snsp_share * (sum(model.generator_p[gen, snapshot] for gen in network.generators) +
-                              sum(model.storage_p_dispatch[gen, snapshot] for gen in network.storage_units))
+        # Synchronous production
+        full_gen_p = sum(model.generator_p[:, snapshot]) if len(net.generators) != 0 else 0
+        full_storage_dispatch = sum(model.storage_p_dispatch[:, snapshot]) if len(net.storage_units) != 0 else 0
+
+        return nonsync_gen_p + nonsync_storage_dispatch <= snsp_share * (full_gen_p + full_storage_dispatch)
 
     model.snsp = Constraint(list(snapshots), rule=snsp_rule)
 

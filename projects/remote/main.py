@@ -141,7 +141,8 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     eu_countries = get_subregions(config["region"])
-    net = get_topology(net, eu_countries, extend_line_cap=True, extension_multiplier=args['lm'])
+    link_multiplier = 1 if config["link_multiplier"] is None else config["link_multiplier"]
+    net = get_topology(net, eu_countries, p_nom_extendable=True, extension_multiplier=link_multiplier)
 
     # Adding load
     logger.info("Adding load.")
