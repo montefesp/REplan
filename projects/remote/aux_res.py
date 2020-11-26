@@ -42,7 +42,7 @@ def add_res_at_sites(net, config, output_dir, eu_countries, ):
             # TODO: set add load to True for IS?
             regions_shapes = net.buses.loc[remote_countries, ["onshore_region", 'offshore_region']]
             regions_shapes.columns = ['onshore', 'offshore']
-            r_remote.build_data(use_ex_cap, compute_load=False, regions_shapes=regions_shapes)
+            r_remote.build_data(False, compute_load=False, regions_shapes=regions_shapes)
 
             # Add sites to European ones
             r_europe.regions += r_remote.regions
