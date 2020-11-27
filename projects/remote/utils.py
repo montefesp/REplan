@@ -13,7 +13,7 @@ from iepy.topologies.core.plot import plot_topology
 from iepy.technologies import get_costs
 
 
-def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False) -> pypsa.Network:
+def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False, ac_carrier: str = "HVAC_OHL") -> pypsa.Network:
 
     buses = pd.DataFrame(columns=["x", "y", "country", "onshore_region", "offshore_region"])
     links = pd.DataFrame(columns=["bus0", "bus1", "carrier", "length"])
@@ -48,10 +48,10 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
         buses.loc["MA", ["x", "y"]] = (-6., 35.)  # Morocco, Rabat
         buses.loc["TN", ["x", "y"]] = (10., 36.5)  # Tunisia, Tunis
         # Adding links
-        links.loc["DZ-MA", ["bus0", "bus1", "carrier"]] = ["DZ", "MA", "AC"]
-        links.loc["DZ-TN", ["bus0", "bus1", "carrier"]] = ["DZ", "TN", "AC"]
-        links.loc["LY-TN", ["bus0", "bus1", "carrier", "length"]] = ["LY", "TN", "AC", 2000]
-        links.loc["EG-LY", ["bus0", "bus1", "carrier", "length"]] = ["EG", "LY", "AC", 700]
+        links.loc["DZ-MA", ["bus0", "bus1", "carrier"]] = ["DZ", "MA", ac_carrier]
+        links.loc["DZ-TN", ["bus0", "bus1", "carrier"]] = ["DZ", "TN", ac_carrier]
+        links.loc["LY-TN", ["bus0", "bus1", "carrier", "length"]] = ["LY", "TN", ac_carrier, 2000]
+        links.loc["EG-LY", ["bus0", "bus1", "carrier", "length"]] = ["EG", "LY", ac_carrier, 700]
         if "GR" in net.buses.index:
             links.loc["LY-GR", ["bus0", "bus1", "carrier", "length"]] = ["LY", "GR", "DC", 900]
         if "ES" in net.buses.index:
@@ -86,35 +86,35 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
         buses.loc["SY", ["x", "y"]] = (36.64, 34.63)  # Syria, Homs
         # buses.loc["YE", ["x", "y"]] = (44.12, 15.20)  # Yemen, Sana
         # Adding links
-        links.loc["IL-JO", ["bus0", "bus1", "carrier"]] = ["IL", "JO", "AC"]
-        # links.loc["IL-LI", ["bus0", "bus1", "carrier"]] = ["IL", "LB", "AC"]
-        # links.loc["SY-LI", ["bus0", "bus1", "carrier"]] = ["SY", "LB", "AC"]
-        links.loc["SY-JO", ["bus0", "bus1", "carrier"]] = ["SY", "JO", "AC"]
+        links.loc["IL-JO", ["bus0", "bus1", "carrier"]] = ["IL", "JO", ac_carrier]
+        # links.loc["IL-LI", ["bus0", "bus1", "carrier"]] = ["IL", "LB", ac_carrier]
+        # links.loc["SY-LI", ["bus0", "bus1", "carrier"]] = ["SY", "LB", ac_carrier]
+        links.loc["SY-JO", ["bus0", "bus1", "carrier"]] = ["SY", "JO", ac_carrier]
         links.loc["IL-CY", ["bus0", "bus1", "carrier"]] = ["IL", "CY", "DC"]
         # This links comes from nowhere
-        links.loc["SA-JO", ["bus0", "bus1", "carrier"]] = ["SA", "JO", "AC"]
+        links.loc["SA-JO", ["bus0", "bus1", "carrier"]] = ["SA", "JO", ac_carrier]
         # links.loc["CY-SY", ["bus0", "bus1", "carrier"]] = ["CY", "SY", "DC"]
-        # links.loc["OM-AE", ["bus0", "bus1", "carrier"]] = ["OM", "AE", "AC"]
-        # links.loc["QA-AE", ["bus0", "bus1", "carrier"]] = ["QA", "AE", "AC"]
-        # links.loc["QA-SA", ["bus0", "bus1", "carrier"]] = ["QA", "SA", "AC"]
-        # links.loc["BH-QA", ["bus0", "bus1", "carrier"]] = ["BH", "QA", "AC"]
-        # links.loc["BH-KW", ["bus0", "bus1", "carrier"]] = ["BH", "KW", "AC"]
-        # links.loc["BH-SA", ["bus0", "bus1", "carrier"]] = ["BH", "SA", "AC"]
-        # links.loc["YE-SA", ["bus0", "bus1", "carrier"]] = ["YE", "SA", "AC"]
+        # links.loc["OM-AE", ["bus0", "bus1", "carrier"]] = ["OM", "AE", ac_carrier]
+        # links.loc["QA-AE", ["bus0", "bus1", "carrier"]] = ["QA", "AE", ac_carrier]
+        # links.loc["QA-SA", ["bus0", "bus1", "carrier"]] = ["QA", "SA", ac_carrier]
+        # links.loc["BH-QA", ["bus0", "bus1", "carrier"]] = ["BH", "QA", ac_carrier]
+        # links.loc["BH-KW", ["bus0", "bus1", "carrier"]] = ["BH", "KW", ac_carrier]
+        # links.loc["BH-SA", ["bus0", "bus1", "carrier"]] = ["BH", "SA", ac_carrier]
+        # links.loc["YE-SA", ["bus0", "bus1", "carrier"]] = ["YE", "SA", ac_carrier]
         if "EG" in buses.index:
-            links.loc["EG-IL", ["bus0", "bus1", "carrier"]] = ["EG", "IL", "AC"]
-            links.loc["SA-EG", ["bus0", "bus1", "carrier"]] = ["SA", "EG", "AC"]
+            links.loc["EG-IL", ["bus0", "bus1", "carrier"]] = ["EG", "IL", ac_carrier]
+            links.loc["SA-EG", ["bus0", "bus1", "carrier"]] = ["SA", "EG", ac_carrier]
         #if "TR" in net.buses.index:
-        links.loc["SY-TR", ["bus0", "bus1", "carrier"]] = ["SY", "TR", "AC"]
-            # links.loc["IQ-TR", ["bus0", "bus1", "carrier"]] = ["IQ", "TR", "AC"]
-            # links.loc["IR-TR", ["bus0", "bus1", "carrier"]] = ["IR", "TR", "AC"]
-            # links.loc["IR-IQ", ["bus0", "bus1", "carrier"]] = ["IR", "IQ", "AC"]
+        links.loc["SY-TR", ["bus0", "bus1", "carrier"]] = ["SY", "TR", ac_carrier]
+            # links.loc["IQ-TR", ["bus0", "bus1", "carrier"]] = ["IQ", "TR", ac_carrier]
+            # links.loc["IR-TR", ["bus0", "bus1", "carrier"]] = ["IR", "TR", ac_carrier]
+            # links.loc["IR-IQ", ["bus0", "bus1", "carrier"]] = ["IR", "IQ", ac_carrier]
         if "GR" in net.buses.index:
             links.loc["CY-GR", ["bus0", "bus1", "carrier", "length"]] = ["CY", "GR", "DC", 850]
             # From TYNDP
             links.loc["TR-GR", ["bus0", "bus1", "carrier", "length"]] = ["TR", "GR", "DC", 1173.53]  # p_nom = 0.66
         if "BG" in net.buses.index:
-            links.loc["TR-BG", ["bus0", "bus1", "carrier", "length"]] = ["TR", "BG", "AC", 932.16]  # p_nom = 1.2
+            links.loc["TR-BG", ["bus0", "bus1", "carrier", "length"]] = ["TR", "BG", ac_carrier, 932.16]  # p_nom = 1.2
 
     buses = buses.infer_objects()
     net.madd("Bus", buses.index,
@@ -149,12 +149,3 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False)
         plt.show()
 
     return net
-
-
-if __name__ == '__main__':
-    from iepy.topologies.tyndp2018 import get_topology
-    from iepy.geographics import get_subregions
-    net_ = pypsa.Network()
-    countries_ = get_subregions("EU2")
-    net_ = get_topology(net_, countries_, extend_line_cap=True,
-                        extension_multiplier=None, plot=True)
