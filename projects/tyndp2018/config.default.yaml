@@ -31,19 +31,13 @@ region: "BENELUX"
 res:
   include: True
   # Give which technology should be installed using each strategy
-  techs: ['wind_onshore']
+  techs: ['pv_residential_national', 'wind_offshore_national']
   strategies:
-    # from_files: []
     no_siting: []
     siting: []
     # bus: []
 
   min_cap_pot: [0]
-
-  # For strategy = max or comp
-  sites_dir: 'EU_wide_off_2015_08'
-  sites_fn: 'max_site_data.p'
-  use_default_capacity: True
 
   # For strategy = siting or no siting
   # Various data layers to be taken into account in potential site selection.
@@ -64,7 +58,7 @@ res:
     BarConvTol: 1e-8
   write_lp: False
   write_log: False
-  # Type of problem to be solved. Check resite.py for a full list.
+  # Type of problem to be solved. Check resite for a full list.
   formulation: 'meet_RES_targets'
   formulation_params:
     perc_per_region: [0.32]

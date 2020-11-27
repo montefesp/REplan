@@ -130,7 +130,8 @@ class SizingPlotly:
                         color=color),
                     text=["", f"Name: {idx}<br>"
                           f"Init Capacity: {init_cap}<br>"
-                          f"Opt Capacity: {opt_cap}", ""],
+                          f"Opt Capacity: {opt_cap}<br>"
+                              f"Length {connection.length}", ""],
                     hoverinfo='text',
                 ))
 
