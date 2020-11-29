@@ -38,7 +38,7 @@ def add_snsp_constraint_tyndp(net: pypsa.Network, snapshots: pd.DatetimeIndex, s
         # Non-synchronous 'production'
         nonsync_gen_p = sum(model.generator_p[idx, snapshot] for idx in nonsync_gen_ids)\
             if len(nonsync_gen_ids) != 0 else 0
-        nonsync_storage_dispatch = sum(model.storage_p_dispatch[idx, snapshot] for idx in nonsync_gen_ids)\
+        nonsync_storage_dispatch = sum(model.storage_p_dispatch[idx, snapshot] for idx in nonsync_storage_ids)\
             if len(nonsync_storage_ids) != 0 else 0
 
         # Synchronous production
