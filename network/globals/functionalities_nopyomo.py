@@ -3,7 +3,7 @@ import pandas as pd
 import pypsa
 from pypsa.linopt import get_var, linexpr, define_constraints
 
-from iepy.technologies import get_fuel_info, get_tech_info
+from iepy.technologies import get_fuel_info, get_tech_info, get_config_values
 from iepy.indicators.emissions import get_reference_emission_levels_for_region
 
 
@@ -91,6 +91,22 @@ def add_import_limit_constraint(net: pypsa.Network, import_share: float):
         define_constraints(net, net_imports, '<=', load*import_share, 'import_limit', bus)
 
 
+def store_links_constraint(net: pypsa.Network, ctd_ratio: float):
+
+    links_p_nom = get_var(net, 'Link', 'p_nom')
+
+    links_to_bus = links_p_nom[links_p_nom.index.str.contains('to AC')].index
+    links_from_bus = links_p_nom[links_p_nom.index.str.contains('AC to')].index
+
+    for pair in list(zip(links_to_bus, links_from_bus)):
+
+        discharge_link = links_p_nom.loc[pair[0]]
+        charge_link = links_p_nom.loc[pair[1]]
+        lhs = linexpr((ctd_ratio, discharge_link), (-1., charge_link))
+
+        define_constraints(net, lhs, '==', 0., 'store_links_constraint')
+
+
 def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
     """
     Wrapper for the inclusion of multiple extra_functionalities.
@@ -119,3 +135,7 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
 
     if conf_func["import_limit"]["include"]:
         add_import_limit_constraint(net, conf_func["import_limit"]["share"])
+
+    if not net.config["techs"]["battery"]["fixed_duration"]:
+        ctd_ratio = get_config_values("Li-ion_p", ["ctd_ratio"])
+        store_links_constraint(net, ctd_ratio)

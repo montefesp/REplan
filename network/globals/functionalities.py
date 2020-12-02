@@ -5,7 +5,7 @@ import pandas as pd
 from pyomo.environ import Constraint, Var, NonNegativeReals
 import pypsa
 
-from iepy.technologies import get_fuel_info, get_tech_info
+from iepy.technologies import get_fuel_info, get_tech_info, get_config_values
 from iepy.indicators.emissions import get_co2_emission_level_for_country, \
     get_reference_emission_levels_for_region
 from iepy.geographics import get_subregions
@@ -248,6 +248,21 @@ def add_import_limit_constraint(network: pypsa.Network, import_share: float, cou
     model.import_constraint = Constraint(countries, rule=import_constraint_rule)
 
 
+def store_links_constraint(network: pypsa.Network, ctd_ratio: float):
+
+    model = network.model
+    links = network.links
+
+    links_to_bus = links[links.index.str.contains('to AC')].index
+    links_from_bus = links[links.index.str.contains('AC to')].index
+
+    def store_links_ratio_rule(model, discharge_link, charge_link):
+
+        return model.link_p_nom[discharge_link]*ctd_ratio == model.link_p_nom[charge_link]
+
+    model.store_links_ratio = Constraint(list(zip(links_to_bus, links_from_bus)), rule=store_links_ratio_rule)
+
+
 def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
     """
     Wrapper for the inclusion of multiple extra_functionalities.
@@ -291,3 +306,7 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
         # TODO: this is not very robust
         countries = get_subregions(net.config['region'])
         add_import_limit_constraint(net, conf_func["import_limit"]["share"], countries)
+
+    if not net.config["techs"]["battery"]["fixed_duration"]:
+        ctd_ratio = get_config_values("Li-ion_p", ["ctd_ratio"])
+        store_links_constraint(net, ctd_ratio)

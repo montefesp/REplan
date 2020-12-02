@@ -76,6 +76,7 @@ def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str
         efficiency_dispatch, efficiency_store = get_tech_info(battery_type_power, ["efficiency_ds", "efficiency_ch"])
         self_discharge = get_tech_info(battery_type_energy, ["efficiency_sd"]).astype(float)
         self_discharge = round(1 - self_discharge.values[0], 4)
+        ctd_ratio = get_config_values(battery_type_power, ["ctd_ratio"])
 
         network.madd("StorageUnit",
                      onshore_buses.index,
@@ -89,7 +90,8 @@ def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str
                      marginal_cost_e=marginal_cost_e,
                      efficiency_dispatch=efficiency_dispatch,
                      efficiency_store=efficiency_store,
-                     standing_loss=self_discharge)
+                     standing_loss=self_discharge,
+                     ctd_ratio=ctd_ratio)
 
         storages = network.storage_units.index[network.storage_units.type == battery_type]
         for storage_to_replace in storages:

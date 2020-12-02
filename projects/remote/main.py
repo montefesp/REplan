@@ -132,8 +132,11 @@ if __name__ == '__main__':
         ["float", np.nan, np.nan, "Energy-related capital cost", "Input (optional)"]
     override_comp_attrs["StorageUnit"].loc["marginal_cost_e"] = \
         ["float", np.nan, np.nan, "Energy-related marginal cost", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["ctd_ratio"] = \
+        ["float", np.nan, np.nan, "Charge-to-discharge rated power ratio", "Input (optional)"]
 
     net = pypsa.Network(name="Remote hubs network (with siting)", override_component_attrs=override_comp_attrs)
+    net.config = config
     net.set_snapshots(timestamps)
 
     # Adding carriers
@@ -225,7 +228,6 @@ if __name__ == '__main__':
         from network.globals.functionalities_nopyomo \
             import add_extra_functionalities as add_funcs
 
-    net.config = config
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"],

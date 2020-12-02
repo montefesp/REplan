@@ -1,13 +1,15 @@
+import pypsa
+
 import logging
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
 
 
-def replace_su_closed_loop(network, su_to_replace):
+def replace_su_closed_loop(network: pypsa.Network, su_to_replace: str):
 
     su = network.storage_units.loc[su_to_replace]
-    su_short_name = su_to_replace.split(' ')[-1]
 
+    su_short_name = su_to_replace.split(' ')[-1]
     bus_name = f"{su['bus']} {su_short_name}"
     link_1_name = f"{su['bus']} link {su_short_name} to AC"
     link_2_name = f"{su['bus']} link AC to {su_short_name}"
@@ -16,7 +18,7 @@ def replace_su_closed_loop(network, su_to_replace):
     # add bus
     network.add("Bus", bus_name)
 
-    # add dispatch link
+    # add discharge link
     network.add("Link",
                 link_1_name,
                 bus0=bus_name,
@@ -30,7 +32,7 @@ def replace_su_closed_loop(network, su_to_replace):
                 p_max_pu=su["p_max_pu"],
                 efficiency=su["efficiency_dispatch"])
 
-    # add store link
+    # add charge link
     network.add("Link",
                 link_2_name,
                 bus1=bus_name,
