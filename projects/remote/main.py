@@ -11,8 +11,6 @@ from iepy.topologies.tyndp2018 import get_topology
 from iepy.technologies import get_config_dict
 from network import *
 from projects.remote.utils import upgrade_topology
-from network.globals.functionalities \
-    import add_extra_functionalities as add_extra_functionalities
 
 from iepy import data_path
 
@@ -130,6 +128,10 @@ if __name__ == '__main__':
     override_comp_attrs["Generator"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
     override_comp_attrs["StorageUnit"].loc["x"] = ["float", np.nan, np.nan, "x in position (x;y)", "Input (optional)"]
     override_comp_attrs["StorageUnit"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["capital_cost_e"] = \
+        ["float", np.nan, np.nan, "Energy-related capital cost", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["marginal_cost_e"] = \
+        ["float", np.nan, np.nan, "Energy-related marginal cost", "Input (optional)"]
 
     net = pypsa.Network(name="Remote hubs network (with siting)", override_component_attrs=override_comp_attrs)
     net.set_snapshots(timestamps)
@@ -181,7 +183,8 @@ if __name__ == '__main__':
 
     if "battery" in config["techs"]:
         for tech_type in config["techs"]["battery"]["types"]:
-            net = add_batteries(net, tech_type, eu_countries)
+            net = add_batteries(net, tech_type, eu_countries,
+                                fixed_duration=config["techs"]["battery"]["fixed_duration"])
 
     # Adding pv and wind generators at bus
     if config['res']['include'] and config['res']['strategy'] == "bus":
@@ -215,18 +218,25 @@ if __name__ == '__main__':
                        (net.generators.type.str.startswith("wind_onshore")))
         net.generators.loc[gens, "capital_cost"] *= config["eu_prices_multiplier"]
 
+    if config["pyomo"]:
+        from network.globals.functionalities \
+            import add_extra_functionalities as add_funcs
+    else:
+        from network.globals.functionalities_nopyomo \
+            import add_extra_functionalities as add_funcs
+
     net.config = config
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"],
-             extra_functionality=add_extra_functionalities,
-             pyomo=True)
+             extra_functionality=add_funcs,
+             pyomo=config["pyomo"])
 
-    # from pyomo.opt import ProblemFormat
-    # if config['keep_lp']:
-    #     net.model.write(filename=join(output_dir, 'model.lp'),
-    #                     format=ProblemFormat.cpxlp,
-    #                     io_options={'symbolic_solver_labels': True})
-    #     net.model.write(filename=join(output_dir, 'model.mps'))
+    if config["pyomo"] & config['keep_lp']:
+        from pyomo.opt import ProblemFormat
+        net.model.write(filename=join(output_dir, 'model.lp'),
+                        format=ProblemFormat.cpxlp,
+                        io_options={'symbolic_solver_labels': True})
+        net.model.write(filename=join(output_dir, 'model.mps'))
 
     net.export_to_csv_folder(output_dir)
