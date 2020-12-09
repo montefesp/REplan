@@ -18,7 +18,7 @@ from projects.remote.aux_res import add_res_at_sites
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
-# logging.disable(logging.CRITICAL)
+#logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     # Main directories
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
-    output_dir = join(dirname(abspath(__file__)), f"../../output/remote/{strftime('%Y%m%d_%H%M%S')}/")
+    output_dir = join(dirname(abspath(__file__)), f"../../../../data/remote/output/{strftime('%Y%m%d_%H%M%S')}/")
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
