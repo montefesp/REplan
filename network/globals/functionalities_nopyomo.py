@@ -1,10 +1,12 @@
+from typing import Dict
 import pandas as pd
 
 import pypsa
 from pypsa.linopt import get_var, linexpr, define_constraints
 
 from iepy.technologies import get_fuel_info, get_tech_info, get_config_values
-from iepy.indicators.emissions import get_reference_emission_levels_for_region
+from iepy.indicators.emissions import get_reference_emission_levels_for_region, get_co2_emission_level_for_country
+from iepy.geographics import get_subregions
 
 
 def add_co2_budget_global(net: pypsa.Network, region: str, co2_reduction_share: float, co2_reduction_refyear: int):
@@ -24,32 +26,66 @@ def add_co2_budget_global(net: pypsa.Network, region: str, co2_reduction_share: 
 
     """
 
-    # TODO: this is coded like shit
-    # Get different techs co2 emissions
-    co2_techs = ['ccgt']
-    co2_techs_emissions = dict.fromkeys(co2_techs)
-    for tech in co2_techs:
-        fuel, efficiency = get_tech_info(tech, ["fuel", "efficiency_ds"])
-        fuel_emissions_el = get_fuel_info(fuel, ['CO2'])
-        # TODO: why are we doing this? isn't this wrong?
-        fuel_emissions_thermal = fuel_emissions_el / efficiency
-        co2_techs_emissions[tech] = fuel_emissions_thermal.values[0]
-
     co2_reference_kt = get_reference_emission_levels_for_region(region, co2_reduction_refyear)
     co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(net.snapshots) / 8760.
 
-    gens = net.generators[(net.generators.type.str.contains('|'.join(co2_techs)))]
-
+    gens = net.generators[net.generators.carrier.astype(bool)]
     gens_p = get_var(net, 'Generator', 'p')[gens.index]
 
-    coeff = pd.DataFrame(index=gens_p.index, columns=gens_p.columns, dtype=float)
-    for tech in co2_techs:
+    coefficients = pd.DataFrame(index=gens_p.index, columns=gens_p.columns, dtype=float)
+    for tech in gens.type.unique():
+
+        fuel, efficiency = get_tech_info(tech, ["fuel", "efficiency_ds"])
+        fuel_emissions_el = get_fuel_info(fuel, ['CO2'])
+        fuel_emissions_thermal = fuel_emissions_el / efficiency
+
         gens_with_tech = gens[gens.index.str.contains(tech)]
-        coeff[gens_with_tech.index] = co2_techs_emissions[tech]
+        coefficients[gens_with_tech.index] = fuel_emissions_thermal.values[0]
 
-    lhs = linexpr((coeff, gens_p)).sum().sum()
-
+    lhs = linexpr((coefficients, gens_p)).sum().sum()
     define_constraints(net, lhs, '<=', co2_budget, 'generation_emissions_global')
+
+
+def add_co2_budget_per_country(net: pypsa.Network, co2_reduction_share: Dict[str, float], co2_reduction_refyear: int):
+    """
+    Add CO2 budget per country.
+
+    Parameters
+    ----------
+    net: pypsa.Network
+        A PyPSA Network instance with buses associated to regions
+    co2_reduction_share: float
+        Percentage of reduction of emission.
+    co2_reduction_refyear: int
+        Reference year from which the reduction in emission is computed.
+
+    """
+
+    for bus in net.loads.bus:
+
+        bus_emission_reference = get_co2_emission_level_for_country(bus, co2_reduction_refyear)
+        co2_budget = (1-co2_reduction_share[bus]) * bus_emission_reference * len(net.snapshots) / 8760.
+
+        # Drop rows (gens) without an associated carrier (i.e., technologies not emitting)
+        gens = net.generators[(net.generators.carrier.astype(bool)) & (net.generators.bus == bus)]
+        gens_p = get_var(net, 'Generator', 'p')[gens.index]
+
+        coefficients = pd.DataFrame(index=gens_p.index, columns=gens_p.columns, dtype=float)
+        for tech in gens.type.unique():
+            fuel, efficiency = get_tech_info(tech, ["fuel", "efficiency_ds"])
+            fuel_emissions_el = get_fuel_info(fuel, ['CO2'])
+            fuel_emissions_thermal = fuel_emissions_el / efficiency
+
+            gens_with_tech = gens[gens.index.str.contains(tech)]
+            coefficients[gens_with_tech.index] = fuel_emissions_thermal.values[0]
+
+        lhs = linexpr((coefficients, gens_p)).sum().sum()
+        define_constraints(net, lhs, '<=', co2_budget, 'generation_emissions_global', bus)
+
+
+
+
+
 
 
 def add_import_limit_constraint(net: pypsa.Network, import_share: float):
@@ -128,8 +164,11 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
         mitigation_factor = conf_func["co2_emissions"]["mitigation_factor"]
         ref_year = conf_func["co2_emissions"]["reference_year"]
         if strategy == 'country':
-            # TODO: to be implemented
-            add_co2_budget_per_country(net, mitigation_factor, ref_year)
+            countries = get_subregions(net.config['region'])
+            assert len(countries) == len(mitigation_factor), \
+                "Error: a co2 emission reduction share must be given for each country in the main region."
+            mitigation_factor_dict = dict(zip(countries, mitigation_factor))
+            add_co2_budget_per_country(net, mitigation_factor_dict, ref_year)
         elif strategy == 'global':
             add_co2_budget_global(net, net.config["region"], mitigation_factor, ref_year)
 

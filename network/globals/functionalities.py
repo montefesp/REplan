@@ -134,18 +134,15 @@ def add_co2_budget_per_country(net: pypsa.Network,
 
     model = net.model
 
-    # TODO: this is shitty
-    co2_techs = ['ccgt', 'ocgt', 'ccgt_ccs']
-
     def generation_emissions_per_bus_rule(model, bus):
 
         bus_emission_reference = get_co2_emission_level_for_country(bus, refyear)
         bus_emission_target = (1-reduction_share_per_country[bus]) * bus_emission_reference * len(net.snapshots) / 8760.
 
-        bus_gens = net.generators[net.generators.bus == bus]
+        bus_gens = net.generators[(net.generators.carrier.astype(bool)) & (net.generators.bus == bus)]
 
         generator_emissions_sum = 0.
-        for tech in co2_techs:
+        for tech in bus_gens.type.unique():
 
             fuel, efficiency = get_tech_info(tech, ["fuel", "efficiency_ds"])
             fuel_emissions_el = get_fuel_info(fuel, ['CO2'])
@@ -181,16 +178,16 @@ def add_co2_budget_global(network: pypsa.Network, region: str, co2_reduction_sha
 
     model = network.model
 
-    co2_techs = ['ccgt', 'ocgt', 'ccgt_ccs']
     co2_reference_kt = get_reference_emission_levels_for_region(region, co2_reduction_refyear)
     co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(network.snapshots) / 8760.
 
-    gens = network.generators[(network.generators.type.str.contains('|'.join(co2_techs)))]
+    # Drop rows (gens) without an associated carrier (i.e., technologies not emitting)
+    gens = network.generators[network.generators.carrier.astype(bool)]
 
     def generation_emissions_rule(model):
 
         generator_emissions_sum = 0.
-        for tech in co2_techs:
+        for tech in gens.type.unique():
 
             fuel, efficiency = get_tech_info(tech, ["fuel", "efficiency_ds"])
             fuel_emissions_el = get_fuel_info(fuel, ['CO2'])
