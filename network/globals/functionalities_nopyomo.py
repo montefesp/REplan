@@ -1,5 +1,6 @@
 from typing import Dict
 import pandas as pd
+import numpy as np
 
 import pypsa
 from pypsa.linopt import get_var, linexpr, define_constraints
@@ -83,11 +84,6 @@ def add_co2_budget_per_country(net: pypsa.Network, co2_reduction_share: Dict[str
         define_constraints(net, lhs, '<=', co2_budget, 'generation_emissions_global', bus)
 
 
-
-
-
-
-
 def add_import_limit_constraint(net: pypsa.Network, import_share: float):
     """
     Add per-bus constraint on import budgets.
@@ -128,6 +124,18 @@ def add_import_limit_constraint(net: pypsa.Network, import_share: float):
 
 
 def store_links_constraint(net: pypsa.Network, ctd_ratio: float):
+    """
+    Constraint that links the charging and discharging ratings of store units.
+
+    Parameters
+    ----------
+    net: pypsa.Network
+        A PyPSA Network instance with buses associated to regions
+        and containing a functionality configuration dictionary
+    ctd_ratio: float
+        Pre-defined charge-to-discharge ratio for such units.
+
+    """
 
     links_p_nom = get_var(net, 'Link', 'p_nom')
 
@@ -141,6 +149,56 @@ def store_links_constraint(net: pypsa.Network, ctd_ratio: float):
         lhs = linexpr((ctd_ratio, discharge_link), (-1., charge_link))
 
         define_constraints(net, lhs, '==', 0., 'store_links_constraint')
+
+
+def add_snsp_constraint_tyndp(net: pypsa.Network, snsp_share: float):
+    """
+    Add system non-synchronous generation share constraint to the model.
+
+    Parameters
+    ----------
+    net: pypsa.Network
+        A PyPSA Network instance with buses associated to regions
+    snsp_share: float
+        Share of system non-synchronous generation.
+
+    """
+    # TODO: DC to be included, however the constraint should then be imposed on a nodal basis
+    snapshots = net.snapshots
+
+    nonsync_gen_types = 'wind|pv'
+    nonsync_storage_types = 'Li-ion'
+
+    store_links = net.links[net.links.index.str.contains('link')]
+
+    gens_p = get_var(net, 'Generator', 'p')
+    storageunit_p = get_var(net, 'StorageUnit', 'p_dispatch')
+    link_p = get_var(net, 'Link', 'p')
+
+    for s in snapshots:
+
+        gens_p_s = gens_p.loc[s, :]
+        storageunit_p_s = storageunit_p.loc[s, :]
+        link_p_s = link_p.loc[s, :]
+
+        nonsync_gen_ids = net.generators.index[(net.generators.type.str.contains(nonsync_gen_types))]
+        nonsyncgen_p = gens_p_s.loc[nonsync_gen_ids]
+
+        nonsync_storageunit_ids = net.storage_units.index[(net.storage_units.type.str.contains(nonsync_storage_types))]
+        nonsyncstorageunit_p = storageunit_p_s.loc[nonsync_storageunit_ids]
+
+        nonsync_store_ids = store_links.index[(store_links.index.str.contains(nonsync_storage_types)) & (store_links.index.str.contains('to AC'))]
+        nonsyncstore_p = link_p_s.loc[nonsync_store_ids]
+
+        lhs_gen_nonsync = linexpr((1., nonsyncgen_p)).values
+        lhs_storun_nonsync = linexpr((1., nonsyncstorageunit_p)).values
+        lhs_store_nonsycn = linexpr((1., nonsyncstore_p)).values
+        lhs_gens = linexpr((-snsp_share, gens_p_s)).values
+        lhs_storage = linexpr((-snsp_share, storageunit_p_s)).values
+
+        lhs = np.concatenate((lhs_gen_nonsync, lhs_storun_nonsync, lhs_store_nonsycn, lhs_gens, lhs_storage))
+
+        define_constraints(net, lhs, '<=', 0., 'snsp_constraint', s)
 
 
 def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
@@ -158,6 +216,9 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
     """
 
     conf_func = net.config["functionalities"]
+
+    # if not net.config["techs"]["battery"]["fixed_duration"] & conf_func["snsp"]["include"]:
+    #     raise AssertionError("Both constraints cannot be implemented because of `store` limitations.")
 
     if conf_func["co2_emissions"]["include"]:
         strategy = conf_func["co2_emissions"]["strategy"]
@@ -178,3 +239,7 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
     if not net.config["techs"]["battery"]["fixed_duration"]:
         ctd_ratio = get_config_values("Li-ion_p", ["ctd_ratio"])
         store_links_constraint(net, ctd_ratio)
+
+    if conf_func["snsp"]["include"]:
+        snsp_share = conf_func["snsp"]["share"]
+        add_snsp_constraint_tyndp(net, snsp_share)
