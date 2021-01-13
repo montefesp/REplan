@@ -13,7 +13,7 @@ from iepy.topologies.core.plot import plot_topology
 from iepy.technologies import get_costs
 
 
-def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False, ac_carrier: str = "HVAC_OHL") -> pypsa.Network:
+def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False, ac_carrier: str = "HVAC_OHL", dc_carrier: str = "HVDC_GLIS") -> pypsa.Network:
 
     buses = pd.DataFrame(columns=["x", "y", "country", "onshore_region", "offshore_region"])
     links = pd.DataFrame(columns=["bus0", "bus1", "carrier", "length"])
@@ -23,7 +23,7 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False,
         buses.loc["IS", ["x", "y"]] = buses.loc["IS", "onshore_region"].centroid
         buses.loc["IS", "country"] = "IS"
         # Adding link to GB
-        links.loc["IS-GB", ["bus0", "bus1", "carrier"]] = ["IS", "GB", "DC"]
+        links.loc["IS-GB", ["bus0", "bus1", "carrier"]] = ["IS", "GB", dc_carrier]
 
     if "GL" in regions:
         assert 'IS' in regions, "Error: Cannot add a node in Greenland without adding a node in Iceland."
@@ -33,7 +33,7 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False,
         buses.loc["GL", ["x", "y"]] = (-44., 60.)
         # buses.loc["GL", "country"] = "GL"
         # Adding link to IS
-        links.loc["GL-IS", ["bus0", "bus1", "carrier"]] = ["GL", "IS", "DC"]
+        links.loc["GL-IS", ["bus0", "bus1", "carrier"]] = ["GL", "IS", dc_carrier]
 
     if "na" in regions:
         countries = get_subregions("na")
@@ -136,7 +136,6 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False,
         carrier = links.loc[idx].carrier
         cap_cost, _ = get_costs(carrier, len(net.snapshots))
         links.loc[idx, ('capital_cost', )] = cap_cost * links.length.loc[idx]
-
     net.madd("Link", links.index, bus0=links.bus0, bus1=links.bus1, carrier=links.carrier, p_nom_extendable=True,
              length=links.length, capital_cost=links.capital_cost)
 

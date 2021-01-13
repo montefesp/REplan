@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument('-epm', '--eu_prices_multiplier', type=float,
                         help='Value by which onshore wind and pv utility price in Europe will be multiplied')
     parser.add_argument('-sr', '--spatial_res', type=float, help='Spatial resolution')
-    parser.add_argument('-pd', '--power_density', type=float, help='Offshore power density')
+    # parser.add_argument('-pd', '--power_density', type=float, help='Offshore power density')
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=1)
     parser.add_argument('-lm', '--link_multiplier', type=float, help='Links extension multiplier', default=None)
     parser.add_argument('-yr', '--year', type=str, help='Year of run')
@@ -64,6 +64,7 @@ if __name__ == '__main__':
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
     output_dir = join(dirname(abspath(__file__)), f"../../../../data/remote/output/{strftime('%Y%m%d_%H%M%S')}/")
+    #output_dir_full = join(dirname(abspath(__file__)), f"../../../../data/remote/output/{strftime('%Y%m%d_%H%M%S')}_full/")
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -84,6 +85,7 @@ if __name__ == '__main__':
         config["solver_options"]['Threads'] = args['threads']
     else:
         config["solver_options"]['threads'] = args['threads']
+        config["solver_options"]["workdir"] = output_dir
 
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
@@ -92,6 +94,7 @@ if __name__ == '__main__':
     # Compute and save results
     if not isdir(output_dir):
         makedirs(output_dir)
+        #makedirs(output_dir_full)
 
     # Get list of techs
     techs = []
@@ -154,6 +157,7 @@ if __name__ == '__main__':
     load = get_load(timestamps=timestamps, countries=eu_countries, missing_data='interpolate')
     load_indexes = "Load " + pd.Index(eu_countries)
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
+    #loads = loads.multiply(0.75)
     net.madd("Load", load_indexes, bus=eu_countries, p_set=loads)
 
     if config["functionalities"]["load_shed"]["include"]:
@@ -228,11 +232,25 @@ if __name__ == '__main__':
         from network.globals.functionalities_nopyomo \
             import add_extra_functionalities as add_funcs
 
+    #net.lopf(solver_name=config["solver"],
+    #         solver_logfile=f"{output_dir_full}solver.log",
+    #         solver_options=config["solver_options"],
+    #         extra_functionality=add_funcs,
+    #         pyomo=config["pyomo"])
+    #net.export_to_csv_folder(output_dir_full)
+
+    #techs_to_keep = ['wind_onshore_national', 'wind_offshore_national',
+    #                 'pv_utility_national', 'pv_residential_national',
+    #                 'wind_onshore_noneu', 'pv_utility_noneu']
+    #gens_to_drop = net.generators[(net.generators.type.isin(techs_to_keep)) & (net.generators.p_nom_opt < 1e-3)].index
+    #net.generators = net.generators.drop(gens_to_drop)
+
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"],
              extra_functionality=add_funcs,
              pyomo=config["pyomo"])
+
 
     if config["pyomo"] & config['keep_lp']:
         from pyomo.opt import ProblemFormat
