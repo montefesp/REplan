@@ -73,7 +73,7 @@ def add_res_at_sites(net, config, output_dir, eu_countries, ):
     if config["res"]["strategy"] == "siting":
         logger.info('resite model being built.')
         siting_params = config['res']
-        #if siting_params['formulation'] == "min_cost_global":
+        # if siting_params['formulation'] == "min_cost_global":
         #    siting_params['formulation_params']['perc_per_region'] = \
         #        siting_params['formulation_params']['perc_per_region'] + [0.] * len(all_remote_countries)
         r_europe.build_model(siting_params["modelling"], siting_params['formulation'],
