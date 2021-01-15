@@ -260,6 +260,57 @@ def store_links_constraint(network: pypsa.Network, ctd_ratio: float):
     model.store_links_ratio = Constraint(list(zip(links_to_bus, links_from_bus)), rule=store_links_ratio_rule)
 
 
+def dispatchable_capacity_lower_bound(net: pypsa.Network, thresholds: Dict):
+    """
+    Constraint that ensures a minimum dispatchable installed capacity.
+
+    Parameters
+    ----------
+    net: pypsa.Network
+        A PyPSA Network instance with buses associated to regions
+
+    thresholds: Dict
+        Dict containing scalar thresholds for disp_capacity/peak_load for each bus
+    """
+    # TODO: extend for different topologies, if necessary
+    model = net.model
+    buses = net.loads.bus
+    dispatchable_technologies = ['ocgt', 'ccgt', 'ccgt_ccs', 'nuclear', 'sto']
+
+    def dispatchable_capacity_constraint_rule(model, bus):
+
+        if bus in thresholds.keys():
+
+            lhs = 0
+            legacy_at_bus = 0
+
+            gens = net.generators[(net.generators.bus == bus) & (net.generators.type.isin(dispatchable_technologies))]
+            for gen in gens.index:
+                if gens.loc[gen].p_nom_extendable:
+                    lhs += model.generator_p_nom[gen]
+                else:
+                    legacy_at_bus += gens.loc[gen].p_nom_min
+
+            stos = net.storage_units[(net.storage_units.bus == bus) &
+                                     (net.storage_units.type.isin(dispatchable_technologies))]
+            for sto in stos.index:
+                if stos.loc[sto].p_nom_extendable:
+                    lhs += model.storage_unit_p_nom[gen]
+                else:
+                    legacy_at_bus += stos.loc[sto].p_nom_min
+
+            # Get load for country
+            load_idx = net.loads[net.loads.bus == bus].index
+            load_peak = net.loads_t.p_set[load_idx].max()
+
+            load_peak_threshold = load_peak * thresholds[bus]
+            rhs = max(0, load_peak_threshold.values[0] - legacy_at_bus)
+
+            return lhs >= rhs
+
+    model.dispatchable_capacity_constraint = Constraint(buses, rule=dispatchable_capacity_constraint_rule)
+
+
 def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
     """
     Wrapper for the inclusion of multiple extra_functionalities.
@@ -307,3 +358,11 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
     if not net.config["techs"]["battery"]["fixed_duration"]:
         ctd_ratio = get_config_values("Li-ion_p", ["ctd_ratio"])
         store_links_constraint(net, ctd_ratio)
+
+    if conf_func["disp_cap"]["include"]:
+        countries = get_subregions(net.config['region'])
+        disp_threshold = conf_func["disp_cap"]["disp_threshold"]
+        assert len(countries) == len(disp_threshold), \
+            "A dispatchable capacity threshold must be given for each country in the main region."
+        thresholds = dict(zip(countries, disp_threshold))
+        dispatchable_capacity_lower_bound(net, thresholds)

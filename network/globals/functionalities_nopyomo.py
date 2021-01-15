@@ -169,13 +169,13 @@ def dispatchable_capacity_lower_bound(net: pypsa.Network, thresholds: Dict):
 
         if bus in thresholds.keys():
 
-            lhs = ()
+            lhs = ''
             legacy_at_bus = 0
 
             gens = net.generators[(net.generators.bus == bus) & (net.generators.type.isin(dispatchable_technologies))]
             for gen in gens.index:
                 if gens.loc[gen].p_nom_extendable:
-                    lhs = (*lhs, linexpr((1., get_var(net, 'Generator', 'p_nom')[gen])).values[0])
+                    lhs += linexpr((1., get_var(net, 'Generator', 'p_nom')[gen]))
                 else:
                     legacy_at_bus += gens.loc[gen].p_nom_min
 
@@ -183,7 +183,7 @@ def dispatchable_capacity_lower_bound(net: pypsa.Network, thresholds: Dict):
                                      (net.storage_units.type.isin(dispatchable_technologies))]
             for sto in stos.index:
                 if stos.loc[sto].p_nom_extendable:
-                    lhs = (*lhs, linexpr((1., get_var(net, 'StorageUnit', 'p_nom')[sto])).values[0])
+                    lhs += linexpr((1., get_var(net, 'StorageUnit', 'p_nom')[sto]))
                 else:
                     legacy_at_bus += stos.loc[sto].p_nom_min
 
@@ -194,7 +194,7 @@ def dispatchable_capacity_lower_bound(net: pypsa.Network, thresholds: Dict):
             load_peak_threshold = load_peak * thresholds[bus]
             rhs = max(0, load_peak_threshold.values[0] - legacy_at_bus)
 
-            define_constraints(net, lhs, '>=', rhs, 'disp_capacity_lower_bound', bus)
+            define_constraints(net, lhs.sum(), '>=', rhs, 'disp_capacity_lower_bound', bus)
 
 
 # def add_snsp_constraint_tyndp(net: pypsa.Network, snsp_share: float):
