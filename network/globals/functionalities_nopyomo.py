@@ -197,6 +197,56 @@ def dispatchable_capacity_lower_bound(net: pypsa.Network, thresholds: Dict):
             define_constraints(net, lhs.sum(), '>=', rhs, 'disp_capacity_lower_bound', bus)
 
 
+def add_planning_reserve_constraint(net: pypsa.Network, prm: float):
+    """
+    Constraint that ensures a minimum dispatchable installed capacity.
+
+    Parameters
+    ----------
+    net: pypsa.Network
+        A PyPSA Network instance with buses associated to regions
+    prm: float
+        Planning reserve margin.
+    """
+    cc_ds = net.cc_ds
+    dispatchable_technologies = ['ocgt', 'ccgt', 'ccgt_ccs', 'nuclear', 'sto']
+    res_technologies = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+
+    for bus in net.loads.bus:
+
+        lhs = ''
+        legacy_at_bus = 0
+
+        gens = net.generators[(net.generators.bus == bus) & (net.generators.type.isin(dispatchable_technologies))]
+        for gen in gens.index:
+            if gens.loc[gen].p_nom_extendable:
+                lhs += linexpr((1., get_var(net, 'Generator', 'p_nom')[gen]))
+            else:
+                legacy_at_bus += gens.loc[gen].p_nom_min
+
+        stos = net.storage_units[(net.storage_units.bus == bus) &
+                                 (net.storage_units.type.isin(dispatchable_technologies))]
+        for sto in stos.index:
+            if stos.loc[sto].p_nom_extendable:
+                lhs += linexpr((1., get_var(net, 'StorageUnit', 'p_nom')[sto]))
+            else:
+                legacy_at_bus += stos.loc[sto].p_nom_min
+
+        res_gens = net.generators[(net.generators.bus == bus) &
+                                  (net.generators.type.str.contains('|'.join(res_technologies)))]
+        for gen in res_gens.index:
+            lhs += linexpr((cc_ds.loc[' '.join(gen.split(' ')[1:])], get_var(net, 'Generator', 'p_nom')[gen]))
+
+        # Get load for country
+        load_idx = net.loads[net.loads.bus == bus].index
+        load_peak = net.loads_t.p_set[load_idx].max()
+
+        load_corrected_with_margin = load_peak * (1 + prm)
+        rhs = load_corrected_with_margin.values[0] - legacy_at_bus
+
+        define_constraints(net, lhs.sum(), '>=', rhs, 'planning_reserve_margin', bus)
+
+
 # def add_snsp_constraint_tyndp(net: pypsa.Network, snsp_share: float):
 #     """
 #     Add system non-synchronous generation share constraint to the model.
@@ -292,3 +342,7 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
             "A dispatchable capacity threshold must be given for each country in the main region."
         thresholds = dict(zip(countries, disp_threshold))
         dispatchable_capacity_lower_bound(net, thresholds)
+
+    if conf_func["prm"]["include"]:
+        prm = conf_func["prm"]["PRM"]
+        add_planning_reserve_constraint(net, prm)

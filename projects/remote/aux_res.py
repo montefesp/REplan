@@ -28,6 +28,7 @@ def add_res_at_sites(net, config, output_dir, eu_countries, ):
     regions_shapes = net.buses.loc[eu_countries, ["onshore_region", 'offshore_region']]
     regions_shapes.columns = ['onshore', 'offshore']
     r_europe.build_data(use_ex_cap, min_cap_pot, regions_shapes=regions_shapes)
+    net.cc_ds = r_europe.data_dict["capacity_credit_ds"]
     
     # Build sites for other regions
     non_eu_res = config["non_eu"]
