@@ -13,7 +13,8 @@ from iepy.topologies.core.plot import plot_topology
 from iepy.technologies import get_costs
 
 
-def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False, ac_carrier: str = "HVAC_OHL", dc_carrier: str = "HVDC_GLIS") -> pypsa.Network:
+def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False,
+                     ac_carrier: str = "HVAC_OHL", dc_carrier: str = "HVDC_GLIS") -> pypsa.Network:
 
     buses = pd.DataFrame(columns=["x", "y", "country", "onshore_region", "offshore_region"])
     links = pd.DataFrame(columns=["bus0", "bus1", "carrier", "length"])
@@ -53,11 +54,11 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False,
         links.loc["LY-TN", ["bus0", "bus1", "carrier", "length"]] = ["LY", "TN", ac_carrier, 2000]
         links.loc["EG-LY", ["bus0", "bus1", "carrier", "length"]] = ["EG", "LY", ac_carrier, 700]
         if "GR" in net.buses.index:
-            links.loc["LY-GR", ["bus0", "bus1", "carrier", "length"]] = ["LY", "GR", "DC", 900]
+            links.loc["LY-GR", ["bus0", "bus1", "carrier", "length"]] = ["LY", "GR", dc_carrier, 900]
         if "ES" in net.buses.index:
-            links.loc["MA-ES", ["bus0", "bus1", "carrier"]] = ["MA", "ES", "DC"]
+            links.loc["MA-ES", ["bus0", "bus1", "carrier"]] = ["MA", "ES", dc_carrier]
         if "IT" in net.buses.index:
-            links.loc["TN-IT", ["bus0", "bus1", "carrier", "length"]] = ["TN", "IT", "DC", 600]
+            links.loc["TN-IT", ["bus0", "bus1", "carrier", "length"]] = ["TN", "IT", dc_carrier, 600]
 
     if "me" in regions:
         # countries = ["AE", "BH", "CY", "IL", "IQ", "IR", "JO", "KW", "LB", "OM", "QA", "SA", "SY"]  # , "YE"]
@@ -110,9 +111,9 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False,
             # links.loc["IR-TR", ["bus0", "bus1", "carrier"]] = ["IR", "TR", ac_carrier]
             # links.loc["IR-IQ", ["bus0", "bus1", "carrier"]] = ["IR", "IQ", ac_carrier]
         if "GR" in net.buses.index:
-            links.loc["CY-GR", ["bus0", "bus1", "carrier", "length"]] = ["CY", "GR", "DC", 850]
+            links.loc["CY-GR", ["bus0", "bus1", "carrier", "length"]] = ["CY", "GR", dc_carrier, 850]
             # From TYNDP
-            links.loc["TR-GR", ["bus0", "bus1", "carrier", "length"]] = ["TR", "GR", "DC", 1173.53]  # p_nom = 0.66
+            links.loc["TR-GR", ["bus0", "bus1", "carrier", "length"]] = ["TR", "GR", dc_carrier, 1173.53]  # p_nom = 0.66
         if "BG" in net.buses.index:
             links.loc["TR-BG", ["bus0", "bus1", "carrier", "length"]] = ["TR", "BG", ac_carrier, 932.16]  # p_nom = 1.2
 
