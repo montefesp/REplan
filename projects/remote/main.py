@@ -231,19 +231,6 @@ if __name__ == '__main__':
         from network.globals.functionalities_nopyomo \
             import add_extra_functionalities as add_funcs
 
-    # net.lopf(solver_name=config["solver"],
-    #         solver_logfile=f"{output_dir_full}solver.log",
-    #         solver_options=config["solver_options"],
-    #         extra_functionality=add_funcs,
-    #         pyomo=config["pyomo"])
-    # net.export_to_csv_folder(output_dir_full)
-
-    # techs_to_keep = ['wind_onshore_national', 'wind_offshore_national',
-    #                 'pv_utility_national', 'pv_residential_national',
-    #                 'wind_onshore_noneu', 'pv_utility_noneu']
-    # gens_to_drop = net.generators[(net.generators.type.isin(techs_to_keep)) & (net.generators.p_nom_opt < 1e-3)].index
-    # net.generators = net.generators.drop(gens_to_drop)
-
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"],

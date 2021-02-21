@@ -1,10 +1,14 @@
+from os.path import join
+import pickle
 from typing import List, Dict, Any
 
 import pandas as pd
 
 import pypsa
 
-from iepy.geographics import match_points_to_regions
+from iepy import data_path
+
+from iepy.geographics import match_points_to_regions, get_area_per_site, match_points_to_countries
 from iepy.generation.vres.legacy import get_legacy_capacity_in_regions, get_legacy_capacity_in_countries
 # from iepy.potentials import get_capacity_potential_at_points
 from iepy.generation.vres.potentials.enspreso import get_capacity_potential_for_countries,\
@@ -17,6 +21,97 @@ from iepy.technologies import get_costs, get_config_values, get_config_dict
 import logging
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()
+
+
+def add_generators_from_file(net: pypsa.Network, technologies: List[str],
+                             sites_dir: str, sites_fn: str, spatial_resolution: float,
+                             tech_config: dict) -> pypsa.Network:
+    """
+    Add wind and PV generators based on sites that where selected via a certain siting method to a Network class.
+
+    Parameters
+    ----------
+    net: pypsa.Network
+        A Network instance with regions
+    technologies: List[str]
+        Which technologies we want to add
+    sites_dir: str
+        Relative to directory where sites files are kept.
+    sites_fn: str
+        Name of file containing sites.
+    spatial_resolution: float
+        Spatial resolution at which the points are defined.
+    tech_config: dict
+
+    Returns
+    -------
+    net: pypsa.Network
+        Updated network
+    """
+
+    # Get countries over which the network is defined
+    countries = list(net.buses.country.dropna())
+
+    # Load site data
+    resite_data_path = f"{data_path}resite/generated/{sites_dir}/"
+    resite_data_fn = join(resite_data_path, sites_fn)
+    tech_points_cap_factor_df = pickle.load(open(resite_data_fn, "rb"))
+
+    missing_timestamps = set(net.snapshots) - set(tech_points_cap_factor_df.index)
+    assert not missing_timestamps, f"Error: Following timestamps are not part of capacity factors {missing_timestamps}"
+
+    # Determine if the network contains offshore buses
+    offshore_buses = True if hasattr(net.buses, 'onshore') and sum(~net.buses.onshore) != 0 else False
+
+    for tech in technologies:
+
+        if tech not in set(tech_points_cap_factor_df.columns.get_level_values(0)):
+            print(f"Warning: Technology {tech} is not part of RES data from files. Therefore it was not added.")
+            continue
+
+        points = sorted(list(tech_points_cap_factor_df[tech].columns), key=lambda x: x[0])
+
+        # If there are no offshore buses, add all generators to onshore buses
+        # If there are offshore buses, add onshore techs to onshore buses and offshore techs to offshore buses
+        buses = net.buses.copy()
+        if offshore_buses:
+            is_onshore = False if tech in ['wind_offshore', 'wind_floating'] else True
+            buses = buses[buses.onshore == is_onshore]
+
+        # Detect to which bus each site should be associated
+        if not offshore_buses:
+            points_bus_ds = match_points_to_countries(points, countries).dropna()
+        else:
+            points_bus_ds = match_points_to_regions(points, buses.region).dropna()
+        points = list(points_bus_ds.index)
+
+        logger.info(f"Adding {tech} in {list(set(points_bus_ds))}.")
+
+        # Use predefined per km capacity multiplied by grid cell area.
+        bus_capacity_potential_per_km = pd.Series(tech_config[tech]['power_density'], index=buses.index)
+        points_capacity_potential = \
+            [bus_capacity_potential_per_km[points_bus_ds[point]] *
+             get_area_per_site(point, spatial_resolution) / 1e3 for point in points]
+
+        # Get capacity factors
+        cap_factor_series = tech_points_cap_factor_df.loc[net.snapshots][tech][points].values
+
+        capital_cost, marginal_cost = get_costs(tech, len(net.snapshots))
+
+        net.madd("Generator",
+                 pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
+                 bus=points_bus_ds.values,
+                 p_nom_extendable=True,
+                 p_nom_max=points_capacity_potential,
+                 p_min_pu=0.,
+                 p_max_pu=cap_factor_series,
+                 type=tech,
+                 x=[x for x, _ in points],
+                 y=[y for _, y in points],
+                 marginal_cost=marginal_cost,
+                 capital_cost=capital_cost)
+
+    return net
 
 
 def add_generators_using_siting(net: pypsa.Network, technologies: List[str],
@@ -273,7 +368,7 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
 
         # Compute capacity potential at each bus
         # TODO: WARNING: first part of if-else to be removed
-        enspreso = False
+        enspreso = True
         if enspreso:
             logger.warning("Capacity potentials computed using ENSPRESO data.")
             if one_bus_per_country:

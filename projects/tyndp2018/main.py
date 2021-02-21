@@ -1,9 +1,8 @@
-from os.path import isdir
+from os.path import isdir, join, dirname, abspath
 from os import makedirs
 from time import strftime
 
-import resource
-
+import yaml
 import argparse
 
 from iepy.topologies.tyndp2018 import get_topology
@@ -11,6 +10,7 @@ from iepy.geographics import get_subregions
 from iepy.technologies import get_config_dict
 from network import *
 from postprocessing.results_display import *
+from projects.tyndp2018.utils import timeseries_downsampling
 
 from iepy import data_path
 
@@ -21,41 +21,7 @@ logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
 
-
-def memory_limit():
-    rsrc = resource.RLIMIT_AS
-    resource.setrlimit(rsrc, (200e9, 200e9))
-
-
-def parse_args():
-
-    parser = argparse.ArgumentParser(description='Command line arguments.')
-
-    parser.add_argument('-sr', '--spatial_res', type=float, help='Spatial resolution')
-    parser.add_argument('-yr', '--year', type=str, help='Year of run')
-    parser.add_argument('-th', '--threads', type=int, help='Number of threads')
-    parser.add_argument('-fp-perc', '--perc_per_region', type=float,
-                        help="Percentage of penetration of renewables for siting")
-    parser.add_argument('-fp-tm', '--time_resolution', type=str, help="Time resolution to use for the siting.")
-
-    def to_bool(string):
-        return string == "true"
-    parser.add_argument('-excap', "--use_ex_cap", type=to_bool, help="Whether to use existing capacity",
-                        default='false')
-    parser.add_argument('-site', '--siting', type=to_bool, default='false', help="Whether to site or not.")
-
-    parsed_args = vars(parser.parse_args())
-
-    return parsed_args
-
-
 if __name__ == '__main__':
-
-    # Limit memory usage
-    memory_limit()
-
-    args = parse_args()
-    logger.info(args)
 
     # Main directories
     data_dir = f"{data_path}"
@@ -66,51 +32,24 @@ if __name__ == '__main__':
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
 
-    # TODO: maybe a cleaner options exists to update these parameters in files.
-    solver_options = config["solver_options"][config["solver"]]
-    if args["threads"] is not None:
-        if config["solver"] == 'gurobi':
-            config["solver_options"][config["solver"]]['Threads'] = args['threads']
-        else:
-            config["solver_options"][config["solver"]]['threads'] = args['threads']
-        if config["res"]["solver"] == 'gurobi':
-            config["res"]["solver_options"]['Threads'] = args['threads']
-        else:
-            config["res"]["solver_options"]['threads'] = args['threads']
-    if args["spatial_res"] is not None:
-        config["res"]["spatial_resolution"] = args["spatial_res"]
-    if args['year'] is not None:
-        config['time']['slice'][0] = args['year'] + config['time']['slice'][0][4:]
-        config['time']['slice'][1] = args['year'] + config['time']['slice'][1][4:]
-        config['res']['timeslice'][0] = args['year'] + config['res']['timeslice'][0][4:]
-        config['res']['timeslice'][1] = args['year'] + config['res']['timeslice'][1][4:]
-    config["res"]["use_ex_cap"] = args['use_ex_cap']
-    if args["perc_per_region"]:
-        config['res']["formulation_params"]["perc_per_region"] = [args["perc_per_region"]]
-    if args["time_resolution"]:
-        config['res']["formulation_params"]["time_resolution"] = args["time_resolution"]
-    # config["res"]["sites_dir"] = args["resite_dir"]
-    # config["res"]["sites_fn"] = args["resite_fn"]
-    if args['siting']:
-        config["res"]["strategies"]["siting"] = config["res"]["techs"]
-    else:
-        config["res"]["strategies"]["no_siting"] = config["res"]["techs"]
-
-    # TODO: change
-    techs = config["res"]["techs"].copy()
-    if config["dispatch"]["include"]:
-        techs += [config["dispatch"]["tech"]]
-    if config["nuclear"]["include"]:
+    techs = []
+    if config["res"]["include"]:
+        techs += config["res"]["techs"].copy()
+    if 'dispatch' in config["techs"]:
+        techs += config["techs"]["dispatch"]["types"]
+    if "nuclear" in config["techs"]:
         techs += ["nuclear"]
-    if config["battery"]["include"]:
-        techs += [config["battery"]["type"]]
-    if config["phs"]["include"]:
+    if "battery" in config["techs"]:
+        techs += config["techs"]["battery"]["types"]
+    if "phs" in config["techs"]:
         techs += ["phs"]
-    if config["ror"]["include"]:
+    if "ror" in config["techs"]:
         techs += ["ror"]
-    if config["sto"]["include"]:
+    if "sto" in config["techs"]:
         techs += ["sto"]
     tech_config = get_config_dict(techs)
+
+    eu_countries = get_subregions(config["region"])
 
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
@@ -140,6 +79,7 @@ if __name__ == '__main__':
     override_comp_attrs["StorageUnit"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
 
     net = pypsa.Network(name="TYNDP2018 network", override_component_attrs=override_comp_attrs)
+    net.config = config
     net.set_snapshots(timestamps)
 
     # Adding carriers
@@ -149,7 +89,7 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
-    net = get_topology(net, countries, extend_line_cap=True, plot=False)
+    net = get_topology(net, countries, extension_multiplier=100.0, plot=False)
 
     # Adding load
     logger.info("Adding load.")
@@ -171,7 +111,12 @@ if __name__ == '__main__':
 
             logger.info(f"Adding RES {technologies} generation with strategy {strategy}.")
 
-            if strategy == "bus":
+            if strategy == "from_files":
+                net = add_res_from_file(net, technologies,
+                                        config['res']['sites_dir'], config['res']['sites_fn'],
+                                        config['res']['spatial_resolution'],
+                                        tech_config)
+            elif strategy == "bus":
                 net = add_res_per_bus(net, technologies, config["res"]["use_ex_cap"])
             elif strategy == "no_siting":
                 net = add_res_in_grid_cells(net, technologies,
@@ -179,41 +124,57 @@ if __name__ == '__main__':
                                             config["res"]["use_ex_cap"], config["res"]["limit_max_cap"],
                                             config["res"]["min_cap_pot"])
             elif strategy == 'siting':
-                net = add_res(net, 'countries', technologies, config["region"], config['res'],
+                net = add_res(net, technologies, config["region"], config['res'],
                               config['res']['use_ex_cap'], config['res']['limit_max_cap'],
                               output_dir=f"{output_dir}resite/")
 
     # Add conventional gen
-    if config["dispatch"]["include"]:
-        tech = config["dispatch"]["tech"]
-        net = add_conventional(net, tech)
+    if 'dispatch' in config["techs"]:
+        for tech_type in config["techs"]["dispatch"]["types"]:
+            net = add_conventional(net, tech_type)
 
     # Adding nuclear
-    if config["nuclear"]["include"]:
-        net = add_nuclear(net, countries, config["nuclear"]["use_ex_cap"], config["nuclear"]["extendable"])
+    if "nuclear" in config["techs"]:
+        net = add_nuclear(net, eu_countries,
+                          config["techs"]["nuclear"]["use_ex_cap"],
+                          config["techs"]["nuclear"]["extendable"])
 
-    if config["sto"]["include"]:
-        net = add_sto_plants(net, 'countries', config["sto"]["extendable"], config["sto"]["cyclic_sof"])
+    if "sto" in config["techs"]:
+        net = add_sto_plants(net, 'countries',
+                             config["techs"]["sto"]["extendable"],
+                             config["techs"]["sto"]["cyclic_sof"])
 
-    if config["phs"]["include"]:
-        net = add_phs_plants(net, 'countries', config["phs"]["extendable"], config["phs"]["cyclic_sof"])
+    if "phs" in config["techs"]:
+        net = add_phs_plants(net, 'countries',
+                             config["techs"]["phs"]["extendable"],
+                             config["techs"]["phs"]["cyclic_sof"])
 
-    if config["ror"]["include"]:
-        net = add_ror_plants(net, 'countries', config["ror"]["extendable"])
+    if "ror" in config["techs"]:
+        net = add_ror_plants(net, 'countries', config["techs"]["ror"]["extendable"])
 
-    if config["battery"]["include"]:
-        net = add_batteries(net, config["battery"]["type"])
+    if "battery" in config["techs"]:
+        for tech_type in config["techs"]["battery"]["types"]:
+            net = add_batteries(net, tech_type, eu_countries,
+                                fixed_duration=config["techs"]["battery"]["fixed_duration"])
+
+    if config["pyomo"]:
+        from network.globals.functionalities \
+            import add_extra_functionalities as add_funcs
+    else:
+        from network.globals.functionalities_nopyomo \
+            import add_extra_functionalities as add_funcs
+
+    downsampling_rate = config['time']['downsampling']
+    if not downsampling_rate == 1:
+        timeseries_downsampling(net, downsampling_rate)
+        timestamps_reduced = pd.date_range(timeslice[0], timeslice[1], freq=f"{downsampling_rate}H")
+        net.snapshots = timestamps_reduced
+        net.snapshot_weightings = pd.Series(downsampling_rate, index=timestamps_reduced)
 
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
-             solver_options=config["solver_options"][config["solver"]],
-             extra_functionality=add_extra_functionalities,
-             pyomo=True)
+             solver_options=config["solver_options"],
+             extra_functionality=add_funcs,
+             pyomo=config["pyomo"])
 
     net.export_to_csv_folder(output_dir)
-
-    # Display some results
-    # display_generation(net)
-    # display_transmission(net)
-    # display_storage(net)
-    # display_co2(net)
