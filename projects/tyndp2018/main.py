@@ -21,7 +21,23 @@ logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
 
+def parse_args():
+
+    parser = argparse.ArgumentParser(description='Command line arguments.')
+
+    parser.add_argument('-fn', '--folder_name', type=str, help='Folder name')
+    parser.add_argument('-rn', '--run_name', type=str, help='Run name')
+    parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=0)
+
+    parsed_args = vars(parser.parse_args())
+
+    return parsed_args
+
+
 if __name__ == '__main__':
+
+    args = parse_args()
+    logger.info(args)
 
     # Main directories
     data_dir = f"{data_path}"
@@ -31,6 +47,10 @@ if __name__ == '__main__':
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
+
+    config["solver_options"]['Threads'] = args['threads']
+    config['res']['sites_dir'] = args['folder_name']
+    config['res']['sites_fn'] = args['run_name']
 
     techs = []
     if config["res"]["include"]:
