@@ -1,0 +1,88 @@
+# Space
+region: "BENELUX"
+
+# Time
+# Start time and end time for slicing the database.
+time:
+  slice: ['2016-01-01T00:00', '2016-01-01T23:00']
+  resolution: 1
+
+# RES
+res:
+  include: True
+  techs: ['pv_utility', 'wind_onshore', 'wind_offshore']
+  use_ex_cap: False
+  limit_max_cap: True
+
+# Conventional generation
+dispatch:
+  include: True
+  tech: "ccgt"
+
+# Nuclear
+nuclear:
+  include: False
+  use_ex_cap: True # Whether to include existing cap
+  extendable: False
+
+# Battery
+battery:
+  include: True
+  type: "Li-ion"
+
+# Hydro
+phs:
+  include: True
+  use_ex_cap: True
+  extendable: False
+  cyclic_sof: True
+
+ror:
+  include: True
+  use_ex_cap: True
+  extendable: False
+
+sto:
+  include: True
+  use_ex_cap: True
+  extendable: False
+  cyclic_sof: True
+
+functionalities:
+  snsp:
+    include: False
+    share: 0.65
+  curtailment:
+    include: False
+    strategy: ['economic', 10.] # ['technical', 0.], ['technical', 1.], ['economic', 0.], ['economic', 9999.]
+  load_shed:
+    include: False
+  import_limit:
+    include: False
+    share: 0.5
+  co2_emissions:
+    include: False
+    strategy: 'global' # country, global
+    reference_year: 1990 # Flat reference across all countries for now.
+    mitigation_factor: 0.9
+
+
+# solver
+solver: 'gurobi'
+solver_options:
+  # gurobi:
+  # Threads: 0
+  Method: 2
+  BarHomogeneous: 1
+  Crossover: 1
+  BarConvTol: 1.0e-8
+  # cplex:
+  # threads: 0
+  # lpmethod: 1
+  # solutiontype: 2
+  # barrier convergetol: 1e-8
+
+  cbc: 0
+
+# model
+keep_lp: False
