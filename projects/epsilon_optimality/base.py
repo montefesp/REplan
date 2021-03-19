@@ -120,7 +120,7 @@ def base_solve(main_output_dir, config):
 
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
-             #solver_options=config["solver_options"],
+             solver_options=config["solver_options"],
              keep_references=True,
              pyomo=False)
 
