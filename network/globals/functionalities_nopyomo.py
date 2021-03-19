@@ -28,7 +28,8 @@ def add_co2_budget_global(net: pypsa.Network, region: str, co2_reduction_share: 
     """
 
     co2_reference_kt = get_reference_emission_levels_for_region(region, co2_reduction_refyear)
-    co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(net.snapshots) / 8760.
+    co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(net.snapshots) / 8760. * net.config['time']['downsampling']
+    print(co2_budget)
 
     gens = net.generators[net.generators.carrier.astype(bool)]
     gens_p = get_var(net, 'Generator', 'p')[gens.index]

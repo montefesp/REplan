@@ -180,7 +180,7 @@ def add_co2_budget_global(network: pypsa.Network, region: str, co2_reduction_sha
 
     co2_reference_kt = get_reference_emission_levels_for_region(region, co2_reduction_refyear)
     co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(network.snapshots) / 8760.
-
+    
     # Drop rows (gens) without an associated carrier (i.e., technologies not emitting)
     gens = network.generators[network.generators.carrier.astype(bool)]
 

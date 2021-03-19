@@ -53,7 +53,7 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str],
     countries = list(net.buses.country.dropna())
 
     # Load site data
-    resite_data_path = f"{data_path}resite/generated/{sites_dir}/"
+    resite_data_path = f"{data_path}../../resite_ip/output/{sites_dir}/"
     resite_data_fn = join(resite_data_path, sites_fn)
     tech_points_cap_factor_df = pickle.load(open(resite_data_fn, "rb"))
 
@@ -353,6 +353,7 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
         one_bus_per_country = complete & unique
 
     tech_config_dict = get_config_dict(technologies, ["filters", "power_density", "onshore"])
+
     for tech in technologies:
 
         # Detect if technology is onshore(/offshore) based

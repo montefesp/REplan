@@ -16,7 +16,7 @@ from iepy import data_path
 
 import logging
 logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
-# logging.disable(logging.CRITICAL)
+logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument('-fn', '--folder_name', type=str, help='Folder name')
     parser.add_argument('-rn', '--run_name', type=str, help='Run name')
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=0)
+    parser.add_argument('-r', '--region', type=str)
 
     parsed_args = vars(parser.parse_args())
 
@@ -37,6 +38,7 @@ def parse_args():
 if __name__ == '__main__':
 
     args = parse_args()
+    print(args)
     logger.info(args)
 
     # Main directories
@@ -51,6 +53,7 @@ if __name__ == '__main__':
     config["solver_options"]['Threads'] = args['threads']
     config['res']['sites_dir'] = args['folder_name']
     config['res']['sites_fn'] = args['run_name']
+    config['region'] = args['region']
 
     techs = []
     if config["res"]["include"]:
@@ -109,7 +112,7 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
-    net = get_topology(net, countries, extension_multiplier=100.0, plot=False)
+    net = get_topology(net, countries, extension_multiplier=2.0, plot=False)
 
     # Adding load
     logger.info("Adding load.")
