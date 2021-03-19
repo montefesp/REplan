@@ -6,7 +6,6 @@ import yaml
 import argparse
 
 from iepy.topologies.tyndp2018 import get_topology
-from iepy.geographics import get_subregions
 from iepy.technologies import get_config_dict
 from network import *
 from postprocessing.results_display import *
@@ -16,7 +15,7 @@ from iepy import data_path
 
 import logging
 logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
-logging.disable(logging.CRITICAL)
+# logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
@@ -28,7 +27,6 @@ def parse_args():
     parser.add_argument('-fn', '--folder_name', type=str, help='Folder name')
     parser.add_argument('-rn', '--run_name', type=str, help='Run name')
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=0)
-    parser.add_argument('-r', '--region', type=str)
 
     parsed_args = vars(parser.parse_args())
 
@@ -38,13 +36,12 @@ def parse_args():
 if __name__ == '__main__':
 
     args = parse_args()
-    print(args)
     logger.info(args)
 
     # Main directories
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
-    output_dir = join(dirname(abspath(__file__)), f"../../output/tyndp2018/{strftime('%Y%m%d_%H%M%S')}/")
+    output_dir = f"{data_path}../output/APPLEN/{strftime('%Y%m%d_%H%M%S')}/"
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -53,7 +50,6 @@ if __name__ == '__main__':
     config["solver_options"]['Threads'] = args['threads']
     config['res']['sites_dir'] = args['folder_name']
     config['res']['sites_fn'] = args['run_name']
-    config['region'] = args['region']
 
     techs = []
     if config["res"]["include"]:
@@ -71,8 +67,6 @@ if __name__ == '__main__':
     if "sto" in config["techs"]:
         techs += ["sto"]
     tech_config = get_config_dict(techs)
-
-    eu_countries = get_subregions(config["region"])
 
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
@@ -158,7 +152,7 @@ if __name__ == '__main__':
 
     # Adding nuclear
     if "nuclear" in config["techs"]:
-        net = add_nuclear(net, eu_countries,
+        net = add_nuclear(net, countries,
                           config["techs"]["nuclear"]["use_ex_cap"],
                           config["techs"]["nuclear"]["extendable"])
 
@@ -177,7 +171,7 @@ if __name__ == '__main__':
 
     if "battery" in config["techs"]:
         for tech_type in config["techs"]["battery"]["types"]:
-            net = add_batteries(net, tech_type, eu_countries,
+            net = add_batteries(net, tech_type, countries,
                                 fixed_duration=config["techs"]["battery"]["fixed_duration"])
 
     if config["pyomo"]:

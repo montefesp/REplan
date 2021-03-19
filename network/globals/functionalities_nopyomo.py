@@ -66,7 +66,7 @@ def add_co2_budget_per_country(net: pypsa.Network, co2_reduction_share: Dict[str
     for bus in net.loads.bus:
 
         bus_emission_reference = get_co2_emission_level_for_country(bus, co2_reduction_refyear)
-        co2_budget = (1-co2_reduction_share[bus]) * bus_emission_reference * len(net.snapshots) / 8760.
+        co2_budget = (1-co2_reduction_share[bus]) * bus_emission_reference * len(net.snapshots) / 8760. * net.config['time']['downsampling']
 
         # Drop rows (gens) without an associated carrier (i.e., technologies not emitting)
         gens = net.generators[(net.generators.carrier.astype(bool)) & (net.generators.bus == bus)]
@@ -322,8 +322,9 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
         ref_year = conf_func["co2_emissions"]["reference_year"]
         if strategy == 'country':
             countries = get_subregions(net.config['region'])
+            mitigation_factor = [mitigation_factor] * len(countries)
             assert len(countries) == len(mitigation_factor), \
-                "Error: a co2 emission reduction share must be given for each country in the main region."
+                "A CO2 emission reduction share must be given for each country in the main region."
             mitigation_factor_dict = dict(zip(countries, mitigation_factor))
             add_co2_budget_per_country(net, mitigation_factor_dict, ref_year)
         elif strategy == 'global':
