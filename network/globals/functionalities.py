@@ -12,44 +12,6 @@ from iepy.geographics import get_subregions
 from iepy.load import get_load
 
 
-def add_snsp_constraint_tyndp(net: pypsa.Network, snapshots: pd.DatetimeIndex, snsp_share: float):
-    """
-    Add system non-synchronous generation share constraint to the model.
-
-    Parameters
-    ----------
-    net: pypsa.Network
-        A PyPSA Network instance with buses associated to regions
-    snapshots: pd.DatetimeIndex
-        Network snapshots.
-    snsp_share: float
-        Share of system non-synchronous generation.
-
-    """
-
-    model = net.model
-    nonsync_gen_types = 'wind|pv'
-    nonsync_gen_ids = net.generators.index[net.generators.type.str.contains(nonsync_gen_types)]
-    nonsync_storage_ids = net.storage_units.index[net.storage_units.type == "Li-ion"]
-
-    # Impose for each time step the non-synchronous production be lower than a part of the total production
-    def snsp_rule(model, snapshot):
-
-        # Non-synchronous 'production'
-        nonsync_gen_p = sum(model.generator_p[idx, snapshot] for idx in nonsync_gen_ids)\
-            if len(nonsync_gen_ids) != 0 else 0
-        nonsync_storage_dispatch = sum(model.storage_p_dispatch[idx, snapshot] for idx in nonsync_storage_ids)\
-            if len(nonsync_storage_ids) != 0 else 0
-
-        # Synchronous production
-        full_gen_p = sum(model.generator_p[:, snapshot]) if len(net.generators) != 0 else 0
-        full_storage_dispatch = sum(model.storage_p_dispatch[:, snapshot]) if len(net.storage_units) != 0 else 0
-
-        return nonsync_gen_p + nonsync_storage_dispatch <= snsp_share * (full_gen_p + full_storage_dispatch)
-
-    model.snsp = Constraint(list(snapshots), rule=snsp_rule)
-
-
 def add_curtailment_penalty_term(network: pypsa.Network, snapshots: pd.DatetimeIndex, curtailment_cost: float):
     """
     Add curtailment penalties to the objective function.
@@ -137,7 +99,7 @@ def add_co2_budget_per_country(net: pypsa.Network,
     def generation_emissions_per_bus_rule(model, bus):
 
         bus_emission_reference = get_co2_emission_level_for_country(bus, refyear)
-        bus_emission_target = (1-reduction_share_per_country[bus]) * bus_emission_reference * len(net.snapshots) / 8760.
+        bus_emission_target = (1-reduction_share_per_country[bus]) * bus_emission_reference * len(net.snapshots) / 8760. * net.config['time']['downsampling']
 
         bus_gens = net.generators[(net.generators.carrier.astype(bool)) & (net.generators.bus == bus)]
 
@@ -179,7 +141,7 @@ def add_co2_budget_global(network: pypsa.Network, region: str, co2_reduction_sha
     model = network.model
 
     co2_reference_kt = get_reference_emission_levels_for_region(region, co2_reduction_refyear)
-    co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(network.snapshots) / 8760.
+    co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(network.snapshots) / 8760. * network.config['time']['downsampling']
     
     # Drop rows (gens) without an associated carrier (i.e., technologies not emitting)
     gens = network.generators[network.generators.carrier.astype(bool)]
@@ -260,57 +222,6 @@ def store_links_constraint(network: pypsa.Network, ctd_ratio: float):
     model.store_links_ratio = Constraint(list(zip(links_to_bus, links_from_bus)), rule=store_links_ratio_rule)
 
 
-def dispatchable_capacity_lower_bound(net: pypsa.Network, thresholds: Dict):
-    """
-    Constraint that ensures a minimum dispatchable installed capacity.
-
-    Parameters
-    ----------
-    net: pypsa.Network
-        A PyPSA Network instance with buses associated to regions
-
-    thresholds: Dict
-        Dict containing scalar thresholds for disp_capacity/peak_load for each bus
-    """
-    # TODO: extend for different topologies, if necessary
-    model = net.model
-    buses = net.loads.bus
-    dispatchable_technologies = ['ocgt', 'ccgt', 'ccgt_ccs', 'nuclear', 'sto']
-
-    def dispatchable_capacity_constraint_rule(model, bus):
-
-        if bus in thresholds.keys():
-
-            lhs = 0
-            legacy_at_bus = 0
-
-            gens = net.generators[(net.generators.bus == bus) & (net.generators.type.isin(dispatchable_technologies))]
-            for gen in gens.index:
-                if gens.loc[gen].p_nom_extendable:
-                    lhs += model.generator_p_nom[gen]
-                else:
-                    legacy_at_bus += gens.loc[gen].p_nom_min
-
-            stos = net.storage_units[(net.storage_units.bus == bus) &
-                                     (net.storage_units.type.isin(dispatchable_technologies))]
-            for sto in stos.index:
-                if stos.loc[sto].p_nom_extendable:
-                    lhs += model.storage_unit_p_nom[gen]
-                else:
-                    legacy_at_bus += stos.loc[sto].p_nom_min
-
-            # Get load for country
-            load_idx = net.loads[net.loads.bus == bus].index
-            load_peak = net.loads_t.p_set[load_idx].max()
-
-            load_peak_threshold = load_peak * thresholds[bus]
-            rhs = max(0, load_peak_threshold.values[0] - legacy_at_bus)
-
-            return lhs >= rhs
-
-    model.dispatchable_capacity_constraint = Constraint(buses, rule=dispatchable_capacity_constraint_rule)
-
-
 def add_planning_reserve_constraint(net: pypsa.Network, prm: float):
     """
     Constraint that ensures a minimum dispatchable installed capacity.
@@ -365,10 +276,6 @@ def add_planning_reserve_constraint(net: pypsa.Network, prm: float):
     model.planning_reserve_margin = Constraint(buses, rule=planning_reserve_constraint_rule)
 
 
-
-
-
-
 def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
     """
     Wrapper for the inclusion of multiple extra_functionalities.
@@ -384,9 +291,6 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
 
     conf_func = net.config["functionalities"]
 
-    if conf_func["snsp"]["include"]:
-        add_snsp_constraint_tyndp(net, snapshots, conf_func["snsp"]["share"])
-
     if conf_func["curtailment"]["include"]:
         strategy = conf_func["curtailment"]["strategy"][0]
         if strategy == 'economic':
@@ -399,10 +303,10 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
         mitigation_factor = conf_func["co2_emissions"]["mitigation_factor"]
         ref_year = conf_func["co2_emissions"]["reference_year"]
         if strategy == 'country':
-            # TODO: this is not very robust
             countries = get_subregions(net.config['region'])
+            mitigation_factor = [mitigation_factor] * len(countries)
             assert len(countries) == len(mitigation_factor), \
-                "Error: a co2 emission reduction share must be given for each country in the main region."
+                "A CO2 emission reduction share must be given for each country in the main region."
             mitigation_factor_dict = dict(zip(countries, mitigation_factor))
             add_co2_budget_per_country(net, mitigation_factor_dict, ref_year)
         elif strategy == 'global':
@@ -416,14 +320,6 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
     if not net.config["techs"]["battery"]["fixed_duration"]:
         ctd_ratio = get_config_values("Li-ion_p", ["ctd_ratio"])
         store_links_constraint(net, ctd_ratio)
-
-    if conf_func["disp_cap"]["include"]:
-        countries = get_subregions(net.config['region'])
-        disp_threshold = conf_func["disp_cap"]["disp_threshold"]
-        assert len(countries) == len(disp_threshold), \
-            "A dispatchable capacity threshold must be given for each country in the main region."
-        thresholds = dict(zip(countries, disp_threshold))
-        dispatchable_capacity_lower_bound(net, thresholds)
 
     if conf_func["prm"]["include"]:
         prm = conf_func["prm"]["PRM"]

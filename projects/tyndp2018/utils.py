@@ -3,6 +3,18 @@ import pandas as pd
 
 
 def timeseries_downsampling(net: pypsa.Network, sampling_rate: int):
+    """
+    Downsampling time series data. Load-driven method, i.e., first we resample load data and retrieve i) the median
+    and ii) the index associated to the median; second, for other time series, we take values associated to the
+    previously preserved indices.
+
+    Parameters
+    ----------
+    net: pypsa.Network
+        A PyPSA Network instance with buses associated to regions
+    sampling_rate: int
+
+    """
 
     periods = len(net.loads_t["p_set"].index) // sampling_rate
     idx = pd.date_range(net.loads_t["p_set"].index[0], net.loads_t["p_set"].index[-1], freq=f"{sampling_rate}h")

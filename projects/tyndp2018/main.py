@@ -183,6 +183,7 @@ if __name__ == '__main__':
 
     downsampling_rate = config['time']['downsampling']
     if not downsampling_rate == 1:
+        logger.info("Downsampling data.")
         timeseries_downsampling(net, downsampling_rate)
         timestamps_reduced = pd.date_range(timeslice[0], timeslice[1], freq=f"{downsampling_rate}H")
         net.snapshots = timestamps_reduced
