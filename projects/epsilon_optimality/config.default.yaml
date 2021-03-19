@@ -1,3 +1,6 @@
+# MGA
+epsilons: [0.1]
+
 # Space
 region: "BENELUX"
 
@@ -6,6 +9,9 @@ region: "BENELUX"
 time:
   slice: ['2016-01-01T00:00', '2016-01-01T23:00']
   resolution: 1
+
+# Lines
+extension_multiplier: 1.0
 
 # RES
 res:

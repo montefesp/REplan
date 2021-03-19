@@ -1,4 +1,4 @@
-from os.path import isdir
+from os.path import isdir, join
 from os import makedirs
 
 
@@ -10,6 +10,7 @@ from postprocessing.results_display import *
 
 from iepy import data_path
 
+import yaml
 import logging
 logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
 # logging.disable(logging.CRITICAL)
@@ -75,7 +76,7 @@ def base_solve(main_output_dir, config):
     # Loading topology
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
-    net = get_topology(net, countries, extend_line_cap=True, plot=False)
+    net = get_topology(net, countries, p_nom_extendable=True, plot=False)
 
     # Adding load
     logger.info("Adding load.")

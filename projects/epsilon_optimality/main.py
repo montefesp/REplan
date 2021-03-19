@@ -27,8 +27,12 @@ if __name__ == '__main__':
     buses = pd.read_csv(f"{base_net_dir}/buses.csv").set_index("name")
 
     # Solve network again with new constraint and minimizing each transmission line expansion
-    #for link in links.index:
-    #    find_links_invariant(base_net_dir, config, output_dir, config['epsilons'], [link], link)
+    # for link in links.index:
+    #     find_links_invariant(base_net_dir, config, output_dir, config['epsilons'], [link], link)
+
+    # Minimize total sum of connections
+    find_links_invariant(base_net_dir, config, output_dir, config['epsilons'],
+                         links, 'whole')
 
     # Solve network again with new constraint and minimizing the sum of transmission line coming out of a country
     for bus in buses.index:
