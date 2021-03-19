@@ -12,6 +12,7 @@ time:
 
 # Lines
 extension_multiplier: 1.0
+p_max_pu: 0.7 # value based on Neumann
 
 # RES
 res:

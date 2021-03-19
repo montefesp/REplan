@@ -77,7 +77,9 @@ def base_solve(main_output_dir, config):
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
     net = get_topology(net, countries, p_nom_extendable=True,
-                       extension_multiplier=config['extension_multiplier'], plot=False)
+                       extension_multiplier=config['extension_multiplier'],
+                       p_max_pu=config['p_max_pu'],
+                       plot=False)
 
     # Adding load
     logger.info("Adding load.")
