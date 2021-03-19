@@ -25,7 +25,7 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
     """
     logger.info(f"Adding {tech} generation.")
 
-    assert hasattr(network.buses, "onshore_region"), "Error: some buses must be associated to an onshore region to add" \
+    assert hasattr(network.buses, "onshore_region"), "Some buses must be associated to an onshore region to add" \
                                                      "conventional generators."
 
     # Filter to keep only onshore buses

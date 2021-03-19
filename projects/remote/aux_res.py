@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def add_res_at_sites(net, config, output_dir, eu_countries, ):
+    
     eu_technologies = config['res']['techs']
 
     logger.info(f"Adding RES {eu_technologies} generation.")
@@ -20,13 +21,15 @@ def add_res_at_sites(net, config, output_dir, eu_countries, ):
     spatial_res = config["res"]["spatial_resolution"]
     use_ex_cap = config["res"]["use_ex_cap"]
     min_cap_pot = config["res"]["min_cap_pot"]
+    min_cap_if_sel = config["res"]["min_cap_if_selected"]
 
     # Build sites for EU
-    r_europe = Resite(eu_countries, eu_technologies, [net.snapshots[0], net.snapshots[-1]], spatial_res)
+    r_europe = Resite(eu_countries, eu_technologies, [net.snapshots[0], net.snapshots[-1]], spatial_res, min_cap_if_sel)
     regions_shapes = net.buses.loc[eu_countries, ["onshore_region", 'offshore_region']]
     regions_shapes.columns = ['onshore', 'offshore']
     r_europe.build_data(use_ex_cap, min_cap_pot, regions_shapes=regions_shapes)
-
+    net.cc_ds = r_europe.data_dict["capacity_credit_ds"]
+    
     # Build sites for other regions
     non_eu_res = config["non_eu"]
     all_remote_countries = []
@@ -71,16 +74,16 @@ def add_res_at_sites(net, config, output_dir, eu_countries, ):
     if config["res"]["strategy"] == "siting":
         logger.info('resite model being built.')
         siting_params = config['res']
-        if siting_params['formulation'] == "min_cost_global":
-            siting_params['formulation_params']['perc_per_region'] = \
-                siting_params['formulation_params']['perc_per_region'] + [0.] * len(all_remote_countries)
+        # if siting_params['formulation'] == "min_cost_global":
+        #    siting_params['formulation_params']['perc_per_region'] = \
+        #        siting_params['formulation_params']['perc_per_region'] + [0.] * len(all_remote_countries)
         r_europe.build_model(siting_params["modelling"], siting_params['formulation'],
                              siting_params['formulation_params'],
                              siting_params['write_lp'], f"{output_dir}resite/")
 
         logger.info('Sending resite to solver.')
         r_europe.init_output_folder(f"{output_dir}resite/")
-        r_europe.solve_model(f"{output_dir}resite/")
+        r_europe.solve_model(f"{output_dir}resite/", solver=config['solver'], solver_options=config['solver_options'])
 
         logger.info("Saving resite results")
         r_europe.retrieve_selected_sites_data()
