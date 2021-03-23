@@ -36,6 +36,7 @@ nuclear:
 battery:
   include: True
   type: "Li-ion"
+  fixed_duration: True
 
 # Hydro
 phs:

@@ -315,7 +315,7 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
 
     conf_func = net.config["functionalities"]
 
-    if conf_func["co2_emissions"]["include"]:
+    if "co2_emissions" in conf_func and conf_func["co2_emissions"]["include"]:
         strategy = conf_func["co2_emissions"]["strategy"]
         mitigation_factor = conf_func["co2_emissions"]["mitigation_factor"]
         ref_year = conf_func["co2_emissions"]["reference_year"]
@@ -328,14 +328,15 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
         elif strategy == 'global':
             add_co2_budget_global(net, net.config["region"], mitigation_factor, ref_year)
 
-    if conf_func["import_limit"]["include"]:
+    if 'import_limit' in conf_func and conf_func["import_limit"]["include"]:
         add_import_limit_constraint(net, conf_func["import_limit"]["share"])
 
-    if not net.config["techs"]["battery"]["fixed_duration"]:
+    if 'techs' in net.config and 'battery' in net.config["techs"] and\
+            not net.config["techs"]["battery"]["fixed_duration"]:
         ctd_ratio = get_config_values("Li-ion_p", ["ctd_ratio"])
         store_links_constraint(net, ctd_ratio)
 
-    if conf_func["disp_cap"]["include"]:
+    if "disp_cap" in conf_func and conf_func["disp_cap"]["include"]:
         countries = get_subregions(net.config['region'])
         disp_threshold = conf_func["disp_cap"]["disp_threshold"]
         assert len(countries) == len(disp_threshold), \
@@ -343,6 +344,6 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
         thresholds = dict(zip(countries, disp_threshold))
         dispatchable_capacity_lower_bound(net, thresholds)
 
-    if conf_func["prm"]["include"]:
+    if 'prm' in conf_func and conf_func["prm"]["include"]:
         prm = conf_func["prm"]["PRM"]
         add_planning_reserve_constraint(net, prm)
