@@ -11,8 +11,6 @@ from iepy.topologies.tyndp2018 import get_topology
 from iepy.technologies import get_config_dict
 from network import *
 from projects.remote.utils import upgrade_topology
-from network.globals.functionalities \
-    import add_extra_functionalities as add_extra_functionalities
 
 from iepy import data_path
 
@@ -20,7 +18,7 @@ from projects.remote.aux_res import add_res_at_sites
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
-# logging.disable(logging.CRITICAL)
+#logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
@@ -30,11 +28,9 @@ def parse_args():
 
     parser = argparse.ArgumentParser(description='Command line arguments.')
 
-    # parser.add_argument('-lpd', '--line_price_div', type=float, help='Value by which DC price will be divided')
     parser.add_argument('-epm', '--eu_prices_multiplier', type=float,
                         help='Value by which onshore wind and pv utility price in Europe will be multiplied')
     parser.add_argument('-sr', '--spatial_res', type=float, help='Spatial resolution')
-    parser.add_argument('-pd', '--power_density', type=float, help='Offshore power density')
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=1)
     parser.add_argument('-lm', '--link_multiplier', type=float, help='Links extension multiplier', default=None)
     parser.add_argument('-yr', '--year', type=str, help='Year of run')
@@ -66,6 +62,9 @@ if __name__ == '__main__':
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
     output_dir = join(dirname(abspath(__file__)), f"../../output/remote/{strftime('%Y%m%d_%H%M%S')}/")
+    # output_dir = join(dirname(abspath(__file__)), f"../../../../data/remote/output/{strftime('%Y%m%d_%H%M%S')}/")
+    # output_dir_full = join(dirname(abspath(__file__)),
+    #                   f"../../../../data/remote/output/{strftime('%Y%m%d_%H%M%S')}_full/")
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -86,6 +85,7 @@ if __name__ == '__main__':
         config["solver_options"]['Threads'] = args['threads']
     else:
         config["solver_options"]['threads'] = args['threads']
+        config["solver_options"]["workdir"] = output_dir
 
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
@@ -94,6 +94,7 @@ if __name__ == '__main__':
     # Compute and save results
     if not isdir(output_dir):
         makedirs(output_dir)
+        # makedirs(output_dir_full)
 
     # Get list of techs
     techs = []
@@ -130,8 +131,15 @@ if __name__ == '__main__':
     override_comp_attrs["Generator"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
     override_comp_attrs["StorageUnit"].loc["x"] = ["float", np.nan, np.nan, "x in position (x;y)", "Input (optional)"]
     override_comp_attrs["StorageUnit"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["capital_cost_e"] = \
+        ["float", np.nan, np.nan, "Energy-related capital cost", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["marginal_cost_e"] = \
+        ["float", np.nan, np.nan, "Energy-related marginal cost", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["ctd_ratio"] = \
+        ["float", np.nan, np.nan, "Charge-to-discharge rated power ratio", "Input (optional)"]
 
     net = pypsa.Network(name="Remote hubs network (with siting)", override_component_attrs=override_comp_attrs)
+    net.config = config
     net.set_snapshots(timestamps)
 
     # Adding carriers
@@ -181,7 +189,8 @@ if __name__ == '__main__':
 
     if "battery" in config["techs"]:
         for tech_type in config["techs"]["battery"]["types"]:
-            net = add_batteries(net, tech_type, eu_countries)
+            net = add_batteries(net, tech_type, eu_countries,
+                                fixed_duration=config["techs"]["battery"]["fixed_duration"])
 
     # Adding pv and wind generators at bus
     if config['res']['include'] and config['res']['strategy'] == "bus":
@@ -215,18 +224,37 @@ if __name__ == '__main__':
                        (net.generators.type.str.startswith("wind_onshore")))
         net.generators.loc[gens, "capital_cost"] *= config["eu_prices_multiplier"]
 
-    net.config = config
+    if config["pyomo"]:
+        from network.globals.functionalities \
+            import add_extra_functionalities as add_funcs
+    else:
+        from network.globals.functionalities_nopyomo \
+            import add_extra_functionalities as add_funcs
+
+    # net.lopf(solver_name=config["solver"],
+    #         solver_logfile=f"{output_dir_full}solver.log",
+    #         solver_options=config["solver_options"],
+    #         extra_functionality=add_funcs,
+    #         pyomo=config["pyomo"])
+    # net.export_to_csv_folder(output_dir_full)
+
+    # techs_to_keep = ['wind_onshore_national', 'wind_offshore_national',
+    #                 'pv_utility_national', 'pv_residential_national',
+    #                 'wind_onshore_noneu', 'pv_utility_noneu']
+    # gens_to_drop = net.generators[(net.generators.type.isin(techs_to_keep)) & (net.generators.p_nom_opt < 1e-3)].index
+    # net.generators = net.generators.drop(gens_to_drop)
+
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"],
-             extra_functionality=add_extra_functionalities,
-             pyomo=True)
+             extra_functionality=add_funcs,
+             pyomo=config["pyomo"])
 
-    # from pyomo.opt import ProblemFormat
-    # if config['keep_lp']:
-    #     net.model.write(filename=join(output_dir, 'model.lp'),
-    #                     format=ProblemFormat.cpxlp,
-    #                     io_options={'symbolic_solver_labels': True})
-    #     net.model.write(filename=join(output_dir, 'model.mps'))
+    if config["pyomo"] & config['keep_lp']:
+        from pyomo.opt import ProblemFormat
+        net.model.write(filename=join(output_dir, 'model.lp'),
+                        format=ProblemFormat.cpxlp,
+                        io_options={'symbolic_solver_labels': True})
+        net.model.write(filename=join(output_dir, 'model.mps'))
 
     net.export_to_csv_folder(output_dir)
