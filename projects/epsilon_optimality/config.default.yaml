@@ -1,5 +1,6 @@
 # MGA
-epsilons: [0.1]
+mga:
+  epsilons: [0.1]
 
 # Space
 region: "BENELUX"
@@ -56,6 +57,7 @@ sto:
   extendable: False
   cyclic_sof: True
 
+pyomo: False
 functionalities:
   snsp:
     include: False

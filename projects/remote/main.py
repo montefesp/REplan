@@ -6,10 +6,16 @@ import yaml
 import argparse
 
 import numpy as np
+import pandas as pd
+
+import pypsa
 
 from iepy.topologies.tyndp2018 import get_topology
 from iepy.technologies import get_config_dict
+from iepy.geographics import get_subregions
+from iepy.load import get_load
 from network import *
+from network.globals.functionalities import add_extra_functionalities as add_funcs
 from projects.remote.utils import upgrade_topology
 
 from iepy import data_path
@@ -18,7 +24,7 @@ from projects.remote.aux_res import add_res_at_sites
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
-#logging.disable(logging.CRITICAL)
+# logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
@@ -62,9 +68,6 @@ if __name__ == '__main__':
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
     output_dir = join(dirname(abspath(__file__)), f"../../output/remote/{strftime('%Y%m%d_%H%M%S')}/")
-    # output_dir = join(dirname(abspath(__file__)), f"../../../../data/remote/output/{strftime('%Y%m%d_%H%M%S')}/")
-    # output_dir_full = join(dirname(abspath(__file__)),
-    #                   f"../../../../data/remote/output/{strftime('%Y%m%d_%H%M%S')}_full/")
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -94,7 +97,6 @@ if __name__ == '__main__':
     # Compute and save results
     if not isdir(output_dir):
         makedirs(output_dir)
-        # makedirs(output_dir_full)
 
     # Get list of techs
     techs = []
@@ -223,13 +225,6 @@ if __name__ == '__main__':
         gens = gens & ((net.generators.type.str.startswith("pv_utility")) |
                        (net.generators.type.str.startswith("wind_onshore")))
         net.generators.loc[gens, "capital_cost"] *= config["eu_prices_multiplier"]
-
-    if config["pyomo"]:
-        from network.globals.functionalities \
-            import add_extra_functionalities as add_funcs
-    else:
-        from network.globals.functionalities_nopyomo \
-            import add_extra_functionalities as add_funcs
 
     # net.lopf(solver_name=config["solver"],
     #         solver_logfile=f"{output_dir_full}solver.log",

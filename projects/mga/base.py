@@ -5,6 +5,7 @@ from os import makedirs
 from iepy.topologies.tyndp2018 import get_topology
 from iepy.geographics import get_subregions
 from iepy.technologies import get_config_dict
+from iepy.load import get_load
 from network import *
 from postprocessing.results_display import *
 

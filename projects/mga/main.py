@@ -22,5 +22,5 @@ if __name__ == '__main__':
     base_net_dir = base_solve(output_dir, config)
 
     # Solve network again with new constraints and objective
-    mga_solve(base_net_dir, config, output_dir)
+    mga_solve(base_net_dir, config, output_dir, config['epsilons'])
 

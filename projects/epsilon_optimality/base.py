@@ -7,7 +7,7 @@ from iepy.geographics import get_subregions
 from iepy.technologies import get_config_dict
 from iepy.load import get_load
 from network import *
-from network.globals.functionalities_nopyomo import add_extra_functionalities
+from network.globals.functionalities import add_extra_functionalities
 from postprocessing.results_display import *
 
 from iepy import data_path
