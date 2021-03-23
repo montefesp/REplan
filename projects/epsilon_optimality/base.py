@@ -5,7 +5,9 @@ from os import makedirs
 from iepy.topologies.tyndp2018 import get_topology
 from iepy.geographics import get_subregions
 from iepy.technologies import get_config_dict
+from iepy.load import get_load
 from network import *
+from network.globals.functionalities_nopyomo import add_extra_functionalities
 from postprocessing.results_display import *
 
 from iepy import data_path
@@ -121,6 +123,7 @@ def base_solve(main_output_dir, config):
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"],
+             extra_functionality=add_extra_functionalities,
              keep_references=True,
              pyomo=False)
 

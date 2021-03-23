@@ -32,12 +32,10 @@ if __name__ == '__main__':
 
     # Minimize total sum of connections
     find_links_invariant(base_net_dir, config, output_dir, config['epsilons'],
-                         links, 'whole')
+                         links.index, 'whole')
 
     # Solve network again with new constraint and minimizing the sum of transmission line coming out of a country
     for bus in buses.index:
-        print(bus)
         adjacent_links = links[(links.bus0 == bus) | (links.bus1 == bus)].index
-        print(adjacent_links)
         find_links_invariant(base_net_dir, config, output_dir, config['epsilons'],
                              adjacent_links, bus)

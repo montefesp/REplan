@@ -2,7 +2,7 @@ from typing import List
 import yaml
 from os.path import join
 
-from pyggrid.postprocessing.utils import *
+from postprocessing.utils import *
 
 # Technology name conversion
 tech_name_change = {'ccgt': 'CCGT',

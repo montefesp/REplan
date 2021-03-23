@@ -6,5 +6,5 @@ from network.components.nuclear import add_generators as add_nuclear
 from network.components.hydro import add_phs_plants, add_ror_plants, add_sto_plants
 from network.components.conventional import add_generators as add_conventional
 from network.components.battery import add_batteries
-from network.globals.functionalities import *
+from network.globals.functionalities import add_extra_functionalities
 from network.globals.load_shed import add_load_shedding
