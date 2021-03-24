@@ -93,4 +93,8 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
         funcs.add_planning_reserve_constraint(net, prm)
 
     if 'mga' in conf_func and conf_func['mga']['include']:
-        funcs.min_links_capacity(net, net.snapshots)
+        if not pyomo:
+            epsilon = conf_func['mga']['epsilon']
+            funcs.min_links_capacity(net, epsilon)
+        else:
+            logger.warning('MGA functionality is currently not implented in nomopyomo')
