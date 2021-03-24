@@ -120,7 +120,9 @@ def base_solve(main_output_dir, config):
     if config["battery"]["include"]:
         net = add_batteries(net, config["battery"]["type"], fixed_duration=True)
 
+    config["solver_options"]['Crossover'] = 1
     net.config = config
+    # Force to get the optimal solution
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
              solver_options=config["solver_options"],

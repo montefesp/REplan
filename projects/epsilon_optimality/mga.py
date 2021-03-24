@@ -20,6 +20,7 @@ def find_links_invariant(base_net_dir, config, main_output_dir, epsilons, links,
         net = pypsa.Network()
         net.import_from_csv_folder(base_net_dir)
         config['functionalities']['mga'] = {'include': True, 'epsilon': epsilon}
+        config["solver_options"]['Crossover'] = 0
         net.config = config
         net.links_to_minimize = links
         net.lopf(solver_name=config["solver"],
