@@ -2,7 +2,7 @@ from typing import List
 import yaml
 from os.path import join
 
-from pyggrid.postprocessing.utils import *
+from postprocessing.utils import *
 
 # Technology name conversion
 tech_name_change = {'ccgt': 'CCGT',
@@ -25,10 +25,10 @@ def generate_costs_table(nets: List[pypsa.Network], names: List[str],
         gen_marg_cost = get_generators_opex(net)
         store_cap_cost = get_storage_capex(net)
         store_marg_cost = get_storage_opex(net)
-        links_cap_cost = get_links_capex(net)
-        links_marg_cost = pd.Series(0, index=links_cap_cost.index)
-        cap_cost = pd.concat([gen_cap_cost, links_cap_cost, store_cap_cost]).reindex(technologies).dropna()
-        marg_cost = pd.concat([gen_marg_cost, links_marg_cost, store_marg_cost]).reindex(technologies).dropna()
+        # links_cap_cost = get_links_capex(net)
+        # links_marg_cost = pd.Series(0, index=links_cap_cost.index)
+        cap_cost = pd.concat([gen_cap_cost, store_cap_cost]).reindex(technologies).dropna()
+        marg_cost = pd.concat([gen_marg_cost, store_marg_cost]).reindex(technologies).dropna()
         cost_table.loc[(name, "CAPEX")] = cap_cost
         cost_table.loc[(name, "OPEX")] = marg_cost
         cost_table.loc[(name, "TOTAL")] = marg_cost + cap_cost
@@ -95,31 +95,28 @@ def generate_capacities_table(nets: List[pypsa.Network], names: List[str],
         name = names[i]
         # Capacities
         gen_cap = get_generators_capacity(net)
-        links_cap = get_links_capacity(net)
         store_cap = get_storage_power_capacity(net)
-        new_cap = pd.concat([gen_cap["new"], links_cap["new [TWkm]"],
+        new_cap = pd.concat([gen_cap["new"],
                              store_cap["new [GW]"]]).reindex(technologies).dropna()
-        final_cap = pd.concat([gen_cap["final"], links_cap["init [TWkm]"] + links_cap["new [TWkm]"],
+        final_cap = pd.concat([gen_cap["final"],
                                store_cap["init [GW]"] + store_cap["new [GW]"]]).reindex(technologies).dropna()
         table.loc[(name, "GW_add")] = new_cap
         table.loc[(name, "GW_tot")] = final_cap
 
         # Generation
         gen_power = get_generators_generation(net).drop(['load'])
-        links_power = get_links_power(net)
-        power = pd.concat([gen_power, links_power]).reindex(technologies).dropna()
+        power = pd.concat([gen_power]).reindex(technologies).dropna()
         table.loc[(name, "TWh")] = power
 
         # Curtailment
         gen_curtailment = get_generators_curtailment(net)
-        load_curtailment = get_generators_generation(net).reindex(['load'])
-        curtailment = pd.concat([gen_curtailment, load_curtailment]).reindex(technologies).dropna()
-        table.loc[(name, "Curt.")] = curtailment
+        # load_curtailment = get_generators_generation(net).reindex(['load'])
+        # curtailment = pd.concat([gen_curtailment, load_curtailment]).reindex(technologies).dropna()
+        # table.loc[(name, "Curt.")] = curtailment
 
         # Capacity factors
         gen_cf = get_generators_average_usage(net)
-        links_cf = get_links_usage(net)
-        cf = pd.concat([gen_cf, links_cf]).reindex(technologies).dropna()
+        cf = pd.concat([gen_cf]).reindex(technologies).dropna()
         table.loc[(name, "CF")] = cf
 
     table = table.round(2).abs()
@@ -160,7 +157,9 @@ def convert_cap_table_to_latex(table, caption_string):
         value_name = value_name.replace("_", "\\textsubscript{")
         value_name += "}" if "{" in value_name else ""
         if value_name == "GW\\textsubscript{add}":
-            if "PROD" in case:
+            if "CAPV" in case:
+                text += "\multirow{5}{*}{" + case.split("_")[0] + "} & " + value_name
+            elif "PROD" in case:
                 text += "\multirow{5}{*}{" + case.split("_")[0] + "} & " + value_name
             else:
                 text += "\multirow{5}{*}{\shortstack{" + case.split("_")[0] + r"\\" + case.split("_")[-1] + r"\\" + case.split("_")[1] + "}} & " + value_name
@@ -190,7 +189,7 @@ if __name__ == '__main__':
     runs_fn = join(f'../output/{topology}/', 'run_dict.yaml')
     run_dict = yaml.load(open(runs_fn, 'r'), Loader=yaml.FullLoader)
 
-    run_id = 'commit_test'
+    run_id = 'n140_c70_exp'
     run_ids = run_dict[run_id]
     run_names = []
     nets = []
@@ -204,9 +203,10 @@ if __name__ == '__main__':
         config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
         run_name = config["res"]["sites_dir"] + "_" + \
                    config["res"]["sites_fn"].split("_")[0].upper()
-
-        name = run_name.split("_")[-3:]
-        if "MAX" in name:
+        name = run_name.split("_")[-4:]
+        if "CAPV" in name:
+            name = "CAPV"
+        elif "PROD" in name:
             name = "PROD"
         else:
             name = "COMP_c = " + name[1][1:] + "_" + name[0]

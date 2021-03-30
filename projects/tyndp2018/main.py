@@ -47,7 +47,7 @@ if __name__ == '__main__':
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
 
-    config["solver_options"]['Threads'] = args['threads']
+    config["solver_options"]['threads'] = args['threads']
     config['res']['sites_dir'] = args['folder_name']
     config['res']['sites_fn'] = args['run_name']
 
