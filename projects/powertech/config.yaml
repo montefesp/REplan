@@ -49,6 +49,7 @@ res:
   formulation: 'min_cost_regional'
   formulation_params:
     time_resolution: 'day'
+    multiplier_per_region: 0.
   write_lp: False
   write_log: False
   # Keeping files at the end of the run.

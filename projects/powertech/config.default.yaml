@@ -19,36 +19,37 @@ solver_options:
 
 # Time
 time:
-  slice: ['2018-01-01T00:00', '2018-01-07T23:00']
+  slice: ['2018-01-01T00:00', '2018-12-31T23:00']
   resolution: 1
   downsampling: 1
 
 # Space
-region: "CWE"
+region: "EU"
 
 # RES
 res:
   include: True
   # Give which technology should be installed using each strategy
-  techs: ['pv_residential_national']
+  techs: ['wind_onshore_national', 'wind_offshore_national', 'pv_utility_national', 'pv_residential_national']
   strategy: 'siting'
 
-  min_cap_pot: [0.01]
+  min_cap_pot: [0.01, 0.01, 0.01, 0.01]
   min_cap_if_selected: 1.0e-3
 
   # For strategy = siting or no siting
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 1.0
-  timeslice: ['2018-01-01T00:00', '2018-01-31T23:00']
+  timeslice: ['2018-01-01T00:00', '2018-12-31T23:00']
   use_ex_cap: True
   limit_max_cap: True
 
   # For strategy = siting
   # Type of problem to be solved. Check resite for a full list.
   modelling: 'gurobipy' # Choice of modelling language.
-  formulation: 'min_cost_region'
+  formulation: 'min_cost_regional'
   formulation_params:
     time_resolution: 'day'
+    multiplier_per_region: 0.
   write_lp: False
   write_log: False
   # Keeping files at the end of the run.
@@ -56,7 +57,7 @@ res:
 
 techs:
   dispatch:
-    types: ["ocgt", "ccgt"]
+    types: ["ocgt", "ccgt", "ccgt_ccs"]
 
   nuclear:
     use_ex_cap: True # Whether to include existing cap
@@ -80,6 +81,9 @@ techs:
     extendable: False
     cyclic_sof: True
 
+  transmission:
+    multiplier: 2
+
 functionalities:
   prm:
     include: True
@@ -87,7 +91,7 @@ functionalities:
   load_shed:
     include: True
   co2_emissions:
-    include: False
+    include: True
     strategy: 'global' # country, global
     reference_year: 1990 # Flat reference across all countries for now.
     mitigation_factor: 0.95

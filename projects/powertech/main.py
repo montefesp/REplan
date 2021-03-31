@@ -14,7 +14,7 @@ from iepy.geographics import get_subregions
 from iepy.load import get_load
 from network import *
 from network.globals.functionalities import add_extra_functionalities as add_funcs
-from projects.powertech.utils import add_res_generators, timeseries_downsampling, compute_resite_input_shares
+from projects.powertech.utils import add_res_generators, timeseries_downsampling
 
 from iepy import data_path
 
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     # Main directories
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
-    output_dir = f"{data_path}../output/powertech/{strftime('%Y%m%d_%H%M%S')}/"
+    output_dir = f"{data_path}../output/POWERTECH/{strftime('%Y%m%d_%H%M%S')}/"
     # Compute and save results
     if not isdir(output_dir):
         makedirs(output_dir)

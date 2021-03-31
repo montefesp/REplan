@@ -102,7 +102,7 @@ def add_res_generators(net: pypsa.Network, config: dict, output_dir: str):
 
         multipliers = compute_resite_input_shares(net, resite,
                                                 temp_resolution=siting_params['formulation_params']['time_resolution'])
-        siting_params['formulation_params'].update({'multipliers_per_region': multipliers.to_dict()})
+        siting_params['formulation_params'].update({'multiplier_per_region': multipliers.to_dict()})
 
         resite.build_model(siting_params["modelling"], siting_params['formulation'],
                            siting_params['formulation_params'],
