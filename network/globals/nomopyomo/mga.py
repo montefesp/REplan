@@ -1,15 +1,10 @@
-from os.path import isdir
-from os import makedirs
-
 import pandas as pd
 import pypsa
 
 from pypsa.linopt import get_var, linexpr, define_constraints, write_objective
 
-from iepy.technologies import get_costs
 
-
-def add_mga_constraint(net: pypsa.Network, epsilon):
+def add_mga_constraint(net: pypsa.Network, epsilon: float):
 
     # Add generation costs
     # Capital cost
@@ -51,10 +46,10 @@ def add_mga_constraint(net: pypsa.Network, epsilon):
     define_constraints(net, obj_expr, '<=', obj, 'mga', 'obl')
 
 
-def add_mga_objective(net, sense='min'):
+def add_mga_objective(net: pypsa.Network, sense='min'):
 
     # Minimize transmission capacity
-    link_p_nom = get_var(net, 'Link', 'p_nom')
+    link_p_nom = get_var(net, 'Link', 'p_nom')[net.links_to_minimize]
     # TODO: not sure this is right
     sense = 1 if sense == 'min' else -1
     link_capacity_expr = linexpr((sense, link_p_nom)).sum()
@@ -62,54 +57,7 @@ def add_mga_objective(net, sense='min'):
     write_objective(net, link_capacity_expr)
 
 
-def min_transmission(net: pypsa.Network, snapshots: pd.DatetimeIndex):
+def min_links_capacity(net: pypsa.Network, epsilon: float):
 
-    add_mga_constraint(net, net.epsilon)
+    add_mga_constraint(net, epsilon)
     add_mga_objective(net, 'min')
-
-
-def max_transmission(net: pypsa.Network, snapshots: pd.DatetimeIndex):
-
-    # TODO: I have no idea if there is another way to do this
-    add_mga_constraint(net, net.epsilon)
-    add_mga_objective(net, 'max')
-
-
-def mga_solve(base_net_dir, config, main_output_dir, epsilons):
-
-    for epsilon in epsilons:
-
-        # Minimizing transmission
-        output_dir = f"{main_output_dir}min_eps{epsilon}/"
-        # Compute and save results
-        if not isdir(output_dir):
-            makedirs(output_dir)
-
-        net = pypsa.Network()
-        net.import_from_csv_folder(base_net_dir)
-        net.epsilon = epsilon
-        net.lopf(solver_name=config["solver"],
-                 solver_logfile=f"{output_dir}solver.log",
-                 solver_options=config["solver_options"],
-                 extra_functionality=min_transmission,
-                 skip_objective=True,
-                 pyomo=False)
-
-        net.export_to_csv_folder(output_dir)
-
-        # Maximizing transmission
-        output_dir = f"{main_output_dir}max_eps{epsilon}/"
-        # Compute and save results
-        if not isdir(output_dir):
-            makedirs(output_dir)
-
-        net = pypsa.Network()
-        net.import_from_csv_folder(base_net_dir)
-        net.epsilon = epsilon
-        net.lopf(solver_name=config["solver"],
-                 solver_logfile=f"{output_dir}solver.log",
-                 solver_options=config["solver_options"],
-                 extra_functionality=max_transmission,
-                 skip_objective=True,
-                 pyomo=False)
-        net.export_to_csv_folder(output_dir)

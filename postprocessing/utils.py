@@ -244,6 +244,7 @@ def get_links_power(net: pypsa.Network):
 
     for carrier in carriers:
         links_to_keep = links_carriers[links_carriers == carrier]
+        # TODO: change? is p0 always equal to p1?
         links_to_keep_t_p0 = links_t['p0'].loc[:, list(links_to_keep.index)]
         links_to_keep_t_p1 = links_t['p1'].loc[:, list(links_to_keep.index)]
 

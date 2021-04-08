@@ -7,6 +7,7 @@ from iepy.geographics import get_subregions
 from iepy.technologies import get_config_dict
 from iepy.load import get_load
 from network import *
+from network.globals.functionalities import add_extra_functionalities
 from postprocessing.results_display import *
 
 from iepy import data_path
@@ -77,7 +78,10 @@ def base_solve(main_output_dir, config):
     # Loading topology
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
-    net = get_topology(net, countries, p_nom_extendable=True, plot=False)
+    net = get_topology(net, countries, p_nom_extendable=True,
+                       extension_multiplier=config['extension_multiplier'],
+                       p_max_pu=config['p_max_pu'],
+                       plot=False)
 
     # Adding load
     logger.info("Adding load.")
@@ -114,11 +118,15 @@ def base_solve(main_output_dir, config):
         net = add_ror_plants(net, 'countries', config["ror"]["extendable"])
 
     if config["battery"]["include"]:
-        net = add_batteries(net, config["battery"]["type"])
+        net = add_batteries(net, config["battery"]["type"], fixed_duration=True)
 
+    config["solver_options"]['Crossover'] = 1
+    net.config = config
+    # Force to get the optimal solution
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
-             #solver_options=config["solver_options"],
+             solver_options=config["solver_options"],
+             extra_functionality=add_extra_functionalities,
              keep_references=True,
              pyomo=False)
 

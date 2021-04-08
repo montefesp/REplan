@@ -1,22 +1,26 @@
 from os.path import isdir, join, dirname, abspath
 from os import makedirs
 from time import strftime
-
 import yaml
-import argparse
+
+import numpy as np
+import pandas as pd
+
+import pypsa
 
 from iepy.topologies.tyndp2018 import get_topology
 from iepy.technologies import get_config_dict
+from iepy.geographics import get_subregions
 from iepy.load import get_load
 from network import *
-from postprocessing.results_display import *
-from projects.tyndp2018.utils import timeseries_downsampling
+from network.globals.functionalities import add_extra_functionalities as add_funcs
+from projects.powertech.utils import add_res_generators, timeseries_downsampling
 
 from iepy import data_path
+import argparse
 
 import logging
-logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
-# logging.disable(logging.CRITICAL)
+logging.basicConfig(level=logging.DEBUG, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
@@ -25,33 +29,39 @@ def parse_args():
 
     parser = argparse.ArgumentParser(description='Command line arguments.')
 
-    parser.add_argument('-fn', '--folder_name', type=str, help='Folder name')
-    parser.add_argument('-rn', '--run_name', type=str, help='Run name')
-    parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=0)
-
+    parser.add_argument('--year', type=str)
+    parser.add_argument('--sr', type=float)
+    parser.add_argument('--strategy', type=str)
+     
     parsed_args = vars(parser.parse_args())
-
+  
     return parsed_args
-
 
 if __name__ == '__main__':
 
     args = parse_args()
-    logger.info(args)
 
     # Main directories
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
-    output_dir = f"{data_path}../output/APPLEN/{strftime('%Y%m%d_%H%M%S')}/"
+    output_dir = f"{data_path}../output/POWERTECH/{strftime('%Y%m%d_%H%M%S')}/"
+    # Compute and save results
+    if not isdir(output_dir):
+        makedirs(output_dir)
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
 
-    config["solver_options"]['threads'] = args['threads']
-    config['res']['sites_dir'] = args['folder_name']
-    config['res']['sites_fn'] = args['run_name']
+    config['time']['slice'][0] = args['year'] + config['time']['slice'][0][4:]
+    config['time']['slice'][1] = args['year'] + config['time']['slice'][1][4:]
+    config['res']['timeslice'][0] = args['year'] + config['res']['timeslice'][0][4:]
+    config['res']['timeslice'][1] = args['year'] + config['res']['timeslice'][1][4:]
 
+    config['res']['spatial_resolution'] = args['sr']
+    config['res']['strategy'] = args['strategy']
+
+    # Get list of techs
     techs = []
     if config["res"]["include"]:
         techs += config["res"]["techs"].copy()
@@ -67,19 +77,14 @@ if __name__ == '__main__':
         techs += ["ror"]
     if "sto" in config["techs"]:
         techs += ["sto"]
-    tech_config = get_config_dict(techs)
 
     # Parameters
     tech_info = pd.read_excel(join(tech_dir, 'tech_info.xlsx'), sheet_name='values', index_col=0)
     fuel_info = pd.read_excel(join(tech_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
 
-    # Compute and save results
-    if not isdir(output_dir):
-        makedirs(output_dir)
-
     # Save config and parameters files
     yaml.dump(config, open(f"{output_dir}config.yaml", 'w'), sort_keys=False)
-    yaml.dump(tech_config, open(f"{output_dir}tech_config.yaml", 'w'), sort_keys=False)
+    yaml.dump(get_config_dict(techs), open(f"{output_dir}tech_config.yaml", 'w'), sort_keys=False)
     tech_info.to_csv(f"{output_dir}tech_info.csv")
     fuel_info.to_csv(f"{output_dir}fuel_info.csv")
 
@@ -95,8 +100,14 @@ if __name__ == '__main__':
     override_comp_attrs["Generator"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
     override_comp_attrs["StorageUnit"].loc["x"] = ["float", np.nan, np.nan, "x in position (x;y)", "Input (optional)"]
     override_comp_attrs["StorageUnit"].loc["y"] = ["float", np.nan, np.nan, "y in position (x;y)", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["capital_cost_e"] = \
+        ["float", np.nan, np.nan, "Energy-related capital cost", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["marginal_cost_e"] = \
+        ["float", np.nan, np.nan, "Energy-related marginal cost", "Input (optional)"]
+    override_comp_attrs["StorageUnit"].loc["ctd_ratio"] = \
+        ["float", np.nan, np.nan, "Charge-to-discharge rated power ratio", "Input (optional)"]
 
-    net = pypsa.Network(name="TYNDP2018 network", override_component_attrs=override_comp_attrs)
+    net = pypsa.Network(name="PowerTech network", override_component_attrs=override_comp_attrs)
     net.config = config
     net.set_snapshots(timestamps)
 
@@ -107,44 +118,19 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
-    net = get_topology(net, countries, extension_multiplier=2.0, plot=False)
+    net = get_topology(net, countries, p_nom_extendable=True,
+                       extension_multiplier=config['techs']['transmission']['multiplier'])
 
     # Adding load
     logger.info("Adding load.")
     load = get_load(timestamps=timestamps, countries=countries, missing_data='interpolate')
-    load_indexes = "Load " + net.buses.index
+    load_indexes = "Load " + pd.Index(countries)
     loads = pd.DataFrame(load.values, index=net.snapshots, columns=load_indexes)
-    net.madd("Load", load_indexes, bus=net.buses.index, p_set=loads)
+    net.madd("Load", load_indexes, bus=countries, p_set=loads)
 
     if config["functionalities"]["load_shed"]["include"]:
         logger.info("Adding load shedding generators.")
         net = add_load_shedding(net, loads)
-
-    # Adding pv and wind generators
-    if config['res']['include']:
-        for strategy, technologies in config['res']['strategies'].items():
-            # If no technology is associated to this strategy, continue
-            if not len(technologies):
-                continue
-
-            logger.info(f"Adding RES {technologies} generation with strategy {strategy}.")
-
-            if strategy == "from_files":
-                net = add_res_from_file(net, technologies,
-                                        config['res']['sites_dir'], config['res']['sites_fn'],
-                                        config['res']['spatial_resolution'],
-                                        tech_config)
-            elif strategy == "bus":
-                net = add_res_per_bus(net, technologies, config["res"]["use_ex_cap"])
-            elif strategy == "no_siting":
-                net = add_res_in_grid_cells(net, technologies,
-                                            config["region"], config["res"]["spatial_resolution"],
-                                            config["res"]["use_ex_cap"], config["res"]["limit_max_cap"],
-                                            config["res"]["min_cap_pot"])
-            elif strategy == 'siting':
-                net = add_res(net, technologies, config["region"], config['res'],
-                              config['res']['use_ex_cap'], config['res']['limit_max_cap'],
-                              output_dir=f"{output_dir}resite/")
 
     # Add conventional gen
     if 'dispatch' in config["techs"]:
@@ -175,12 +161,11 @@ if __name__ == '__main__':
             net = add_batteries(net, tech_type, countries,
                                 fixed_duration=config["techs"]["battery"]["fixed_duration"])
 
-    if config["pyomo"]:
-        from network.globals.functionalities \
-            import add_extra_functionalities as add_funcs
-    else:
-        from network.globals.functionalities_nopyomo \
-            import add_extra_functionalities as add_funcs
+    # Adding RES generators
+    if config['res']['include']:
+        assert config["res"]["strategy"] in ["siting", "nositing"], \
+            f"RES deployment strategies restricted to 'siting' and 'nositing'"
+        net = add_res_generators(net, config, output_dir)
 
     downsampling_rate = config['time']['downsampling']
     if not downsampling_rate == 1:

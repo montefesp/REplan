@@ -1,0 +1,97 @@
+# model
+keep_lp: False
+# formulation
+pyomo: False
+
+# solver
+solver: 'gurobi'
+solver_options:
+  # gurobi
+  Threads: 0
+  Method: 2
+  BarHomogeneous: 1
+  Crossover: 0
+  BarConvTol: 1.0e-5
+  FeasibilityTol: 1.0e-6
+  AggFill: 0
+  PreDual: 0
+  GURO_PAR_BARDENSETHRESH: 200
+
+# Time
+time:
+  slice: ['2018-01-01T00:00', '2018-12-31T23:00']
+  resolution: 1
+  downsampling: 1
+
+# Space
+region: "EU"
+
+# RES
+res:
+  include: True
+  # Give which technology should be installed using each strategy
+  techs: ['wind_onshore_national', 'wind_offshore_national', 'pv_utility_national', 'pv_residential_national']
+  strategy: 'siting'
+
+  min_cap_pot: [0.01, 0.01, 0.01, 0.01]
+  min_cap_if_selected: 1.0e-3
+
+  # For strategy = siting or no siting
+  # Various data layers to be taken into account in potential site selection.
+  spatial_resolution: 1.0
+  timeslice: ['2018-01-01T00:00', '2018-12-31T23:00']
+  use_ex_cap: True
+  limit_max_cap: True
+
+  # For strategy = siting
+  # Type of problem to be solved. Check resite for a full list.
+  modelling: 'gurobipy' # Choice of modelling language.
+  formulation: 'min_cost_regional'
+  formulation_params:
+    time_resolution: 'day'
+    multiplier_per_region: 0.
+  write_lp: False
+  write_log: False
+  # Keeping files at the end of the run.
+  keep_files: True
+
+techs:
+  dispatch:
+    types: ["ocgt", "ccgt", "ccgt_ccs"]
+
+  nuclear:
+    use_ex_cap: True # Whether to include existing cap
+    extendable: False
+
+  battery:
+    types: ["Li-ion"]
+    fixed_duration: False
+
+  phs:
+    use_ex_cap: True
+    extendable: False
+    cyclic_sof: True
+
+  ror:
+    use_ex_cap: True
+    extendable: False
+
+  sto:
+    use_ex_cap: True
+    extendable: False
+    cyclic_sof: True
+
+  transmission:
+    multiplier: 2
+
+functionalities:
+  prm:
+    include: True
+    PRM: 0.20
+  load_shed:
+    include: True
+  co2_emissions:
+    include: True
+    strategy: 'global' # country, global
+    reference_year: 1990 # Flat reference across all countries for now.
+    mitigation_factor: 0.95
