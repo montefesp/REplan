@@ -19,12 +19,12 @@ solver_options:
 
 # Time
 time:
-  slice: ['2018-01-01T00:00', '2018-12-31T23:00']
+  slice: ['2016-01-01T00:00', '2016-12-31T23:00']
   resolution: 1
   downsampling: 1
 
 # Space
-region: "EU"
+region: "EU_BK"
 
 # RES
 res:
@@ -39,8 +39,8 @@ res:
   # For strategy = siting or no siting
   # Various data layers to be taken into account in potential site selection.
   spatial_resolution: 1.0
-  timeslice: ['2018-01-01T00:00', '2018-12-31T23:00']
-  use_ex_cap: True
+  timeslice: ['2016-01-01T00:00', '2016-12-31T23:00']
+  use_ex_cap: False
   limit_max_cap: True
 
   # For strategy = siting
@@ -57,7 +57,7 @@ res:
 
 techs:
   dispatch:
-    types: ["ocgt", "ccgt", "ccgt_ccs"]
+    types: ["ccgt"]
 
   nuclear:
     use_ex_cap: True # Whether to include existing cap
@@ -65,7 +65,7 @@ techs:
 
   battery:
     types: ["Li-ion"]
-    fixed_duration: False
+    fixed_duration: True
 
   phs:
     use_ex_cap: True
@@ -86,12 +86,12 @@ techs:
 
 functionalities:
   prm:
-    include: True
-    PRM: 0.20
+    include: False
+    PRM: 0.2
   load_shed:
     include: True
   co2_emissions:
-    include: True
+    include: False
     strategy: 'global' # country, global
     reference_year: 1990 # Flat reference across all countries for now.
-    mitigation_factor: 0.95
+    mitigation_factor: 0.9
