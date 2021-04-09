@@ -25,21 +25,7 @@ logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
 
-def parse_args():
-
-    parser = argparse.ArgumentParser(description='Command line arguments.')
-
-    parser.add_argument('--year', type=str)
-    parser.add_argument('--sr', type=float)
-    parser.add_argument('--strategy', type=str)
-     
-    parsed_args = vars(parser.parse_args())
-  
-    return parsed_args
-
 if __name__ == '__main__':
-
-    args = parse_args()
 
     # Main directories
     data_dir = f"{data_path}"
@@ -52,14 +38,6 @@ if __name__ == '__main__':
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
-
-    config['time']['slice'][0] = args['year'] + config['time']['slice'][0][4:]
-    config['time']['slice'][1] = args['year'] + config['time']['slice'][1][4:]
-    config['res']['timeslice'][0] = args['year'] + config['res']['timeslice'][0][4:]
-    config['res']['timeslice'][1] = args['year'] + config['res']['timeslice'][1][4:]
-
-    config['res']['spatial_resolution'] = args['sr']
-    config['res']['strategy'] = args['strategy']
 
     # Get list of techs
     techs = []
