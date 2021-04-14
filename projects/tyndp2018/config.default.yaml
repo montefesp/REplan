@@ -1,117 +1,80 @@
 # model
 keep_lp: False
+pyomo: False
 
 # solver
 solver: 'gurobi'
 solver_options:
-  gurobi:
-    Threads: 0
-    Method: 2
-    BarHomogeneous: 1
-    Crossover: 0
-    BarConvTol: 1e-8
-  cplex:
-    threads: 0
-    lpmethod: 1
-    solutiontype: 2
-    barrier convergetol: 1e-8
-
-  cbc: 0
+  Threads: 0
+  Method: 2
+  BarHomogeneous: 1
+  Crossover: 0
+  BarConvTol: 1.0e-05
+  FeasibilityTol: 1.0e-06
+  AggFill: 0
+  PreDual: 0
+  GURO_PAR_BARDENSETHRESH: 200
 
 # Time
-# Start time and end time for slicing the database.
 time:
-  slice: ['2016-01-01T00:00', '2016-01-01T04:00']
+  slice: ['2018-01-01T00:00', '2018-01-31T23:00']
   resolution: 1
+  downsampling: 3
 
 # Space
-region: "BENELUX"
+region: "EU"
 
 # RES
 res:
   include: True
   # Give which technology should be installed using each strategy
-  techs: ['pv_residential_national', 'wind_offshore_national']
+  techs: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
   strategies:
-    no_siting: []
-    siting: []
-    # bus: []
+    from_file: ['wind_onshore']
+    bus: ['wind_offshore', 'pv_utility', 'pv_residential']
 
-  min_cap_pot: [0]
+  min_cap_pot: [0., 0., 0., 0.]
 
-  # For strategy = siting or no siting
-  # Various data layers to be taken into account in potential site selection.
-  spatial_resolution: 1.0
-  timeslice: ['2016-01-01T00:00', '2016-01-01T04:00']
+  sites_dir: 5y_n139_k1_c14_MIRSA_seed3
+  sites_fn: comp_site_data.p
   use_ex_cap: True
-  limit_max_cap: True
-  min_cap_if_selected: 1.0e-3
+  spatial_resolution: 0.28
 
-  # For strategy = siting
-  modelling: 'pyomo' # Choice of modelling language. Available: 'gurobipy', 'docplex' and 'pyomo'
-  solver: 'gurobi' # Choice of solver. Available: 'gurobi', 'cplex' and 'cbc'
-  solver_options:
-    Threads: 0
-    Method: 2
-    BarHomogeneous: 1
-    Crossover: 0
-    BarConvTol: 1e-8
-  write_lp: False
-  write_log: False
-  # Type of problem to be solved. Check resite for a full list.
-  formulation: 'meet_RES_targets'
-  formulation_params:
-    perc_per_region: [0.32]
-    time_resolution: 'hour'
   # Keeping files at the end of the run.
   keep_files: True
 
-# Conventional generation
-dispatch:
-  include: True
-  tech: "ccgt"
+techs:
+  dispatch:
+    types: ["ocgt", "ccgt"]
 
-# Nuclear
-nuclear:
-  include: False
-  use_ex_cap: True # Whether to include existing cap
-  extendable: False
+  nuclear:
+    use_ex_cap: True # Whether to include existing cap
+    extendable: False
 
-# Battery
-battery:
-  include: True
-  type: "Li-ion"
+  battery:
+    types: ["Li-ion"]
+    fixed_duration: True
 
-# Hydro
-phs:
-  include: True
-  use_ex_cap: True
-  extendable: False
-  cyclic_sof: True
+  phs:
+    use_ex_cap: False
+    extendable: False
+    cyclic_sof: True
 
-ror:
-  include: True
-  use_ex_cap: True
-  extendable: False
+  ror:
+    use_ex_cap: False
+    extendable: False
 
-sto:
-  include: True
-  use_ex_cap: True
-  extendable: False
-  cyclic_sof: True
+  sto:
+    use_ex_cap: False
+    extendable: False
+    cyclic_sof: True
+
+  transmission:
+    multiplier: 10.
 
 functionalities:
-  snsp:
-    include: False
-    share: 0.65
-  curtailment:
-    include: False
-    strategy: ['economic', 10.] # ['technical', 0.], ['technical', 1.], ['economic', 0.], ['economic', 9999.]
   load_shed:
-    include: False
-  import_limit:
-    include: False
-    share: 0.5
+    include: True
   co2_emissions:
     include: True
     strategy: 'global' # country, global

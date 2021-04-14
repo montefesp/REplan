@@ -1,6 +1,6 @@
 from os.path import join
 import pickle
-from typing import List, Dict, Any
+from typing import List
 
 import pandas as pd
 
@@ -9,13 +9,11 @@ import pypsa
 from iepy import data_path
 
 from iepy.geographics import match_points_to_regions, get_area_per_site, match_points_to_countries
-from iepy.generation.vres.legacy import get_legacy_capacity_in_regions, get_legacy_capacity_in_countries
-# from iepy.potentials import get_capacity_potential_at_points
+from iepy.generation.vres.legacy import get_legacy_capacity_at_points, get_legacy_capacity_in_countries
 from iepy.generation.vres.potentials.enspreso import get_capacity_potential_for_countries,\
     get_capacity_potential_for_regions
-from iepy.generation.vres.potentials.glaes import get_capacity_potential_for_shapes
 from iepy.generation.vres.profiles import compute_capacity_factors, get_cap_factor_for_countries
-from iepy.technologies import get_costs, get_config_values, get_config_dict
+from iepy.technologies import get_costs, get_config_dict
 
 
 import logging
@@ -23,7 +21,7 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %
 logger = logging.getLogger()
 
 
-def add_generators_from_file(net: pypsa.Network, technologies: List[str],
+def add_generators_from_file(net: pypsa.Network, technologies: List[str], use_ex_cap: bool,
                              sites_dir: str, sites_fn: str, spatial_resolution: float,
                              tech_config: dict) -> pypsa.Network:
     """
@@ -35,6 +33,8 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str],
         A Network instance with regions
     technologies: List[str]
         Which technologies we want to add
+    use_ex_cap: bool
+        Whether to use legacy capacity or not.
     sites_dir: str
         Relative to directory where sites files are kept.
     sites_fn: str
@@ -92,11 +92,21 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str],
         points_capacity_potential = \
             [bus_capacity_potential_per_km[points_bus_ds[point]] *
              get_area_per_site(point, spatial_resolution) / 1e3 for point in points]
+        points_capacity_potential_ds = pd.Series(data=points_capacity_potential,
+                                                 index=pd.MultiIndex.from_tuples(points)).round(3)
 
         # Get capacity factors
-        cap_factor_series = tech_points_cap_factor_df.loc[net.snapshots][tech][points].values
+        cap_factor_series = tech_points_cap_factor_df.loc[net.snapshots][tech][points]
 
-        # TODO: add here capacity credit computation (pd.concat on axis=0 on existing df, add df to net at the end)
+        # Compute legacy capacity
+        legacy_cap_ds = pd.Series(0., index=points, dtype=float)
+        if use_ex_cap and tech != "wind_floating":
+            legacy_cap_ds = get_legacy_capacity_at_points(tech, points)
+
+        # Update capacity potentials if legacy capacity is bigger
+        for p in points_capacity_potential_ds.index:
+            if points_capacity_potential_ds.loc[p] < legacy_cap_ds.loc[p]:
+                points_capacity_potential_ds.loc[p] = legacy_cap_ds.loc[p]
 
         capital_cost, marginal_cost = get_costs(tech, len(net.snapshots))
 
@@ -104,197 +114,10 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str],
                  pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
                  bus=points_bus_ds.values,
                  p_nom_extendable=True,
-                 p_nom_max=points_capacity_potential,
+                 p_nom_max=points_capacity_potential_ds.values,
+                 p_nom_min=legacy_cap_ds.values,
                  p_min_pu=0.,
-                 p_max_pu=cap_factor_series,
-                 type=tech,
-                 x=[x for x, _ in points],
-                 y=[y for _, y in points],
-                 marginal_cost=marginal_cost,
-                 capital_cost=capital_cost)
-
-    return net
-
-
-def add_generators_using_siting(net: pypsa.Network, technologies: List[str],
-                                region: str, siting_params: Dict[str, Any],
-                                use_ex_cap: bool = True, limit_max_cap: bool = True,
-                                output_dir: str = None) -> pypsa.Network:
-    """
-    Add generators for different technologies at a series of location selected via an optimization mechanism.
-
-    Parameters
-    ----------
-    net: pypsa.Network
-        A network with defined buses.
-    technologies: List[str]
-        Which technologies to add using this methodology
-    siting_params: Dict[str, Any]
-        Set of parameters necessary for siting.
-    region: str
-        Region over which the network is defined
-    use_ex_cap: bool (default: True)
-        Whether to take into account existing capacity.
-    limit_max_cap: bool (default: True)
-        Whether to limit capacity expansion at each grid cell to a certain capacity potential.
-    output_dir: str
-        Absolute path to directory where resite output should be stored
-
-    Returns
-    -------
-    net: pypsa.Network
-        Updated network
-
-    Notes
-    -----
-    net.buses must have a 'region_onshore' if adding onshore technologies and a 'region_offshore' attribute
-    if adding offshore technologies.
-    """
-
-    for param in ["timeslice", "spatial_resolution", "modelling", "formulation", "formulation_params", "write_lp"]:
-        assert param in siting_params, f"Error: Missing parameter {param} for siting."
-
-    from resite.resite import Resite
-
-    logger.info('Setting up resite.')
-    resite = Resite([region], technologies, siting_params["timeslice"], siting_params["spatial_resolution"],
-                    siting_params["min_cap_if_selected"])
-    resite.build_data(use_ex_cap)
-
-    logger.info('resite model being built.')
-    resite.build_model(siting_params["modelling"], siting_params['formulation'], siting_params['formulation_params'],
-                       siting_params['write_lp'], output_dir)
-
-    logger.info('Sending resite to solver.')
-    resite.solve_model(solver_options=siting_params['solver_options'], solver=siting_params['solver'])
-
-    logger.info('Retrieving resite results.')
-    resite.retrieve_selected_sites_data()
-    tech_location_dict = resite.sel_tech_points_dict
-    existing_cap_ds = resite.sel_data_dict["existing_cap_ds"]
-    cap_potential_ds = resite.sel_data_dict["cap_potential_ds"]
-    cap_factor_df = resite.sel_data_dict["cap_factor_df"]
-
-    logger.info("Saving resite results")
-    resite.save(output_dir)
-
-    if not resite.timestamps.equals(net.snapshots):
-        # If network snapshots is a subset of resite snapshots just crop the data
-        missing_timestamps = set(net.snapshots) - set(resite.timestamps)
-        if not missing_timestamps:
-            cap_factor_df = cap_factor_df.loc[net.snapshots]
-        else:
-            # In other case, need to recompute capacity factors
-            raise NotImplementedError("Error: Network snapshots must currently be a subset of resite snapshots.")
-
-    for tech, points in tech_location_dict.items():
-
-        onshore_tech = get_config_values(tech, ['onshore'])
-
-        # Associate sites to buses (using the associated shapes)
-        buses = net.buses.copy()
-        region_type = 'onshore_region' if onshore_tech else 'offshore_region'
-        buses = buses.dropna(subset=[region_type])
-        associated_buses = match_points_to_regions(points, buses[region_type]).dropna()
-        points = list(associated_buses.index)
-
-        p_nom_max = 'inf'
-        if limit_max_cap:
-            p_nom_max = cap_potential_ds[tech][points].values
-        p_nom = existing_cap_ds[tech][points].values
-        p_max_pu = cap_factor_df[tech][points].values
-
-        capital_cost, marginal_cost = get_costs(tech, len(net.snapshots))
-
-        net.madd("Generator",
-                 pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
-                 bus=associated_buses.values,
-                 p_nom_extendable=True,
-                 p_nom_max=p_nom_max,
-                 p_nom=p_nom,
-                 p_nom_min=p_nom,
-                 p_min_pu=0.,
-                 p_max_pu=p_max_pu,
-                 type=tech,
-                 x=[x for x, _ in points],
-                 y=[y for _, y in points],
-                 marginal_cost=marginal_cost,
-                 capital_cost=capital_cost)
-
-    return net
-
-
-def add_generators_in_grid_cells(net: pypsa.Network, technologies: List[str],
-                                 region: str, spatial_resolution: float,
-                                 use_ex_cap: bool = True, limit_max_cap: bool = True,
-                                 min_cap_pot: List[float] = None) -> pypsa.Network:
-    """
-    Create VRES generators in every grid cells obtained from dividing a certain number of regions.
-
-    Parameters
-    ----------
-    net: pypsa.Network
-        A PyPSA Network instance with buses associated to regions
-    technologies: List[str]
-        Which technologies to add.
-    region: str
-        Region code defined in 'data_path'/geographics/region_definition.csv over which the network is defined.
-    spatial_resolution: float
-        Spatial resolution at which to define grid cells.
-    use_ex_cap: bool (default: True)
-        Whether to take into account existing capacity.
-    limit_max_cap: bool (default: True)
-        Whether to limit capacity expansion at each grid cell to a certain capacity potential.
-    min_cap_pot: List[float] (default: None)
-        List of thresholds per technology. Points with capacity potential under this threshold will be removed.
-
-
-    Returns
-    -------
-    net: pypsa.Network
-        Updated network
-
-    Notes
-    -----
-    net.buses must have a 'region_onshore' if adding onshore technologies and a 'region_offshore' attribute
-    if adding offshore technologies.
-    """
-
-    from resite.resite import Resite
-
-    # Generate deployment sites using resite
-    resite = Resite([region], technologies, [net.snapshots[0], net.snapshots[-1]], spatial_resolution)
-    resite.build_data(use_ex_cap, min_cap_pot)
-
-    for tech in technologies:
-
-        points = resite.tech_points_dict[tech]
-        onshore_tech = get_config_values(tech, ['onshore'])
-
-        # Associate sites to buses (using the associated shapes)
-        buses = net.buses.copy()
-        region_type = 'onshore_region' if onshore_tech else 'offshore_region'
-        buses = buses.dropna(subset=[region_type])
-        associated_buses = match_points_to_regions(points, buses[region_type]).dropna()
-        points = list(associated_buses.index)
-
-        p_nom_max = 'inf'
-        if limit_max_cap:
-            p_nom_max = resite.data_dict["cap_potential_ds"][tech][points].values
-        p_nom = resite.data_dict["existing_cap_ds"][tech][points].values
-        p_max_pu = resite.data_dict["cap_factor_df"][tech][points].values
-
-        capital_cost, marginal_cost = get_costs(tech, len(net.snapshots))
-
-        net.madd("Generator",
-                 pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
-                 bus=associated_buses.values,
-                 p_nom_extendable=True,
-                 p_nom_max=p_nom_max,
-                 p_nom=p_nom,
-                 p_nom_min=p_nom,
-                 p_min_pu=0.,
-                 p_max_pu=p_max_pu,
+                 p_max_pu=cap_factor_series.values,
                  type=tech,
                  x=[x for x, _ in points],
                  y=[y for _, y in points],
@@ -305,7 +128,7 @@ def add_generators_in_grid_cells(net: pypsa.Network, technologies: List[str],
 
 
 def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
-                               use_ex_cap: bool = True, bus_ids: List[str] = None) -> pypsa.Network:
+                           use_ex_cap: bool = True, bus_ids: List[str] = None) -> pypsa.Network:
     """
     Add VRES generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
 
@@ -335,7 +158,6 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
     """
 
     # Filter out buses
-    # TODO: to be tested
     all_buses = net.buses.copy()
     all_buses = all_buses[all_buses['country'].notna()]
     if bus_ids is not None:
@@ -370,23 +192,14 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
         buses_regions_shapes_ds = buses[region_type]
 
         # Compute capacity potential at each bus
-        # TODO: WARNING: first part of if-else to be removed
-        enspreso = True
-        if enspreso:
-            logger.warning("Capacity potentials computed using ENSPRESO data.")
-            if one_bus_per_country:
-                cap_pot_country_ds = get_capacity_potential_for_countries(tech, countries)
-                cap_pot_ds = pd.Series(index=buses.index)
-                cap_pot_ds[:] = cap_pot_country_ds.loc[buses.country]
-            else:  # topology_type == "regions"
-                cap_pot_ds = get_capacity_potential_for_regions({tech: buses_regions_shapes_ds.values})[tech]
-                cap_pot_ds.index = buses.index
-        else:
-            # Using GLAES
-            filters = tech_config_dict[tech]["filters"]
-            power_density = tech_config_dict[tech]["power_density"]
+        logger.warning(f"Capacity potentials of {tech} computed using ENSPRESO data.")
+        if one_bus_per_country:
+            cap_pot_country_ds = get_capacity_potential_for_countries(tech, countries)
             cap_pot_ds = pd.Series(index=buses.index)
-            cap_pot_ds[:] = get_capacity_potential_for_shapes(buses_regions_shapes_ds.values, filters, power_density)
+            cap_pot_ds[:] = cap_pot_country_ds.loc[buses.country]
+        else:  # topology_type == "regions"
+            cap_pot_ds = get_capacity_potential_for_regions({tech: buses_regions_shapes_ds.values})[tech]
+            cap_pot_ds.index = buses.index
 
         # Get one capacity factor time series per bus
         if one_bus_per_country:
@@ -403,16 +216,11 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
             cap_factor_df = compute_capacity_factors({tech: points}, spatial_res, net.snapshots)[tech]
             cap_factor_df.columns = buses.index
 
-        # TODO: add here capacity credit computation (pd.concat on axis=0 on existing df)
-
         # Compute legacy capacity (not available for wind_floating)
         legacy_cap_ds = pd.Series(0., index=buses.index)
         if use_ex_cap and tech != "wind_floating":
-            if one_bus_per_country and len(countries) != 0:
-                legacy_cap_countries = get_legacy_capacity_in_countries(tech, countries)
-                legacy_cap_ds[:] = legacy_cap_countries.loc[buses.country]
-            else:
-                legacy_cap_ds = get_legacy_capacity_in_regions(tech, buses_regions_shapes_ds, countries)
+            legacy_cap_countries = get_legacy_capacity_in_countries(tech, countries)
+            legacy_cap_ds[:] = legacy_cap_countries.loc[buses.country]
 
         # Update capacity potentials if legacy capacity is bigger
         for bus in buses.index:

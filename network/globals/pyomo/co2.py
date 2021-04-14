@@ -30,7 +30,8 @@ def add_co2_budget_per_country(net: pypsa.Network,
     def generation_emissions_per_bus_rule(model, bus):
 
         bus_emission_reference = get_co2_emission_level_for_country(bus, refyear)
-        bus_emission_target = (1-reduction_share_per_country[bus]) * bus_emission_reference * len(net.snapshots) / 8760.
+        bus_emission_target = \
+            (1-reduction_share_per_country[bus]) * bus_emission_reference * len(net.snapshots) / 8760. * net.config['time']['downsampling']
 
         bus_gens = net.generators[(net.generators.carrier.astype(bool)) & (net.generators.bus == bus)]
 
@@ -72,7 +73,7 @@ def add_co2_budget_global(network: pypsa.Network, region: str, co2_reduction_sha
     model = network.model
 
     co2_reference_kt = get_reference_emission_levels_for_region(region, co2_reduction_refyear)
-    co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(network.snapshots) / 8760.
+    co2_budget = co2_reference_kt * (1 - co2_reduction_share) * len(network.snapshots) / 8760. * network.config['time']['downsampling']
 
     # Drop rows (gens) without an associated carrier (i.e., technologies not emitting)
     gens = network.generators[network.generators.carrier.astype(bool)]

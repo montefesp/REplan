@@ -1,0 +1,82 @@
+# model
+keep_lp: False
+pyomo: False
+
+# solver
+solver: 'gurobi'
+solver_options:
+  Threads: 0
+  Method: 2
+  BarHomogeneous: 1
+  Crossover: 0
+  BarConvTol: 1.0e-05
+  FeasibilityTol: 1.0e-06
+  AggFill: 0
+  PreDual: 0
+  GURO_PAR_BARDENSETHRESH: 200
+
+# Time
+time:
+  slice: ['2018-01-01T00:00', '2018-01-31T23:00']
+  resolution: 1
+  downsampling: 3
+
+# Space
+region: "EU"
+
+# RES
+res:
+  include: True
+  # Give which technology should be installed using each strategy
+  techs: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+  strategies:
+    from_file: ['wind_onshore']
+    bus: ['wind_offshore', 'pv_utility', 'pv_residential']
+
+  min_cap_pot: [0., 0., 0., 0.]
+
+  sites_dir: 5y_n139_k1_c14_MIRSA_seed3
+  sites_fn: comp_site_data.p
+  use_ex_cap: True
+  spatial_resolution: 0.28
+
+  # Keeping files at the end of the run.
+  keep_files: True
+
+techs:
+  dispatch:
+    types: ["ccgt"]
+
+  nuclear:
+    use_ex_cap: True # Whether to include existing cap
+    extendable: False
+
+  battery:
+    types: ["Li-ion"]
+    fixed_duration: True
+
+  phs:
+    use_ex_cap: False
+    extendable: False
+    cyclic_sof: True
+
+  ror:
+    use_ex_cap: False
+    extendable: False
+
+  sto:
+    use_ex_cap: False
+    extendable: False
+    cyclic_sof: True
+
+  transmission:
+    multiplier: 10.
+
+functionalities:
+  load_shed:
+    include: True
+  co2_emissions:
+    include: True
+    strategy: 'global' # country, global
+    reference_year: 1990 # Flat reference across all countries for now.
+    mitigation_factor: 0.9

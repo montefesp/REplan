@@ -8,9 +8,11 @@ import argparse
 from iepy.topologies.tyndp2018 import get_topology
 from iepy.technologies import get_config_dict
 from iepy.load import get_load
+from iepy.geographics import get_subregions
 from network import *
 from postprocessing.results_display import *
 from projects.tyndp2018.utils import timeseries_downsampling
+from network.globals.functionalities import add_extra_functionalities as add_funcs
 
 from iepy import data_path
 
@@ -20,6 +22,7 @@ logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime
 logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
+
 
 def parse_args():
 
@@ -42,7 +45,7 @@ if __name__ == '__main__':
     # Main directories
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
-    output_dir = f"{data_path}../output/APPLEN/{strftime('%Y%m%d_%H%M%S')}/"
+    output_dir = f"{data_path}../output/BOOK/{strftime('%Y%m%d_%H%M%S')}/"
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -107,7 +110,7 @@ if __name__ == '__main__':
     # Loading topology
     logger.info("Loading topology.")
     countries = get_subregions(config["region"])
-    net = get_topology(net, countries, extension_multiplier=2.0, plot=False)
+    net = get_topology(net, countries, extension_multiplier=config['techs']['transmission']['multiplier'])
 
     # Adding load
     logger.info("Adding load.")
@@ -136,15 +139,6 @@ if __name__ == '__main__':
                                         tech_config)
             elif strategy == "bus":
                 net = add_res_per_bus(net, technologies, config["res"]["use_ex_cap"])
-            elif strategy == "no_siting":
-                net = add_res_in_grid_cells(net, technologies,
-                                            config["region"], config["res"]["spatial_resolution"],
-                                            config["res"]["use_ex_cap"], config["res"]["limit_max_cap"],
-                                            config["res"]["min_cap_pot"])
-            elif strategy == 'siting':
-                net = add_res(net, technologies, config["region"], config['res'],
-                              config['res']['use_ex_cap'], config['res']['limit_max_cap'],
-                              output_dir=f"{output_dir}resite/")
 
     # Add conventional gen
     if 'dispatch' in config["techs"]:
@@ -174,13 +168,6 @@ if __name__ == '__main__':
         for tech_type in config["techs"]["battery"]["types"]:
             net = add_batteries(net, tech_type, countries,
                                 fixed_duration=config["techs"]["battery"]["fixed_duration"])
-
-    if config["pyomo"]:
-        from network.globals.functionalities \
-            import add_extra_functionalities as add_funcs
-    else:
-        from network.globals.functionalities_nopyomo \
-            import add_extra_functionalities as add_funcs
 
     downsampling_rate = config['time']['downsampling']
     if not downsampling_rate == 1:
