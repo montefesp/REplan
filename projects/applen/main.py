@@ -32,6 +32,7 @@ def parse_args():
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=0)
     parser.add_argument('-ys', '--year_start', type=str, help='Start year')
     parser.add_argument('-ye', '--year_end', type=str, help='End year')
+    parser.add_argument('-ocm', '--offshore_cost_multiplier', type=float, help='CAPEX multiplier', default=None)
 
     parsed_args = vars(parser.parse_args())
 
@@ -182,6 +183,10 @@ if __name__ == '__main__':
         timestamps_reduced = pd.date_range(timeslice[0], timeslice[1], freq=f"{downsampling_rate}H")
         net.snapshots = timestamps_reduced
         net.snapshot_weightings = pd.Series(downsampling_rate, index=timestamps_reduced)
+
+    if args["offshore_cost_multiplier"] is not None:
+        gens = net.generators[net.generators.type.str.startswith("wind_offshore")].index
+        net.generators.loc[gens, "capital_cost"] *= args["offshore_cost_multiplier"]
 
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",
