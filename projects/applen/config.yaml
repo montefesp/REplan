@@ -7,6 +7,7 @@ pyomo: False
 solver: 'gurobi'
 solver_options:
   # gurobi
+  LogToConsole: 0
   Threads: 0
   Method: 2
   BarHomogeneous: 1
@@ -55,7 +56,7 @@ techs:
 
   battery:
     types: ["Li-ion"]
-    fixed_duration: True
+    fixed_duration: False
 
   phs:
     use_ex_cap: True

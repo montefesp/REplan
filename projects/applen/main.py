@@ -3,6 +3,7 @@ from os import makedirs
 from time import strftime
 
 import yaml
+import pickle
 import argparse
 
 from iepy.topologies.tyndp2018 import get_topology
@@ -18,7 +19,7 @@ from iepy import data_path
 
 import logging
 logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
-# logging.disable(logging.CRITICAL)
+logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
@@ -47,7 +48,11 @@ if __name__ == '__main__':
     # Main directories
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
-    output_dir = f"{data_path}../output/APPLEN/{strftime('%Y%m%d_%H%M%S')}/"
+    if 'PROD' in args['folder_name']:
+        output_dir = f"{data_path}../output/APPLEN/k19_PROD_{args['year_start']}/"
+    else:
+        s = args['folder_name']
+        output_dir = f"{data_path}../output/APPLEN/{s.split('_')[2]}_{'_'.join(s.split('_')[-6:])}_{s.split('_')[3]}_{args['year_start']}/"
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -127,26 +132,6 @@ if __name__ == '__main__':
         logger.info("Adding load shedding generators.")
         net = add_load_shedding(net, loads)
 
-    # Adding pv and wind generators
-    if config['res']['include']:
-        for strategy in config['res']['strategies']:
-            config_strategy = config['res']['strategies'][strategy]
-            technologies = config_strategy['which']
-
-            logger.info(f"Adding {technologies} generation with strategy {strategy}.")
-
-            if strategy == "from_files":
-                net = add_res_from_file(net, technologies,
-                                        config_strategy['use_ex_cap'],
-                                        config_strategy['sites_dir'],
-                                        config_strategy['sites_fn'],
-                                        config_strategy['spatial_resolution'],
-                                        tech_config)
-            elif strategy == "bus":
-                net = add_res_per_bus(net, technologies, config_strategy["use_ex_cap"])
-
-        net = compute_capacity_credit_ds(net, peak_sample=0.05)
-
     # Add conventional gen
     if 'dispatch' in config["techs"]:
         for tech_type in config["techs"]["dispatch"]["types"]:
@@ -176,13 +161,37 @@ if __name__ == '__main__':
             net = add_batteries(net, tech_type, countries,
                                 fixed_duration=config["techs"]["battery"]["fixed_duration"])
 
-    downsampling_rate = config['time']['downsampling']
-    if not downsampling_rate == 1:
-        logger.info("Downsampling data.")
-        timeseries_downsampling(net, downsampling_rate)
-        timestamps_reduced = pd.date_range(timeslice[0], timeslice[1], freq=f"{downsampling_rate}H")
-        net.snapshots = timestamps_reduced
-        net.snapshot_weightings = pd.Series(downsampling_rate, index=timestamps_reduced)
+    # Adding pv and wind generators
+    if config['res']['include']:
+        technologies = config['res']['strategies']['bus']['which']
+        logger.info(f"Adding {technologies} generation with strategy 'bus'.")
+        net = add_res_per_bus(net, technologies, config['res']['strategies']['bus']["use_ex_cap"])
+
+        resite_technologies = config['res']['strategies']['from_files']['which']
+        config_strategy = config['res']['strategies']['from_files']
+        logger.info(f"Adding {resite_technologies} generation with strategy 'from_files'.")
+
+        resite_data_path = f"{data_path}../../resite_ip/output/{config_strategy['sites_dir']}/"
+        resite_data_fn = join(resite_data_path, config_strategy['sites_fn'])
+        tech_points_cap_factor_df = pickle.load(open(resite_data_fn, "rb"))
+        tech_points_cap_factor_df.index = pd.to_datetime(tech_points_cap_factor_df.index)
+
+        downsampling_rate = tech_points_cap_factor_df.index.hour[1] - tech_points_cap_factor_df.index.hour[0]
+        if not downsampling_rate == 1:
+            logger.info("Downsampling data.")
+            timeseries_downsampling(net, downsampling_rate)
+            timestamps_reduced = pd.date_range(timeslice[0], timeslice[1], freq=f"{downsampling_rate}H")
+            net.snapshots = timestamps_reduced
+            net.snapshot_weightings = pd.Series(downsampling_rate, index=timestamps_reduced)
+
+        net = add_res_from_file(net, resite_technologies,
+                                config_strategy['use_ex_cap'],
+                                config_strategy['sites_dir'],
+                                config_strategy['sites_fn'],
+                                config_strategy['spatial_resolution'],
+                                tech_config)
+
+        net = compute_capacity_credit_ds(net, peak_sample=0.01)
 
     if args["offshore_cost_multiplier"] is not None:
         gens = net.generators[net.generators.type.str.startswith("wind_offshore")].index
