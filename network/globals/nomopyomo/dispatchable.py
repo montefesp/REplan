@@ -62,7 +62,7 @@ def add_planning_reserve_constraint(net: pypsa.Network, prm: float):
         Planning reserve margin.
     """
     cc_ds = net.cc_ds
-    dispatchable_technologies = ['ocgt', 'ccgt', 'ccgt_ccs', 'nuclear', 'sto', 'phs', 'Li-ion']
+    dispatchable_technologies = ['ocgt', 'ccgt', 'ccgt_ccs', 'nuclear', 'sto']
     res_technologies = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
 
     for bus in net.loads.bus:
@@ -84,11 +84,6 @@ def add_planning_reserve_constraint(net: pypsa.Network, prm: float):
                 lhs += linexpr((1., get_var(net, 'StorageUnit', 'p_nom')[sto]))
             else:
                 legacy_at_bus += stos.loc[sto].p_nom_min
-
-        stores_p = net.links[(net.links.index.str.contains('link')) &
-                             (net.links.bus0.str.contains('|'.join(dispatchable_technologies)))]
-        for sto in stores_p.index:
-            lhs += linexpr((1., get_var(net, 'Link', 'p_nom')[sto]))
 
         res_gens = net.generators[(net.generators.bus == bus) &
                                   (net.generators.type.str.contains('|'.join(res_technologies)))]

@@ -57,6 +57,11 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str], use_ex
     resite_data_fn = join(resite_data_path, sites_fn)
     tech_points_cap_factor_df = pickle.load(open(resite_data_fn, "rb"))
 
+    tech_points_cap_factor_df.index = pd.to_datetime(tech_points_cap_factor_df.index)
+    sampling_rate = tech_points_cap_factor_df.index.hour[1] - tech_points_cap_factor_df.index.hour[0]
+    if sampling_rate != 1:
+        tech_points_cap_factor_df = tech_points_cap_factor_df.reindex(net.snapshots, method='ffill')
+
     missing_timestamps = set(net.snapshots) - set(tech_points_cap_factor_df.index)
     assert not missing_timestamps, f"Error: Following timestamps are not part of capacity factors {missing_timestamps}"
 
