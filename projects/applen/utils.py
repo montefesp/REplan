@@ -86,7 +86,10 @@ def compute_capacity_credit_ds(net: pypsa.Network, peak_sample: float = 0.01):
         The top % wrt which the capacity credit is computed.
     """
 
-    res_technologies = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+    # res_technologies = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+    res_technologies = net.config['res']['strategies']['from_files']['which']
+    if net.config['res']['strategies']['bus']['extendable']:
+        res_technologies = list(set(res_technologies).union(net.config['res']['strategies']['bus']['which']))
     gens = net.generators[net.generators.type.str.contains('|'.join(res_technologies))]
     gens_t = net.generators_t.p_max_pu
 

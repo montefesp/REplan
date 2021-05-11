@@ -133,7 +133,8 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str], use_ex
 
 
 def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
-                           use_ex_cap: bool = True, bus_ids: List[str] = None) -> pypsa.Network:
+                           use_ex_cap: bool = True, extendable: bool = True,
+                           bus_ids: List[str] = None) -> pypsa.Network:
     """
     Add VRES generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
 
@@ -240,7 +241,7 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
                  buses.index,
                  suffix=f" Gen {tech}",
                  bus=buses.index,
-                 p_nom_extendable=True,
+                 p_nom_extendable=extendable,
                  p_nom=legacy_cap_ds,
                  p_nom_min=legacy_cap_ds,
                  p_nom_max=cap_pot_ds,
@@ -251,5 +252,4 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
                  y=buses.y.values,
                  marginal_cost=marginal_cost,
                  capital_cost=capital_cost)
-
     return net

@@ -48,9 +48,11 @@ if __name__ == '__main__':
     tech_dir = f"{data_path}technologies/"
     s = args['folder_name']
     if 'prod' in args['run_name']:
-        output_dir = f"{data_path}../output/APPLEN/{s.split('_')[2]}_PROD_{args['year_start']}_{args['offshore_cost_multiplier']}_{args['transmission_multiplier']}/"
+        output_dir = f"{data_path}../output/APPLEN/{s.split('_')[2]}_PROD_{args['year_start']}_" \
+                     f"ocm{args['offshore_cost_multiplier']}_tm{args['transmission_multiplier']}/"
     else:
-        output_dir = f"{data_path}../output/APPLEN/{s.split('_')[2]}_{s.split('_')[3]}_{args['year_start']}_{args['offshore_cost_multiplier']}_{args['transmission_multiplier']}/"
+        output_dir = f"{data_path}../output/APPLEN/{s.split('_')[2]}_{s.split('_')[3]}_{args['year_start']}_" \
+                     f"ocm{args['offshore_cost_multiplier']}_tm{args['transmission_multiplier']}/"
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -177,7 +179,9 @@ if __name__ == '__main__':
                                         config_strategy['spatial_resolution'],
                                         tech_config)
             elif strategy == "bus":
-                net = add_res_per_bus(net, technologies, config_strategy["use_ex_cap"])
+                net = add_res_per_bus(net, technologies,
+                                      use_ex_cap=config_strategy["use_ex_cap"],
+                                      extendable=config_strategy["extendable"])
 
         net = compute_capacity_credit_ds(net, peak_sample=0.05)
 

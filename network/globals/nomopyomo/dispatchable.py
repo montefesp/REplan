@@ -63,7 +63,10 @@ def add_planning_reserve_constraint(net: pypsa.Network, prm: float):
     """
     cc_ds = net.cc_ds
     dispatchable_technologies = ['ocgt', 'ccgt', 'ccgt_ccs', 'nuclear', 'sto']
-    res_technologies = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+    # res_technologies = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+    res_technologies = net.config['res']['strategies']['from_files']['which']
+    if net.config['res']['strategies']['bus']['extendable']:
+        res_technologies = list(set(res_technologies).union(net.config['res']['strategies']['bus']['which']))
 
     for bus in net.loads.bus:
 
