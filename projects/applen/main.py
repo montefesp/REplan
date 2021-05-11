@@ -30,7 +30,8 @@ def parse_args():
     parser.add_argument('-th', '--threads', type=int, help='Number of threads', default=0)
     parser.add_argument('-ys', '--year_start', type=str, help='Start year')
     parser.add_argument('-ye', '--year_end', type=str, help='End year')
-    parser.add_argument('-ocm', '--offshore_cost_multiplier', type=float, help='CAPEX multiplier', default=None)
+    parser.add_argument('-ocm', '--offshore_cost_multiplier', type=float, help='CAPEX multiplier', default=1.0)
+    parser.add_argument('-tm', '--transmission_multiplier', type=float, help='Transmission TYNDP multiplier', default=2.0)
 
     parsed_args = vars(parser.parse_args())
 
@@ -45,11 +46,11 @@ if __name__ == '__main__':
     # Main directories
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
-    if 'PROD' in args['folder_name']:
-        output_dir = f"{data_path}../output/APPLEN/k19_PROD_{args['year_start']}/"
+    s = args['folder_name']
+    if 'prod' in args['run_name']:
+        output_dir = f"{data_path}../output/APPLEN/{s.split('_')[2]}_PROD_{args['year_start']}_{args['offshore_cost_multiplier']}_{args['transmission_multiplier']}/"
     else:
-        s = args['folder_name']
-        output_dir = f"{data_path}../output/APPLEN/{s.split('_')[2]}_{'_'.join(s.split('_')[-6:])}_{s.split('_')[3]}_{args['year_start']}/"
+        output_dir = f"{data_path}../output/APPLEN/{s.split('_')[2]}_{s.split('_')[3]}_{args['year_start']}_{args['offshore_cost_multiplier']}_{args['transmission_multiplier']}/"
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -60,6 +61,8 @@ if __name__ == '__main__':
     config['res']['strategies']['from_files']['sites_fn'] = args['run_name']
     config['time']['slice'][0] = args['year_start'] + config['time']['slice'][0][4:]
     config['time']['slice'][1] = args['year_end'] + config['time']['slice'][1][4:]
+    config['time']['downsampling'] = int(s.split('_')[-2][0])
+    config['techs']['transmission']['multiplier'] = args['transmission_multiplier']
 
     techs = []
     if config["res"]["include"]:
