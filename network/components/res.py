@@ -119,6 +119,7 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str], use_ex
                  pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
                  bus=points_bus_ds.values,
                  p_nom_extendable=True,
+                 p_nom=legacy_cap_ds.values,
                  p_nom_max=points_capacity_potential_ds.values,
                  p_nom_min=legacy_cap_ds.values,
                  p_min_pu=0.,
