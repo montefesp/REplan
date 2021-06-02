@@ -10,6 +10,7 @@ def find_links_invariant(base_net_dir, config, main_output_dir, epsilons, links,
 
     for epsilon in epsilons:
 
+        print(epsilon)
         # Minimizing transmission
         # output_dir = f"{main_output_dir}{case_name}/min_eps{epsilon}/"
         output_dir = f"{main_output_dir}{case_name}/{epsilon}/"

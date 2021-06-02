@@ -19,16 +19,16 @@ logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime
 logger = logging.getLogger(__name__)
 
 
-def base_solve(main_output_dir, config):
+def optimal_solve(main_output_dir, config):
 
     # Main directories
     tech_dir = f"{data_path}technologies/"
-    output_dir = f"{main_output_dir}/base/"
+    output_dir = f"{main_output_dir}/optimal/"
 
     # TODO: change
     techs = config["res"]["techs"].copy()
     if config["dispatch"]["include"]:
-        techs += [config["dispatch"]["tech"]]
+        techs += config["dispatch"]["techs"]
     if config["nuclear"]["include"]:
         techs += ["nuclear"]
     if config["battery"]["include"]:
@@ -101,8 +101,8 @@ def base_solve(main_output_dir, config):
 
     # Add conventional gen
     if config["dispatch"]["include"]:
-        tech = config["dispatch"]["tech"]
-        net = add_conventional(net, tech)
+        for tech in config["dispatch"]["techs"]:
+            net = add_conventional(net, tech)
 
     # Adding nuclear
     if config["nuclear"]["include"]:

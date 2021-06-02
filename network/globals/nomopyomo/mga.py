@@ -48,12 +48,11 @@ def add_mga_constraint(net: pypsa.Network, epsilon: float):
 
 def add_mga_objective(net: pypsa.Network, sense='min'):
 
-    # Minimize transmission capacity
+    # Minimize transmission capacity (in TWkm)
     link_p_nom = get_var(net, 'Link', 'p_nom')[net.links_to_minimize]
     # TODO: not sure this is right
-    sense = 1 if sense == 'min' else -1
-    link_capacity_expr = linexpr((sense, link_p_nom)).sum()
-
+    # sense = 1 if sense == 'min' else -1
+    link_capacity_expr = linexpr((net.links.length[net.links_to_minimize], link_p_nom)).sum()
     write_objective(net, link_capacity_expr)
 
 
