@@ -53,7 +53,7 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str], use_ex
     countries = list(net.buses.country.dropna())
 
     # Load site data
-    resite_data_path = f"{data_path}../../resite_ip/output/APPLEN/{sites_dir}/"
+    resite_data_path = f"{data_path}../../resite_ip/output/{sites_dir}/"
     resite_data_fn = join(resite_data_path, sites_fn)
     tech_points_cap_factor_df = pickle.load(open(resite_data_fn, "rb"))
 

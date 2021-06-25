@@ -18,7 +18,7 @@ from iepy import data_path
 
 import logging
 logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
-# logging.disable(logging.CRITICAL)
+logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 NHoursPerYear = 8760.
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     # Main directories
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
-    output_dir = f"{data_path}../output/BOOK/{strftime('%Y%m%d_%H%M%S')}/"
+    output_dir = f"{data_path}../output/{strftime('%Y%m%d_%H%M%S')}/"
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -133,7 +133,7 @@ if __name__ == '__main__':
             logger.info(f"Adding RES {technologies} generation with strategy {strategy}.")
 
             if strategy == "from_files":
-                net = add_res_from_file(net, technologies,
+                net = add_res_from_file(net, technologies, config['res']['use_ex_cap'],
                                         config['res']['sites_dir'], config['res']['sites_fn'],
                                         config['res']['spatial_resolution'],
                                         tech_config)

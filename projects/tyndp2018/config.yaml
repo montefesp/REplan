@@ -17,9 +17,9 @@ solver_options:
 
 # Time
 time:
-  slice: ['2018-01-01T00:00', '2018-01-31T23:00']
+  slice: ['2017-01-01T00:00', '2019-12-31T23:00']
   resolution: 1
-  downsampling: 3
+  downsampling: 1
 
 # Space
 region: "EU"
@@ -30,7 +30,7 @@ res:
   # Give which technology should be installed using each strategy
   techs: ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
   strategies:
-    from_file: ['wind_onshore']
+    from_files: ['wind_onshore']
     bus: ['wind_offshore', 'pv_utility', 'pv_residential']
 
   min_cap_pot: [0., 0., 0., 0.]
