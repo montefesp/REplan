@@ -43,7 +43,7 @@ if __name__ == '__main__':
     # Minimize total sum of connections
     if 1:
         find_links_invariant(optimal_net_dir, config, output_dir, config['epsilons'],
-                         links.index, 'whole')
+                             links.index, 'whole')
 
     # Solve network again with new constraint and minimizing the sum of transmission line coming out of a country
     if 0:

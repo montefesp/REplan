@@ -153,7 +153,7 @@ def get_generators_opex(net: pypsa.Network):
     opex = dict.fromkeys(types)
 
     for tech_type in types:
-        gens_type = gens[gens.type == tech_type]
+        gens_type = gens[(gens.type == tech_type) & (gens.p_nom_opt > 0)]
         generation_per_gen = gens_t.p[gens_type.index] * gens_type.marginal_cost
         opex[tech_type] = generation_per_gen.to_numpy().sum()
 
@@ -205,12 +205,15 @@ def get_links_capacity(net: pypsa.Network, buses_to_remove: List[str] = None):
 
     init_cap_length = get_links_init_cap_length(net, buses_to_remove)
     new_cap_length = get_links_new_cap_length(net, buses_to_remove)
+    max_cap_length = get_links_max_cap_length(net, buses_to_remove)
 
     links_capacities = pd.concat([links["p_nom"].rename('init [GW]'),
                                   links["p_nom_new"].rename('new [GW]'),
                                   links["p_nom_opt"].rename('final [GW]'),
                                   init_cap_length.rename(columns={'init_cap_length': 'init [TWkm]'}),
-                                  new_cap_length.rename(columns={'new_cap_length': 'new [TWkm]'})], axis=1)
+                                  new_cap_length.rename(columns={'new_cap_length': 'new [TWkm]'}),
+                                  max_cap_length.rename(columns={'max_cap_length': 'max [TWkm]'})],
+                                 axis=1)
     return links_capacities
 
 
@@ -304,6 +307,7 @@ def get_links_length(net: pypsa.Network):
     return net.links[["carrier", "length"]].groupby(["carrier"]).sum().length
 
 
+# TODO: this is shit, should be grouped together
 def get_links_init_cap_length(net: pypsa.Network, buses_to_remove: List[str] = None):
 
     links = net.links
@@ -327,6 +331,19 @@ def get_links_new_cap_length(net: pypsa.Network, buses_to_remove: List[str] = No
 
     new_cap_length = links[["new_cap_length", "carrier"]].groupby("carrier").sum()
     return new_cap_length * 1e-3
+
+
+def get_links_max_cap_length(net: pypsa.Network, buses_to_remove: List[str] = None):
+
+    links = net.links
+    if buses_to_remove is not None:
+        links = links[~links.bus0.isin(buses_to_remove)]
+        links = links[~links.bus1.isin(buses_to_remove)]
+
+    links["max_cap_length"] = links.length * links.p_nom_max
+
+    max_cap_length = links[["max_cap_length", "carrier"]].groupby("carrier").sum()
+    return max_cap_length * 1e-3
 
 
 # --- Storage --- #

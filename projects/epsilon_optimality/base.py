@@ -8,6 +8,7 @@ from iepy.technologies import get_config_dict
 from iepy.load import get_load
 from network import *
 from network.globals.functionalities import add_extra_functionalities
+from network.globals.time import average_every_nhours
 from postprocessing.results_display import *
 
 from iepy import data_path
@@ -119,6 +120,10 @@ def optimal_solve(main_output_dir, config):
 
     if config["battery"]["include"]:
         net = add_batteries(net, config["battery"]["type"], fixed_duration=True)
+
+    # Aggregate network
+    if 'agg_resolution' in config['time']:
+        net = average_every_nhours(net, config['time']['agg_resolution'])
 
     config["solver_options"]['Crossover'] = 1
     net.config = config
