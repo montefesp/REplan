@@ -98,7 +98,8 @@ def optimal_solve(main_output_dir, config):
     # Adding pv and wind generators
     if config['res']['include']:
         technologies = config['res']['techs']
-        net = add_res_per_bus(net, technologies, config["res"]["use_ex_cap"])
+        net = add_res_per_bus(net, technologies, config["res"]["use_ex_cap"],
+                              precision=config['res']['precision'])
 
     # Add conventional gen
     if config["dispatch"]["include"]:
@@ -133,7 +134,8 @@ def optimal_solve(main_output_dir, config):
              solver_options=config["solver_options"],
              extra_functionality=add_extra_functionalities,
              keep_references=True,
-             pyomo=False)
+             pyomo=False,
+             keep_files=config['keep_lp'])
 
     net.export_to_csv_folder(output_dir)
 

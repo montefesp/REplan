@@ -208,7 +208,8 @@ def add_generators_in_grid_cells(net: pypsa.Network, technologies: List[str],
 
 
 def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
-                               use_ex_cap: bool = True, bus_ids: List[str] = None) -> pypsa.Network:
+                           use_ex_cap: bool = True, bus_ids: List[str] = None,
+                           precision: int = 3) -> pypsa.Network:
     """
     Add VRES generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
 
@@ -222,6 +223,8 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
         Whether to take into account existing capacity.
     bus_ids: List[str]
         Subset of buses to which the generators must be added.
+    precision: int (default: 3)
+        Indicates at which decimal capacity factors should be rounded
 
     Returns
     -------
@@ -288,12 +291,13 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
             filters = tech_config_dict[tech]["filters"]
             power_density = tech_config_dict[tech]["power_density"]
             cap_pot_ds = pd.Series(index=buses.index)
-            cap_pot_ds[:] = get_capacity_potential_for_shapes(buses_regions_shapes_ds.values, filters, power_density)
+            cap_pot_ds[:] = get_capacity_potential_for_shapes(buses_regions_shapes_ds.values, filters,
+                                                              power_density, precision=precision)
 
         # Get one capacity factor time series per bus
         if one_bus_per_country:
             # For country-based topologies, use aggregated series obtained from Renewables.ninja
-            cap_factor_countries_df = get_cap_factor_for_countries(tech, countries, net.snapshots, False)
+            cap_factor_countries_df = get_cap_factor_for_countries(tech, countries, net.snapshots, precision, False)
             cap_factor_df = pd.DataFrame(index=net.snapshots, columns=buses.index)
             cap_factor_df[:] = cap_factor_countries_df[buses.country]
         else:
@@ -302,7 +306,7 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
             points = [(round(shape.centroid.x/spatial_res) * spatial_res,
                        round(shape.centroid.y/spatial_res) * spatial_res)
                       for shape in buses_regions_shapes_ds.values]
-            cap_factor_df = compute_capacity_factors({tech: points}, spatial_res, net.snapshots)[tech]
+            cap_factor_df = compute_capacity_factors({tech: points}, spatial_res, net.snapshots, precision)[tech]
             cap_factor_df.columns = buses.index
 
         # Compute legacy capacity (not available for wind_floating)
