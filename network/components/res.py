@@ -224,7 +224,7 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
     bus_ids: List[str]
         Subset of buses to which the generators must be added.
     precision: int (default: 3)
-        Indicates at which decimal capacity factors should be rounded
+        Indicates at which decimal values should be rounded
 
     Returns
     -------

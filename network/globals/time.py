@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def average_every_nhours(net: pypsa.Network, offset: str) -> pypsa.Network:
+def average_every_nhours(net: pypsa.Network, offset: str, precision: int = 3) -> pypsa.Network:
     """
     Average all components snapshots to a given offset and update network snapshot weights
 
@@ -21,6 +21,8 @@ def average_every_nhours(net: pypsa.Network, offset: str) -> pypsa.Network:
         PyPSA network
     offset: str
         Offset over which the mean is applied (e.g. 3H, 1D, etc.)
+    precision: int (default: 3)
+        Indicates at which decimal time series should be rounded
     """
     logger.info(f"Resampling the network to {offset}")
     net_agg = net.copy(with_time=False)
@@ -33,7 +35,7 @@ def average_every_nhours(net: pypsa.Network, offset: str) -> pypsa.Network:
         pnl = getattr(net_agg, c.list_name+"_t")
         for k, df in c.pnl.items():
             if not df.empty:
-                pnl[k] = df.resample(offset).mean()
+                pnl[k] = df.resample(offset).mean().round(precision)
 
     return net_agg
 
