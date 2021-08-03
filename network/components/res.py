@@ -323,6 +323,13 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
             if cap_pot_ds.loc[bus] < legacy_cap_ds.loc[bus]:
                 cap_pot_ds.loc[bus] = legacy_cap_ds.loc[bus]
 
+        # Remove generators if capacity potential is 0
+        non_zero_potential_gens_index = cap_pot_ds[cap_pot_ds > 0].index
+        cap_pot_ds = cap_pot_ds.loc[non_zero_potential_gens_index]
+        legacy_cap_ds = legacy_cap_ds.loc[non_zero_potential_gens_index]
+        cap_factor_df = cap_factor_df[non_zero_potential_gens_index]
+        buses = buses.loc[non_zero_potential_gens_index]
+
         # Get costs
         capital_cost, marginal_cost = get_costs(tech, len(net.snapshots))
 
