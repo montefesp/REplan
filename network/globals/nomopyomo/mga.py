@@ -15,7 +15,7 @@ def add_mga_constraint(net: pypsa.Network, epsilon: float):
     # Marginal cost
     gen_p = get_var(net, 'Generator', 'p')
     gens = net.generators.loc[gen_p.columns]
-    gen_opex_expr = linexpr((gens.marginal_cost, gen_p)).sum().sum()
+    gen_opex_expr = linexpr((net.snapshot_weightings.apply(lambda r: r * gens.marginal_cost), gen_p)).sum().sum()
     gen_cost_expr = gen_capex_expr + gen_opex_expr
 
     # Add storage cost
@@ -27,7 +27,7 @@ def add_mga_constraint(net: pypsa.Network, epsilon: float):
     # Marginal cost
     su_p_dispatch = get_var(net, 'StorageUnit', 'p_dispatch')
     sus = net.storage_units.loc[su_p_dispatch.columns]
-    su_opex_expr = linexpr((sus.marginal_cost, su_p_dispatch)).sum().sum()
+    su_opex_expr = linexpr((net.snapshot_weightings.apply(lambda r: r*sus.marginal_cost), su_p_dispatch)).sum().sum()
     su_cost_expr = su_capex_expr + su_opex_expr
 
     # Add transmission cost

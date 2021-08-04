@@ -54,7 +54,7 @@ def get_generators_generation(net: pypsa.Network):
 
     for tech_type in tech_types:
         tech_gens = gens[gens.type == tech_type]
-        generation[tech_type] = gens_t.p[tech_gens.index].to_numpy().sum() * 1e-3
+        generation[tech_type] = gens_t.p[tech_gens.index].to_numpy().mulitply(net.snapshot_weightings).sum() * 1e-3
 
     storage_units_t = net.storage_units_t.p
     # TODO: this is shit
@@ -89,7 +89,7 @@ def get_generators_average_usage(net: pypsa.Network):
                 df_cf.loc[item] = np.average(cf_per_tech.values, weights=capacities.values)
 
         else:
-            df_cf.loc[item] = tot_gen.loc[item] * 1e3 / (opt_cap.loc[item] * len(net.snapshots))
+            df_cf.loc[item] = tot_gen.loc[item] * 1e3 / (opt_cap.loc[item] * sum(net.snapshot_weightings))
 
     return df_cf
 
@@ -154,7 +154,8 @@ def get_generators_opex(net: pypsa.Network):
 
     for tech_type in types:
         gens_type = gens[(gens.type == tech_type) & (gens.p_nom_opt > 0)]
-        generation_per_gen = gens_t.p[gens_type.index] * gens_type.marginal_cost
+        generation_per_gen = gens_t.p[gens_type.index].multiply(net.snapshot_weightings, axis=0) \
+            * gens_type.marginal_cost
         opex[tech_type] = generation_per_gen.to_numpy().sum()
 
     return pd.DataFrame.from_dict(opex, orient="index", columns=["opex"]).opex * 1e-3
@@ -235,6 +236,7 @@ def get_links_capacity(net: pypsa.Network, buses_to_remove: List[str] = None):
 #
 # return pd.DataFrame.from_dict(power_carrier, orient="index", columns=["lines_power"]).lines_power
 
+# TODO: update to add snaphsot_weightings
 def get_links_power(net: pypsa.Network):
     """Return the total power (MW) (in either direction) that goes through all links over net.snapshots"""
 
@@ -266,7 +268,7 @@ def get_links_power(net: pypsa.Network):
 #
 #     _, _, opt_cap = get_lines_capacity()
 #     tot_power = get_lines_power()
-#     return tot_power/(opt_cap*len(net.snapshots))
+#     return tot_power/(opt_cap*sum(net.snapshot_weightings))
 
 def get_links_usage(net: pypsa.Network):
     """countries_url_area_types the average transmission capacity usage of all links"""
@@ -274,7 +276,7 @@ def get_links_usage(net: pypsa.Network):
     links_capacities = get_links_capacity(net)
     opt_capacities_gw = links_capacities['init [GW]'] + links_capacities['new [GW]']
     links_power = get_links_power(net)
-    df_cf = (links_power * 1e3) / (opt_capacities_gw * len(net.snapshots))
+    df_cf = (links_power * 1e3) / (opt_capacities_gw * sum(net.snapshot_weightings))
 
     return df_cf
 
@@ -451,8 +453,8 @@ def get_storage_opex(net: pypsa.Network):
     """Returns the capital expenses for building the new capacity for each type of storage unit."""
 
     storage_units = net.storage_units
-    total_power = net.storage_units_t.p[net.storage_units_t.p > 0].fillna(0).sum(axis=0)
-    storage_units["opex"] = total_power * storage_units.marginal_cost
+    total_power = net.storage_units_t.p[net.storage_units_t.p > 0].fillna(0).multiply(net.snapshot_weightings, axis=0)
+    storage_units["opex"] = total_power.sum(axis=0) * storage_units.marginal_cost
 
     return storage_units.groupby(["type"]).opex.sum() * 1e-3
 

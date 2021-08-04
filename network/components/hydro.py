@@ -9,6 +9,27 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(me
 logger = logging.getLogger()
 
 
+def check_assertions(net: pypsa.Network, topology_type: str) -> None:
+    """
+    Check some assertions for hydro plants addition
+
+    Parameters
+    ----------
+    net: pypsa.Network
+        A Network instance.
+    topology_type: str
+        Can currently be countries (for one node per country topologies) or ehighway (for topologies based on ehighway)
+    """
+    accepted_topologies = ["countries", "ehighway"]
+    assert topology_type in accepted_topologies, \
+        f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
+
+    comp_attrs = ["x", "y", "onshore_region"]
+    comp_attrs += ["country"] if topology_type == "countries" else []
+    for attr in comp_attrs:
+        assert hasattr(net.buses, attr), f"Error: Buses must contain a '{attr}' attribute."
+
+
 def add_phs_plants(net: pypsa.Network, topology_type: str = "countries",
                    extendable: bool = False, cyclic_sof: bool = True) -> pypsa.Network:
     """
@@ -30,18 +51,9 @@ def add_phs_plants(net: pypsa.Network, topology_type: str = "countries",
     net: pypsa.Network
         Updated network
     """
-
-    accepted_topologies = ["countries", "ehighway"]
-    assert topology_type in accepted_topologies, \
-        f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
-
-    comp_attrs = ["x", "y", "onshore_region"]
-    comp_attrs += ["country"] if topology_type == "countries" else []
-    for attr in comp_attrs:
-        assert hasattr(net.buses, attr), f"Error: Buses must contain a '{attr}' attribute."
+    check_assertions(net, topology_type)
 
     # Hydro generators can only be added onshore
-    # buses_onshore = net.buses[net.buses.onshore]
     buses_onshore = net.buses.dropna(subset=["onshore_region"], axis=0)
 
     # Load capacities
@@ -66,7 +78,7 @@ def add_phs_plants(net: pypsa.Network, topology_type: str = "countries",
     max_hours = bus_en_cap / bus_pow_cap
 
     # Get cost and efficiencies
-    capital_cost, marginal_cost = get_costs('phs', len(net.snapshots))
+    capital_cost, marginal_cost = get_costs('phs', sum(net.snapshot_weightings))
     efficiency_dispatch, efficiency_store, self_discharge = \
         get_tech_info('phs', ["efficiency_ds", "efficiency_ch", "efficiency_sd"])
     self_discharge = round(1 - self_discharge, 4)
@@ -111,18 +123,9 @@ def add_ror_plants(net: pypsa.Network, topology_type: str = "countries",
     net: pypsa.Network
         Updated network
     """
-
-    accepted_topologies = ["countries", "ehighway"]
-    assert topology_type in accepted_topologies, \
-        f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
-
-    comp_attrs = ["x", "y", "onshore_region"]
-    comp_attrs += ["country"] if topology_type == "countries" else []
-    for attr in comp_attrs:
-        assert hasattr(net.buses, attr), f"Error: Buses must contain a '{attr}' attribute."
+    check_assertions(net, topology_type)
 
     # Hydro generators can only be added onshore
-    # buses_onshore = net.buses[net.buses.onshore]
     buses_onshore = net.buses.dropna(subset=["onshore_region"], axis=0)
 
     # Load capacities and inflows
@@ -148,7 +151,7 @@ def add_ror_plants(net: pypsa.Network, topology_type: str = "countries",
     bus_inflows = bus_inflows.dropna().round(3)
 
     # Get cost and efficiencies
-    capital_cost, marginal_cost = get_costs('ror', len(net.snapshots))
+    capital_cost, marginal_cost = get_costs('ror', sum(net.snapshot_weightings))
     efficiency = get_tech_info('ror', ["efficiency_ds"])["efficiency_ds"]
 
     net.madd("Generator",
@@ -191,18 +194,9 @@ def add_sto_plants(net: pypsa.Network, topology_type: str = "countries",
     net: pypsa.Network
         Updated network
     """
-
-    accepted_topologies = ["countries", "ehighway"]
-    assert topology_type in accepted_topologies, \
-        f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
-
-    comp_attrs = ["x", "y", "onshore_region"]
-    comp_attrs += ["country"] if topology_type == "countries" else []
-    for attr in comp_attrs:
-        assert hasattr(net.buses, attr), f"Error: Buses must contain a '{attr}' attribute."
+    check_assertions(net, topology_type)
 
     # Hydro generators can only be added onshore
-    # buses_onshore = net.buses[net.buses.onshore]
     buses_onshore = net.buses.dropna(subset=["onshore_region"], axis=0)
 
     # Load capacities and inflows
@@ -231,7 +225,7 @@ def add_sto_plants(net: pypsa.Network, topology_type: str = "countries",
 
     max_hours = bus_en_cap / bus_pow_cap
 
-    capital_cost, marginal_cost = get_costs('sto', len(net.snapshots))
+    capital_cost, marginal_cost = get_costs('sto', sum(net.snapshot_weightings))
 
     # Get efficiencies
     efficiency_dispatch = get_tech_info('sto', ['efficiency_ds'])["efficiency_ds"]

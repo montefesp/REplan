@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
     co2_reference_kt = \
         get_reference_emission_levels_for_region(config["region"], config["co2_emissions"]["reference_year"])
-    co2_budget = co2_reference_kt*(1-config["co2_emissions"]["mitigation_factor"])*len(net.snapshots)/NHoursPerYear
+    co2_budget = co2_reference_kt*(1-config["co2_emissions"]["mitigation_factor"])*sum(net.snapshot_weightings)/NHoursPerYear
     net.add("GlobalConstraint", "CO2Limit", carrier_attribute="co2_emissions", sense="<=", constant=co2_budget)
 
     # Compute and save results

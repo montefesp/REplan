@@ -44,8 +44,8 @@ def display_transmission(net: pypsa.Network):
         df_links = pd.concat([df_power.rename('Flows [TWh]'),
                               df_cf.rename('CF [%]'),
                               df_capex.rename('capex [M$]')], axis=1)
-        df_links.loc['AC', 'ccost [M€/GW/km]'] = get_costs('AC', len(net.snapshots))[0]
-        df_links.loc['DC', 'ccost [M€/GW/km]'] = get_costs('DC', len(net.snapshots))[0]
+        df_links.loc['AC', 'ccost [M€/GW/km]'] = get_costs('AC', sum(net.snapshot_weightings))[0]
+        df_links.loc['DC', 'ccost [M€/GW/km]'] = get_costs('DC', sum(net.snapshot_weightings))[0]
 
         print(f"Links flows & costs:\n{df_links}\n")
 
