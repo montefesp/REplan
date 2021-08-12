@@ -468,8 +468,7 @@ class SizingPlotly:
         feature_collection = []
         onshore_buses = self.net.buses.loc[buses_onshore_index]
         for idx in buses_onshore_index:
-            # TODO: onshore-region?
-            region = shapely.wkt.loads(onshore_buses.region[idx])
+            region = shapely.wkt.loads(onshore_buses.onshore_region[idx])
             if isinstance(region, sPolygon):
                 feature_collection += [Feature(geometry=Polygon([list(region.exterior.coords)]), id=idx)]
             else:
@@ -523,10 +522,8 @@ class SizingPlotly:
                 offshore_generators_index = self.net.generators[self.net.generators.bus == idx].index
                 total_generation_per_bus[idx] = self.net.generators_t.p[offshore_generators_index].values.sum()
                 total_max_capacity_per_bus[idx] = self.net.generators.loc[offshore_generators_index, 'p_nom_max'].values.sum()
-            print(total_max_capacity_per_bus)
 
-            # TODO: onshore-region?
-            offshore_bus_region_shapes = self.net.buses.loc[offshore_buses_index].region
+            offshore_bus_region_shapes = self.net.buses.loc[offshore_buses_index].offshore_region
 
         feature_collection = []
         all_caps_pd = pd.DataFrame(0., index=list(regions_dict.keys()),
@@ -534,16 +531,12 @@ class SizingPlotly:
                                             "wind_offshore"])
         for idx, regions in regions_dict.items():
 
-            print(idx)
-            print(regions)
-
             # Get buses in region
             buses_index = self.net.buses.loc[[idx for idx in self.net.buses.index if idx[2:4] in regions]].index
 
             # Agglomerate regions together
-            # TODO: onshore-region?
             region_shape = \
-                cascaded_union([shapely.wkt.loads(self.net.buses.loc[bus_id].region) for bus_id in buses_index])
+                cascaded_union([shapely.wkt.loads(self.net.buses.loc[bus_id].onshore_region) for bus_id in buses_index])
 
             centroid = region_shape.centroid
 
@@ -585,9 +578,6 @@ class SizingPlotly:
                     intersection = off_region_shape.intersection(eez_region_shape)
                     prop_cap_received_by_bus = (intersection.area/eez_region_shape.area)*wind_capacity
                     all_cap['wind_offshore'] += (prop_cap_received_by_bus/total_max_capacity_per_bus[off_idx])*total_generation_per_bus[off_idx]
-                print(all_cap['wind_offshore'])
-
-            print(all_cap)
 
             x = (centroid.x - minx) / (maxx - minx)
             y = (centroid.y - miny) / (maxy - miny)
@@ -700,7 +690,6 @@ if __name__ == "__main__":
     if test_number is None:
         test_number = sorted(os.listdir(main_output_dir))[-1]
     output_dir = f"{main_output_dir}{test_number}/"
-    print(output_dir)
     import yaml
     config = yaml.load(open(f"{output_dir}config.yaml", 'r'), yaml.SafeLoader)
 

@@ -54,7 +54,8 @@ def get_generators_generation(net: pypsa.Network):
 
     for tech_type in tech_types:
         tech_gens = gens[gens.type == tech_type]
-        generation[tech_type] = gens_t.p[tech_gens.index].to_numpy().mulitply(net.snapshot_weightings).sum() * 1e-3
+        generation[tech_type] = gens_t.p[tech_gens.index].multiply(net.snapshot_weightings, axis=0)\
+            .to_numpy().sum() * 1e-3
 
     storage_units_t = net.storage_units_t.p
     # TODO: this is shit
@@ -62,7 +63,7 @@ def get_generators_generation(net: pypsa.Network):
     # TODO: wtf is this?
     generation['sto'] = sto_t.to_numpy().sum() * 1e-3
 
-    gen_df = generation # pd.DataFrame.from_dict(generation, orient="index", columns=["generation"]).generation
+    gen_df = generation  # pd.DataFrame.from_dict(generation, orient="index", columns=["generation"]).generation
 
     return gen_df
 
@@ -118,7 +119,7 @@ def get_generators_curtailment(net: pypsa.Network):
 
     df_p_nom = net.generators['p_nom_opt']
     df_p_max_pu = net.generators_t['p_max_pu']
-    df_p = net.generators_t['p']
+    df_p = net.generators_t['p'].multiply(net.snapshot_weightings, axis=0)
 
     df_curtailment = pd.Series(index=opt_cap.index, dtype=float)
 
@@ -204,9 +205,9 @@ def get_links_capacity(net: pypsa.Network, buses_to_remove: List[str] = None):
     links = links[["carrier", "p_nom", "p_nom_opt"]].groupby("carrier").sum()
     links["p_nom_new"] = links["p_nom_opt"] - links["p_nom"]
 
-    init_cap_length = get_links_init_cap_length(net, buses_to_remove)
-    new_cap_length = get_links_new_cap_length(net, buses_to_remove)
-    max_cap_length = get_links_max_cap_length(net, buses_to_remove)
+    init_cap_length = get_links_cap_length(net, 'init', buses_to_remove)
+    new_cap_length = get_links_cap_length(net, 'new', buses_to_remove)
+    max_cap_length = get_links_cap_length(net, 'max', buses_to_remove)
 
     links_capacities = pd.concat([links["p_nom"].rename('init [GW]'),
                                   links["p_nom_new"].rename('new [GW]'),
@@ -236,7 +237,6 @@ def get_links_capacity(net: pypsa.Network, buses_to_remove: List[str] = None):
 #
 # return pd.DataFrame.from_dict(power_carrier, orient="index", columns=["lines_power"]).lines_power
 
-# TODO: update to add snaphsot_weightings
 def get_links_power(net: pypsa.Network):
     """Return the total power (MW) (in either direction) that goes through all links over net.snapshots"""
 
@@ -257,7 +257,7 @@ def get_links_power(net: pypsa.Network):
         links_to_keep_t_p1[links_to_keep_t_p1 < 0] = 0
         power = links_to_keep_t_p0 + links_to_keep_t_p0
 
-        power_total = power.to_numpy().sum()
+        power_total = power.multiply(net.snapshot_weightings, axis=0).to_numpy().sum()
         df_power.loc[carrier] = power_total * 1e-3
 
     return df_power
@@ -309,43 +309,26 @@ def get_links_length(net: pypsa.Network):
     return net.links[["carrier", "length"]].groupby(["carrier"]).sum().length
 
 
-# TODO: this is shit, should be grouped together
-def get_links_init_cap_length(net: pypsa.Network, buses_to_remove: List[str] = None):
+def get_links_cap_length(net: pypsa.Network, cap_type: str, buses_to_remove: List[str] = None):
+
+    accepted_types = ['init', 'new', 'max']
+    assert cap_type in accepted_types, f'Error: type must be one of {accepted_types}'
 
     links = net.links
     if buses_to_remove is not None:
         links = links[~links.bus0.isin(buses_to_remove)]
         links = links[~links.bus1.isin(buses_to_remove)]
 
-    links["init_cap_length"] = links.length * links.p_nom
-    init_cap_length = links[["init_cap_length", "carrier"]].groupby("carrier").sum()
-    return init_cap_length * 1e-3
+    if cap_type == "init":
+        multiplier = links.p_nom
+    elif cap_type == "new":
+        multiplier = links.p_nom_opt - links.p_nom
+    else:
+        multiplier = links.p_nom_max
+    links[f"{cap_type}_cap_length"] = links.length * multiplier
 
-
-def get_links_new_cap_length(net: pypsa.Network, buses_to_remove: List[str] = None):
-
-    links = net.links
-    if buses_to_remove is not None:
-        links = links[~links.bus0.isin(buses_to_remove)]
-        links = links[~links.bus1.isin(buses_to_remove)]
-
-    links["new_cap_length"] = links.length * (links.p_nom_opt - links.p_nom)
-
-    new_cap_length = links[["new_cap_length", "carrier"]].groupby("carrier").sum()
-    return new_cap_length * 1e-3
-
-
-def get_links_max_cap_length(net: pypsa.Network, buses_to_remove: List[str] = None):
-
-    links = net.links
-    if buses_to_remove is not None:
-        links = links[~links.bus0.isin(buses_to_remove)]
-        links = links[~links.bus1.isin(buses_to_remove)]
-
-    links["max_cap_length"] = links.length * links.p_nom_max
-
-    max_cap_length = links[["max_cap_length", "carrier"]].groupby("carrier").sum()
-    return max_cap_length * 1e-3
+    cap_length = links[[f"{cap_type}_cap_length", "carrier"]].groupby("carrier").sum()
+    return cap_length * 1e-3
 
 
 # --- Storage --- #
@@ -409,10 +392,10 @@ def get_storage_power(net: pypsa.Network):
         storage_units_type = storage_units[storage_units.type == tech_type]
         power_out = storage_units_t.p[storage_units_type.index].values
         power_out[power_out < 0] = 0
-        power_out = power_out.sum()
+        power_out = power_out.multiply(net.snapshot_weightings, axis=0).sum()
         power_in = -storage_units_t.p[storage_units_type.index].values
         power_in[power_in < 0] = 0
-        power_in = power_in.sum()
+        power_in = power_in.multiply(net.snapshot_weightings, axis=0).sum()
         power[tech_type] = power_out + power_in
 
     return pd.DataFrame.from_dict(power, orient="index", columns=["power"]).power
@@ -430,7 +413,8 @@ def get_storage_energy_in(net: pypsa.Network):
 
     for tech_type in types:
         storage_units_type = storage_units[storage_units.type == tech_type]
-        energy[tech_type] = storage_units_t.p[storage_units_type.index].to_numpy().sum()
+        energy[tech_type] = storage_units_t.p[storage_units_type.index].multiply(net.snapshot_weightings, axis=0)\
+            .to_numpy().sum()
 
     return pd.DataFrame.from_dict(energy, orient="index", columns=["energy"]).energy
 
@@ -444,7 +428,8 @@ def get_storage_spillage(net: pypsa.Network):
 
     for tech_type in types:
         storage_units_type = storage_units[storage_units.type == tech_type]
-        energy[tech_type] = storage_units_t.spill[storage_units_type.index].to_numpy().sum()
+        energy[tech_type] = storage_units_t.spill[storage_units_type.index].multiply(net.snapshot_weightings, axis=0)\
+            .to_numpy().sum()
 
     return pd.DataFrame.from_dict(energy, orient="index", columns=["energy"]).energy
 
@@ -471,3 +456,8 @@ def get_storage_capex(net: pypsa.Network):
 
 def get_storage_cost(net: pypsa.Network):
     return get_storage_opex(net) + get_storage_capex(net)
+
+
+# --- Totals --- #
+def get_total_cost(net: pypsa.Network):
+    return get_generators_cost(net).sum() + get_links_capex(net).sum() + get_storage_cost(net).sum()

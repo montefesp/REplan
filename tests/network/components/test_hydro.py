@@ -13,7 +13,6 @@ def define_ehighway_network():
                 "23FR", "24FR", "25FR", "26FR", "27FR", "28BE", "29LU", "30NL"]
 
     # Add buses
-    # TODO: onshore-region?
     buses = pd.DataFrame(index=buses_id, columns=["x", "y", "onshore_region"])
     buses["x"] = [0]*len(buses_id)
     buses["y"] = [0]*len(buses_id)
