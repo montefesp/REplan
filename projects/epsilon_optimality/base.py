@@ -126,7 +126,6 @@ def optimal_solve(main_output_dir, config):
     if 'agg_resolution' in config['time']:
         net = average_every_nhours(net, config['time']['agg_resolution'])
 
-    config["solver_options"]['Crossover'] = 1
     net.config = config
     # Force to get the optimal solution
     net.lopf(solver_name=config["solver"],

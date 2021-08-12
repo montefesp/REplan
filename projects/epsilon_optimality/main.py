@@ -49,9 +49,13 @@ if __name__ == '__main__':
     if 0:
         for bus in ['FR', 'DE']:
             adjacent_links = links[(links.bus0 == bus) | (links.bus1 == bus)].index
-            epsilons = config['epsilons']
-            if bus == 'FR':
-                epsilons = epsilons[1:]
             print(bus)
-            find_links_invariant(optimal_net_dir, config, output_dir, epsilons,
+            find_links_invariant(optimal_net_dir, config, output_dir, config['epsilons'],
                                  adjacent_links, bus)
+
+    # Minimize links
+    if 0:
+        for link in ['ES-FR']:
+            print(link)
+            find_links_invariant(optimal_net_dir, config, output_dir, config['epsilons'],
+                                 [link], bus)
