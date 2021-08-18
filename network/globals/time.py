@@ -40,7 +40,7 @@ def average_every_nhours(net: pypsa.Network, offset: str, precision: int = 3) ->
     return net_agg
 
 
-def apply_time_segmentation(n, segments, solver_name):
+def apply_time_segmentation(n, segments):
     logger.info(f"Aggregating time series to {segments} segments.")
     try:
         import tsam.timeseriesaggregation as tsam
@@ -59,11 +59,9 @@ def apply_time_segmentation(n, segments, solver_name):
 
     raw = pd.concat([p_max_pu, load, inflow], axis=1, sort=False)
 
-    # solver_name = snakemake.config["solving"]["solver"]["name"]
-
     agg = tsam.TimeSeriesAggregation(raw, hoursPerPeriod=len(raw),
                                      noTypicalPeriods=1, noSegments=int(segments),
-                                     segmentation=True, solver=solver_name)
+                                     segmentation=True)
 
     segmented = agg.createTypicalPeriods()
 
@@ -72,7 +70,9 @@ def apply_time_segmentation(n, segments, solver_name):
     snapshots = [n.snapshots[0] + pd.Timedelta(f"{offset}h") for offset in offsets]
 
     n.set_snapshots(pd.DatetimeIndex(snapshots, name='name'))
-    n.snapshot_weightings = pd.Series(weightings, index=snapshots, name="weightings", dtype="float64")
+    n.snapshot_weightings['objective'] = pd.Series(weightings, index=snapshots, name="objective", dtype="float64")
+    n.snapshot_weightings['generators'] = pd.Series(weightings, index=snapshots, name="generator", dtype="float64")
+    n.snapshot_weightings['stores'] = pd.Series(n.config['time']['resolution'], index=snapshots, name="store", dtype="float64")
 
     segmented.index = snapshots
     n.generators_t.p_max_pu = segmented[n.generators_t.p_max_pu.columns] * p_max_pu_norm

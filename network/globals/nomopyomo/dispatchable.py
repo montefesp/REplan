@@ -88,7 +88,7 @@ def add_planning_reserve_constraint(net: pypsa.Network, prm: float):
         res_gens = net.generators[(net.generators.bus == bus) &
                                   (net.generators.type.str.contains('|'.join(res_technologies)))]
         for gen in res_gens.index:
-            lhs += linexpr((cc_ds.loc[' '.join(gen.split(' ')[1:])], get_var(net, 'Generator', 'p_nom')[gen]))
+            lhs += linexpr((cc_ds.loc[gen], get_var(net, 'Generator', 'p_nom')[gen]))
 
         # Get load for country
         load_idx = net.loads[net.loads.bus == bus].index

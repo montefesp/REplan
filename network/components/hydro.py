@@ -20,7 +20,7 @@ def check_assertions(net: pypsa.Network, topology_type: str) -> None:
     topology_type: str
         Can currently be countries (for one node per country topologies) or ehighway (for topologies based on ehighway)
     """
-    accepted_topologies = ["countries", "ehighway"]
+    accepted_topologies = ["countries", "ehighway", "NUTS2"]
     assert topology_type in accepted_topologies, \
         f"Error: Topology type {topology_type} is not one of {accepted_topologies}"
 
@@ -57,7 +57,7 @@ def add_phs_plants(net: pypsa.Network, topology_type: str = "countries",
     buses_onshore = net.buses.dropna(subset=["onshore_region"], axis=0)
 
     # Load capacities
-    aggr_level = "countries" if topology_type == "countries" else "NUTS3"
+    aggr_level = "countries" if topology_type == "countries" else "NUTS2"
     pow_cap, en_cap = get_phs_capacities(aggr_level)
 
     if topology_type == 'countries':
@@ -68,9 +68,13 @@ def add_phs_plants(net: pypsa.Network, topology_type: str = "countries",
         bus_pow_cap.index = buses_with_capacity_indexes
         bus_en_cap = en_cap.loc[countries_with_capacity]
         bus_en_cap.index = buses_with_capacity_indexes
-    else:  # topology_type == 'ehighway
+    elif topology_type == 'ehighway':
         bus_pow_cap, bus_en_cap = phs_inputs_nuts_to_ehighway(buses_onshore.index, pow_cap, en_cap)
-        countries_with_capacity = set(bus_pow_cap.index.str[2:])
+        countries_with_capacity = set(bus_pow_cap.index.str[:2])
+    else:
+        bus_pow_cap = pow_cap[pow_cap.index.isin(buses_onshore.index)]
+        bus_en_cap = en_cap[en_cap.index.isin(buses_onshore.index)]
+        countries_with_capacity = set(bus_pow_cap.index.str[:2])
 
     logger.info(f"Adding {bus_pow_cap.sum():.3f} GW of PHS hydro "
                 f"with {bus_en_cap.sum():.3f} GWh of storage in {countries_with_capacity}.")
@@ -78,7 +82,7 @@ def add_phs_plants(net: pypsa.Network, topology_type: str = "countries",
     max_hours = bus_en_cap / bus_pow_cap
 
     # Get cost and efficiencies
-    capital_cost, marginal_cost = get_costs('phs', sum(net.snapshot_weightings))
+    capital_cost, marginal_cost = get_costs('phs', sum(net.snapshot_weightings['objective']))
     efficiency_dispatch, efficiency_store, self_discharge = \
         get_tech_info('phs', ["efficiency_ds", "efficiency_ch", "efficiency_sd"])
     self_discharge = round(1 - self_discharge, 4)
@@ -129,7 +133,7 @@ def add_ror_plants(net: pypsa.Network, topology_type: str = "countries",
     buses_onshore = net.buses.dropna(subset=["onshore_region"], axis=0)
 
     # Load capacities and inflows
-    aggr_level = "countries" if topology_type == "countries" else "NUTS3"
+    aggr_level = "countries" if topology_type == "countries" else "NUTS2"
     pow_cap = get_ror_capacities(aggr_level)
     inflows = get_ror_inflows(aggr_level, net.snapshots)
 
@@ -141,17 +145,21 @@ def add_ror_plants(net: pypsa.Network, topology_type: str = "countries",
         bus_pow_cap.index = buses_with_capacity_indexes
         bus_inflows = inflows[countries_with_capacity]
         bus_inflows.columns = buses_with_capacity_indexes
-    else:  # topology_type == 'ehighway'
+    elif topology_type == 'ehighway':
         bus_pow_cap, bus_inflows = \
             ror_inputs_nuts_to_ehighway(buses_onshore.index, pow_cap, inflows)
-        countries_with_capacity = set(bus_pow_cap.index.str[2:])
+        countries_with_capacity = set(bus_pow_cap.index.str[:2])
+    else:
+        bus_pow_cap = pow_cap[pow_cap.index.isin(buses_onshore.index)]
+        bus_inflows = inflows[[c for c in inflows.columns if c in buses_onshore.index]]
+        countries_with_capacity = set(bus_pow_cap.index.str[:2])
 
     logger.info(f"Adding {bus_pow_cap.sum():.2f} GW of ROR hydro in {countries_with_capacity}.")
 
     bus_inflows = bus_inflows.dropna().round(3)
 
     # Get cost and efficiencies
-    capital_cost, marginal_cost = get_costs('ror', sum(net.snapshot_weightings))
+    capital_cost, marginal_cost = get_costs('ror', sum(net.snapshot_weightings['objective']))
     efficiency = get_tech_info('ror', ["efficiency_ds"])["efficiency_ds"]
 
     net.madd("Generator",
@@ -200,7 +208,7 @@ def add_sto_plants(net: pypsa.Network, topology_type: str = "countries",
     buses_onshore = net.buses.dropna(subset=["onshore_region"], axis=0)
 
     # Load capacities and inflows
-    aggr_level = "countries" if topology_type == "countries" else "NUTS3"
+    aggr_level = "countries" if topology_type == "countries" else "NUTS2"
     pow_cap, en_cap = get_sto_capacities(aggr_level)
     inflows = get_sto_inflows(aggr_level, net.snapshots)
 
@@ -214,10 +222,15 @@ def add_sto_plants(net: pypsa.Network, topology_type: str = "countries",
         bus_en_cap.index = buses_with_capacity_indexes
         bus_inflows = inflows[countries_with_capacity]
         bus_inflows.columns = buses_with_capacity_indexes
-    else:  # topology_type == 'ehighway'
+    elif topology_type == 'ehighway':
         bus_pow_cap, bus_en_cap, bus_inflows = \
             sto_inputs_nuts_to_ehighway(buses_onshore.index, pow_cap, en_cap, inflows)
-        countries_with_capacity = set(bus_pow_cap.index.str[2:])
+        countries_with_capacity = set(bus_pow_cap.index.str[:2])
+    else:
+        bus_pow_cap = pow_cap[pow_cap.index.isin(buses_onshore.index)]
+        bus_en_cap = en_cap[en_cap.index.isin(buses_onshore.index)]
+        bus_inflows = inflows[[c for c in inflows.columns if c in buses_onshore.index]]
+        countries_with_capacity = set(bus_pow_cap.index.str[:2])
 
     logger.info(f"Adding {bus_pow_cap.sum():.2f} GW of STO hydro "
                 f"with {bus_en_cap.sum() * 1e-3:.2f} TWh of storage in {countries_with_capacity}.")
@@ -225,7 +238,7 @@ def add_sto_plants(net: pypsa.Network, topology_type: str = "countries",
 
     max_hours = bus_en_cap / bus_pow_cap
 
-    capital_cost, marginal_cost = get_costs('sto', sum(net.snapshot_weightings))
+    capital_cost, marginal_cost = get_costs('sto', sum(net.snapshot_weightings['objective']))
 
     # Get efficiencies
     efficiency_dispatch = get_tech_info('sto', ['efficiency_ds'])["efficiency_ds"]

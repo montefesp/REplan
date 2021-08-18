@@ -1,0 +1,100 @@
+# model
+keep_lp: False
+# formulation
+pyomo: False
+
+# solver
+solver: 'gurobi'
+solver_options:
+  # gurobi
+  LogToConsole: 0
+  Threads: 0
+  Method: 2
+  BarHomogeneous: 1
+  Crossover: 0
+  BarConvTol: 1.0e-5
+  FeasibilityTol: 1.0e-6
+  AggFill: 0
+  PreDual: 0
+  GURO_PAR_BARDENSETHRESH: 200
+
+# Time
+time:
+  slice: ['2018-01-01T00:00', '2018-12-31T23:00']
+  resolution: 1
+  tsam: 'segmentation'
+
+# Space
+region: "EU"
+
+# RES
+res:
+  include: True
+  # Give which technology should be installed using each strategy
+  techs: ['wind_offshore', 'wind_onshore', 'pv_utility', 'pv_residential']
+  strategies:
+    from_files:
+      which: ['wind_offshore', 'wind_onshore']
+      spatial_resolution: 0.25
+      use_ex_cap: True
+      sites_dir: '1y_n871_k19_c218_test'
+      sites_fn: 'comp_site_data.p'
+    bus:
+      which: ['pv_utility', 'pv_residential']
+      extendable: True
+      use_ex_cap: True
+
+  min_cap_pot: [0.001, 0.001, 0.001, 0.001]
+  min_cap_if_selected: 1.0e-3
+
+techs:
+  dispatch:
+    types: ["ocgt", "ccgt"]
+
+  nuclear:
+    use_ex_cap: True # Whether to include existing cap
+    extendable: False
+
+  battery:
+    types: ["Li-ion"]
+    fixed_duration: False
+
+  phs:
+    use_ex_cap: True
+    extendable: False
+    cyclic_sof: True
+
+  ror:
+    use_ex_cap: True
+    extendable: False
+
+  sto:
+    use_ex_cap: True
+    extendable: False
+    cyclic_sof: True
+
+  transmission:
+    config:
+      'lines':
+        's_max_pu': 0.7
+        'types':
+          132: "Al/St 240/40 2-bundle 220.0"
+          220: "Al/St 240/40 2-bundle 220.0"
+          300.: "Al/St 240/40 3-bundle 300.0"
+          380.: "Al/St 240/40 4-bundle 380.0"
+      'links':
+        'p_max_pu': 1.0
+        'include_tyndp': True
+    voltages: [132., 220., 300., 380.]
+
+functionalities:
+  prm:
+    include: True
+    PRM: 0.2
+  load_shed:
+    include: True
+  co2_emissions:
+    include: True
+    strategy: 'global' # country, global
+    reference_year: 1990
+    mitigation_factor: 0.9

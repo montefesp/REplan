@@ -1,7 +1,8 @@
 from network.components.res import \
     add_generators_using_siting as add_res, \
     add_generators_in_grid_cells as add_res_in_grid_cells, \
-    add_generators_per_bus as add_res_per_bus
+    add_generators_per_bus as add_res_per_bus, \
+    add_generators_from_file as add_res_from_file
 from network.components.nuclear import add_generators as add_nuclear
 from network.components.hydro import add_phs_plants, add_ror_plants, add_sto_plants
 from network.components.conventional import add_generators as add_conventional
