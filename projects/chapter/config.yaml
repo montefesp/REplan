@@ -22,7 +22,11 @@ solver_options:
 time:
   slice: ['2018-01-01T00:00', '2018-12-31T23:00']
   resolution: 1
-  tsam: 'segmentation'
+  tsam:
+    type: 'representative' # 'representative'/'segmentation'
+    no_segments: None
+    no_periods: 30
+    hours_per_periods: 24
 
 # Space
 region: "EU"

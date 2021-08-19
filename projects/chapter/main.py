@@ -3,7 +3,6 @@ from os import makedirs
 from time import strftime
 import yaml
 
-import numpy as np
 import pandas as pd
 
 import pypsa
@@ -16,7 +15,7 @@ from iepy.geographics import get_subregions, get_nuts_codes, revert_iso2_codes
 from iepy.topologies.pypsaentsoegridkit.manager import load_topology, add_extra_components
 
 from network import *
-from network.globals.time import apply_time_segmentation
+from network.globals.time import apply_time_reduction
 from network.globals.functionalities import add_extra_functionalities as add_funcs
 
 from projects.chapter.utils import compute_capacity_credit_ds
@@ -145,7 +144,10 @@ if __name__ == '__main__':
                                 fixed_duration=config["techs"]["battery"]["fixed_duration"])
 
     net = compute_capacity_credit_ds(net, peak_sample=0.05)
-    net = apply_time_segmentation(net, segments=876)
+    net = apply_time_reduction(net, type=config['time']['tsam']['type'],
+                               no_segments=config['time']['tsam']['no_segments'],
+                               no_periods=config['time']['tsam']['no_periods'],
+                               no_hours_per_period=config['time']['tsam']['hours_per_periods'])
 
     ilopf(net, solver_name=config["solver"],
           solver_logfile=f"{output_dir}solver.log",
