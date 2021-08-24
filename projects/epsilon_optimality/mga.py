@@ -13,7 +13,7 @@ def find_minimum_capacity_invariant(mga_type, base_net_dir, config, main_output_
 
         # Minimizing transmission
         # output_dir = f"{main_output_dir}{case_name}/min_eps{epsilon}/"
-        output_dir = f"{main_output_dir}{case_name}/{mga_type}/{epsilon}/"
+        output_dir = f"{main_output_dir}{mga_type}/{case_name}/{epsilon}/"
         # Compute and save results
         if not isdir(output_dir):
             makedirs(output_dir)
