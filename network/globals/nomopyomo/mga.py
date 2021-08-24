@@ -1,4 +1,3 @@
-import pandas as pd
 import pypsa
 
 from pypsa.linopt import get_var, linexpr, define_constraints, write_objective
@@ -15,7 +14,8 @@ def add_mga_constraint(net: pypsa.Network, epsilon: float):
     # Marginal cost
     gen_p = get_var(net, 'Generator', 'p')
     gens = net.generators.loc[gen_p.columns]
-    gen_opex_expr = linexpr((net.snapshot_weightings.apply(lambda r: r * gens.marginal_cost), gen_p)).sum().sum()
+    gen_opex_expr = linexpr((net.snapshot_weightings['objective']
+                             .apply(lambda r: r * gens.marginal_cost), gen_p)).sum().sum()
     gen_cost_expr = gen_capex_expr + gen_opex_expr
 
     # Add storage cost
@@ -27,7 +27,8 @@ def add_mga_constraint(net: pypsa.Network, epsilon: float):
     # Marginal cost
     su_p_dispatch = get_var(net, 'StorageUnit', 'p_dispatch')
     sus = net.storage_units.loc[su_p_dispatch.columns]
-    su_opex_expr = linexpr((net.snapshot_weightings.apply(lambda r: r*sus.marginal_cost), su_p_dispatch)).sum().sum()
+    su_opex_expr = linexpr((net.snapshot_weightings['objective']
+                            .apply(lambda r: r*sus.marginal_cost), su_p_dispatch)).sum().sum()
     su_cost_expr = su_capex_expr + su_opex_expr
 
     # Add transmission cost
@@ -46,17 +47,21 @@ def add_mga_constraint(net: pypsa.Network, epsilon: float):
     define_constraints(net, obj_expr, '<=', obj, 'mga', 'obl')
 
 
-def add_mga_objective(net: pypsa.Network, sense='min'):
+def add_mga_objective(net: pypsa.Network, mga_type: str):
 
-    # Minimize transmission capacity (in TWkm)
-    link_p_nom = get_var(net, 'Link', 'p_nom')[net.links_to_minimize]
-    # TODO: not sure this is right
-    # sense = 1 if sense == 'min' else -1
-    link_capacity_expr = linexpr((net.links.length[net.links_to_minimize], link_p_nom)).sum()
-    write_objective(net, link_capacity_expr)
+    if mga_type == 'link':
+        # Minimize transmission capacity (in TWkm)
+        link_p_nom = get_var(net, 'Link', 'p_nom')[net.components_to_minimize]
+        link_capacity_expr = linexpr((net.links.length[net.components_to_minimize], link_p_nom)).sum()
+        write_objective(net, link_capacity_expr)
+
+    elif mga_type == 'storage':
+        # Minimize storage energy/power capacity
+        su_p_nom = get_var(net, 'StorageUnit', 'p_nom')[net.components_to_minimize]
+        su_capacity_expr = linexpr((1, su_p_nom)).sum()
+        write_objective(net, su_capacity_expr)
 
 
-def min_links_capacity(net: pypsa.Network, epsilon: float):
-
+def min_capacity(net: pypsa.Network, mga_type: str, epsilon: float):
     add_mga_constraint(net, epsilon)
-    add_mga_objective(net, 'min')
+    add_mga_objective(net, mga_type)

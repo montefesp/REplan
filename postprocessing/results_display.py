@@ -44,8 +44,8 @@ def display_transmission(net: pypsa.Network):
         df_links = pd.concat([df_power.rename('Flows [TWh]'),
                               df_cf.rename('CF [%]'),
                               df_capex.rename('capex [M$]')], axis=1)
-        df_links.loc['AC', 'ccost [M€/GW/km]'] = get_costs('AC', sum(net.snapshot_weightings))[0]
-        df_links.loc['DC', 'ccost [M€/GW/km]'] = get_costs('DC', sum(net.snapshot_weightings))[0]
+        df_links.loc['AC', 'ccost [M€/GW/km]'] = get_costs('AC', sum(net.snapshot_weightings['objective']))[0]
+        df_links.loc['DC', 'ccost [M€/GW/km]'] = get_costs('DC', sum(net.snapshot_weightings['objective']))[0]
 
         print(f"Links flows & costs:\n{df_links}\n")
 
@@ -101,19 +101,3 @@ def display_co2(net: pypsa.Network):
     df_co2 = df_co2.round(2)
 
     print(f"CO2 utilization:\n{df_co2}\n")
-
-
-if __name__ == '__main__':
-
-    from pypsa import Network
-
-    output_dir = f'../output/mga/20201113_173523/'
-
-    net_ = Network()
-    net_.import_from_csv_folder(output_dir)
-
-    #display_generation(net_)
-    #display_transmission(net_)
-    display_storage(net_)
-
-    # display_co2(net_)

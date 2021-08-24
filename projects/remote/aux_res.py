@@ -131,7 +131,7 @@ def add_res_at_sites(net: pypsa.Network, config, output_dir, eu_countries, ):
         p_nom = existing_cap_ds[tech][points].values
         p_max_pu = cap_factor_df[tech][points].values
 
-        capital_cost, marginal_cost = get_costs(tech, sum(net.snapshot_weightings))
+        capital_cost, marginal_cost = get_costs(tech, sum(net.snapshot_weightings['objective']))
 
         net.madd("Generator",
                  pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),

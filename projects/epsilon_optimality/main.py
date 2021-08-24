@@ -6,7 +6,7 @@ import argparse
 import pandas as pd
 
 from projects.epsilon_optimality.base import optimal_solve
-from projects.epsilon_optimality.mga import find_links_invariant
+from projects.epsilon_optimality.mga import find_minimum_capacity_invariant
 
 import logging
 logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
@@ -35,27 +35,28 @@ if __name__ == '__main__':
     # Get links data
     links = pd.read_csv(f"{optimal_net_dir}/links.csv").set_index("name")
     buses = pd.read_csv(f"{optimal_net_dir}/buses.csv").set_index("name")
-
-    # Solve network again with new constraint and minimizing each transmission line expansion
-    # for link in links.index:
-    #     find_links_invariant(base_net_dir, config, output_dir, config['epsilons'], [link], link)
+    sus = pd.read_csv(f"{optimal_net_dir}/storage_units.csv").set_index("name")
 
     # Minimize total sum of connections
-    if 1:
-        find_links_invariant(optimal_net_dir, config, output_dir, config['epsilons'],
-                             links.index, 'whole')
+    if config['mga']['type'] == 'link':
+        if config['mga']['subtype'] == 'whole':
+            find_minimum_capacity_invariant('link', optimal_net_dir, config, output_dir,
+                                            links.index, 'whole')
+        elif config['mga']['subtype'] == 'bus':
+            # Solve network again with new constraint and
+            # minimizing the sum of transmission line coming out of a country
+            for bus in config['mga']['args']:
+                adjacent_links_index = links[(links.bus0 == bus) | (links.bus1 == bus)].index
+                find_minimum_capacity_invariant("link", optimal_net_dir, config, output_dir,
+                                                adjacent_links_index, bus)
 
-    # Solve network again with new constraint and minimizing the sum of transmission line coming out of a country
-    if 0:
-        for bus in ['FR', 'DE']:
-            adjacent_links = links[(links.bus0 == bus) | (links.bus1 == bus)].index
-            print(bus)
-            find_links_invariant(optimal_net_dir, config, output_dir, config['epsilons'],
-                                 adjacent_links, bus)
+        elif config['mga']['subtype'] == 'link':
+            for link in config['mga']['args']:
+                find_minimum_capacity_invariant("link", optimal_net_dir, config, output_dir,
+                                                [link], link)
 
-    # Minimize links
-    if 0:
-        for link in ['ES-FR']:
-            print(link)
-            find_links_invariant(optimal_net_dir, config, output_dir, config['epsilons'],
-                                 [link], bus)
+    elif config['mga']['type'] == 'storage':
+        # Batteries
+        batteries_indexes = sus[sus.p_nom_extendable].index
+        find_minimum_capacity_invariant('storage', optimal_net_dir, config, output_dir,
+                                        batteries_indexes, 'whole')

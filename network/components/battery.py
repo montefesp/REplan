@@ -102,7 +102,7 @@ def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str
     # Get costs and efficiencies
     if fixed_duration:
 
-        capital_cost, marginal_cost = get_costs(battery_type, sum(network.snapshot_weightings))
+        capital_cost, marginal_cost = get_costs(battery_type, sum(network.snapshot_weightings['objective']))
         efficiency_dispatch, efficiency_store, self_discharge = \
             get_tech_info(battery_type, ["efficiency_ds", "efficiency_ch", "efficiency_sd"])
         self_discharge = round(1 - self_discharge, 4)
@@ -128,8 +128,8 @@ def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str
         battery_type_power = battery_type+'_p'
         battery_type_energy = battery_type+'_e'
 
-        capital_cost, marginal_cost = get_costs(battery_type_power, sum(network.snapshot_weightings))
-        capital_cost_e, marginal_cost_e = get_costs(battery_type_energy, sum(network.snapshot_weightings))
+        capital_cost, marginal_cost = get_costs(battery_type_power, sum(network.snapshot_weightings['objective']))
+        capital_cost_e, marginal_cost_e = get_costs(battery_type_energy, sum(network.snapshot_weightings['objective']))
         efficiency_dispatch, efficiency_store = get_tech_info(battery_type_power, ["efficiency_ds", "efficiency_ch"])
         self_discharge = get_tech_info(battery_type_energy, ["efficiency_sd"]).astype(float)
         self_discharge = round(1 - self_discharge.values[0], 4)

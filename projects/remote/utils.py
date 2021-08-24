@@ -135,7 +135,7 @@ def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False,
     links['capital_cost'] = pd.Series(index=links.index)
     for idx in links.index:
         carrier = links.loc[idx].carrier
-        cap_cost, _ = get_costs(carrier, sum(net.snapshot_weightings))
+        cap_cost, _ = get_costs(carrier, sum(net.snapshot_weightings['objective']))
         links.loc[idx, ('capital_cost', )] = cap_cost * links.length.loc[idx]
     net.madd("Link", links.index, bus0=links.bus0, bus1=links.bus1, carrier=links.carrier, p_nom_extendable=True,
              length=links.length, capital_cost=links.capital_cost)

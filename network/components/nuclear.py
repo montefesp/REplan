@@ -59,7 +59,7 @@ def add_generators(net: pypsa.Network, countries: List[str],
         gens.Capacity = 0.
     gens.Capacity /= 1000.  # Convert MW to GW
 
-    capital_cost, marginal_cost = get_costs('nuclear', sum(net.snapshot_weightings))
+    capital_cost, marginal_cost = get_costs('nuclear', sum(net.snapshot_weightings['objective']))
 
     # Get fuel type, efficiency and ramp rates
     fuel, efficiency, ramp_rate, base_level = \

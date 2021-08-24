@@ -78,7 +78,7 @@ def add_phs_plants(net: pypsa.Network, topology_type: str = "countries",
     max_hours = bus_en_cap / bus_pow_cap
 
     # Get cost and efficiencies
-    capital_cost, marginal_cost = get_costs('phs', sum(net.snapshot_weightings))
+    capital_cost, marginal_cost = get_costs('phs', sum(net.snapshot_weightings['objective']))
     efficiency_dispatch, efficiency_store, self_discharge = \
         get_tech_info('phs', ["efficiency_ds", "efficiency_ch", "efficiency_sd"])
     self_discharge = round(1 - self_discharge, 4)
@@ -151,7 +151,7 @@ def add_ror_plants(net: pypsa.Network, topology_type: str = "countries",
     bus_inflows = bus_inflows.dropna().round(3)
 
     # Get cost and efficiencies
-    capital_cost, marginal_cost = get_costs('ror', sum(net.snapshot_weightings))
+    capital_cost, marginal_cost = get_costs('ror', sum(net.snapshot_weightings['objective']))
     efficiency = get_tech_info('ror', ["efficiency_ds"])["efficiency_ds"]
 
     net.madd("Generator",
@@ -225,7 +225,7 @@ def add_sto_plants(net: pypsa.Network, topology_type: str = "countries",
 
     max_hours = bus_en_cap / bus_pow_cap
 
-    capital_cost, marginal_cost = get_costs('sto', sum(net.snapshot_weightings))
+    capital_cost, marginal_cost = get_costs('sto', sum(net.snapshot_weightings['objective']))
 
     # Get efficiencies
     efficiency_dispatch = get_tech_info('sto', ['efficiency_ds'])["efficiency_ds"]

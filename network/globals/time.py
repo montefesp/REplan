@@ -27,7 +27,7 @@ def average_every_nhours(net: pypsa.Network, offset: str, precision: int = 3) ->
     logger.info(f"Resampling the network to {offset}")
     net_agg = net.copy(with_time=False)
 
-    snapshot_weightings = net.snapshot_weightings.resample(offset).sum()
+    snapshot_weightings = net.snapshot_weightings['objective'].resample(offset).sum()
     net_agg.set_snapshots(snapshot_weightings.index)
     net_agg.snapshot_weightings = snapshot_weightings
 
