@@ -36,6 +36,7 @@ if __name__ == '__main__':
     links = pd.read_csv(f"{optimal_net_dir}/links.csv").set_index("name")
     buses = pd.read_csv(f"{optimal_net_dir}/buses.csv").set_index("name")
     sus = pd.read_csv(f"{optimal_net_dir}/storage_units.csv").set_index("name")
+    gens = pd.read_csv(f"{optimal_net_dir}/generators.csv").set_index("name")
 
     # Minimize total sum of connections
     if config['mga']['type'] == 'link':
@@ -60,3 +61,9 @@ if __name__ == '__main__':
         batteries_indexes = sus[sus.p_nom_extendable].index
         find_minimum_capacity_invariant('storage', optimal_net_dir, config, output_dir,
                                         batteries_indexes, 'whole')
+
+    elif config['mga']['type'] == 'generation':
+        # Batteries
+        gen_indexes = gens[gens.type.isin(config['res']['techs'])].index
+        find_minimum_capacity_invariant('generation', optimal_net_dir, config, output_dir,
+                                        gen_indexes, 'whole')

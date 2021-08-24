@@ -51,15 +51,21 @@ def add_mga_objective(net: pypsa.Network, mga_type: str):
 
     if mga_type == 'link':
         # Minimize transmission capacity (in TWkm)
-        link_p_nom = get_var(net, 'Link', 'p_nom')[net.components_to_minimize]
-        link_capacity_expr = linexpr((net.links.length[net.components_to_minimize], link_p_nom)).sum()
-        write_objective(net, link_capacity_expr)
+        p_nom = get_var(net, 'Link', 'p_nom')[net.components_to_minimize]
+        capacity_expr = linexpr((net.links.length[net.components_to_minimize], p_nom)).sum()
+        write_objective(net, capacity_expr)
 
     elif mga_type == 'storage':
         # Minimize storage energy/power capacity
-        su_p_nom = get_var(net, 'StorageUnit', 'p_nom')[net.components_to_minimize]
-        su_capacity_expr = linexpr((1, su_p_nom)).sum()
-        write_objective(net, su_capacity_expr)
+        p_nom = get_var(net, 'StorageUnit', 'p_nom')[net.components_to_minimize]
+        capacity_expr = linexpr((1, p_nom)).sum()
+        write_objective(net, capacity_expr)
+
+    elif mga_type == 'generation':
+        # Minimize VRES generation (wind and solar) power capacity
+        p_nom = get_var(net, 'Generator', 'p_nom')[net.components_to_minimize]
+        capacity_expr = linexpr((1, p_nom)).sum()
+        write_objective(net, capacity_expr)
 
 
 def min_capacity(net: pypsa.Network, mga_type: str, epsilon: float):
