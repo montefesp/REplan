@@ -71,8 +71,6 @@ if __name__ == '__main__':
         else:
             tech_type = config['mga']['subtype']
             gen_indexes = gens[gens.type == tech_type].index
-            print(gen_indexes)
-            exit()
             find_minimum_capacity_invariant('generator-cap', optimal_net_dir, config, output_dir,
                                             gen_indexes, tech_type)
 
