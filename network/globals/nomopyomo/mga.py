@@ -61,10 +61,16 @@ def add_mga_objective(net: pypsa.Network, mga_type: str):
         capacity_expr = linexpr((1, p_nom)).sum()
         write_objective(net, capacity_expr)
 
-    elif mga_type == 'generation':
-        # Minimize VRES generation (wind and solar) power capacity
+    elif mga_type == 'generator-cap':
+        # Minimize generators power capacity
         p_nom = get_var(net, 'Generator', 'p_nom')[net.components_to_minimize]
         capacity_expr = linexpr((1, p_nom)).sum()
+        write_objective(net, capacity_expr)
+
+    elif mga_type == 'generator-power':
+        # Minimize generators power generation
+        p = get_var(net, 'Generator', 'p')[net.components_to_minimize]
+        capacity_expr = linexpr((1, p)).sum().sum()
         write_objective(net, capacity_expr)
 
 

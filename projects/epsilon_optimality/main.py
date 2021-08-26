@@ -62,8 +62,14 @@ if __name__ == '__main__':
         find_minimum_capacity_invariant('storage', optimal_net_dir, config, output_dir,
                                         batteries_indexes, 'whole')
 
-    elif config['mga']['type'] == 'generation':
-        # Batteries
+    elif config['mga']['type'] == 'res-cap':
+        # RES generator capacity
         gen_indexes = gens[gens.type.isin(config['res']['techs'])].index
-        find_minimum_capacity_invariant('generation', optimal_net_dir, config, output_dir,
-                                        gen_indexes, 'whole')
+        find_minimum_capacity_invariant('generator-cap', optimal_net_dir, config, output_dir,
+                                        gen_indexes, 'res')
+
+    elif config['mga']['type'] == 'res-power':
+        # RES generator power
+        gen_indexes = gens[gens.type.isin(config['res']['techs'])].index
+        find_minimum_capacity_invariant('generator-power', optimal_net_dir, config, output_dir,
+                                        gen_indexes, 'res')

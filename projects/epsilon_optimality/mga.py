@@ -20,7 +20,7 @@ def find_minimum_capacity_invariant(mga_type, base_net_dir, config, main_output_
 
         net = pypsa.Network()
         net.import_from_csv_folder(base_net_dir)
-        config['functionalities']['mga'] = {'include': True, 'epsilon': epsilon, 'type': config['mga']['type']}
+        config['functionalities']['mga'] = {'include': True, 'epsilon': epsilon, 'type': mga_type}
         net.config = config
         net.components_to_minimize = components_index
         net.lopf(solver_name=config["solver"],
