@@ -64,9 +64,17 @@ if __name__ == '__main__':
 
     elif config['mga']['type'] == 'res-cap':
         # RES generator capacity
-        gen_indexes = gens[gens.type.isin(config['res']['techs'])].index
-        find_minimum_capacity_invariant('generator-cap', optimal_net_dir, config, output_dir,
-                                        gen_indexes, 'res')
+        if config['mga']['subtype'] == 'res':
+            gen_indexes = gens[gens.type.isin(config['res']['techs'])].index
+            find_minimum_capacity_invariant('generator-cap', optimal_net_dir, config, output_dir,
+                                            gen_indexes, 'res')
+        else:
+            tech_type = config['mga']['subtype']
+            gen_indexes = gens[gens.type == tech_type].index
+            print(gen_indexes)
+            exit()
+            find_minimum_capacity_invariant('generator-cap', optimal_net_dir, config, output_dir,
+                                            gen_indexes, tech_type)
 
     elif config['mga']['type'] == 'res-power':
         # RES generator power

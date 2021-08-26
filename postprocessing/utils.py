@@ -17,7 +17,7 @@ def get_gen_capital_and_marginal_cost(net: pypsa.Network):
 
 
 def get_generators_capacity(net: pypsa.Network, buses: List[str] = None, tech_names: List[str] = None):
-    """Return the original, new and optimal generation capacities (in MW) for each type of
+    """Return the original, new and optimal generation capacities (in GW) for each type of
     generator associated to the given buses."""
 
     gens = net.generators
@@ -44,7 +44,7 @@ def get_generators_numbers(net: pypsa.Network):
 
 
 def get_generators_generation(net: pypsa.Network):
-    """Return the total generation (in GWh) over the net.snapshots for each type of generator."""
+    """Return the total generation (in TWh) over the net.snapshots for each type of generator."""
 
     gens = net.generators
     tech_types = sorted(list(set(gens.type.values)))
@@ -57,11 +57,9 @@ def get_generators_generation(net: pypsa.Network):
         generation[tech_type] = gens_t.p[tech_gens.index].multiply(net.snapshot_weightings['objective'], axis=0)\
             .to_numpy().sum() * 1e-3
 
-    storage_units_t = net.storage_units_t.p
-    # TODO: this is shit
-    sto_t = storage_units_t.loc[:, storage_units_t.columns.str.contains("Storage reservoir")]
-    # TODO: wtf is this?
-    generation['sto'] = sto_t.to_numpy().sum() * 1e-3
+    sto_units_index = net.storage_units[net.storage_units.type == 'sto'].index
+    sto_p = net.storage_units_t.p[sto_units_index]
+    generation['sto'] = sto_p.multiply(net.snapshot_weightings['objective'], axis=0).to_numpy().sum() * 1e-3
 
     gen_df = generation  # pd.DataFrame.from_dict(generation, orient="index", columns=["generation"]).generation
 
@@ -115,6 +113,7 @@ def get_generators_cap_factors(net: pypsa.Network, buses: List[str] = None, tech
 
 
 def get_generators_curtailment(net: pypsa.Network):
+    """In TWh"""
     opt_cap = get_generators_capacity(net)['final']
 
     df_p_nom = net.generators['p_nom_opt']
@@ -184,7 +183,7 @@ def get_link_types(net: pypsa.Network):
 
 def get_links_capacity(net: pypsa.Network, buses_to_remove: List[str] = None):
     """
-    Return the original, new and optimal transmission capacities (in MW) for links.
+    Return the original, new and optimal transmission capacities (in GW) for links.
 
     Parameters
     ----------
@@ -219,26 +218,8 @@ def get_links_capacity(net: pypsa.Network, buses_to_remove: List[str] = None):
     return links_capacities
 
 
-# def get_lines_power(net: pypsa.Network):
-#     """countries_url_area_types the total power (MW) (in either direction) that goes through each type of
-#     line over net.snapshots"""
-#
-#     lines_t = net.lines_t
-#     lines_t.p0[lines_t.p0 < 0] = 0
-#     lines_t.p1[lines_t.p1 < 0] = 0
-#     power = lines_t.p0 + lines_t.p1
-#
-#     lines = net.lines
-#     carriers = sorted(list(set(lines.carrier.values)))
-#     power_carrier = dict.fromkeys(carriers)
-#     for carrier in carriers:
-#         lines_carrier = lines[lines.carrier == carrier]
-#         power_carrier[carrier] = power[lines_carrier.index].to_numpy().sum()
-#
-# return pd.DataFrame.from_dict(power_carrier, orient="index", columns=["lines_power"]).lines_power
-
 def get_links_power(net: pypsa.Network):
-    """Return the total power (MW) (in either direction) that goes through all links over net.snapshots"""
+    """Return the total power (GW) (in either direction) that goes through all links over net.snapshots"""
 
     links_t = net.links_t
     links_carriers = net.links['carrier']
@@ -258,7 +239,7 @@ def get_links_power(net: pypsa.Network):
         power = links_to_keep_t_p0 + links_to_keep_t_p0
 
         power_total = power.multiply(net.snapshot_weightings['objective'], axis=0).to_numpy().sum()
-        df_power.loc[carrier] = power_total * 1e-3
+        df_power.loc[carrier] = power_total
 
     return df_power
 
@@ -343,7 +324,7 @@ def get_storage_capital_and_marginal_cost(net: pypsa.Network):
 
 
 def get_storage_power_capacity(net: pypsa.Network, buses: List[str] = None, tech_names: List[str] = None):
-    """countries_url_area_types the original, new and optimal power capacities (in MW) for each type of storage unit."""
+    """countries_url_area_types the original, new and optimal power capacities (in GW) for each type of storage unit."""
 
     storage_units = net.storage_units
     if buses is not None:
@@ -380,7 +361,7 @@ def get_storage_energy_capacity(net: pypsa.Network):
 
 
 def get_storage_power(net: pypsa.Network):
-    """countries_url_area_types the total power (MW) that goes out or in of the battery."""
+    """countries_url_area_types the total power (GW) that goes out or in of the battery."""
 
     storage_units = net.storage_units
     types = sorted(list(set(storage_units.type.values)))
@@ -402,7 +383,7 @@ def get_storage_power(net: pypsa.Network):
 
 
 def get_storage_energy_in(net: pypsa.Network):
-    """countries_url_area_types the total energy (MWh) that is stored over net.snapshots."""
+    """Total energy (GWh) that is stored over net.snapshots."""
 
     storage_units = net.storage_units
     types = sorted(list(set(storage_units.type.values)))
