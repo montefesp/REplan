@@ -2,6 +2,7 @@
 DISCLAIMER: This code originates from pypsa-eur
 (see: https://github.com/PyPSA/pypsa-eur/blob/master/scripts/prepare_network.py)
 """
+from copy import deepcopy
 import numpy as np
 import pandas as pd
 import pypsa
@@ -82,9 +83,8 @@ def apply_time_segmentation(n, segments):
     return n
 
 
-def apply_time_reduction(n, type, no_segments, no_periods, no_hours_per_period, clustering='hierarchical'):
+def apply_time_reduction(n, no_periods, no_hours_per_period):
 
-    logger.info(f"Aggregating time series via {type} method.")
     try:
         import tsam.timeseriesaggregation as tsam
     except:
@@ -95,65 +95,39 @@ def apply_time_reduction(n, type, no_segments, no_periods, no_hours_per_period, 
     load = n.loads_t.p_set
     inflow = n.storage_units_t.inflow
 
-    # load_eu = load.sum(axis=1)
-    # res_potential = n.generators['p_nom_max'].loc[p_max_pu.columns]
-    # res_generation = res_potential * p_max_pu
-    # res_eu = res_generation.sum(axis=1)
-    # residual_eu = load_eu - res_eu
-
     dataset = pd.concat([p_max_pu, load, inflow], axis=1, sort=False)
-    # dataset.columns = [*dataset.columns[:-1], 'residual_eu']
 
-    if type == 'segmentation':
+    agg = tsam.TimeSeriesAggregation(dataset,
+                                     hoursPerPeriod=no_hours_per_period,
+                                     noTypicalPeriods=no_periods,
+                                     rescaleClusterPeriods=False,
+                                     clusterMethod='hierarchical')
+    reduced = agg.createTypicalPeriods()
 
-        agg = tsam.TimeSeriesAggregation(dataset, noSegments=no_segments, segmentation=True,
-                                         hoursPerPeriod=no_hours_per_period, noTypicalPeriods=no_periods)
+    dataset['indexint'] = range(len(dataset))
+    dataset['time'] = dataset['indexint'] // no_hours_per_period
 
-        reduced = agg.createTypicalPeriods()
-        print(agg.clusterCenterIndices)
-        print(reduced.iloc[:, :5].to_string())
+    indices = []
+    weights = []
+    for idx, center in enumerate(agg.clusterCenterIndices):
+        indices.extend(list(dataset.index[dataset.time == center]))
+        weights.extend([agg.clusterPeriodNoOccur[idx]]*no_hours_per_period)
 
-        period_count = agg.clusterPeriodNoOccur
-        df_weights = reduced.index.to_frame(index=False, name=['Period', 'Segment', 'Segment Duration'])
-        df_weights['Period Multiplier'] = df_weights['Period'].map(period_count).round(0)
-        df_weights['Segment Weight'] = df_weights['Segment Duration'].mul(df_weights['Period Multiplier'])
-        print(df_weights)
+    n.set_snapshots(sorted(indices))
+    n.snapshot_weightings['objective'] = pd.Series(weights, index=indices,
+                                                   name="objective", dtype="float64")
+    n.snapshot_weightings['generators'] = pd.Series(weights, index=indices,
+                                                    name="generator", dtype="float64")
+    n.snapshot_weightings['stores'] = pd.Series(n.config['time']['resolution'], index=indices,
+                                                name="store", dtype="float64")
 
-        breakpoint()
-        # weights = reduced.index.get_level_values("Segment Duration")
-        # offsets = np.insert(np.cumsum(weights[:-1]), 0, 0)
-        # snapshots = [n.snapshots[0] + pd.Timedelta(f"{offset}h") for offset in offsets]
+    reduced.index = indices
+    reduced = reduced.sort_index()
 
-    else:
+    n.snapshot_weightings = n.snapshot_weightings.sort_index()
 
-        agg = tsam.TimeSeriesAggregation(dataset, hoursPerPeriod=no_hours_per_period,
-                                         noTypicalPeriods=no_periods, clusterMethod=clustering)
-        reduced = agg.createTypicalPeriods()
-
-        dataset['indexint'] = range(len(dataset))
-        dataset['time'] = dataset['indexint'] // no_hours_per_period
-
-        indices = []
-        weights = []
-        for idx, center in enumerate(agg.clusterCenterIndices):
-            indices.extend(list(dataset.index[dataset.time == center]))
-            weights.extend([agg.clusterPeriodNoOccur[idx]]*no_hours_per_period)
-
-        n.set_snapshots(sorted(indices))
-        n.snapshot_weightings['objective'] = pd.Series(weights, index=indices,
-                                                       name="objective", dtype="float64")
-        n.snapshot_weightings['generators'] = pd.Series(weights, index=indices,
-                                                        name="generator", dtype="float64")
-        n.snapshot_weightings['stores'] = pd.Series(n.config['time']['resolution'], index=indices,
-                                                    name="store", dtype="float64")
-
-        reduced.index = indices
-        reduced = reduced.sort_index()
-
-        n.snapshot_weightings = n.snapshot_weightings.sort_index()
-
-        n.generators_t.p_max_pu = reduced[n.generators_t.p_max_pu.columns]
-        n.loads_t.p_set = reduced[n.loads_t.p_set.columns]
-        n.storage_units_t.inflow = reduced[n.storage_units_t.inflow.columns]
+    n.generators_t.p_max_pu = reduced[n.generators_t.p_max_pu.columns]
+    n.loads_t.p_set = reduced[n.loads_t.p_set.columns]
+    n.storage_units_t.inflow = reduced[n.storage_units_t.inflow.columns]
 
     return n

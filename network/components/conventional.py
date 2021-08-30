@@ -32,10 +32,11 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
     # buses = network.buses[network.buses.onshore]
     buses = network.buses.dropna(subset=["onshore_region"], axis=0)
 
-    capital_cost, marginal_cost = get_costs(tech, sum(network.snapshot_weightings['objective']))
+    capital_cost, marginal_cost, start_up_cost = get_costs(tech, sum(network.snapshot_weightings['objective']))
 
     # Get fuel type and efficiency
-    fuel, efficiency = get_tech_info(tech, ["fuel", "efficiency_ds"])
+    fuel, efficiency, ramp_rate, min_up_time, min_down_time = \
+        get_tech_info(tech, ["fuel", "efficiency_ds", "ramp_rate", "min_up_time", "min_down_time"])
 
     network.madd("Generator",
                  buses.index,
@@ -47,6 +48,12 @@ def add_generators(network: pypsa.Network, tech: str) -> pypsa.Network:
                  efficiency=efficiency,
                  marginal_cost=marginal_cost,
                  capital_cost=capital_cost,
+                 start_up_cost=start_up_cost,
+                 ramp_limit_up=ramp_rate,
+                 ramp_limit_down=ramp_rate,
+                 min_up_time=min_up_time,
+                 min_down_time=min_down_time,
+                 p_min_pu=0.,
                  x=buses.x.values,
                  y=buses.y.values)
 

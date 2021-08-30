@@ -44,6 +44,7 @@ def add_load_shedding(net: pypsa.Network, load_df: pd.DataFrame) -> pypsa.Networ
              type="load",
              p_nom=loads_max.values,
              p_max_pu=loads_pu.values,
+             p_min_pu=0.,
              x=net.buses.loc[onshore_buses.index].x.values,
              y=net.buses.loc[onshore_buses.index].y.values,
              marginal_cost=fuel_info.loc["load", "cost"])

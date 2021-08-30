@@ -59,11 +59,11 @@ def add_generators(net: pypsa.Network, countries: List[str],
         gens.Capacity = 0.
     gens.Capacity /= 1000.  # Convert MW to GW
 
-    capital_cost, marginal_cost = get_costs('nuclear', sum(net.snapshot_weightings['objective']))
+    capital_cost, marginal_cost, start_up_cost = get_costs('nuclear', sum(net.snapshot_weightings['objective']))
 
     # Get fuel type, efficiency and ramp rates
-    fuel, efficiency, ramp_rate, base_level = \
-        get_tech_info('nuclear', ["fuel", "efficiency_ds", "ramp_rate", "base_level"])
+    fuel, efficiency, ramp_rate, min_up_time, min_down_time = \
+        get_tech_info('nuclear', ["fuel", "efficiency_ds", "ramp_rate", "min_up_time", "min_down_time"])
 
     net.madd("Generator",
              "Gen nuclear " + gens.Name + " " + gens.bus_id,
@@ -76,9 +76,12 @@ def add_generators(net: pypsa.Network, countries: List[str],
              efficiency=efficiency,
              marginal_cost=marginal_cost,
              capital_cost=capital_cost,
+             start_up_cost=start_up_cost,
              ramp_limit_up=ramp_rate,
              ramp_limit_down=ramp_rate,
-             p_min_pu=base_level,
+             min_up_time=min_up_time,
+             min_down_time=min_down_time,
+             p_min_pu=0.,
              x=gens.lon.values,
              y=gens.lat.values)
 

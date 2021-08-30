@@ -1,6 +1,7 @@
 from os.path import isdir, join, dirname, abspath
 from os import makedirs
 from time import strftime
+from copy import deepcopy
 import yaml
 
 import pandas as pd
@@ -10,7 +11,7 @@ from pypsa.linopf import ilopf
 
 from iepy import data_path
 from iepy.load import get_load_from_nuts_codes
-from iepy.technologies import get_config_dict
+from iepy.technologies import get_config_dict, get_tech_info
 from iepy.geographics import get_subregions, get_nuts_codes, revert_iso2_codes
 from iepy.topologies.pypsaentsoegridkit.manager import load_topology, add_extra_components
 
@@ -18,7 +19,7 @@ from network import *
 from network.globals.time import apply_time_reduction
 from network.globals.functionalities import add_extra_functionalities as add_funcs
 
-from projects.chapter.utils import compute_capacity_credit_ds
+from projects.chapter.utils import compute_capacity_credit_ds, build_uc_instance
 
 import logging
 logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
@@ -29,7 +30,8 @@ if __name__ == '__main__':
 
     data_dir = f"{data_path}"
     tech_dir = f"{data_path}technologies/"
-    output_dir = join(dirname(abspath(__file__)), f"../../output/remote/{strftime('%Y%m%d_%H%M%S')}/")
+    output_dir_plan = join(dirname(abspath(__file__)), f"../../output/chapter/{strftime('%Y%m%d_%H%M%S')}/")
+    output_dir_ops = join(dirname(abspath(__file__)), f"{output_dir_plan}ops/")
 
     # Run config
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
@@ -57,16 +59,16 @@ if __name__ == '__main__':
     fuel_info = pd.read_excel(join(tech_dir, 'fuel_info.xlsx'), sheet_name='values', index_col=0)
 
     # Compute and save results
-    if not isdir(output_dir):
-        makedirs(output_dir)
+    if not isdir(output_dir_plan):
+        makedirs(output_dir_plan)
+        makedirs(output_dir_ops)
 
     # Save config and parameters files
-    yaml.dump(config, open(f"{output_dir}config.yaml", 'w'), sort_keys=False)
-    yaml.dump(tech_config, open(f"{output_dir}tech_config.yaml", 'w'), sort_keys=False)
-    tech_info.to_csv(f"{output_dir}tech_info.csv")
-    fuel_info.to_csv(f"{output_dir}fuel_info.csv")
+    yaml.dump(config, open(f"{output_dir_plan}config.yaml", 'w'), sort_keys=False)
+    yaml.dump(tech_config, open(f"{output_dir_plan}tech_config.yaml", 'w'), sort_keys=False)
+    tech_info.to_csv(f"{output_dir_plan}tech_info.csv")
+    fuel_info.to_csv(f"{output_dir_plan}fuel_info.csv")
 
-    # Time, WHICH SHOULD BE REPLACED WITH A TSAM VERSION SUCH THAT THE REDUCED TIME SERIES IS BUILT DIRECTLY
     timeslice = config['time']['slice']
     time_resolution = config['time']['resolution']
     timestamps = pd.date_range(timeslice[0], timeslice[1], freq=f"{time_resolution}H")
@@ -92,10 +94,7 @@ if __name__ == '__main__':
     logger.info("Adding load.")
     load = get_load_from_nuts_codes(list(net.buses.index), timestamps)
     net.madd("Load", load.columns, bus=list(net.buses.index), p_set=load)
-
-    if config["functionalities"]["load_shed"]["include"]:
-        logger.info("Adding load shedding generators.")
-        net = add_load_shedding(net, load)
+    net = add_load_shedding(net, load)
 
     if "nuclear" in config["techs"]:
         net = add_nuclear(net, countries,
@@ -144,17 +143,44 @@ if __name__ == '__main__':
                                 fixed_duration=config["techs"]["battery"]["fixed_duration"])
 
     net = compute_capacity_credit_ds(net, peak_sample=0.05)
-    net = apply_time_reduction(net, type=config['time']['tsam']['type'],
-                               no_segments=config['time']['tsam']['no_segments'],
+    full_net = deepcopy(net)
+
+    net = apply_time_reduction(net,
                                no_periods=config['time']['tsam']['no_periods'],
-                               no_hours_per_period=config['time']['tsam']['hours_per_periods'])
+                               no_hours_per_period=config['time']['tsam']['hours_per_periods']
+                               )
 
     ilopf(net, solver_name=config["solver"],
-          solver_logfile=f"{output_dir}solver.log",
+          solver_logfile=f"{output_dir_plan}solver.log",
           solver_options=config["solver_options"],
           extra_functionality=add_funcs,
           msq_threshold=0.03,
-          max_iterations=10,
+          min_iterations=3,
+          max_iterations=5,
           track_iterations=False)
 
-    net.export_to_csv_folder(output_dir)
+    nfull = build_uc_instance(net, full_net)
+
+    for y in list(timestamps.year.unique()):
+        logging.info(f"Operations for year {y}")
+
+        year_folder = join(output_dir_ops, str(y))
+        if not isdir(year_folder):
+            makedirs(year_folder)
+        netyear = deepcopy(nfull)
+        netyear.set_snapshots(timestamps[timestamps.year == y])
+
+        for day in list(timestamps.dayofyear.unique())[:7]:
+            logging.info(f"Solving the UC problem for day {day}/{len(timestamps.dayofyear.unique())}")
+
+            if day > 1:
+                netyear.storage_units.state_of_charge_initial = \
+                    netyear.storage_units_t.state_of_charge.loc[netyear.snapshots[netyear.snapshots.dayofyear == day-1]].iloc[-1,:]
+                netyear.stores.e_initial = \
+                    netyear.stores_t.e.loc[netyear.snapshots[netyear.snapshots.dayofyear == day-1]].iloc[-1,:]
+
+            netyear.lopf(netyear.snapshots[netyear.snapshots.dayofyear == day],
+                         pyomo=True, solver_name=config['solver'], solver_logfile=f"{year_folder}/solver_{day}.log".replace('/', '\\'),
+                         solver_options={'mip tolerances mipgap': 0.03})
+
+        netyear.export_to_csv_folder(year_folder)

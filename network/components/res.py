@@ -119,7 +119,7 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str], use_ex
             if points_capacity_potential_ds.loc[p] < legacy_cap_ds.loc[p]:
                 points_capacity_potential_ds.loc[p] = legacy_cap_ds.loc[p]
 
-        capital_cost, marginal_cost = get_costs(tech, len(net.snapshots))
+        capital_cost, marginal_cost, _ = get_costs(tech, len(net.snapshots))
 
         net.madd("Generator",
                  pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
@@ -227,7 +227,7 @@ def add_generators_using_siting(net: pypsa.Network, technologies: List[str],
         p_nom = existing_cap_ds[tech][points].values
         p_max_pu = cap_factor_df[tech][points].values
 
-        capital_cost, marginal_cost = get_costs(tech, len(net.snapshots))
+        capital_cost, marginal_cost, _ = get_costs(tech, len(net.snapshots))
 
         net.madd("Generator",
                  pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
@@ -307,7 +307,7 @@ def add_generators_in_grid_cells(net: pypsa.Network, technologies: List[str],
         p_nom = resite.data_dict["existing_cap_ds"][tech][points].values
         p_max_pu = resite.data_dict["cap_factor_df"][tech][points].values
 
-        capital_cost, marginal_cost = get_costs(tech, len(net.snapshots))
+        capital_cost, marginal_cost, _ = get_costs(tech, len(net.snapshots))
 
         net.madd("Generator",
                  pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
@@ -440,7 +440,7 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
         buses = buses.loc[non_zero_potential_gens_index]
 
         # Get costs
-        capital_cost, marginal_cost = get_costs(tech, len(net.snapshots))
+        capital_cost, marginal_cost, _ = get_costs(tech, len(net.snapshots))
 
         # Adding to the network
         net.madd("Generator",
