@@ -39,43 +39,33 @@ if __name__ == '__main__':
     gens = pd.read_csv(f"{optimal_net_dir}/generators.csv").set_index("name")
 
     # Minimize total sum of connections
-    if config['mga']['type'] == 'link':
-        if config['mga']['subtype'] == 'whole':
-            find_minimum_capacity_invariant('link', optimal_net_dir, config, output_dir,
-                                            links.index, 'whole')
-        elif config['mga']['subtype'] == 'bus':
-            # Solve network again with new constraint and
-            # minimizing the sum of transmission line coming out of a country
-            for bus in config['mga']['args']:
-                adjacent_links_index = links[(links.bus0 == bus) | (links.bus1 == bus)].index
-                find_minimum_capacity_invariant("link", optimal_net_dir, config, output_dir,
-                                                adjacent_links_index, bus)
+    if config['mga']['link-whole']:
+        find_minimum_capacity_invariant('link', optimal_net_dir, config, output_dir,
+                                        links.index, 'whole')
 
-        elif config['mga']['subtype'] == 'link':
-            for link in config['mga']['args']:
-                find_minimum_capacity_invariant("link", optimal_net_dir, config, output_dir,
-                                                [link], link)
+    # Minimizing the sum of transmission line coming out of a country
+    for bus in config['mga']['link-bus']:
+        adjacent_links_index = links[(links.bus0 == bus) | (links.bus1 == bus)].index
+        find_minimum_capacity_invariant("link", optimal_net_dir, config, output_dir,
+                                        adjacent_links_index, bus)
 
-    elif config['mga']['type'] == 'storage':
+    for link in config['mga']['link-link']:
+        find_minimum_capacity_invariant("link", optimal_net_dir, config, output_dir,
+                                        [link], link)
+
+    if config['mga']['storage']:
         # Batteries
         batteries_indexes = sus[sus.p_nom_extendable].index
         find_minimum_capacity_invariant('storage', optimal_net_dir, config, output_dir,
                                         batteries_indexes, 'whole')
 
-    elif config['mga']['type'] == 'res-cap':
-        # RES generator capacity
-        if config['mga']['subtype'] == 'res':
-            gen_indexes = gens[gens.type.isin(config['res']['techs'])].index
-            find_minimum_capacity_invariant('generator-cap', optimal_net_dir, config, output_dir,
-                                            gen_indexes, 'res')
-        else:
-            tech_type = config['mga']['subtype']
-            gen_indexes = gens[gens.type == tech_type].index
-            find_minimum_capacity_invariant('generator-cap', optimal_net_dir, config, output_dir,
-                                            gen_indexes, tech_type)
-
-    elif config['mga']['type'] == 'res-power':
-        # RES generator power
+    # RES generator capacity
+    if config['mga']['res-total']:
         gen_indexes = gens[gens.type.isin(config['res']['techs'])].index
-        find_minimum_capacity_invariant('generator-power', optimal_net_dir, config, output_dir,
+        find_minimum_capacity_invariant('generator-cap', optimal_net_dir, config, output_dir,
                                         gen_indexes, 'res')
+
+    for tech_type in config['mga']['res-sub']:
+        gen_indexes = gens[gens.type == tech_type].index
+        find_minimum_capacity_invariant('generator-cap', optimal_net_dir, config, output_dir,
+                                        gen_indexes, tech_type)
