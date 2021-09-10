@@ -1,9 +1,12 @@
 # MGA
 mga:
-  epsilons: [0.01, 0.1, 0.2]
-  type: 'res-cap'
-  subtype: 'wind_onshore_national'
-  args: ['BE', 'NL']
+  epsilons: [0.01, 0.1]
+  link-whole: True
+  link-bus: ['BE', 'NL']
+  link-link: ['BE-NL']
+  storage: True
+  res-total: True
+  res-sub: ['wind_onshore_national']
 
 # Space
 region: "BENELUX"
