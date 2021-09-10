@@ -281,7 +281,7 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
             logger.warning("Capacity potentials computed using ENSPRESO data.")
             if one_bus_per_country:
                 cap_pot_country_ds = get_capacity_potential_for_countries(tech, countries)
-                cap_pot_ds = pd.Series(index=buses.index)
+                cap_pot_ds = pd.Series(index=buses.index, dtype=float)
                 cap_pot_ds[:] = cap_pot_country_ds.loc[buses.country]
             else:  # topology_type == "regions"
                 cap_pot_ds = get_capacity_potential_for_regions({tech: buses_regions_shapes_ds.values})[tech]
@@ -290,7 +290,7 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
             # Using GLAES
             filters = tech_config_dict[tech]["filters"]
             power_density = tech_config_dict[tech]["power_density"]
-            cap_pot_ds = pd.Series(index=buses.index)
+            cap_pot_ds = pd.Series(index=buses.index, dtype=float)
             cap_pot_ds[:] = get_capacity_potential_for_shapes(buses_regions_shapes_ds.values, filters,
                                                               power_density, precision=precision)
 
@@ -298,7 +298,7 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
         if one_bus_per_country:
             # For country-based topologies, use aggregated series obtained from Renewables.ninja
             cap_factor_countries_df = get_cap_factor_for_countries(tech, countries, net.snapshots, precision, False)
-            cap_factor_df = pd.DataFrame(index=net.snapshots, columns=buses.index)
+            cap_factor_df = pd.DataFrame(index=net.snapshots, columns=buses.index, dtype=float)
             cap_factor_df[:] = cap_factor_countries_df[buses.country]
         else:
             # For region-based topology, compute capacity factors at (rounded) buses position
@@ -310,7 +310,7 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
             cap_factor_df.columns = buses.index
 
         # Compute legacy capacity (not available for wind_floating)
-        legacy_cap_ds = pd.Series(0., index=buses.index)
+        legacy_cap_ds = pd.Series(0., index=buses.index, dtype=float)
         if use_ex_cap and tech != "wind_floating":
             if one_bus_per_country and len(countries) != 0:
                 legacy_cap_countries = get_legacy_capacity_in_countries(tech, countries)
