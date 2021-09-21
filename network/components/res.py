@@ -241,7 +241,6 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
     """
 
     # Filter out buses
-    # TODO: to be tested
     all_buses = net.buses.copy()
     all_buses = all_buses[all_buses['country'].notna()]
     if bus_ids is not None:

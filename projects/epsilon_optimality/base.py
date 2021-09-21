@@ -26,7 +26,6 @@ def optimal_solve(main_output_dir, config):
     tech_dir = f"{data_path}technologies/"
     output_dir = f"{main_output_dir}/optimal/"
 
-    # TODO: change
     techs = config["res"]["techs"].copy()
     if config["dispatch"]["include"]:
         techs += config["dispatch"]["techs"]
@@ -137,5 +136,9 @@ def optimal_solve(main_output_dir, config):
              keep_files=config['keep_lp'])
 
     net.export_to_csv_folder(output_dir)
+
+    res_gens = net.generators[net.generators.type == 'wind_onshore_national'].index
+    print(net.generators_t.p_max_pu.columns)
+    exit()
 
     return output_dir

@@ -15,7 +15,7 @@ def add_curtailment_penalty_term(network: pypsa.Network, snapshots: pd.DatetimeI
     snapshots: pd.DatetimeIndex
         Network snapshots.
     curtailment_cost: float
-        Cost of curtailing in M€/MWh # TODO: to be checked
+        Cost of curtailing
 
     """
 

@@ -16,7 +16,6 @@ def dispatchable_capacity_lower_bound(net: pypsa.Network, thresholds: Dict):
     thresholds: Dict
         Dict containing scalar thresholds for disp_capacity/peak_load for each bus
     """
-    # TODO: extend for different topologies, if necessary
     dispatchable_technologies = ['ocgt', 'ccgt', 'ccgt_ccs', 'nuclear', 'sto']
     for bus in net.loads.bus:
 

@@ -9,8 +9,19 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %
 logger = logging.getLogger(__name__)
 
 
-def replace_su_closed_loop(network: pypsa.Network, su_to_replace: str):
-    # TODO: comment
+def replace_su_closed_loop(network: pypsa.Network, su_to_replace: str) -> None:
+    """
+    Convert a PyPSA Storage Unit to a Store with additional components
+     so that power and energy can be sized independently.
+
+    Parameters
+    ----------
+    network: pypsa.Network
+        PyPSA network
+    su_to_replace: str
+        Name of the storage unit to be replaced
+
+    """
 
     su = network.storage_units.loc[su_to_replace]
 
@@ -99,7 +110,7 @@ def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str
     # onshore_bus_indexes = pd.Index([bus_id for bus_id in buses.index if buses.loc[bus_id].onshore])
     onshore_buses = buses.dropna(subset=["onshore_region"], axis=0)
 
-    # Get costs and efficiencies
+    # Add batteries with fixed energy-power ratio
     if fixed_duration:
 
         capital_cost, marginal_cost = get_costs(battery_type, sum(network.snapshot_weightings['objective']))
@@ -123,6 +134,7 @@ def add_batteries(network: pypsa.Network, battery_type: str, buses_ids: List[str
                      efficiency_store=efficiency_store,
                      standing_loss=self_discharge)
 
+    # Add batteries where energy and power are sized independently
     else:
 
         battery_type_power = battery_type+'_p'

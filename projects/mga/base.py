@@ -24,7 +24,6 @@ def base_solve(main_output_dir, config):
     tech_dir = f"{data_path}technologies/"
     output_dir = f"{main_output_dir}/base/"
 
-    # TODO: change
     techs = config["res"]["techs"].copy()
     if config["dispatch"]["include"]:
         techs += [config["dispatch"]["tech"]]

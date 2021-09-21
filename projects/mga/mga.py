@@ -6,8 +6,6 @@ import pypsa
 
 from pypsa.linopt import get_var, linexpr, define_constraints, write_objective
 
-from iepy.technologies import get_costs
-
 
 def add_mga_constraint(net: pypsa.Network, epsilon):
 
@@ -55,7 +53,6 @@ def add_mga_objective(net, sense='min'):
 
     # Minimize transmission capacity
     link_p_nom = get_var(net, 'Link', 'p_nom')
-    # TODO: not sure this is right
     sense = 1 if sense == 'min' else -1
     link_capacity_expr = linexpr((sense, link_p_nom)).sum()
 
@@ -70,7 +67,6 @@ def min_transmission(net: pypsa.Network, snapshots: pd.DatetimeIndex):
 
 def max_transmission(net: pypsa.Network, snapshots: pd.DatetimeIndex):
 
-    # TODO: I have no idea if there is another way to do this
     add_mga_constraint(net, net.epsilon)
     add_mga_objective(net, 'max')
 

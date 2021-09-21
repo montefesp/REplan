@@ -66,7 +66,6 @@ def get_generators_generation(net: pypsa.Network):
     return gen_df
 
 
-# TODO: this is shit
 def get_generators_average_usage(net: pypsa.Network):
     """Return the average generation capacity usage (i.e. mean(generation_t/capacity)) of each type of generator"""
 
@@ -77,18 +76,8 @@ def get_generators_average_usage(net: pypsa.Network):
     cap_factor_df = net.generators_t['p_max_pu']
 
     df_cf = pd.Series(index=tech_names, dtype=float)
-    for item in df_cf.index:
-
-        # TODO: why is there a difference?
-        if item in ['wind_onshore', 'wind_offshore', 'wind_floating', 'pv_residential', 'pv_utility']:
-            tech_gens_ids = gens.type == item
-            capacities = gens[tech_gens_ids]['p_nom_opt']
-            cf_per_tech = cap_factor_df.loc[:, tech_gens_ids].mean()
-            if sum(capacities) != 0:
-                df_cf.loc[item] = np.average(cf_per_tech.values, weights=capacities.values)
-
-        else:
-            df_cf.loc[item] = tot_gen.loc[item] * 1e3 / (opt_cap.loc[item] * sum(net.snapshot_weightings['objective']))
+    for tech in tech_names:
+        df_cf.loc[tech] = tot_gen.loc[tech] * 1e3 / (opt_cap.loc[tech] * sum(net.snapshot_weightings['objective']))
 
     return df_cf
 
@@ -230,7 +219,6 @@ def get_links_power(net: pypsa.Network):
 
     for carrier in carriers:
         links_to_keep = links_carriers[links_carriers == carrier]
-        # TODO: change? is p0 always equal to p1?
         links_to_keep_t_p0 = links_t['p0'].loc[:, list(links_to_keep.index)]
         links_to_keep_t_p1 = links_t['p1'].loc[:, list(links_to_keep.index)]
 

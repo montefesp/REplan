@@ -43,7 +43,6 @@ def add_res_at_sites(net: pypsa.Network, config, output_dir, eu_countries, ):
             all_remote_countries += remote_countries
             remote_techs = non_eu_res[region]
             r_remote = Resite(remote_countries, remote_techs, [net.snapshots[0], net.snapshots[-1]], spatial_res)
-            # TODO: set add load to True for IS?
             regions_shapes = net.buses.loc[remote_countries, ["onshore_region", 'offshore_region']]
             regions_shapes.columns = ['onshore', 'offshore']
             r_remote.build_data(False, compute_load=False, regions_shapes=regions_shapes)
@@ -97,7 +96,6 @@ def add_res_at_sites(net: pypsa.Network, config, output_dir, eu_countries, ):
         cap_potential_ds = r_europe.sel_data_dict["cap_potential_ds"]
         cap_factor_df = r_europe.sel_data_dict["cap_factor_df"]
 
-        # TODO: for now they are always equal
         if not r_europe.timestamps.equals(net.snapshots):
             # If network snapshots is a subset of resite snapshots just crop the data
             missing_timestamps = set(net.snapshots) - set(r_europe.timestamps)

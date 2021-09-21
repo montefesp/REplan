@@ -67,7 +67,6 @@ if __name__ == '__main__':
     config_fn = join(dirname(abspath(__file__)), 'config.yaml')
     config = yaml.load(open(config_fn, 'r'), Loader=yaml.FullLoader)
 
-    # TODO: maybe a cleaner options exists to update these parameters in files.
     solver_options = config["solver_options"][config["solver"]]
     if args["threads"] is not None:
         if config["solver"] == 'gurobi':
@@ -97,7 +96,6 @@ if __name__ == '__main__':
     else:
         config["res"]["strategies"]["no_siting"] = config["res"]["techs"]
 
-    # TODO: change
     techs = config["res"]["techs"].copy()
     if config["dispatch"]["include"]:
         techs += [config["dispatch"]["tech"]]

@@ -5,6 +5,7 @@ import pypsa
 
 from iepy.load import get_load
 
+
 def add_import_limit_constraint(network: pypsa.Network, import_share: float, countries: List[str]):
     """
     Add per-bus constraint on import budgets.
@@ -21,6 +22,8 @@ def add_import_limit_constraint(network: pypsa.Network, import_share: float, cou
     Notes
     -----
     Using a flat value across EU, could be updated to support different values for different countries.
+
+    WARNING: this function works based on the assumption that the bus is associated to a country. Should be updated.
 
     """
 
@@ -43,5 +46,4 @@ def add_import_limit_constraint(network: pypsa.Network, import_share: float, cou
             imports -= sum(model.link_p[e, s] for e in links_out for s in network.snapshots)
         return imports <= import_budget
 
-    # TODO: based on the assumption that the bus is associated to a country
     model.import_constraint = Constraint(countries, rule=import_constraint_rule)

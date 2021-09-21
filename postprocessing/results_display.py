@@ -91,8 +91,7 @@ def display_co2(net: pypsa.Network):
     co2_emissions_per_gen = generators_t_year * generators_specs['emissions_eff'] * 1e-3
     co2_emissions = co2_emissions_per_gen.sum()
 
-    # TODO: this generate an error if there is a no co2 budget
-    co2_budget = net.global_constraints.constant.values[0] * 1e-3
+    co2_budget = net.global_constraints.constant.values[0] * 1e-3 if len(net.global_constraints) != 0 else 0
 
     df_co2.loc['CO2', 'budget [Mt]'] = co2_budget
     df_co2.loc['CO2', 'use [Mt]'] = co2_emissions
@@ -100,4 +99,4 @@ def display_co2(net: pypsa.Network):
 
     df_co2 = df_co2.round(2)
 
-    print(f"CO2 utilization:\n{df_co2}\n")
+    print(f"CO2 usage:\n{df_co2}\n")

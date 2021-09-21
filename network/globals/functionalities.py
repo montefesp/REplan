@@ -59,7 +59,6 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
         mitigation_factor = conf_func["co2_emissions"]["mitigation_factor"]
         ref_year = conf_func["co2_emissions"]["reference_year"]
         if strategy == 'country':
-            # TODO: this is not very robust
             countries = get_subregions(net.config['region'])
             assert len(countries) == len(mitigation_factor), \
                 "Error: a co2 emission reduction share must be given for each country in the main region."
@@ -71,7 +70,6 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
     if 'import_limit' in conf_func and conf_func["import_limit"]["include"]:
         funcs.add_import_limit_constraint(net, conf_func["import_limit"]["share"])
         if pyomo:
-            # TODO: this is not very robust
             countries = get_subregions(net.config['region'])
             funcs.add_import_limit_constraint(net, conf_func["import_limit"]["share"], countries)
 

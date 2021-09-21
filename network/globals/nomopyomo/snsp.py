@@ -10,7 +10,7 @@
 #         Share of system non-synchronous generation.
 #
 #     """
-#     # TODO: DC to be included, however the constraint should then be imposed on a nodal basis
+#     # ODO: DC to be included, however the constraint should then be imposed on a nodal basis
 #     snapshots = net.snapshots
 #
 #     nonsync_gen_types = 'wind|pv'
