@@ -40,7 +40,7 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
     # Some functionalities are currently only implemented in pyomo
     if 'snsp' in conf_func and conf_func["snsp"]["include"]:
         if pyomo:
-            funcs.add_snsp_constraint_tyndp(net, snapshots, conf_func["snsp"]["share"])
+            funcs.add_snsp_constraint(net, snapshots, conf_func["snsp"]["share"])
         else:
             logger.warning('SNSP functionality is currently not implented in nomopyomo')
 
@@ -75,8 +75,7 @@ def add_extra_functionalities(net: pypsa.Network, snapshots: pd.DatetimeIndex):
             countries = get_subregions(net.config['region'])
             funcs.add_import_limit_constraint(net, conf_func["import_limit"]["share"], countries)
 
-    if 'techs' in net.config and 'battery' in net.config["techs"] and\
-            not net.config["techs"]["battery"]["fixed_duration"]:
+    if 'techs' in net.config and 'battery' in net.config["techs"] and not net.config["techs"]["battery"]["fixed_duration"] and net.stores['e_nom_extendable'].all():
         ctd_ratio = get_config_values("Li-ion_p", ["ctd_ratio"])
         funcs.store_links_constraint(net, ctd_ratio)
 

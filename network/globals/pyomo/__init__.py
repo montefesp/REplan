@@ -1,6 +1,6 @@
 from network.globals.pyomo.co2 import add_co2_budget_per_country, add_co2_budget_global
 from network.globals.pyomo.dispatchable import dispatchable_capacity_lower_bound, add_planning_reserve_constraint
 from network.globals.pyomo.imports import add_import_limit_constraint
-from network.globals.pyomo.snsp import add_snsp_constraint_tyndp
+from network.globals.pyomo.snsp import add_snsp_constraint
 from network.globals.pyomo.store import store_links_constraint
 from network.globals.pyomo.curtailment import add_curtailment_penalty_term, add_curtailment_constraints

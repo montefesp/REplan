@@ -52,6 +52,7 @@ def build_uc_instance(net: pypsa.Network, nfull: pypsa.Network):
         for idx in gens_tech.index:
             gens_tech.at[idx, 'committable'] = True
             gens_tech.at[idx, 'p_min_pu'] = base_level
+            gens_tech.at[idx, 'start_up_cost'] *= gens_tech.at[idx, 'p_nom_opt']
         generators[generators['type'] == t] = gens_tech
 
     stores = net.stores
@@ -75,5 +76,9 @@ def build_uc_instance(net: pypsa.Network, nfull: pypsa.Network):
     nfull.links = links
     nfull.lines = lines
     nfull.storage_units = storage_units
+
+    nfull.config['functionalities']['prm']['include'] = False
+    nfull.config['functionalities']['co2_emissions']['include'] = False
+    nfull.config['pyomo'] = True
 
     return nfull

@@ -4,25 +4,27 @@ keep_lp: False
 pyomo: False
 
 # solver
-solver: 'cplex'
+solver: 'gurobi'
 solver_options:
-  threads: 0
-  lpmethod: 4
-  solutiontype: 2
-  barrier.convergetol: 0.00001
-  preprocessing.fill: 0
-  preprocessing.dual: 1
+  threads: 15
+  method: 2 # barrier
+  crossover: 0
+  BarConvTol: 1.e-5
+  FeasibilityTol: 1.e-6
+  AggFill: 0
+  PreDual: 0
+  GURO_PAR_BARDENSETHRESH: 200
 
 # Time
 time:
   slice: ['2010-01-01T00:00', '2019-12-31T23:00']
   resolution: 1
   tsam:
-    no_periods: 2
-    hours_per_periods: 168
+    no_periods: 1
+    hours_per_periods: 24
 
 # Space
-region: "EU"
+region: "CONT"
 
 # RES
 res:
@@ -34,7 +36,7 @@ res:
       which: ['wind_offshore', 'wind_onshore']
       spatial_resolution: 0.25
       use_ex_cap: True
-      sites_dir: '10y_n871_k19_c218_test'
+      sites_dir: '10y_n452_k8_c113'
       sites_fn: 'comp_site_data.p'
     bus:
       which: ['pv_residential', 'pv_utility']
@@ -73,7 +75,7 @@ techs:
   transmission:
     config:
       'lines':
-        's_max_pu': 0.7
+        's_max_pu': 1.0
         'types':
           132: "Al/St 240/40 2-bundle 220.0"
           220: "Al/St 240/40 2-bundle 220.0"
@@ -93,3 +95,6 @@ functionalities:
     strategy: 'global' # country, global
     reference_year: 1990
     mitigation_factor: 0.9
+  snsp:
+    include: True
+    share: 0.75

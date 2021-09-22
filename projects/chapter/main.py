@@ -159,6 +159,7 @@ if __name__ == '__main__':
           max_iterations=5,
           track_iterations=False)
 
+    net.export_to_csv_folder(output_dir_plan)
     nfull = build_uc_instance(net, full_net)
 
     for y in list(timestamps.year.unique()):
@@ -170,7 +171,7 @@ if __name__ == '__main__':
         netyear = deepcopy(nfull)
         netyear.set_snapshots(timestamps[timestamps.year == y])
 
-        for day in list(timestamps.dayofyear.unique())[:7]:
+        for day in list(netyear.snapshots.dayofyear.unique()):
             logging.info(f"Solving the UC problem for day {day}/{len(timestamps.dayofyear.unique())}")
 
             if day > 1:
@@ -180,7 +181,9 @@ if __name__ == '__main__':
                     netyear.stores_t.e.loc[netyear.snapshots[netyear.snapshots.dayofyear == day-1]].iloc[-1,:]
 
             netyear.lopf(netyear.snapshots[netyear.snapshots.dayofyear == day],
-                         pyomo=True, solver_name=config['solver'], solver_logfile=f"{year_folder}/solver_{day}.log".replace('/', '\\'),
-                         solver_options={'mip tolerances mipgap': 0.03})
+                         extra_functionality=add_funcs, pyomo=netyear.config['pyomo'],
+                         solver_name=netyear.config['solver'], solver_logfile=f"{year_folder}/solver_{day}.log",
+                         solver_options={'MIPGap': 0.03, 'NodeMethod': 2, 'MIPFocus': 3, 'Method': 2, 'Threads': 15,
+                                         'Crossover': 0, 'Heuristics': 0.8})
 
         netyear.export_to_csv_folder(year_folder)
