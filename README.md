@@ -1,7 +1,7 @@
 <a href="https://www.montefiore.uliege.be/"><img src="https://www.montefiore.uliege.be/upload/docs/image/svg-xml/2019-04/montefiore_institute.svg" alt="University of Liège - Montefiore institute" width="230px"></a>
 
 
-# replan
+# REplan
 
 REplan provides a set of tools to ease the set up and simulation of grid expansion planning.
 Currently, the tool is on development and focuses on electricity transmission grids at a macro-level (i.e. our most granular model uses as indivisible units NUTS3 regions).
@@ -18,8 +18,6 @@ The repository is organized as follows:
 ## Dependencies
 
 - [PyPSA](https://github.com/PyPSA/PyPSA) >= 0.17.0
-- [iepy](https://github.com/montefesp/iepy)
+- [EPIPPy](https://github.com/montefesp/epippy)
 - [resite](https://github.com/montefesp/resite)
 
-# License
-This software is released as free software under the [GPLv3](http://www.gnu.org/licenses/gpl-3.0.en.html).
