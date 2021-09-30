@@ -1,7 +1,7 @@
 import pytest
 
 from network.components.hydro import *
-from iepy.geographics import get_shapes
+from epippy.geographics import get_shapes
 from tests.network.utils import define_simple_network
 
 net_ = define_simple_network()

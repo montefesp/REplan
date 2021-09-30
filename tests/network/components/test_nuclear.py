@@ -2,7 +2,7 @@ import pytest
 
 from network.components.nuclear import *
 from tests.network.utils import define_simple_network
-from iepy.geographics import get_shapes
+from epippy.geographics import get_shapes
 
 net_ = define_simple_network()
 

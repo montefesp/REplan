@@ -2,8 +2,8 @@ import pandas as pd
 
 import pypsa
 
-from iepy.technologies import get_config_values
-from iepy.geographics import get_subregions
+from epippy.technologies import get_config_values
+from epippy.geographics import get_subregions
 
 import logging
 logger = logging.getLogger()

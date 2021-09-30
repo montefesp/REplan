@@ -2,8 +2,8 @@ from typing import List
 
 import pypsa
 
-from iepy.generation import get_powerplants, match_powerplants_to_regions
-from iepy.technologies import get_costs, get_tech_info
+from epippy.generation import get_powerplants, match_powerplants_to_regions
+from epippy.technologies import get_costs, get_tech_info
 
 from warnings import warn
 import logging

@@ -2,7 +2,7 @@ import pandas as pd
 
 import pypsa
 
-from iepy.geographics import get_shapes
+from epippy.geographics import get_shapes
 
 
 def define_simple_network() -> pypsa.Network:

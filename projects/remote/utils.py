@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 import geopy.distance
 import pypsa
 
-from iepy.geographics import get_shapes, get_subregions
-from iepy.topologies.core.plot import plot_topology
-from iepy.technologies import get_costs
+from epippy.geographics import get_shapes, get_subregions
+from epippy.topologies.core.plot import plot_topology
+from epippy.technologies import get_costs
 
 
 def upgrade_topology(net: pypsa.Network, regions: List[str], plot: bool = False,

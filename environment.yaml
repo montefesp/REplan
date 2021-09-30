@@ -1,42 +1,28 @@
-name: pyggrid
+name: replan
 channels:
   - defaults
   - conda-forge
-  - ibmdecisionoptimization
-  - http://conda.anaconda.org/gurobi
+  - gurobi
 dependencies:
-  - python
+  - python=3.7.6
   - pip
-
   - pypsa
-  - atlite
-
-  - gdal==2.4.4
-
+  - gdal=2.4.4
   - pycountry
-
   - xarray
   - dask
   - scikit-learn
-
-  - PyYAML
-
-  - shapely
   - geopandas
-  - cartopy
-  - powerplantmatching
   - geopy
-  - geojson
-  - libgdal
-
-  - gurobi==8.1.1
+  - xlrd
+  - progressbar2
+  - libwebp
+  - unidecode
+  - openpyxl
+  - gurobi
 
   - pip:
-      - dash==1.7.0
-      - vresutils==0.3.1
       - git+https://github.com/FZJ-IEK3-VSA/geokit.git#egg=geokit
       - git+https://github.com/FZJ-IEK3-VSA/glaes.git#egg=glaes
-      - cdsapi
-      - docplex
-      - cplex
       - windpowerlib
+      - vresutils

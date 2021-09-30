@@ -6,14 +6,14 @@ import resource
 
 import argparse
 
-from iepy.topologies.tyndp2018 import get_topology
-from iepy.geographics import get_subregions
-from iepy.technologies import get_config_dict
-from iepy.load import get_load
+from epippy.topologies.tyndp2018 import get_topology
+from epippy.geographics import get_subregions
+from epippy.technologies import get_config_dict
+from epippy.load import get_load
 from network import *
 from postprocessing.results_display import *
 
-from iepy import data_path
+from epippy import data_path
 
 import logging
 logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")

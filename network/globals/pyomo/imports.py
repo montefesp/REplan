@@ -3,7 +3,7 @@ from typing import List
 from pyomo.environ import Constraint, NonNegativeReals
 import pypsa
 
-from iepy.load import get_load
+from epippy.load import get_load
 
 
 def add_import_limit_constraint(network: pypsa.Network, import_share: float, countries: List[str]):

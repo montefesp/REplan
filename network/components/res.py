@@ -4,14 +4,14 @@ import pandas as pd
 
 import pypsa
 
-from iepy.geographics import match_points_to_regions
-from iepy.generation.vres.legacy import get_legacy_capacity_in_regions, get_legacy_capacity_in_countries
-# from iepy.potentials import get_capacity_potential_at_points
-from iepy.generation.vres.potentials.enspreso import get_capacity_potential_for_countries,\
+from epippy.geographics import match_points_to_regions
+from epippy.generation.vres.legacy import get_legacy_capacity_in_regions, get_legacy_capacity_in_countries
+# from epippy.potentials import get_capacity_potential_at_points
+from epippy.generation.vres.potentials.enspreso import get_capacity_potential_for_countries,\
     get_capacity_potential_for_regions
-from iepy.generation.vres.potentials.glaes import get_capacity_potential_for_shapes
-from iepy.generation.vres.profiles import compute_capacity_factors, get_cap_factor_for_countries
-from iepy.technologies import get_costs, get_config_values, get_config_dict
+from epippy.generation.vres.potentials.glaes import get_capacity_potential_for_shapes
+from epippy.generation.vres.profiles import compute_capacity_factors, get_cap_factor_for_countries
+from epippy.technologies import get_costs, get_config_values, get_config_dict
 
 
 import logging

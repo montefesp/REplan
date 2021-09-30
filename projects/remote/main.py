@@ -10,15 +10,15 @@ import pandas as pd
 
 import pypsa
 
-from iepy.topologies.tyndp2018 import get_topology
-from iepy.technologies import get_config_dict
-from iepy.geographics import get_subregions
-from iepy.load import get_load
+from epippy.topologies.tyndp2018 import get_topology
+from epippy.technologies import get_config_dict
+from epippy.geographics import get_subregions
+from epippy.load import get_load
 from network import *
 from network.globals.functionalities import add_extra_functionalities as add_funcs
 from projects.remote.utils import upgrade_topology
 
-from iepy import data_path
+from epippy import data_path
 
 from projects.remote.aux_res import add_res_at_sites
 

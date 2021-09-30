@@ -2,15 +2,15 @@ from os.path import isdir
 from os import makedirs
 from time import strftime
 
-from iepy.indicators.emissions import get_reference_emission_levels_for_region
-from iepy.load import get_load_from_nuts_codes
-from iepy.topologies.ehighways import get_topology
-from iepy.geographics import get_subregions
-from iepy.technologies import get_config_dict
+from epippy.indicators.emissions import get_reference_emission_levels_for_region
+from epippy.load import get_load_from_nuts_codes
+from epippy.topologies.ehighways import get_topology
+from epippy.geographics import get_subregions
+from epippy.technologies import get_config_dict
 from network import *
 from postprocessing.results_display import *
 
-from iepy import data_path
+from epippy import data_path
 
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")

@@ -4,7 +4,7 @@ import pypsa
 
 import pandas as pd
 
-from iepy import data_path
+from epippy import data_path
 
 import logging
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")

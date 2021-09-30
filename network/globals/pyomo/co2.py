@@ -3,8 +3,8 @@ from typing import Dict
 from pyomo.environ import Constraint, NonNegativeReals
 import pypsa
 
-from iepy.technologies import get_fuel_info, get_tech_info
-from iepy.indicators.emissions import get_co2_emission_level_for_country, \
+from epippy.technologies import get_fuel_info, get_tech_info
+from epippy.indicators.emissions import get_co2_emission_level_for_country, \
     get_reference_emission_levels_for_region
 
 

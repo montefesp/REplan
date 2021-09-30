@@ -4,10 +4,10 @@ import numpy as np
 import pandas as pd
 import pypsa
 
-from iepy.technologies import get_config_values
-from iepy.geographics import match_points_to_regions
-from iepy.geographics import get_subregions
-from iepy.technologies import get_costs
+from epippy.technologies import get_config_values
+from epippy.geographics import match_points_to_regions
+from epippy.geographics import get_subregions
+from epippy.technologies import get_costs
 
 import logging
 logger = logging.getLogger(__name__)
