@@ -134,7 +134,7 @@ if __name__ == '__main__':
                                         tech_config)
             if strategy == "bus":
                 net = add_res_per_bus(net, technologies,
-                                      use_ex_cap=config_strategy["use_ex_cap"],
+                                      use_ex_cap=config_strategy["use_ex_cap"], extendable=config_strategy['extendable'],
                                       bus_ids=net.buses.index)
 
     if "battery" in config["techs"]:
@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
     net = compute_capacity_credit_ds(net, peak_sample=0.05)
     full_net = deepcopy(net)
-
+    
     net = apply_time_reduction(net,
                                no_periods=config['time']['tsam']['no_periods'],
                                no_hours_per_period=config['time']['tsam']['hours_per_periods']
@@ -181,7 +181,7 @@ if __name__ == '__main__':
                     netyear.stores_t.e.loc[netyear.snapshots[netyear.snapshots.dayofyear == day-1]].iloc[-1,:]
 
             netyear.lopf(netyear.snapshots[netyear.snapshots.dayofyear == day],
-                         extra_functionality=add_funcs, pyomo=netyear.config['pyomo'],
+                         extra_functionality=None, pyomo=False,
                          solver_name=netyear.config['solver'], solver_logfile=f"{year_folder}/solver_{day}.log",
                          solver_options={'MIPGap': 0.03, 'NodeMethod': 2, 'MIPFocus': 3, 'Method': 2, 'Threads': 15,
                                          'Crossover': 0, 'Heuristics': 0.8})

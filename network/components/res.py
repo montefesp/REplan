@@ -110,7 +110,7 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str], use_ex
         cap_factor_series = tech_points_cap_factor_df.loc[net.snapshots][tech][points]
 
         # Compute legacy capacity
-        legacy_cap_ds = pd.Series(0., index=points, dtype=float)
+        legacy_cap_ds = pd.Series(0., index=pd.MultiIndex.from_tuples(points, names=('Longitude', 'Latitude')), dtype=float)
         if use_ex_cap and tech != "wind_floating":
             legacy_cap_ds = get_legacy_capacity_at_points(tech, points)
 
@@ -328,7 +328,7 @@ def add_generators_in_grid_cells(net: pypsa.Network, technologies: List[str],
 
 
 def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
-                           use_ex_cap: bool = True, bus_ids: List[str] = None,
+                           use_ex_cap: bool = True, bus_ids: List[str] = None, extendable: bool = True,
                            precision: int = 3) -> pypsa.Network:
     """
     Add VRES generators to each bus of a PyPSA Network, each bus being associated to a geographical region.
@@ -447,7 +447,7 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
                  buses.index,
                  suffix=f" Gen {tech}",
                  bus=buses.index,
-                 p_nom_extendable=True,
+                 p_nom_extendable=extendable,
                  p_nom=legacy_cap_ds,
                  p_nom_min=legacy_cap_ds,
                  p_nom_max=cap_pot_ds,

@@ -63,7 +63,10 @@ def add_planning_reserve_constraint(net: pypsa.Network, prm: float):
     """
     cc_ds = net.cc_ds
     dispatchable_technologies = ['ocgt', 'ccgt', 'ccgt_ccs', 'nuclear', 'sto']
-    res_technologies = ['wind_onshore', 'wind_offshore', 'pv_utility', 'pv_residential']
+
+    res_technologies = net.config['res']['strategies']['from_files']['which']
+    if net.config['res']['strategies']['bus']['extendable']:
+        res_technologies = list(set(res_technologies).union(net.config['res']['strategies']['bus']['which']))
 
     for bus in net.loads.bus:
 
@@ -88,7 +91,10 @@ def add_planning_reserve_constraint(net: pypsa.Network, prm: float):
         res_gens = net.generators[(net.generators.bus == bus) &
                                   (net.generators.type.str.contains('|'.join(res_technologies)))]
         for gen in res_gens.index:
-            lhs += linexpr((cc_ds.loc[gen], get_var(net, 'Generator', 'p_nom')[gen]))
+            if res_gens.loc[gen].p_nom_extendable:
+                lhs += linexpr((cc_ds.loc[gen], get_var(net, 'Generator', 'p_nom')[gen]))
+            else:
+                legacy_at_bus += cc_ds.loc[gen] * res_gens.loc[gen].p_nom_min
 
         # Get load for country
         load_idx = net.loads[net.loads.bus == bus].index
