@@ -17,7 +17,7 @@ solver_options:
 
 # Time
 time:
-  slice: ['2010-01-01T00:00', '2019-12-31T23:00']
+  slice: ['2018-01-01T00:00', '2018-12-31T23:00']
   resolution: 1
   tsam:
     no_periods: 1
@@ -35,7 +35,7 @@ res:
     from_files:
       which: ['wind_offshore', 'wind_onshore']
       spatial_resolution: 0.25
-      use_ex_cap: True
+      use_ex_cap: False
       sites_dir: '10y_n452_k8_c113'
       sites_fn: 'comp_site_data.p'
     bus:
