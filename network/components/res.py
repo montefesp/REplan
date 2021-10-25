@@ -113,15 +113,15 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str], use_ex
             if points_capacity_potential_ds.loc[p] < legacy_cap_ds.loc[p]:
                 points_capacity_potential_ds.loc[p] = legacy_cap_ds.loc[p]
 
-        capital_cost, marginal_cost = get_costs(tech, len(net.snapshots))
+        capital_cost, marginal_cost, _ = get_costs(tech, len(net.snapshots))
 
         net.madd("Generator",
                  pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),
                  bus=points_bus_ds.values,
-                 p_nom_extendable=True,
-                 p_nom=legacy_cap_ds.values,
+                 p_nom_extendable=False,
+                 p_nom=points_capacity_potential_ds.values,
                  p_nom_max=points_capacity_potential_ds.values,
-                 p_nom_min=legacy_cap_ds.values,
+                 p_nom_min=points_capacity_potential_ds.values,
                  p_min_pu=0.,
                  p_max_pu=cap_factor_series.values,
                  type=tech,
@@ -147,6 +147,8 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
         Names of VRES technologies to be added.
     use_ex_cap: bool (default: True)
         Whether to take into account existing capacity.
+    extendable: bool (default: True)
+        Whether the gens are extendable in the problem.
     bus_ids: List[str]
         Subset of buses to which the generators must be added.
 
@@ -211,7 +213,7 @@ def add_generators_per_bus(net: pypsa.Network, technologies: List[str],
         # Get one capacity factor time series per bus
         if one_bus_per_country:
             # For country-based topologies, use aggregated series obtained from Renewables.ninja
-            cap_factor_countries_df = get_cap_factor_for_countries(tech, countries, net.snapshots, False)
+            cap_factor_countries_df = get_cap_factor_for_countries(tech, countries, net.snapshots, throw_error=False)
             cap_factor_df = pd.DataFrame(index=net.snapshots, columns=buses.index)
             cap_factor_df[:] = cap_factor_countries_df[buses.country]
         else:

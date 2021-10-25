@@ -19,7 +19,7 @@ solver_options:
 time:
   slice: ['2018-01-01T00:00', '2018-01-31T23:00']
   resolution: 1
-  downsampling: 3
+  downsampling: 1
 
 # Space
 region: "EU"
@@ -35,20 +35,19 @@ res:
 
   min_cap_pot: [0., 0., 0., 0.]
 
-  sites_dir: 5y_n139_k1_c14_MIRSA_seed3
-  sites_fn: comp_site_data.p
+  sites_dir: 'AverageResidualDemand'
+  sites_fn: site_data.p
   use_ex_cap: True
-  spatial_resolution: 0.28
-
+  spatial_resolution: 0.25
   # Keeping files at the end of the run.
   keep_files: True
 
 techs:
   dispatch:
-    types: ["ocgt", "ccgt"]
+    types: ["ccgt"]
 
   nuclear:
-    use_ex_cap: True # Whether to include existing cap
+    use_ex_cap: True
     extendable: False
 
   battery:
