@@ -1,5 +1,5 @@
 from postprocessing.utils import *
-from iepy.technologies import get_costs
+from epippy.technologies import get_costs
 
 
 def display_generation(net: pypsa.Network):

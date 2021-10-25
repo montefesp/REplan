@@ -2,8 +2,8 @@ import logging
 
 import pypsa
 
-from iepy.generation.hydro import *
-from iepy.technologies import get_costs, get_tech_info
+from epippy.generation.hydro import *
+from epippy.technologies import get_costs, get_tech_info
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s - %(message)s")
 logger = logging.getLogger()

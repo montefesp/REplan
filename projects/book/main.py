@@ -3,18 +3,16 @@ from os import makedirs
 from time import strftime
 
 import yaml
-import argparse
 
-from iepy.topologies.tyndp2018 import get_topology
-from iepy.technologies import get_config_dict
-from iepy.load import get_load
-from iepy.geographics import get_subregions
+from epippy.topologies.tyndp2018 import get_topology
+from epippy.technologies import get_config_dict
+from epippy.load import get_load
+from epippy.geographics import get_subregions
 from network import *
 from postprocessing.results_display import *
-from projects.tyndp2018.utils import timeseries_downsampling
 from network.globals.functionalities import add_extra_functionalities as add_funcs
 
-from iepy import data_path
+from epippy import data_path
 
 import logging
 logging.basicConfig(level=logging.INFO, format=f"%(levelname)s %(name) %(asctime)s - %(message)s")
@@ -146,14 +144,6 @@ if __name__ == '__main__':
         for tech_type in config["techs"]["battery"]["types"]:
             net = add_batteries(net, tech_type, countries,
                                 fixed_duration=config["techs"]["battery"]["fixed_duration"])
-
-    downsampling_rate = config['time']['downsampling']
-    if not downsampling_rate == 1:
-        logger.info("Downsampling data.")
-        timeseries_downsampling(net, downsampling_rate)
-        timestamps_reduced = pd.date_range(timeslice[0], timeslice[1], freq=f"{downsampling_rate}H")
-        net.snapshots = timestamps_reduced
-        net.snapshot_weightings = pd.Series(downsampling_rate, index=timestamps_reduced)
 
     net.lopf(solver_name=config["solver"],
              solver_logfile=f"{output_dir}solver.log",

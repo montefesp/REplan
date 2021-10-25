@@ -2,7 +2,7 @@ from typing import List
 
 import pypsa
 
-from iepy.technologies import get_costs, get_config_values, get_tech_info
+from epippy.technologies import get_costs, get_config_values, get_tech_info
 
 import logging
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(asctime)s - %(message)s")

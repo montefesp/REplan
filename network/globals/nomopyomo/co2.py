@@ -5,8 +5,8 @@ import pandas as pd
 import pypsa
 from pypsa.linopt import get_var, linexpr, define_constraints
 
-from iepy.technologies import get_fuel_info, get_tech_info
-from iepy.indicators.emissions import get_reference_emission_levels_for_region, get_co2_emission_level_for_country
+from epippy.technologies import get_fuel_info, get_tech_info
+from epippy.indicators.emissions import get_reference_emission_levels_for_region, get_co2_emission_level_for_country
 
 
 def add_co2_budget_global(net: pypsa.Network, region: str, co2_reduction_share: float, co2_reduction_refyear: int):
