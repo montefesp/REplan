@@ -22,8 +22,9 @@ The repository is organized as follows:
 In order to set-up the `REplan` repository, the following steps are required:
 
 - set-up [this](https://github.com/dcradu/resite_ip/releases/edit/v0.0.2) release of `resiteIP` according to the instructions in the `readme` file
-- clone the [EPIPPy](https://github.com/montefesp/EPIPPy) repository (a module that helps pre-processing input data and providing it in proper formats)
+- clone the [EPIPPy](https://github.com/montefesp/EPIPPy) repository (a module that helps pre-processing input data and providing it in proper formats) and install required dependencies as per corresponding `readme` document
 - create a `Python` environment from the `environment.yaml` file
+- add both `EPPIPPy` and `REplan` to the `PYTHONPATH` via `export PYTHHONPATH="${PYTHONPATH}:/pathtosource`, where `pathtosource` refers to the paths to the two directories
 
 ## Example run
 

@@ -1,11 +1,10 @@
-name: pyggrid
 channels:
   - defaults
   - conda-forge
   - ibmdecisionoptimization
   - http://conda.anaconda.org/gurobi
 dependencies:
-  - python
+  - python=3.6
   - pip
 
   - pypsa
@@ -16,6 +15,7 @@ dependencies:
   - pycountry
 
   - xarray
+  - pandas=1.0.0
   - dask
   - scikit-learn
 
@@ -28,6 +28,8 @@ dependencies:
   - geopy
   - geojson
   - libgdal
+  - unidecode
+  - xlrd==1.2.0
 
   - gurobi==8.1.1
 
