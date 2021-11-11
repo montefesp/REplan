@@ -162,7 +162,7 @@ if __name__ == '__main__':
     net.export_to_csv_folder(output_dir_plan)
     nfull = build_uc_instance(net, full_net)
 
-    for y in list(timestamps.year.unique()):
+    for y in list(timestamps.year.unique())[::-1]:
         logging.info(f"Operations for year {y}")
 
         year_folder = join(output_dir_ops, str(y))
@@ -181,7 +181,7 @@ if __name__ == '__main__':
                     netyear.stores_t.e.loc[netyear.snapshots[netyear.snapshots.dayofyear == day-1]].iloc[-1,:]
 
             netyear.lopf(netyear.snapshots[netyear.snapshots.dayofyear == day],
-                         extra_functionality=None, pyomo=False,
+                         extra_functionality=None, pyomo=True,
                          solver_name=netyear.config['solver'], solver_logfile=f"{year_folder}/solver_{day}.log",
                          solver_options={'MIPGap': 0.03, 'NodeMethod': 2, 'MIPFocus': 3, 'Method': 2, 'Threads': 15,
                                          'Crossover': 0, 'Heuristics': 0.8})

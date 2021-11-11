@@ -77,8 +77,4 @@ def build_uc_instance(net: pypsa.Network, nfull: pypsa.Network):
     nfull.lines = lines
     nfull.storage_units = storage_units
 
-    nfull.config['functionalities']['prm']['include'] = False
-    nfull.config['functionalities']['co2_emissions']['include'] = False
-    nfull.config['pyomo'] = True
-
     return nfull

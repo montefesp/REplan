@@ -6,9 +6,9 @@ pyomo: False
 # solver
 solver: 'gurobi'
 solver_options:
-  threads: 15
-  method: 2 # barrier
-  crossover: 0
+  Threads: 15
+  Method: 2 # barrier
+  Crossover: 0
   BarConvTol: 1.e-5
   FeasibilityTol: 1.e-6
   AggFill: 0
@@ -20,7 +20,7 @@ time:
   slice: ['2010-01-01T00:00', '2019-12-31T23:00']
   resolution: 1
   tsam:
-    no_periods: 1
+    no_periods: 70
     hours_per_periods: 24
 
 # Space
@@ -35,12 +35,12 @@ res:
     from_files:
       which: ['wind_offshore', 'wind_onshore']
       spatial_resolution: 0.25
-      use_ex_cap: True
-      sites_dir: '10y_n452_k8_c113'
-      sites_fn: 'comp_site_data.p'
+      use_ex_cap: False
+      sites_dir: '10y_n452_k8_c46'
+      sites_fn: 'prod_site_data.p'
     bus:
       which: ['pv_residential', 'pv_utility']
-      extendable: True
+      extendable: False
       use_ex_cap: True
 
   min_cap_pot: [0.001, 0.001, 0.001, 0.001]
@@ -95,6 +95,4 @@ functionalities:
     strategy: 'global' # country, global
     reference_year: 1990
     mitigation_factor: 0.9
-  snsp:
-    include: True
-    share: 0.75
+
