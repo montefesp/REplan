@@ -32,7 +32,7 @@ Once all dependencies are installed, a typical run is done via the following pro
 
 - run `resiteIP` ex-ante in order to obtain the optimal deployment of RES sites in a `pickle` format
 - configure the target system via the `config.yaml` file in `projects/book/` (this step also includes providing paths to the results of `resiteIP`)
-- run the model via the `main.py` file in the same folder
+- run the model via the `main.py` file in the same folder (while making sure the environment created above is activated)
 
 Results of the expansion planning problem are stored in a typical `PyPSA` format relying on `.csv` files. Note that a valid license for `gurobi` or `cplex` are required in order to solve the resulting instances.
 
