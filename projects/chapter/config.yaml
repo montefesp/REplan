@@ -36,13 +36,8 @@ res:
       which: ['wind_offshore', 'wind_onshore']
       spatial_resolution: 0.25
       use_ex_cap: False
-<<<<<<< HEAD
       sites_dir: '10y_n452_k8_c46'
       sites_fn: 'prod_site_data.p'
-=======
-      sites_dir: '10y_n452_k8_c113'
-      sites_fn: 'comp_site_data.p'
->>>>>>> 349916e559a8bdaf4db17cea17c33d9de8dc5445
     bus:
       which: ['pv_residential', 'pv_utility']
       extendable: False
