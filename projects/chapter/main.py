@@ -96,31 +96,31 @@ if __name__ == '__main__':
     net.madd("Load", load.columns, bus=list(net.buses.index), p_set=load)
     net = add_load_shedding(net, load)
 
-    if "nuclear" in config["techs"]:
+    if "nuclear" in net.config["techs"]:
         net = add_nuclear(net, countries,
-                          config["techs"]["nuclear"]["use_ex_cap"],
-                          config["techs"]["nuclear"]["extendable"])
+                          net.config["techs"]["nuclear"]["use_ex_cap"],
+                          net.config["techs"]["nuclear"]["extendable"])
 
-    if "sto" in config["techs"]:
+    if "sto" in net.config["techs"]:
         net = add_sto_plants(net, 'NUTS2',
-                             config["techs"]["sto"]["extendable"],
-                             config["techs"]["sto"]["cyclic_sof"])
+                             net.config["techs"]["sto"]["extendable"],
+                             net.config["techs"]["sto"]["cyclic_sof"])
 
-    if "phs" in config["techs"]:
+    if "phs" in net.config["techs"]:
         net = add_phs_plants(net, 'NUTS2',
-                             config["techs"]["phs"]["extendable"],
-                             config["techs"]["phs"]["cyclic_sof"])
+                             net.config["techs"]["phs"]["extendable"],
+                             net.config["techs"]["phs"]["cyclic_sof"])
 
-    if "ror" in config["techs"]:
-        net = add_ror_plants(net, 'NUTS2', config["techs"]["ror"]["extendable"])
+    if "ror" in net.config["techs"]:
+        net = add_ror_plants(net, 'NUTS2', net.config["techs"]["ror"]["extendable"])
 
-    if 'dispatch' in config["techs"]:
-        for tech_type in config["techs"]["dispatch"]["types"]:
+    if 'dispatch' in net.config["techs"]:
+        for tech_type in net.config["techs"]["dispatch"]["types"]:
             net = add_conventional(net, tech_type)
 
-    if config['res']['include']:
-        for strategy in config['res']['strategies']:
-            config_strategy = config['res']['strategies'][strategy]
+    if net.config['res']['include']:
+        for strategy in net.config['res']['strategies']:
+            config_strategy = net.config['res']['strategies'][strategy]
             technologies = config_strategy['which']
 
             logger.info(f"Adding {technologies} generation with strategy {strategy}.")
@@ -146,13 +146,13 @@ if __name__ == '__main__':
     full_net = deepcopy(net)
     
     net = apply_time_reduction(net,
-                               no_periods=config['time']['tsam']['no_periods'],
-                               no_hours_per_period=config['time']['tsam']['hours_per_periods']
+                               no_periods=net.config['time']['tsam']['no_periods'],
+                               no_hours_per_period=net.config['time']['tsam']['hours_per_periods']
                                )
 
-    ilopf(net, solver_name=config["solver"],
+    ilopf(net, solver_name=net.config["solver"],
           solver_logfile=f"{output_dir_plan}solver.log",
-          solver_options=config["solver_options"],
+          solver_options=net.config["solver_options"],
           extra_functionality=add_funcs,
           msq_threshold=0.03,
           min_iterations=3,
