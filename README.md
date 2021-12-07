@@ -22,8 +22,9 @@ The repository is organized as follows:
 In order to set-up the `REplan` repository, the following steps are required:
 
 - set-up [this](https://github.com/dcradu/resite_ip/releases/edit/v0.0.2) release of `resiteIP` according to the instructions in the `readme` file
-- clone the [EPIPPy](https://github.com/montefesp/EPIPPy) repository (a module that helps pre-processing input data and providing it in proper formats)
+- clone the [EPIPPy](https://github.com/montefesp/EPIPPy) repository (a module that helps pre-processing input data and providing it in proper formats) and install required dependencies as per corresponding `readme` document
 - create a `Python` environment from the `environment.yaml` file
+- add both `EPPIPPy` and `REplan` to the `PYTHONPATH` via `export PYTHHONPATH="${PYTHONPATH}:/pathtosource`, where `pathtosource` refers to the paths to the two directories
 
 ## Example run
 
@@ -31,7 +32,7 @@ Once all dependencies are installed, a typical run is done via the following pro
 
 - run `resiteIP` ex-ante in order to obtain the optimal deployment of RES sites in a `pickle` format
 - configure the target system via the `config.yaml` file in `projects/book/` (this step also includes providing paths to the results of `resiteIP`)
-- run the model via the `main.py` file in the same folder
+- run the model via the `main.py` file in the same folder (while making sure the environment created above is activated)
 
 Results of the expansion planning problem are stored in a typical `PyPSA` format relying on `.csv` files. Note that a valid license for `gurobi` or `cplex` are required in order to solve the resulting instances.
 
