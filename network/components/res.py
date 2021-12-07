@@ -53,7 +53,7 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str], use_ex
     countries = list(net.buses.country.dropna())
 
     # Load site data
-    resite_data_path = f"{data_path}../../resite_ip/output/APPLEN/{sites_dir}/"
+    resite_data_path = f"{data_path}../../resite_ip/output/{sites_dir}/"
     resite_data_fn = join(resite_data_path, sites_fn)
     tech_points_cap_factor_df = pickle.load(open(resite_data_fn, "rb"))
 
@@ -113,7 +113,7 @@ def add_generators_from_file(net: pypsa.Network, technologies: List[str], use_ex
             if points_capacity_potential_ds.loc[p] < legacy_cap_ds.loc[p]:
                 points_capacity_potential_ds.loc[p] = legacy_cap_ds.loc[p]
 
-        capital_cost, marginal_cost, _ = get_costs(tech, len(net.snapshots))
+        capital_cost, marginal_cost = get_costs(tech, len(net.snapshots))
 
         net.madd("Generator",
                  pd.Index([f"Gen {tech} {x}-{y}" for x, y in points]),

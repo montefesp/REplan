@@ -108,8 +108,8 @@ if __name__ == '__main__':
 
             logger.info(f"Adding RES {technologies} generation with strategy {strategy}.")
 
-            if strategy == "from_files":
-                net = add_res_from_file(net, technologies,
+            if strategy == "from_file":
+                net = add_res_from_file(net, technologies, config['res']['use_ex_cap'],
                                         config['res']['sites_dir'], config['res']['sites_fn'],
                                         config['res']['spatial_resolution'],
                                         tech_config)
